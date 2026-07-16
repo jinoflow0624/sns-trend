@@ -6,3 +6,9 @@ collector/out/
 
 __pycache__/
 *.pyc
+
+# 로컬 전용
+.claude/
+
+# Next.js 실험 (배포 제외)
+trend-analyzer/
