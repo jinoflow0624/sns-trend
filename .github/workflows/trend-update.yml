@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write # claude-code-action의 OIDC 인증에 필요
 
 jobs:
   update-trends:
