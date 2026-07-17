@@ -24,6 +24,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }} # Claude GitHub App 설치 없이 기본 토큰 사용
           claude_args: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch" --model sonnet'
           prompt: |
             너는 한국 SNS 트렌드 큐레이션 에이전트다. 이 저장소는 토스 인앱용
