@@ -57,6 +57,24 @@ jobs:
             python3로 trends.json 파싱 검증 + 두 index.html의 FALLBACK 줄에서
             JSON을 추출해 파싱 검증. 검증 통과하면 종료.
 
+      - name: 타임스탬프 보정 (updatedAt을 실제 실행 시각 KST로 강제)
+        run: |
+          python3 - <<'EOF'
+          import json, io, datetime
+          now = (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).strftime('%Y-%m-%d %H:%M')
+          d = json.load(io.open('trends.json', encoding='utf-8'))
+          d['updatedAt'] = now
+          io.open('trends.json', 'w', encoding='utf-8').write(json.dumps(d, ensure_ascii=False, indent=2))
+          compact = json.dumps(d, ensure_ascii=False, separators=(',', ':'))
+          for p in ['index.html', 'miniapp/index.html']:
+              lines = io.open(p, encoding='utf-8').read().split('\n')
+              for i, l in enumerate(lines):
+                  if l.lstrip().startswith('var FALLBACK = '):
+                      lines[i] = '  var FALLBACK = ' + compact + ';'
+              io.open(p, 'w', encoding='utf-8').write('\n'.join(lines))
+          print('updatedAt ->', now)
+          EOF
+
       - name: 커밋 & 푸시
         run: |
           git config user.name "trend-bot"
