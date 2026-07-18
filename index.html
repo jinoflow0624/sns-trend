@@ -160,10 +160,6 @@
     white-space: nowrap; overflow: hidden;
   }
   .row .kw .kw-text { overflow: hidden; text-overflow: ellipsis; }
-  .row .sum {
-    font-size: 12.5px; color: var(--text-sub); margin-top: 2px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
   .badge {
     font-size: 10.5px; font-weight: 700;
     padding: 2.5px 7px; border-radius: 6px;
@@ -199,8 +195,7 @@
   .sk.c { width: 42px; height: 42px; border-radius: 14px; flex: 0 0 42px; }
   .sk.n { width: 20px; height: 20px; flex: 0 0 20px; }
   .sk-lines { flex: 1; }
-  .sk.l1 { width: 45%; height: 14px; margin-bottom: 7px; }
-  .sk.l2 { width: 80%; height: 11px; }
+  .sk.l1 { width: 45%; height: 14px; }
 
   footer { text-align: center; padding: 28px 0 8px; font-size: 12px; color: var(--text-weak); }
 
@@ -311,10 +306,10 @@
     <div class="chips" id="chips"></div>
 
     <div class="chart" id="list">
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
     </div>
 
     <footer>6시간마다 자동 업데이트 · 키워드를 눌러 자세히 보기</footer>
@@ -474,10 +469,8 @@
         '<span class="emoji">' + t.emoji + '</span>' +
         '<span class="info">' +
           '<span class="kw"><span class="kw-text"></span><span class="badge ' + st.cls + '">' + st.label + '</span></span>' +
-          '<span class="sum"></span>' +
         '</span>';
       row.querySelector('.kw-text').textContent = t.keyword;
-      row.querySelector('.sum').textContent = t.summary;
       row.addEventListener('click', function () { openSheet(t); });
       box.appendChild(row);
     });

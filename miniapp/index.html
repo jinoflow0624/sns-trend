@@ -160,10 +160,6 @@
     white-space: nowrap; overflow: hidden;
   }
   .row .kw .kw-text { overflow: hidden; text-overflow: ellipsis; }
-  .row .sum {
-    font-size: 12.5px; color: var(--text-sub); margin-top: 2px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
   .badge {
     font-size: 10.5px; font-weight: 700;
     padding: 2.5px 7px; border-radius: 6px;
@@ -199,10 +195,23 @@
   .sk.c { width: 42px; height: 42px; border-radius: 14px; flex: 0 0 42px; }
   .sk.n { width: 20px; height: 20px; flex: 0 0 20px; }
   .sk-lines { flex: 1; }
-  .sk.l1 { width: 45%; height: 14px; margin-bottom: 7px; }
-  .sk.l2 { width: 80%; height: 11px; }
+  .sk.l1 { width: 45%; height: 14px; }
 
   footer { text-align: center; padding: 28px 0 8px; font-size: 12px; color: var(--text-weak); }
+
+  /* Bottom banner ad (토스 인앱 광고) — 토스 앱 안에서만 표시 */
+  .ad-bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    max-width: 480px; margin: 0 auto;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--card);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, .06);
+    z-index: 40;
+    display: none;
+  }
+  .ad-bar .ad-slot { width: 100%; height: 96px; }
+  body.has-ad .ad-bar { display: block; }
+  body.has-ad .container { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 
   /* Bottom sheet */
   .sheet-dim {
@@ -311,10 +320,10 @@
     <div class="chips" id="chips"></div>
 
     <div class="chart" id="list">
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
-      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div><div class="sk l2"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
+      <div class="sk-row"><span class="sk n"></span><span class="sk c"></span><div class="sk-lines"><div class="sk l1"></div></div></div>
     </div>
 
     <footer>6시간마다 자동 업데이트 · 키워드를 눌러 자세히 보기</footer>
@@ -336,6 +345,8 @@
     <div id="sLinks"></div>
     <button type="button" class="share-btn" id="shareBtn">친구에게 공유하기</button>
   </div>
+
+  <div class="ad-bar" id="adBar"><div class="ad-slot" id="adSlot"></div></div>
 
   <div class="toast" id="toast"></div>
 
@@ -474,10 +485,8 @@
         '<span class="emoji">' + t.emoji + '</span>' +
         '<span class="info">' +
           '<span class="kw"><span class="kw-text"></span><span class="badge ' + st.cls + '">' + st.label + '</span></span>' +
-          '<span class="sum"></span>' +
         '</span>';
       row.querySelector('.kw-text').textContent = t.keyword;
-      row.querySelector('.sum').textContent = t.summary;
       row.addEventListener('click', function () { openSheet(t); });
       box.appendChild(row);
     });
@@ -601,6 +610,48 @@
   // 초기 로드: trends.json (배포) → 실패 시 임베디드 데이터 (로컬 미리보기)
   fetchTrends(function (d) { boot(d || FALLBACK); });
 })();
+</script>
+<script type="module">
+import { TossAds } from '@apps-in-toss/web-framework';
+
+// 하단 배너 광고 (토스 인앱 광고 SDK) — 토스 앱 밖(웹 미리보기)에서는 자동 숨김
+var AD_GROUP_ID = 'ait.v2.live.71823d2399074a04';
+
+var adBar = document.getElementById('adBar');
+var adSlot = document.getElementById('adSlot');
+
+function showAdBar() {
+  adBar.style.display = '';
+  document.body.classList.add('has-ad');
+}
+function hideAdBar() {
+  adBar.style.display = 'none';
+  document.body.classList.remove('has-ad');
+}
+
+try {
+  if (TossAds.initialize.isSupported && TossAds.initialize.isSupported()) {
+    TossAds.initialize({
+      callbacks: {
+        onInitialized: function () {
+          showAdBar();
+          var attached = TossAds.attachBanner(AD_GROUP_ID, adSlot, {
+            theme: 'auto',
+            callbacks: {
+              onAdFailedToRender: hideAdBar
+            }
+          });
+          window.addEventListener('pagehide', function () {
+            if (attached && attached.destroy) attached.destroy();
+          });
+        },
+        onInitializationFailed: hideAdBar
+      }
+    });
+  }
+} catch (e) {
+  hideAdBar();
+}
 </script>
 </body>
 </html>
