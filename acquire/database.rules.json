@@ -4,6 +4,7 @@
       "$code": {
         ".read": true,
         ".write": true,
+        "lastActive": { ".validate": "newData.isNumber()" },
         "state": { ".validate": "newData.isString() && newData.val().length < 400000" },
         "seen": { "$token": { ".validate": "newData.isNumber()" } },
         "seats": {
