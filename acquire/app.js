@@ -1,7 +1,7 @@
 // 화면 렌더링과 입력 처리.
 import * as E from './engine.js';
 import * as Net from './net.js';
-import { HostRoom, GuestRoom, LocalRoom, MIN_PLAYERS, MAX_PLAYERS } from './room.js';
+import { HostRoom, GuestRoom, LocalRoom, loadHostGame, clearHostGame, MIN_PLAYERS, MAX_PLAYERS } from './room.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -65,20 +65,25 @@ function myName() {
   return v || '플레이어';
 }
 
+let releaseWakeLock = null;
 function wireRoom(r) {
   room = r;
+  // 모바일에서 화면이 꺼지면 탭이 얼어 연결이 끊긴다 — 게임 중에는 화면을 깨워 둔다
+  releaseWakeLock?.();
+  releaseWakeLock = Net.keepScreenAwake();
   window.addEventListener('beforeunload', () => r.destroy());
 }
 
-async function doHost() {
+async function doHost(restore = null) {
   const name = myName();
   Net.rememberName(name);
-  setupMsg('방을 만드는 중…');
+  setupMsg(restore ? '방을 다시 여는 중…' : '방을 만드는 중…');
   $('btnHost').disabled = $('btnJoin').disabled = true;
   try {
     const r = new HostRoom({
-      code: Net.makeRoomCode(),
+      code: restore ? restore.code : Net.makeRoomCode(),
       hostName: name,
+      restore,
       onChange: render,
       onFatal: err => { setupMsg(err.message || '연결 오류'); show('setup'); },
     });
@@ -135,7 +140,10 @@ function renderLobby(v) {
   start.disabled = n < MIN_PLAYERS;
   start.textContent = n < MIN_PLAYERS ? `게임 시작 (${MIN_PLAYERS}명 이상 필요)` : `게임 시작 (${n}명)`;
   $('lobbyWait').hidden = v.isHost;
-  $('lobbyMsg').textContent = v.error || (v.isHost ? `링크를 공유하세요 · 최대 ${MAX_PLAYERS}명` : '');
+  const reconnecting = v.status && v.status !== 'ok';
+  $('lobbyMsg').textContent = reconnecting
+    ? '연결이 끊겼습니다. 다시 연결하는 중…'
+    : (v.error || (v.isHost ? `링크를 공유하세요 · 최대 ${MAX_PLAYERS}명` : ''));
 }
 
 // ── 보드 ─────────────────────────────────────────────────────────────────────
@@ -202,7 +210,8 @@ function renderHand(v) {
   if (!me || !me.hand) { hand.append(el('span', 'hand-note', '관전 중')); return; }
 
   const acting = E.actingPlayer(state);
-  const myPlacePhase = state.phase === 'place' && acting === v.me;
+  const offline = v.status && v.status !== 'ok';
+  const myPlacePhase = state.phase === 'place' && acting === v.me && !offline;
 
   for (const tile of me.hand) {
     const status = E.tileStatus(state, tile);
@@ -254,6 +263,17 @@ function renderAction(v) {
   const state = v.state;
 
   if (state.ended) return renderResults(pane, state);
+
+  // 연결이 끊긴 동안의 입력은 호스트에 닿지 않는다 — 아예 막아서 헛손질을 방지
+  const offline = v.status && v.status !== 'ok';
+  pane.classList.toggle('is-offline', !!offline);
+  if (offline) {
+    pane.append(el('div', 'action-title', '연결이 끊겼습니다'));
+    pane.append(el('div', 'waiting', v.isHost
+      ? '브로커와 다시 연결하는 중입니다. 잠시만 기다려 주세요.'
+      : '방장과 다시 연결하는 중입니다. 방장이 돌아오면 자동으로 이어집니다.'));
+    return;
+  }
 
   const acting = E.actingPlayer(state);
   const actingName = state.players[acting]?.name ?? '?';
@@ -562,6 +582,7 @@ function render() {
 
   show('game');
   $('topCode').textContent = v.code;
+  renderConnection(v);
 
   const acting = E.actingPlayer(v.state);
   const banner = $('turnBanner');
@@ -585,8 +606,17 @@ function render() {
   renderChat(v);
 }
 
+function renderConnection(v) {
+  const bar = $('connBar');
+  if (!v.status || v.status === 'ok') { bar.hidden = true; return; }
+  bar.hidden = false;
+  bar.textContent = v.isHost
+    ? '⚠ 브로커 연결이 끊겼습니다. 복구를 시도하는 중…'
+    : '⚠ 방장과의 연결이 끊겼습니다. 다시 연결하는 중…  (방장이 돌아오면 자동으로 이어집니다)';
+}
+
 // ── 이벤트 연결 ──────────────────────────────────────────────────────────────
-$('btnHost').onclick = doHost;
+$('btnHost').onclick = () => doHost();   // 클릭 이벤트가 restore 인자로 넘어가지 않게 감싼다
 $('btnJoin').onclick = () => {
   if ($('joinBlock').hidden) { $('joinBlock').hidden = false; $('codeInput').focus(); }
   else doJoin();
@@ -631,6 +661,22 @@ $('btnRules').onclick = () => {
     const r = new LocalRoom({ count: localCount, onChange: render });
     r.open().then(() => { wireRoom(r); r.localStart(); render(); });
     return;
+  }
+
+  // 진행 중이던 방이 저장돼 있으면 이어서 열 수 있게 한다
+  const saved = loadHostGame();
+  if (saved && !params.get('room')) {
+    const resume = $('btnResume');
+    resume.hidden = false;
+    resume.textContent = `진행 중이던 방 이어하기 (${saved.code})`;
+    resume.onclick = () => doHost(saved);
+    $('btnDiscard').hidden = false;
+    $('btnDiscard').onclick = () => {
+      if (!confirm('저장된 게임을 버립니다. 진행 중이던 판은 복구할 수 없습니다. 계속할까요?')) return;
+      clearHostGame();
+      $('btnResume').hidden = true;
+      $('btnDiscard').hidden = true;
+    };
   }
 
   const code = Net.normalizeCode(params.get('room') || '');
