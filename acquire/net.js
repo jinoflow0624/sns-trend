@@ -89,6 +89,9 @@ export async function startHost(code, handlers) {
   return {
     peer,
     conns,
+    alive() { return !peer.destroyed; },
+    // 모바일에서 탭이 얼었다 깨어나면 시그널링 소켓이 끊겨 있을 수 있다
+    revive() { if (!peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch { /* 무시 */ } } },
     send(conn, msg) { try { conn.send(msg); } catch { /* 끊긴 연결 무시 */ } },
     broadcast(msg) { for (const c of conns) this.send(c, msg); },
     destroy() { try { peer.destroy(); } catch { /* 무시 */ } },
@@ -126,8 +129,36 @@ export async function joinHost(code, handlers) {
   return {
     peer,
     conn,
+    alive() { return !peer.destroyed && conn.open; },
     send(msg) { try { conn.send(msg); } catch { /* 무시 */ } },
     destroy() { try { peer.destroy(); } catch { /* 무시 */ } },
+  };
+}
+
+// ── 화면 꺼짐 방지 ───────────────────────────────────────────────────────────
+// 모바일 브라우저는 화면이 꺼지거나 탭이 백그라운드로 가면 페이지를 얼린다.
+// Wake Lock은 화면이 보이는 동안만 유지되므로, 돌아올 때마다 다시 요청한다.
+export function keepScreenAwake() {
+  if (!('wakeLock' in navigator)) return () => {};
+  let lock = null;
+  let stopped = false;
+
+  const acquire = async () => {
+    if (stopped || lock || document.visibilityState !== 'visible') return;
+    try {
+      lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => { lock = null; });
+    } catch { /* 사용자가 거부했거나 미지원 — 무시 */ }
+  };
+  const onVisible = () => { if (document.visibilityState === 'visible') acquire(); };
+
+  acquire();
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    stopped = true;
+    document.removeEventListener('visibilitychange', onVisible);
+    try { lock?.release(); } catch { /* 무시 */ }
+    lock = null;
   };
 }
 

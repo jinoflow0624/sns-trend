@@ -10,19 +10,52 @@ export const MIN_PLAYERS = 2;
 
 const nowChat = (from, text) => ({ from, text, n: Date.now() + Math.random() });
 
+const HEARTBEAT_MS = 5000;    // 호스트가 살아 있음을 알리는 주기
+const STALE_MS = 15000;       // 이만큼 아무 소식이 없으면 끊긴 것으로 본다 (신호 3번 누락)
+const LOBBY_GRACE_MS = 40000; // 로비에서 끊긴 자리를 비우기까지 기다리는 시간
+const SAVE_KEY = 'acquire.hostGame';
+
+function saveHostGame(data) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch { /* 무시 */ }
+}
+export function loadHostGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // 12시간이 지났거나 이미 끝난 게임은 버린다
+    if (!data?.code || !data.state || data.state.ended) return null;
+    if (Date.now() - (data.savedAt || 0) > 12 * 3600 * 1000) return null;
+    return data;
+  } catch { return null; }
+}
+export function clearHostGame() {
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* 무시 */ }
+}
+
 export class HostRoom {
   // onChange: 화면을 다시 그려야 할 때 호출
-  constructor({ code, hostName, onChange, onFatal }) {
+  constructor({ code, hostName, onChange, onFatal, restore }) {
     this.isHost = true;
     this.code = code;
     this.onChange = onChange;
     this.onFatal = onFatal;
     this.token = Net.myToken();
-    this.seats = [{ token: this.token, name: hostName, connected: true, conn: null }];
-    this.state = null;
-    this.chat = [];
-    this.net = null;
+    this.status = 'connecting';
     this.error = '';
+    this.net = null;
+    this.timers = new Map();
+
+    if (restore) { // 저장해 둔 진행 중 게임 이어받기
+      this.seats = restore.seats.map(s => ({ ...s, connected: s.token === this.token, conn: null }));
+      this.state = restore.state;
+      this.chat = restore.chat || [];
+      this.pushChat(null, '방장이 다시 접속했습니다. 참가자들은 자동으로 다시 연결됩니다.');
+    } else {
+      this.seats = [{ token: this.token, name: hostName, connected: true, conn: null }];
+      this.state = null;
+      this.chat = [];
+    }
   }
 
   async open() {
@@ -32,7 +65,34 @@ export class HostRoom {
       onClose: conn => this.dropConn(conn),
       onError: err => this.onFatal?.(err),
     });
+    this.status = 'ok';
+    this.startHeartbeat();
     this.onChange?.();
+  }
+
+  // 참가자에게 주기적으로 신호를 보내 연결이 살아 있는지 알린다.
+  // 동시에 방장 자신의 시그널링 소켓도 되살린다(모바일에서 탭이 얼었다 깨어난 경우).
+  startHeartbeat() {
+    clearInterval(this.beat);
+    this.beat = setInterval(() => {
+      this.net?.revive();
+      this.net?.broadcast({ t: 'ping' });
+      if (this.net && !this.net.alive()) this.status = 'lost';
+    }, HEARTBEAT_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') this.net?.revive(); };
+    document.addEventListener('visibilitychange', onVisible);
+    this.onVisible = onVisible;
+  }
+
+  save() {
+    if (!this.state) return;
+    saveHostGame({
+      code: this.code,
+      savedAt: Date.now(),
+      seats: this.seats.map(s => ({ token: s.token, name: s.name })),
+      chat: this.chat.slice(-40),
+      state: this.state,
+    });
   }
 
   // ── 좌석 ───────────────────────────────────────────────────────────────────
@@ -71,9 +131,13 @@ export class HostRoom {
 
     const existing = this.seats.find(s => s.token === token);
     if (existing) { // 재접속 — 원래 자리 복구
+      clearTimeout(this.timers.get(token));
+      this.timers.delete(token);
+      const wasOff = !existing.connected;
       existing.conn = conn;
       existing.connected = true;
       existing.name = name;
+      if (wasOff && this.state) this.pushChat(null, `${name} 님이 다시 연결되었습니다.`);
     } else if (this.state) {
       this.net.send(conn, { t: 'error', msg: '이미 시작된 게임입니다. 참가할 수 없습니다.', fatal: true });
       return;
@@ -92,11 +156,19 @@ export class HostRoom {
     if (!seat) return;
     seat.connected = false;
     seat.conn = null;
-    if (!this.state) { // 로비에서 나가면 자리를 비운다
-      this.seats = this.seats.filter(s => s !== seat);
-      this.pushChat(null, `${seat.name} 님이 퇴장했습니다.`);
+
+    if (!this.state) {
+      // 로비에서는 잠깐 끊긴 것일 수 있으므로 바로 자리를 비우지 않는다
+      clearTimeout(this.timers.get(seat.token));
+      this.timers.set(seat.token, setTimeout(() => {
+        if (seat.connected || this.state) return;
+        this.seats = this.seats.filter(s => s !== seat);
+        this.pushChat(null, `${seat.name} 님이 퇴장했습니다.`);
+        this.pushAll();
+      }, LOBBY_GRACE_MS));
+      this.pushChat(null, `${seat.name} 님의 연결이 끊겼습니다. 다시 연결을 기다리는 중…`);
     } else {
-      this.pushChat(null, `${seat.name} 님의 연결이 끊겼습니다. 다시 들어오면 자리를 이어받습니다.`);
+      this.pushChat(null, `${seat.name} 님의 연결이 끊겼습니다. 돌아오면 자동으로 이어집니다.`);
     }
     this.pushAll();
   }
@@ -147,6 +219,7 @@ export class HostRoom {
   }
 
   pushAll() {
+    this.save();
     for (const seat of this.seats) {
       if (!seat.conn) continue;
       const seatIdx = this.seats.indexOf(seat);
@@ -174,10 +247,16 @@ export class HostRoom {
       state: this.state ? E.sanitize(this.state, me) : null,
       me,
       error: this.error,
+      status: this.status,
     };
   }
 
-  destroy() { this.net?.destroy(); }
+  destroy() {
+    clearInterval(this.beat);
+    for (const t of this.timers.values()) clearTimeout(t);
+    if (this.onVisible) document.removeEventListener('visibilitychange', this.onVisible);
+    this.net?.destroy();
+  }
 }
 
 export class GuestRoom {
@@ -194,21 +273,90 @@ export class GuestRoom {
     this.state = null;
     this.error = '';
     this.net = null;
+    this.status = 'connecting';
+    this.attempt = 0;
+    this.closed = false;
+    this.lastSeen = 0;
   }
 
+  // 최초 연결. 여기서 실패하면 방 코드가 틀렸을 가능성이 커서 그대로 알린다.
   async open() {
+    await this.dial();
+    this.watchConnection();
+  }
+
+  async dial() {
     this.net = await Net.joinHost(this.code, {
       onData: msg => this.handle(msg),
-      onClose: () => this.onFatal?.(new Error('방장과의 연결이 끊어졌습니다. 방장이 페이지를 열어 둔 상태에서 새로고침해 주세요.')),
+      onClose: () => this.lost(),
     });
     this.net.send({ t: 'hello', token: this.token, name: this.name });
+    this.status = 'ok';
+    this.attempt = 0;
+    this.lastSeen = Date.now();
+    this.onChange?.();
+  }
+
+  // 연결이 끊기면 내쫓지 않고 조용히 다시 붙는다.
+  // 모바일에서 잠깐 브라우저를 벗어나면 탭이 얼면서 연결이 끊기는데, 돌아오면 이 경로로 복구된다.
+  lost() {
+    if (this.closed || this.status === 'reconnecting') return;
+    try { this.net?.destroy(); } catch { /* 무시 */ }
+    this.net = null;
+    this.status = 'reconnecting';
+    this.onChange?.();
+    this.scheduleRetry();
+  }
+
+  scheduleRetry() {
+    if (this.closed) return;
+    clearTimeout(this.retryTimer);
+    const delay = Math.min(1500 * 2 ** Math.min(this.attempt, 4), 10000);
+    this.attempt++;
+    this.retryTimer = setTimeout(async () => {
+      if (this.closed) return;
+      try {
+        await this.dial();
+      } catch {
+        // 방장이 아직 안 돌아왔을 수 있다 — 계속 기다린다
+        this.status = 'reconnecting';
+        this.onChange?.();
+        this.scheduleRetry();
+      }
+    }, delay);
+  }
+
+  retryNow() {
+    if (this.closed || this.status === 'ok') return;
+    this.attempt = 0;
+    clearTimeout(this.retryTimer);
+    this.scheduleRetry();
+  }
+
+  // 호스트의 신호가 끊기면 close 이벤트 없이 조용히 죽는 경우가 있어 직접 감시한다
+  watchConnection() {
+    clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => {
+      if (this.closed) return;
+      if (this.status === 'ok' && Date.now() - this.lastSeen > STALE_MS) this.lost();
+    }, 2000);
+
+    this.onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      // 백그라운드에서 돌아왔다 — 연결 상태를 즉시 확인하고 필요하면 바로 재시도
+      if (this.status !== 'ok' || !this.net?.alive()) { this.status = 'ok'; this.lost(); this.retryNow(); }
+    };
+    document.addEventListener('visibilitychange', this.onVisible);
   }
 
   handle(msg) {
     if (!msg || typeof msg !== 'object') return;
+    this.lastSeen = Date.now();
+    if (msg.t === 'ping') return;
     if (msg.t === 'error') {
       this.error = msg.msg;
-      if (msg.fatal) this.onFatal?.(new Error(msg.msg));
+      // 정원 초과·이미 시작된 게임처럼 호스트가 거부한 경우에만 포기한다
+      if (msg.fatal) { this.closed = true; this.onFatal?.(new Error(msg.msg)); }
       this.onChange?.();
       return;
     }
@@ -241,10 +389,17 @@ export class GuestRoom {
       state: this.state,
       me: this.state ? this.playerIndexForSeat(this.seat) : -1,
       error: this.error,
+      status: this.status,
     };
   }
 
-  destroy() { this.net?.destroy(); }
+  destroy() {
+    this.closed = true;
+    clearTimeout(this.retryTimer);
+    clearInterval(this.watchdog);
+    if (this.onVisible) document.removeEventListener('visibilitychange', this.onVisible);
+    this.net?.destroy();
+  }
 }
 
 // 한 브라우저에서 전원을 조작하는 로컬 모드 (?local=N).
@@ -292,6 +447,7 @@ export class LocalRoom {
       state: this.state ? E.sanitize(this.state, me) : null,
       me,
       error: this.error,
+      status: 'ok',
     };
   }
 
