@@ -47,6 +47,18 @@ export const firebaseReady = () => !!db;
 
 const roomPath = code => `rooms/${code}`;
 
+// Firebase 오류를 사람이 읽을 수 있는 안내로 바꾼다
+export function explain(err) {
+  const msg = String(err?.message || err || '');
+  if (/permission|PERMISSION_DENIED/i.test(msg)) {
+    return 'Firebase 접근이 거부되었습니다. Realtime Database의 "규칙" 탭에 database.rules.json 내용을 붙여넣고 게시했는지 확인해 주세요.';
+  }
+  if (/network|offline|unavailable/i.test(msg)) {
+    return 'Firebase에 연결하지 못했습니다. 네트워크를 확인해 주세요.';
+  }
+  return msg || '알 수 없는 오류가 발생했습니다.';
+}
+
 // RTDB 트랜잭션은 로컬 캐시가 비어 있으면 첫 호출을 null 로 실행한다.
 // 거기서 중단해버리면 서버 값을 받아보지도 못하고 실패하므로, null 이면
 // 서버 값을 직접 읽어 캐시를 채우고 다시 시도한다.
@@ -94,7 +106,14 @@ export class FireRoom {
   get ref() { return fb.ref(db, roomPath(this.code)); }
 
   async open() {
-    const snap = await fb.get(this.ref);
+    let snap;
+    try {
+      snap = await fb.get(this.ref);
+    } catch (err) {
+      const e = new Error(explain(err));
+      e.fatal = true;
+      throw e;
+    }
     const existing = snap.val();
 
     if (this.create) {
@@ -181,7 +200,7 @@ export class FireRoom {
       this.onChange?.();
     }, err => {
       this.status = 'reconnecting';
-      this.error = err?.message || '';
+      this.error = explain(err);
       this.onChange?.();
     });
   }
@@ -241,7 +260,7 @@ export class FireRoom {
       });
       failure = res.ok ? null : res.failure;
     } catch (err) {
-      failure = err?.message || '서버에 전달하지 못했습니다.';
+      failure = explain(err);
     }
     this.error = failure || '';
     this.onChange?.();
