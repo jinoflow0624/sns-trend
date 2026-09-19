@@ -2,7 +2,8 @@
 import * as E from './engine.js';
 import * as Net from './net.js';
 import { HostRoom, GuestRoom, LocalRoom, loadHostGame, clearHostGame, MIN_PLAYERS, MAX_PLAYERS } from './room.js';
-import { loadFirebase, firebaseReady, FireRoom, sweepMyRooms } from './fire.js';
+import { loadFirebase, firebaseReady, FireRoom, sweepMyRooms, watchUsage, usageInfo, FREE_MONTHLY_BYTES } from './fire.js';
+import * as FX from './fx.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -14,7 +15,17 @@ const el = (tag, cls, text) => {
 const won = n => '$' + Number(n).toLocaleString();
 
 let room = null;
-const ui = { selTile: null, buy: {}, dispose: { sell: 0, trade: 0 }, tab: 'info', lastTile: null, prevBoard: null };
+const ui = {
+  selTile: null, buy: {}, dispose: { sell: 0, trade: 0 }, tab: 'info',
+  lastTile: null, prevBoard: null,
+  seenEvent: 0,     // 팝업으로 이미 보여준 이벤트 번호
+  seenChat: 0,      // 이미 읽은 채팅 번호
+  unread: 0,        // 안 읽은 채팅 수
+  chatInit: false,  // 첫 렌더에서 기존 대화를 '읽음'으로 처리했는지
+  wasMyTurn: false, // 내 차례 전환을 감지하기 위한 이전 상태
+  endAsked: false,  // 종료 선언 팝업을 이미 띄웠는지
+  endShown: false,  // 최종 결과 팝업을 이미 띄웠는지
+};
 
 // ── 화면 전환 ────────────────────────────────────────────────────────────────
 function show(which) {
@@ -66,12 +77,35 @@ function myName() {
   return v || '플레이어';
 }
 
+const CUR_KEY = 'acquire.currentRoom';
+const rememberCurrent = code => { try { localStorage.setItem(CUR_KEY, code); } catch { /* 무시 */ } };
+const recallCurrent = () => { try { return localStorage.getItem(CUR_KEY) || ''; } catch { return ''; } };
+const forgetCurrent = () => { try { localStorage.removeItem(CUR_KEY); } catch { /* 무시 */ } };
+
+// 방을 나간다. 다시 자동으로 끌려 들어가지 않게 기억도 지운다.
+function leaveRoom() {
+  forgetCurrent();
+  room?.destroy();
+  room = null;
+  releaseWakeLock?.();
+  releaseWakeLock = null;
+  Object.assign(ui, {
+    selTile: null, buy: {}, dispose: { sell: 0, trade: 0 },
+    seenEvent: 0, seenChat: 0, chatInit: false, unread: 0, wasMyTurn: false,
+    endAsked: false, endShown: false, prevBoard: null, lastTile: null,
+  });
+  history.replaceState(null, '', location.pathname);
+  show('setup');
+  setupMsg('방에서 나왔습니다.', true);
+}
+
 let releaseWakeLock = null;
 function wireRoom(r) {
   room = r;
   // 모바일에서 화면이 꺼지면 탭이 얼어 연결이 끊긴다 — 게임 중에는 화면을 깨워 둔다
   releaseWakeLock?.();
   releaseWakeLock = Net.keepScreenAwake();
+  rememberCurrent(r.code);
   window.addEventListener('beforeunload', () => r.destroy());
 }
 
@@ -84,6 +118,7 @@ async function doHost(restore = null) {
     if (firebaseReady() && !restore) {
       const r = new FireRoom({
         code: Net.makeRoomCode(), name, create: true,
+        opts: { privateShares: $('optPrivate').checked },
         onChange: render,
         onFatal: err => { setupMsg(err.message || '연결 오류'); show('setup'); },
       });
@@ -99,6 +134,7 @@ async function doHost(restore = null) {
       code: restore ? restore.code : Net.makeRoomCode(),
       hostName: name,
       restore,
+      opts: { privateShares: $('optPrivate').checked },
       onChange: render,
       onFatal: err => { setupMsg(err.message || '연결 오류'); show('setup'); },
     });
@@ -145,6 +181,7 @@ async function doJoin() {
     setupMsg('');
   } catch (err) {
     setupMsg(err.message || '접속하지 못했습니다.');
+    throw err;
   } finally {
     $('btnHost').disabled = $('btnJoin').disabled = false;
   }
@@ -170,6 +207,7 @@ function renderLobby(v) {
   start.disabled = n < MIN_PLAYERS;
   start.textContent = n < MIN_PLAYERS ? `게임 시작 (${MIN_PLAYERS}명 이상 필요)` : `게임 시작 (${n}명)`;
   $('lobbyWait').hidden = v.isHost || v.serverless;
+  $('lobbyPrivate').hidden = !v.lobby.opts?.privateShares;
   const reconnecting = v.status && v.status !== 'ok';
   $('lobbyMsg').textContent = reconnecting
     ? '연결이 끊겼습니다. 다시 연결하는 중…'
@@ -479,7 +517,8 @@ function renderBuy(pane, row, v) {
       const affordable = Math.floor((money - (cost - n * price)) / price);
       const max = Math.max(0, Math.min(state.pool[id], room4, affordable));
 
-      const item = el('div', 'buy-item');
+      // 지금 실제로 한 장이라도 더 살 수 있는 체인을 굵은 점선으로 구분한다
+      const item = el('div', 'buy-item' + (max > n ? ' can-buy' : ''));
       const sw = el('span', 'swatch'); sw.style.background = info.color;
       const txt = el('div', 'txt');
       txt.append(el('div', 'nm', info.ko), el('span', 'pr', `${won(price)} · 재고 ${state.pool[id]}장`));
@@ -579,6 +618,12 @@ function renderPlayers(v) {
     head.append(el('span', 'money', won(p.money)));
     card.append(head);
 
+    if (!p.shares) {
+      // 비공개 모드 — 남의 보유 종목은 가리고 총 장수만 보여준다
+      card.append(el('div', 'none', p.shareCount ? `🔒 주식 ${p.shareCount}장 (비공개)` : '보유 주식 없음'));
+      wrap.append(card);
+      return;
+    }
     const held = E.CHAIN_IDS.filter(id => p.shares[id] > 0);
     if (held.length) {
       const pills = el('div', 'shares');
@@ -612,6 +657,169 @@ function renderChat(v) {
   for (const c of v.chat) list.append(el('div', c.from ? '' : 'sys', c.from ? `${c.from}: ${c.text}` : c.text));
   const parent = list.parentElement;
   parent.scrollTop = parent.scrollHeight;
+
+  // 새 채팅 감지 → 차임벨 + 빨간 배지.
+  // 채팅이 아직 하나도 없는 상태(latest === 0)와 "처음 로드"를 구분해야 하므로 별도 플래그를 쓴다.
+  const latest = v.chat.length ? Math.max(...v.chat.map(c => c.n || 0)) : 0;
+  if (!ui.chatInit) { ui.chatInit = true; ui.seenChat = latest; }   // 들어오기 전 대화는 알리지 않는다
+  else if (latest > ui.seenChat) {
+    const fresh = v.chat.filter(c => (c.n || 0) > ui.seenChat);
+    ui.seenChat = latest;
+    if (ui.tab !== 'chat') {
+      ui.unread += fresh.length;
+      FX.chime();
+    }
+  }
+  const badge = $('chatBadge');
+  badge.hidden = ui.unread === 0;
+  badge.textContent = ui.unread > 9 ? '9+' : String(ui.unread);
+}
+
+// ── 팝업 ─────────────────────────────────────────────────────────────────────
+function chainChip(id) {
+  const info = E.chainInfo(id);
+  const chip = el('span', 'fx-chain');
+  const sw = el('span', 'swatch');
+  sw.style.background = info.color;
+  chip.append(sw, el('span', null, info.ko));
+  return chip;
+}
+
+// 합병 배당 — 누가 대주주/차대주주가 되어 얼마를 받았는지
+function popupPayout(ev) {
+  const node = el('div', 'fx-card');
+  node.append(el('div', 'fx-kicker', '합병 배당'));
+  const head = el('div', 'fx-title');
+  head.append(chainChip(ev.chain), el('span', null, `${ev.size}칸 · 주가 ${won(ev.price)}`));
+  node.append(head);
+
+  if (!ev.entries.length) {
+    node.append(el('div', 'fx-empty', '주주가 없어 배당이 없습니다.'));
+  } else {
+    const list = el('div', 'fx-list');
+    for (const e of ev.entries) {
+      const row = el('div', 'fx-row' + (e.role === 'majority' || e.role === 'sole' || e.role === 'tied-majority' ? ' top' : ''));
+      row.append(el('span', 'fx-role', e.label), el('span', 'fx-name', e.name), el('span', 'fx-amt', '+' + won(e.amount)));
+      list.append(row);
+    }
+    node.append(list);
+  }
+  FX.popup({ node, tone: 'payout', ms: 6000, sound: FX.cash });
+}
+
+// 안전 체인 — 5초 뒤 사라진다
+function popupSafe(ev) {
+  const node = el('div', 'fx-card');
+  node.append(el('div', 'fx-kicker', '안전 체인'));
+  const head = el('div', 'fx-title');
+  head.append(chainChip(ev.chain), el('span', null, `${ev.size}칸`));
+  node.append(head);
+  node.append(el('div', 'fx-empty', `이제 합병으로 사라지지 않습니다. 주가 ${won(ev.price)}`));
+  FX.popup({ node, tone: 'safe', ms: 5000, sound: FX.alert2 });
+}
+
+// 게임 종료 조건 충족 — 끝낼지 물어본다
+function popupEndChoice() {
+  const node = el('div', 'fx-card');
+  node.append(el('div', 'fx-kicker', '게임 종료 가능'));
+  node.append(el('div', 'fx-title', '지금 게임을 끝낼 수 있습니다'));
+  node.append(el('div', 'fx-empty',
+    '종료하면 모든 체인의 배당을 지급하고 주식을 전량 현금화한 뒤 순위를 매깁니다. 계속 진행해도 됩니다.'));
+  FX.popup({
+    node, tone: 'end', sound: FX.alert2,
+    buttons: [
+      { label: '🏁 지금 끝내기', primary: true, onClick: () => {
+        const picks = { ...ui.buy }; ui.buy = {};
+        room.localAct({ type: 'buy', picks, declareEnd: true });
+      } },
+      { label: '계속 진행', onClick: () => {} },
+    ],
+  });
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+// 최종 순위 — 금·은·동과 항목별 내역
+function popupResults(state) {
+  const node = el('div', 'fx-card fx-results');
+  node.append(el('div', 'fx-kicker', '게임 종료'));
+  node.append(el('div', 'fx-title', `🏆 ${state.results[0].name} 님 우승!`));
+
+  const list = el('div', 'fx-rank');
+  state.results.forEach((r, i) => {
+    const row = el('div', 'rank-row' + (i === 0 ? ' win' : ''));
+    const head = el('div', 'rank-head');
+    head.append(
+      el('span', 'rank-medal', MEDALS[i] || `${i + 1}위`),
+      el('span', 'rank-name', r.name),
+      el('span', 'rank-total', won(r.money)),
+    );
+    row.append(head);
+
+    const parts = el('div', 'rank-parts');
+    parts.append(el('span', null, `현금 ${won(r.cash)}`));
+    if (r.bonus) parts.append(el('span', null, `배당 +${won(r.bonus)}`));
+    if (r.sale) parts.append(el('span', null, `주식 매각 +${won(r.sale)}`));
+    row.append(parts);
+
+    const held = Object.entries(r.shares || {});
+    if (held.length) {
+      const pills = el('div', 'rank-shares');
+      for (const [id, n] of held) {
+        const info = E.chainInfo(id);
+        const pill = el('span', 'share-pill', `${info.name[0]} ${n}`);
+        pill.style.background = info.color;
+        pill.title = `${info.ko} ${n}장`;
+        pills.append(pill);
+      }
+      row.append(pills);
+    } else {
+      row.append(el('div', 'rank-shares none', '보유 주식 없음'));
+    }
+    list.append(row);
+  });
+  node.append(list);
+
+  FX.popup({
+    node, tone: 'results', sound: FX.fanfare,
+    buttons: [{ label: '확인', primary: true, onClick: () => {} }],
+  });
+}
+
+// 상태가 바뀔 때마다 아직 못 본 사건을 팝업으로 풀어 준다
+function drainEvents(v) {
+  const state = v.state;
+  if (!state) return;
+
+  const events = state.events || [];
+  if (ui.seenEvent === 0 && events.length) {
+    // 처음 들어왔거나 재접속한 경우 — 지난 사건을 몰아서 띄우지 않는다
+    ui.seenEvent = Math.max(...events.map(e => e.n));
+  }
+  for (const ev of events.filter(e => e.n > ui.seenEvent).sort((a, b) => a.n - b.n)) {
+    ui.seenEvent = ev.n;
+    if (ev.type === 'payout') popupPayout(ev);
+    else if (ev.type === 'safe') popupSafe(ev);
+  }
+
+  // 내 차례가 되면 차임벨
+  const acting = E.actingPlayer(state);
+  const myTurn = !state.ended && acting === v.me;
+  if (myTurn && !ui.wasMyTurn) FX.chime();
+  ui.wasMyTurn = myTurn;
+
+  // 종료 조건 충족 — 판당 한 번만 알린다.
+  // 이후로는 구매 패널의 "🏁 게임 종료 선언" 버튼이 계속 남아 있으므로 다시 묻지 않는다.
+  if (myTurn && state.phase === 'buy' && state.buy?.canEnd && !ui.endAsked) {
+    ui.endAsked = true;
+    popupEndChoice();
+  }
+
+  if (state.ended && !ui.endShown) {
+    ui.endShown = true;
+    forgetCurrent();   // 끝난 방으로 다시 끌려 들어가지 않게
+    popupResults(state);
+  }
 }
 
 // ── 전체 렌더 ────────────────────────────────────────────────────────────────
@@ -649,6 +857,19 @@ function render() {
   renderPlayers(v);
   renderLog(v);
   renderChat(v);
+  drainEvents(v);
+}
+
+function paintUsage(info) {
+  const bar = $('usageBar');
+  if (!info || !info.warn) { bar.hidden = true; return; }
+  const pct = Math.min(100, Math.round(info.ratio * 100));
+  const gb = (n) => (n / 1024 / 1024 / 1024).toFixed(2);
+  bar.hidden = false;
+  bar.className = 'usage-bar' + (info.block ? ' danger' : '');
+  bar.textContent = info.block
+    ? `⚠ 이번 달 무료 사용량 ${pct}% (${gb(info.bytes)}/${gb(FREE_MONTHLY_BYTES)} GB) — 한도 초과를 막기 위해 새 방 만들기를 중단했습니다.`
+    : `⚠ 이번 달 무료 사용량 ${pct}% (${gb(info.bytes)}/${gb(FREE_MONTHLY_BYTES)} GB) — 한도에 가까워지고 있습니다.`;
 }
 
 function renderConnection(v) {
@@ -663,15 +884,16 @@ function renderConnection(v) {
 }
 
 // ── 이벤트 연결 ──────────────────────────────────────────────────────────────
-$('btnHost').onclick = () => doHost();   // 클릭 이벤트가 restore 인자로 넘어가지 않게 감싼다
+$('btnHost').onclick = () => { FX.unlockAudio(); doHost(); };   // 클릭 이벤트가 restore 인자로 넘어가지 않게 감싼다
 $('btnJoin').onclick = () => {
+  FX.unlockAudio();
   if ($('joinBlock').hidden) { $('joinBlock').hidden = false; $('codeInput').focus(); }
-  else doJoin();
+  else doJoin().catch(() => {});
 };
-$('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
+$('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin().catch(() => {}); });
 $('nameInput').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  if (!$('joinBlock').hidden && $('codeInput').value.trim()) doJoin(); else doHost();
+  if (!$('joinBlock').hidden && $('codeInput').value.trim()) doJoin().catch(() => {}); else doHost();
 });
 $('btnStart').onclick = () => room?.localStart();
 $('btnCopy').onclick = copyInvite;
@@ -679,9 +901,12 @@ $('btnCopy2').onclick = copyInvite;
 
 document.querySelectorAll('.side-tab').forEach(tab => {
   tab.onclick = () => {
+    FX.unlockAudio();
     ui.tab = tab.dataset.tab;
+    if (ui.tab === 'chat') ui.unread = 0;   // 채팅 탭을 열면 읽음 처리
     document.querySelectorAll('.side-tab').forEach(t => t.classList.toggle('is-on', t === tab));
     ['info', 'log', 'chat'].forEach(name => { $('tab-' + name).hidden = name !== ui.tab; });
+    render();
   };
 });
 
@@ -691,6 +916,18 @@ $('chatForm').addEventListener('submit', e => {
   room?.localChat(input.value);
   input.value = '';
 });
+
+$('btnLeave').onclick = () => {
+  if (!confirm('방에서 나갑니다. 게임이 진행 중이면 다른 사람이 대신 진행할 수 있습니다. 나갈까요?')) return;
+  leaveRoom();
+};
+
+function paintMute() {
+  $('btnMute').textContent = FX.isMuted() ? '🔇' : '🔊';
+  $('btnMute').title = FX.isMuted() ? '소리 켜기' : '소리 끄기';
+}
+$('btnMute').onclick = () => { FX.setMuted(!FX.isMuted()); paintMute(); if (!FX.isMuted()) FX.chime(); };
+paintMute();
 
 $('btnRules').onclick = () => {
   $('rulesDialogBody').innerHTML = document.querySelector('#setup .rules-body').innerHTML;
@@ -706,14 +943,18 @@ async function init() {
   const useFire = params.get('net') !== 'p2p' && !!(await loadFirebase().catch(() => null));
   // 내가 다녀간 방 중 24시간 넘게 아무도 접속하지 않은 것을 정리한다
   // (실패해도 게임 진행에는 영향 없음)
-  if (useFire) sweepMyRooms().catch(() => {});
+  if (useFire) {
+    sweepMyRooms().catch(() => {});
+    // 무료 한도 감시 — 넘칠 것 같으면 화면에 경고를 띄운다
+    watchUsage(paintUsage).catch(() => {});
+  }
   $('modeTag').textContent = useFire ? '상시 서버 모드' : 'P2P 모드 (방장이 서버)';
   $('modeTag').hidden = false;
 
   const localCount = parseInt(params.get('local') || '', 10);
   if (localCount >= MIN_PLAYERS && localCount <= MAX_PLAYERS) {
     // 로컬 모드 — 한 화면에서 전원을 조작 (연습/점검용)
-    const r = new LocalRoom({ count: localCount, onChange: render });
+    const r = new LocalRoom({ count: localCount, onChange: render, opts: { privateShares: params.get('private') === '1' } });
     await r.open();
     wireRoom(r);
     r.localStart();
@@ -735,6 +976,26 @@ async function init() {
       $('btnResume').hidden = true;
       $('btnDiscard').hidden = true;
     };
+  }
+
+  // 이전에 있던 방으로 자동 복귀 (링크로 들어온 경우는 그 방이 우선)
+  const current = Net.normalizeCode(recallCurrent());
+  if (current && !params.get('room') && !saved) {
+    setupMsg(`이전에 있던 방(${current})으로 돌아가는 중…`);
+    $('codeInput').value = current;
+    $('joinBlock').hidden = false;
+    const cancel = $('btnCancelAuto');
+    cancel.hidden = false;
+    let cancelled = false;
+    cancel.onclick = () => { cancelled = true; forgetCurrent(); cancel.hidden = true; setupMsg(''); };
+    show('setup');
+    try {
+      await doJoin();
+      if (!cancelled && room) { cancel.hidden = true; return; }
+    } catch { /* 아래로 떨어져 수동 입력 */ }
+    cancel.hidden = true;
+    if (cancelled) return;
+    forgetCurrent();   // 방이 사라졌으면 기억을 버린다
   }
 
   const code = Net.normalizeCode(params.get('room') || '');

@@ -126,15 +126,26 @@ h1, h2, h3 { margin: 0 0 .5em; line-height: 1.25; }
 /* ── 게임 레이아웃 ────────────────────────────────────────────────────── */
 .game { min-height: 100dvh; display: flex; flex-direction: column; }
 .topbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
   border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 20;
 }
-.topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .topbar-brand { font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
 .turn-banner {
-  flex: 1; text-align: center; font-weight: 700; font-size: 14px;
+  flex: 1 1 100%; order: 3; text-align: center; font-weight: 700; font-size: 14px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 넓은 화면에서는 한 줄로 */
+@media (min-width: 620px) {
+  .topbar { flex-wrap: nowrap; padding-inline: 14px; }
+  .turn-banner { flex: 1; order: 0; }
+}
+/* 좁은 화면에서는 브랜드 글자를 줄여 버튼 자리를 확보 */
+@media (max-width: 430px) {
+  .topbar-brand { font-size: 0; }
+  .topbar-brand::before { content: '🏨'; font-size: 16px; }
+  .chip { padding: 5px 9px; font-size: 12px; }
 }
 .turn-banner.mine { color: var(--accent); }
 
@@ -305,3 +316,74 @@ h1, h2, h3 { margin: 0 0 .5em; line-height: 1.25; }
   border-radius: 8px; padding: 7px 10px; font-size: 12.5px; font-weight: 700; margin-bottom: 10px;
 }
 .proxy-tag { font-size: 10px; background: var(--danger); color: #fff; border-radius: 4px; padding: 1px 5px; }
+
+/* ── 시작 화면 옵션 ───────────────────────────────────────────────────── */
+.opt-row {
+  display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 16px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+}
+.opt-row input { margin-top: 3px; flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
+.opt-row span { display: block; font-size: 13.5px; }
+.opt-row small { display: block; color: var(--text-dim); font-size: 11.5px; margin-top: 2px; }
+
+/* ── 상단바 추가 버튼 ─────────────────────────────────────────────────── */
+.chip-danger { border-color: var(--danger); color: var(--danger); }
+.tab-badge {
+  display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px;
+  margin-left: 5px; border-radius: 999px; background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 800; vertical-align: middle;
+}
+
+/* ── 구매 가능 강조 ───────────────────────────────────────────────────── */
+.buy-item.can-buy {
+  border: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+/* ── 팝업 ─────────────────────────────────────────────────────────────── */
+.fx-dialog {
+  border: none; border-radius: 18px; padding: 0; background: transparent;
+  max-width: 460px; width: calc(100vw - 32px);
+}
+.fx-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+.fx-card {
+  background: var(--surface); color: var(--text); border: 1px solid var(--line);
+  border-top: 5px solid var(--accent); border-radius: 16px; padding: 20px 22px; box-shadow: var(--shadow);
+}
+.fx-dialog.payout .fx-card { border-top-color: var(--good); }
+.fx-dialog.safe .fx-card { border-top-color: var(--good); }
+.fx-dialog.end .fx-card { border-top-color: var(--danger); }
+.fx-dialog.results .fx-card { border-top-color: #d9a400; }
+.fx-kicker { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--text-dim); text-transform: uppercase; }
+.fx-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 19px; font-weight: 800; margin: 6px 0 12px; }
+.fx-chain { display: inline-flex; align-items: center; gap: 6px; }
+.fx-empty { font-size: 13px; color: var(--text-dim); line-height: 1.55; }
+.fx-list { display: grid; gap: 7px; }
+.fx-row {
+  display: flex; align-items: center; gap: 9px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: 10px; font-size: 14px;
+}
+.fx-row.top { border-color: var(--good); background: color-mix(in srgb, var(--good) 10%, transparent); }
+.fx-role { font-size: 11px; font-weight: 800; color: var(--text-dim); white-space: nowrap; }
+.fx-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-amt { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--good); }
+.fx-buttons { display: flex; gap: 8px; margin-top: 16px; }
+.fx-buttons .btn { flex: 1; }
+
+/* ── 최종 순위 ────────────────────────────────────────────────────────── */
+.fx-results { max-height: 80vh; overflow-y: auto; }
+.fx-rank { display: grid; gap: 9px; }
+.rank-row { border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
+.rank-row.win { border-color: #d9a400; background: color-mix(in srgb, #d9a400 12%, transparent); }
+.rank-head { display: flex; align-items: center; gap: 9px; }
+.rank-medal { font-size: 19px; min-width: 30px; }
+.rank-name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-total { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rank-parts { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 11.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.rank-shares { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.rank-shares.none { font-size: 11px; color: var(--text-dim); }
+.usage-bar {
+  background: #8a6d00; color: #fff; text-align: center;
+  padding: 7px 14px; font-size: 12.5px; font-weight: 600;
+}
+.usage-bar.danger { background: var(--danger); }

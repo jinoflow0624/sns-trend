@@ -335,5 +335,116 @@ test('createGame이 ref로 원래 좌석을 유지한다', () => {
   s.players.forEach(p => assert.equal(p.name, { a: '가', b: '나', c: '다' }[p.ref]));
 });
 
+
+console.log('\n로그 / 이벤트');
+test('로그는 60줄을 넘지 않는다', () => {
+  const s = E.createGame(['가', '나'], 5);
+  for (let i = 0; i < 300; i++) s.log.push({ n: i, msg: 'x' });
+  // 실제 경로로도 확인
+  const s2 = E.createGame(['가', '나'], 5);
+  let guard = 0;
+  while (!s2.ended && guard++ < 2000) {
+    const who = E.actingPlayer(s2);
+    if (who == null) break;
+    const p = s2.players[who];
+    let a = null;
+    if (s2.phase === 'place') { const ok = E.playableTiles(s2, p.hand); a = ok.length ? { type: 'place', tile: ok[0] } : { type: 'pass' }; }
+    else if (s2.phase === 'found') a = { type: 'found', chain: E.availableChains(s2)[0] };
+    else if (s2.phase === 'survivor') { const m = s2.merger, mx = Math.max(...m.chains.map(c => m.sizes[c])); a = { type: 'survivor', chain: m.chains.filter(c => m.sizes[c] === mx)[0] }; }
+    else if (s2.phase === 'defunctOrder') { const m = s2.merger, mx = Math.max(...m.pending.map(c => m.sizes[c])); a = { type: 'defunctOrder', chain: m.pending.filter(c => m.sizes[c] === mx)[0] }; }
+    else if (s2.phase === 'dispose') a = { type: 'dispose', sell: 0, trade: 0 };
+    else if (s2.phase === 'buy') a = { type: 'buy', picks: {}, declareEnd: E.canDeclareEnd(s2) };
+    if (!a || !E.applyAction(s2, who, a).ok) break;
+  }
+  assert.ok(s2.log.length <= E.LOG_LIMIT, `로그 ${s2.log.length}줄`);
+  assert.equal(E.LOG_LIMIT, 60);
+});
+test('안전 체인이 되면 이벤트가 한 번만 발생', () => {
+  const s = blank();
+  for (let i = 0; i < 10; i++) s.board[T(`${i + 1}A`)] = 'tower';
+  give(s, 0, T('11A'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('11A') }));   // 11칸 → 안전
+  const safe = s.events.filter(e => e.type === 'safe');
+  assert.equal(safe.length, 1);
+  assert.equal(safe[0].chain, 'tower');
+  assert.equal(safe[0].size, 11);
+  // 더 커져도 다시 알리지 않는다
+  s.phase = 'place'; s.turn = 0;
+  give(s, 0, T('12A'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('12A') }));
+  assert.equal(s.events.filter(e => e.type === 'safe').length, 1);
+});
+test('합병 배당이 이벤트로 기록된다', () => {
+  const s = blank();
+  ['5E', '5F', '5D'].forEach(n => s.board[T(n)] = 'tower');
+  ['8E', '9E'].forEach(n => s.board[T(n)] = 'luxor');
+  s.board[T('6E')] = 'tower';
+  s.players[1].shares.luxor = 4;
+  s.players[2].shares.luxor = 2;
+  give(s, 0, T('7E'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('7E') }));
+  const ev = s.events.filter(e => e.type === 'payout').pop();
+  assert.equal(ev.chain, 'luxor');
+  assert.equal(ev.price, 200);
+  assert.deepEqual(ev.entries.map(e => [e.name, e.amount, e.label]),
+    [[s.players[1].name, 2000, '대주주'], [s.players[2].name, 1000, '차대주주']]);
+});
+
+console.log('\n종료 정산 내역');
+test('결과에 현금·배당·매각·보유 주식이 담긴다', () => {
+  const s = blank();
+  for (let i = 0; i < 41; i++) s.board[i] = 'tower';   // 주가 $1000
+  s.players[0].shares.tower = 5;
+  s.players[1].shares.tower = 3;
+  s.players.forEach(p => p.money = 1000);
+  s.phase = 'buy';
+  must(E.applyAction(s, 0, { type: 'buy', picks: {}, declareEnd: true }));
+  const r = s.results;
+  assert.equal(r[0].cash, 1000);          // 정산 전 현금
+  assert.equal(r[0].bonus, 10000);        // 대주주 배당
+  assert.equal(r[0].sale, 5000);          // 주식 5장 × $1000
+  assert.deepEqual(r[0].shares, { tower: 5 });
+  assert.equal(r[0].money, 16000);
+  assert.equal(r[0].cash + r[0].bonus + r[0].sale, r[0].money);
+  assert.equal(r[1].bonus, 5000);
+  assert.deepEqual(r[1].shares, { tower: 3 });
+  assert.equal(r[2].bonus, 0);
+  assert.deepEqual(r[2].shares, {});
+});
+
+console.log('\n주식 비공개 모드');
+test('sanitize가 남의 주식을 가리고 개수만 남긴다', () => {
+  const s = E.createGame([{ name: '가', ref: 0 }, { name: '나', ref: 1 }], 3, { privateShares: true });
+  s.players[0].shares.tower = 2;
+  s.players[1].shares.luxor = 3;
+  const v = E.sanitize(s, 0);
+  assert.deepEqual(v.players[0].shares, s.players[0].shares);  // 내 것은 보인다
+  assert.equal(v.players[1].shares, null);                     // 남의 것은 가려진다
+  assert.equal(v.players[1].shareCount, 3);                    // 총 개수만
+});
+test('공개 모드에서는 모두 보인다', () => {
+  const s = E.createGame(['가', '나'], 3);
+  s.players[1].shares.luxor = 3;
+  const v = E.sanitize(s, 0);
+  assert.equal(v.players[1].shares.luxor, 3);
+});
+test('비공개 모드는 구매·처분 로그에서 체인과 수량을 가린다', () => {
+  const s = blank();
+  s.privateShares = true;
+  ['5E', '5F'].forEach(n => s.board[T(n)] = 'tower');
+  s.phase = 'buy';
+  must(E.applyAction(s, 0, { type: 'buy', picks: { tower: 2 } }));
+  const line = s.log[s.log.length - 1].msg;
+  assert.ok(line.includes('주식 2장 구매'), line);
+  assert.ok(!line.includes('타워'), line);
+});
+test('게임이 끝나면 비공개라도 보유 주식이 공개된다', () => {
+  const s = E.createGame([{ name: '가', ref: 0 }, { name: '나', ref: 1 }], 3, { privateShares: true });
+  s.players[1].shares.luxor = 3;
+  s.ended = true;
+  const v = E.sanitize(s, 0);
+  assert.equal(v.players[1].shares.luxor, 3);
+});
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

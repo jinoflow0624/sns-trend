@@ -31,10 +31,16 @@
       </label>
     </div>
 
+    <label class="opt-row">
+      <input id="optPrivate" type="checkbox">
+      <span><b>내 주식 비공개</b><small>다른 사람이 내 보유 종목·수량을 볼 수 없습니다 (방 만들 때만 적용)</small></span>
+    </label>
+
     <div class="setup-actions">
       <button id="btnHost" class="btn btn-primary">방 만들기</button>
       <button id="btnJoin" class="btn">코드로 참가</button>
     </div>
+    <button id="btnCancelAuto" class="btn btn-wide btn-discard" hidden>자동 복귀 취소</button>
     <button id="btnResume" class="btn btn-wide btn-resume" hidden></button>
     <button id="btnDiscard" class="btn btn-wide btn-discard" hidden>저장된 게임 버리기</button>
 
@@ -92,6 +98,7 @@
       </div>
       <button id="btnCopy" class="btn btn-small">🔗 초대 링크 복사</button>
     </div>
+    <p id="lobbyPrivate" class="mode-tag" hidden>🔒 주식 비공개 모드</p>
     <ul id="lobbySeats" class="seat-list"></ul>
     <p id="lobbyMsg" class="setup-msg" role="status"></p>
     <button id="btnStart" class="btn btn-primary btn-wide" hidden>게임 시작</button>
@@ -107,9 +114,12 @@
       <button id="btnCopy2" class="chip" title="초대 링크 복사">방 <b id="topCode">—</b> · 🔗</button>
     </div>
     <div id="turnBanner" class="turn-banner">—</div>
+    <button id="btnMute" class="chip" title="소리 끄기">🔊</button>
     <button id="btnRules" class="chip">📖 룰</button>
+    <button id="btnLeave" class="chip chip-danger" title="방에서 나가기">나가기</button>
   </header>
   <div id="connBar" class="conn-bar" role="status" hidden></div>
+  <div id="usageBar" class="usage-bar" role="status" hidden></div>
 
   <div class="layout">
     <section class="board-pane">
@@ -122,7 +132,7 @@
       <div class="side-tabs">
         <button class="side-tab is-on" data-tab="info">현황</button>
         <button class="side-tab" data-tab="log">기록</button>
-        <button class="side-tab" data-tab="chat">채팅</button>
+        <button class="side-tab" data-tab="chat">채팅<span id="chatBadge" class="tab-badge" hidden></span></button>
       </div>
       <div id="tab-info" class="side-body">
         <div id="chainTable"></div>
@@ -141,6 +151,10 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
+
+<dialog id="fxDialog" class="fx-dialog">
+  <div id="fxBody"></div>
+</dialog>
 
 <dialog id="rulesDialog" class="rules-dialog">
   <div class="rules-body" id="rulesDialogBody"></div>

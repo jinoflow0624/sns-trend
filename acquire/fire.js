@@ -87,6 +87,57 @@ async function txnOnRoom(ref, mutate) {
 }
 const SEEN_KEY = 'acquire.visitedRooms';
 
+// ── 무료 한도 감시 ───────────────────────────────────────────────────────────
+//
+// Spark(무료) 요금제는 월 다운로드 10GB. 서버가 없어 진짜 알림은 못 보내므로,
+// 각 클라이언트가 자기가 주고받은 양을 월별 카운터에 더하고, 임계치를 넘으면
+// 앱 안에서 경고를 띄운다. 95%를 넘으면 새 방 만들기를 막아 한도 초과를 예방한다.
+export const FREE_MONTHLY_BYTES = 10 * 1024 * 1024 * 1024;
+const WARN_AT = 0.7;
+const BLOCK_AT = 0.95;
+const USAGE_FLUSH_MS = 60000;
+
+const usageMonth = () => new Date().toISOString().slice(0, 7);  // YYYY-MM
+let usagePending = 0;
+let usageTotal = 0;
+let usageFlushedAt = 0;
+
+export const usageInfo = () => ({
+  bytes: usageTotal,
+  limit: FREE_MONTHLY_BYTES,
+  ratio: usageTotal / FREE_MONTHLY_BYTES,
+  warn: usageTotal >= FREE_MONTHLY_BYTES * WARN_AT,
+  block: usageTotal >= FREE_MONTHLY_BYTES * BLOCK_AT,
+});
+
+export function addUsage(bytes) {
+  usagePending += bytes;
+  usageTotal += bytes;
+}
+
+async function flushUsage() {
+  if (!db || usagePending <= 0) return;
+  if (Date.now() - usageFlushedAt < USAGE_FLUSH_MS) return;
+  const add = usagePending;
+  usagePending = 0;
+  usageFlushedAt = Date.now();
+  try {
+    await fb.runTransaction(fb.ref(db, `usage/${usageMonth()}`), cur => (cur || 0) + add);
+  } catch { usagePending += add; }   // 실패하면 다음 기회에 다시 보낸다
+}
+
+export async function watchUsage(onChange) {
+  if (!db) return;
+  try {
+    const ref = fb.ref(db, `usage/${usageMonth()}`);
+    fb.onValue(ref, snap => {
+      usageTotal = Number(snap.val()) || 0;
+      onChange?.(usageInfo());
+    }, () => {});
+    setInterval(() => { flushUsage().then(() => onChange?.(usageInfo())); }, USAGE_FLUSH_MS);
+  } catch { /* 감시 실패는 게임과 무관 */ }
+}
+
 const isExpired = room =>
   !room || Date.now() - (room.lastActive ?? room.createdAt ?? 0) > ROOM_TTL_MS;
 
@@ -135,8 +186,9 @@ export async function sweepMyRooms() {
 }
 
 export class FireRoom {
-  constructor({ code, name, create, onChange, onFatal }) {
+  constructor({ code, name, create, opts, onChange, onFatal }) {
     this.isHost = false;      // Firebase 모드에는 방장이 없다
+    this.opts = opts || {};
     this.serverless = true;
     this.code = code;
     this.name = name;
@@ -172,6 +224,12 @@ export class FireRoom {
     }
 
     if (this.create) {
+      if (usageInfo().block) {
+        const err = new Error(
+          '이번 달 무료 사용량이 거의 찼습니다(95% 초과). 한도를 넘지 않도록 새 방 만들기를 잠시 막았습니다. 다음 달에 초기화됩니다.');
+        err.fatal = true;
+        throw err;
+      }
       if (existing) {
         throw new Error('이미 사용 중인 방 코드입니다. 다시 시도해 주세요.');
       }
@@ -180,6 +238,7 @@ export class FireRoom {
         createdAt: now,
         lastActive: now,
         started: false,
+        privateShares: !!this.opts.privateShares,
         seats: { [this.token]: { name: this.name, idx: 0, joinedAt: now } },
       });
       this.subscribe();
@@ -259,6 +318,8 @@ export class FireRoom {
       const room = snap.val();
       if (!room) { this.onFatal?.(new Error('방이 삭제되었습니다.')); return; }
       this.doc = room;
+      // 이번에 내려받은 양을 대략 센다 (상태 문자열이 대부분을 차지한다)
+      addUsage((room.state?.length || 0) + 200);
       try {
         this.state = room.state ? JSON.parse(room.state) : null;
       } catch {
@@ -300,7 +361,8 @@ export class FireRoom {
       if (room.started) return fail('이미 시작되었습니다.');
       const list = Object.entries(room.seats || {})
         .sort((a, b) => (a[1].idx ?? 0) - (b[1].idx ?? 0));
-      const state = E.createGame(list.map(([, s], i) => ({ name: s.name, ref: i })));
+      const state = E.createGame(list.map(([, s], i) => ({ name: s.name, ref: i })), Date.now(),
+        { privateShares: !!room.privateShares });
       room.started = true;
       room.state = JSON.stringify(state);
       room.lastActive = Date.now();
@@ -326,6 +388,7 @@ export class FireRoom {
         if (!out.ok) return fail(out.error);
         room.state = JSON.stringify(state);
         room.lastActive = Date.now();
+        addUsage(room.state.length);   // 업로드분
         return room;
       });
       failure = res.ok ? null : res.failure;
@@ -383,7 +446,12 @@ export class FireRoom {
       serverless: true,
       code: this.code,
       seat: seatIdx,
-      lobby: { code: this.code, started: !!this.doc?.started, seats },
+      lobby: {
+        code: this.code,
+        started: !!this.doc?.started,
+        opts: { privateShares: !!this.doc?.privateShares },
+        seats,
+      },
       chat: this.chatList(),
       // 상태 전체가 DB에 있으므로 손패도 그대로 들어 있다 (README의 한계 참고)
       state: this.state ? E.sanitize(this.state, proxying ? ctrl : me) : null,

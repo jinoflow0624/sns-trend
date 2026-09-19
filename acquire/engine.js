@@ -55,6 +55,14 @@ export function stockPrice(chainId, size) {
 
 const roundUp100 = n => Math.ceil(n / 100) * 100;
 
+export const ROLE_LABEL = {
+  majority: '대주주',
+  minority: '차대주주',
+  sole: '단독 주주 (대+차 모두)',
+  'tied-majority': '대주주 동률',
+  'tied-minority': '차대주주 동률',
+};
+
 // 대주주/소주주 배당 계산. holders = [{ player, count }] (count > 0 만)
 // 반환: [{ player, amount, role }]
 export function calcBonuses(holders, price) {
@@ -165,7 +173,7 @@ export function canDeclareEnd(state) {
 // ── 게임 생성 ────────────────────────────────────────────────────────────────
 // entries: ['이름', ...] 또는 [{ name, ref }, ...]
 // ref는 호출자(로비 좌석)를 가리키는 값으로, 플레이어가 선공 순서대로 재정렬된 뒤에도 유지된다.
-export function createGame(entries, seed = Date.now()) {
+export function createGame(entries, seed = Date.now(), opts = {}) {
   const rand = mulberry32(seed);
   const bag = shuffle([...Array(TILE_COUNT).keys()], rand);
 
@@ -199,6 +207,9 @@ export function createGame(entries, seed = Date.now()) {
     merger: null,
     buy: null,
     log: [],
+    events: [],
+    safeSeen: [],
+    privateShares: !!opts.privateShares,
     ended: false,
     results: null,
   };
@@ -208,9 +219,32 @@ export function createGame(entries, seed = Date.now()) {
   return state;
 }
 
+export const LOG_LIMIT = 60;   // DB로 오가는 상태 크기의 대부분이 로그라 짧게 유지한다
+const EVENT_LIMIT = 8;
+
 function log(state, msg) {
-  state.log.push({ n: state.log.length, msg });
-  if (state.log.length > 400) state.log.splice(0, state.log.length - 400);
+  state.log.push({ n: (state.logSeq = (state.logSeq || 0) + 1), msg });
+  if (state.log.length > LOG_LIMIT) state.log.splice(0, state.log.length - LOG_LIMIT);
+}
+
+// 화면에 팝업으로 띄울 사건. 클라이언트는 아직 못 본 n 만 골라 보여준다.
+function emit(state, ev) {
+  state.events = state.events || [];
+  state.events.push({ ...ev, n: (state.eventSeq = (state.eventSeq || 0) + 1) });
+  if (state.events.length > EVENT_LIMIT) state.events.splice(0, state.events.length - EVENT_LIMIT);
+}
+
+// 11칸을 처음 넘긴 체인을 알린다
+function checkSafe(state) {
+  const sizes = chainSizes(state);
+  state.safeSeen = state.safeSeen || [];
+  for (const id of CHAIN_IDS) {
+    if (sizes[id] >= SAFE_SIZE && !state.safeSeen.includes(id)) {
+      state.safeSeen.push(id);
+      emit(state, { type: 'safe', chain: id, size: sizes[id], price: stockPrice(id, sizes[id]) });
+      log(state, `🛡 ${chainInfo(id).ko}이(가) 안전 체인이 되었습니다 (${sizes[id]}칸)`);
+    }
+  }
 }
 
 function refill(state, player) {
@@ -403,12 +437,15 @@ function beginDefunct(state, id) {
   const price = m.prices[id];
   const holders = state.players.map((p, i) => ({ player: i, count: p.shares[id] }));
   const payouts = calcBonuses(holders, price);
+  const shown = [];
   for (const b of payouts) {
     state.players[b.player].money += b.amount;
-    const label = { majority: '대주주', minority: '소주주', sole: '단독 주주(대+소)', 'tied-majority': '대주주 동률', 'tied-minority': '소주주 동률' }[b.role];
+    const label = ROLE_LABEL[b.role];
     log(state, `   💰 ${chainInfo(id).ko} ${label} ${state.players[b.player].name}: +$${b.amount.toLocaleString()}`);
+    shown.push({ name: state.players[b.player].name, amount: b.amount, role: b.role, label });
   }
   if (payouts.length === 0) log(state, `   ${chainInfo(id).ko} 주주 없음 — 배당 없음`);
+  emit(state, { type: 'payout', chain: id, size: m.sizes[id], price, entries: shown });
 
   // 주식 처분 순서: 합병을 일으킨 플레이어부터 시계방향, 해당 주식 보유자만
   const n = state.players.length;
@@ -450,12 +487,16 @@ function actDispose(state, playerIdx, action) {
     state.pool[survivor] -= trade / 2;
     player.shares[survivor] += trade / 2;
   }
-  const parts = [];
-  if (sell) parts.push(`매각 ${sell}장(+$${(sell * price).toLocaleString()})`);
-  if (trade) parts.push(`교환 ${trade}→${trade / 2}장`);
   const hold = held - sell - trade;
-  if (hold) parts.push(`보유 ${hold}장`);
-  log(state, `   ${player.name}: ${chainInfo(defunct).ko} ${parts.join(', ') || '변동 없음'}`);
+  if (state.privateShares) {
+    log(state, `   ${player.name}: ${chainInfo(defunct).ko} 주식 처분 완료`);
+  } else {
+    const parts = [];
+    if (sell) parts.push(`매각 ${sell}장(+$${(sell * price).toLocaleString()})`);
+    if (trade) parts.push(`교환 ${trade}→${trade / 2}장`);
+    if (hold) parts.push(`보유 ${hold}장`);
+    log(state, `   ${player.name}: ${chainInfo(defunct).ko} ${parts.join(', ') || '변동 없음'}`);
+  }
 
   m.queueIdx++;
   if (m.queueIdx >= m.queue.length) return completeDefunct(state);
@@ -483,6 +524,7 @@ function finishMerger(state) {
 
 // ── 주식 구매 / 턴 종료 ──────────────────────────────────────────────────────
 function toBuyPhase(state) {
+  checkSafe(state);
   state.phase = 'buy';
   state.buy = { canEnd: canDeclareEnd(state) };
   return ok();
@@ -518,7 +560,10 @@ function actBuy(state, playerIdx, action) {
   }
   if (cost > 0) {
     player.money -= cost;
-    log(state, `${player.name}: ${bought.join(', ')} 구매 (-$${cost.toLocaleString()})`);
+    // 비공개 모드에서는 어떤 체인을 몇 장 샀는지 가린다 (보유 현황이 드러나므로)
+    log(state, state.privateShares
+      ? `${player.name}: 주식 ${count}장 구매 (-$${cost.toLocaleString()})`
+      : `${player.name}: ${bought.join(', ')} 구매 (-$${cost.toLocaleString()})`);
   }
 
   if (action.declareEnd) {
@@ -555,25 +600,46 @@ function endGame(state, declarerIdx) {
   const sizes = chainSizes(state);
   const active = CHAIN_IDS.filter(id => sizes[id] > 0);
 
+  // 정산 전 현금과 보유 주식을 기록해 두고, 항목별로 얼마가 붙었는지 남긴다
+  const tally = state.players.map(p => ({
+    cash: p.money,
+    bonus: 0,
+    sale: 0,
+    shares: Object.fromEntries(CHAIN_IDS.filter(id => p.shares[id] > 0).map(id => [id, p.shares[id]])),
+    bonusDetail: [],
+  }));
+
   for (const id of active) {
     const price = stockPrice(id, sizes[id]);
     const holders = state.players.map((p, i) => ({ player: i, count: p.shares[id] }));
     for (const b of calcBonuses(holders, price)) {
       state.players[b.player].money += b.amount;
+      tally[b.player].bonus += b.amount;
+      tally[b.player].bonusDetail.push({ chain: id, amount: b.amount, role: b.role, label: ROLE_LABEL[b.role] });
       log(state, `   💰 ${chainInfo(id).ko} 최종 배당 ${state.players[b.player].name}: +$${b.amount.toLocaleString()}`);
     }
   }
-  for (const p of state.players) {
+  state.players.forEach((p, i) => {
     let sale = 0;
     for (const id of active) sale += p.shares[id] * stockPrice(id, sizes[id]);
     if (sale > 0) {
       p.money += sale;
+      tally[i].sale = sale;
       log(state, `   ${p.name}: 보유 주식 전량 현금화 +$${sale.toLocaleString()}`);
     }
-  }
+  });
 
   state.results = state.players
-    .map((p, i) => ({ player: i, name: p.name, money: p.money }))
+    .map((p, i) => ({
+      player: i,
+      name: p.name,
+      money: p.money,
+      cash: tally[i].cash,
+      bonus: tally[i].bonus,
+      sale: tally[i].sale,
+      shares: tally[i].shares,
+      bonusDetail: tally[i].bonusDetail,
+    }))
     .sort((a, b) => b.money - a.money);
   state.ended = true;
   state.phase = 'over';
@@ -599,6 +665,9 @@ export function sanitize(state, forPlayer) {
       ...p,
       hand: i === forPlayer ? p.hand : null,
       handCount: p.hand.length,
+      // 비공개 모드에서는 남의 보유 주식을 아예 빼고 개수만 남긴다
+      shares: (state.privateShares && i !== forPlayer && !state.ended) ? null : p.shares,
+      shareCount: CHAIN_IDS.reduce((t, id) => t + p.shares[id], 0),
     })),
   };
 }
