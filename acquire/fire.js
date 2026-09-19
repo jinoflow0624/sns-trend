@@ -14,7 +14,9 @@ let db = null;
 let cfg = null;
 
 export const ROOM_TTL_MS = 24 * 3600 * 1000;
-const SEEN_INTERVAL_MS = 8000;  // 살아 있다고 알리는 주기
+const SEEN_INTERVAL_MS = 8000;   // 살아 있다고 알리는 주기
+const TOUCH_INTERVAL_MS = 60000; // 방 활동 시각(lastActive) 갱신 주기 — 24시간 기준이라 1분이면 충분
+const SWEEP_LIMIT = 20;          // 한 번에 청소할 방 수
 const OFFLINE_MS = 20000;       // 이만큼 소식이 없으면 접속 끊김으로 표시
 const ABSENT_MS = 45000;        // 이만큼 지나면 다른 사람이 대신 진행할 수 있다
 
@@ -83,8 +85,55 @@ async function txnOnRoom(ref, mutate) {
   }
   return { ok: false, failure: '서버가 바빠 적용하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
 }
+const SEEN_KEY = 'acquire.visitedRooms';
 
-// ── 방 ───────────────────────────────────────────────────────────────────────
+const isExpired = room =>
+  !room || Date.now() - (room.lastActive ?? room.createdAt ?? 0) > ROOM_TTL_MS;
+
+// ── 방 청소 ──────────────────────────────────────────────────────────────────
+//
+// 24시간 넘게 아무도 접속하지 않은 방은 삭제한다. 서버가 없으니 청소도 클라이언트가 한다.
+//
+// 전역 목록을 훑는 방식은 쓰지 않았다. /rooms 목록 조회를 열면 방 코드를 모르는 사람도
+// 아무 방에나 들어올 수 있게 되는데, 그게 이 앱의 유일한 접근 통제이기 때문이다.
+// 대신 각자가 "자기가 다녀간 방"만 기억해 두었다가 정리한다.
+// 방을 만들거나 들어간 사람이 결국 이 사이트에 다시 오므로 실질적으로 대부분 정리된다.
+
+function visitedRooms() {
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch { return []; }
+}
+function saveVisited(list) {
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(list.slice(-40))); } catch { /* 무시 */ }
+}
+export function rememberRoom(code) {
+  const list = visitedRooms().filter(r => r.code !== code);
+  list.push({ code, ts: Date.now() });
+  saveVisited(list);
+}
+
+// 내가 다녀간 방 중 만료된 것을 지운다. 최근에 있었던 방은 만료일 수 없으므로 건너뛴다.
+export async function sweepMyRooms() {
+  if (!db) return 0;
+  const list = visitedRooms();
+  const stale = list.filter(r => Date.now() - r.ts > ROOM_TTL_MS);
+  if (stale.length === 0) return 0;
+
+  let removed = 0;
+  const gone = new Set();
+  for (const { code } of stale) {
+    try {
+      const snap = await fb.get(fb.ref(db, roomPath(code)));
+      if (!snap.exists()) { gone.add(code); continue; }
+      if (!isExpired(snap.val())) continue;   // 다른 사람이 계속 쓰고 있다
+      await fb.remove(fb.ref(db, roomPath(code)));
+      gone.add(code);
+      removed++;
+    } catch { /* 권한·네트워크 문제는 조용히 넘어간다 */ }
+  }
+  if (gone.size) saveVisited(list.filter(r => !gone.has(r.code)));
+  return removed;
+}
+
 export class FireRoom {
   constructor({ code, name, create, onChange, onFatal }) {
     this.isHost = false;      // Firebase 모드에는 방장이 없다
@@ -114,21 +163,29 @@ export class FireRoom {
       e.fatal = true;
       throw e;
     }
-    const existing = snap.val();
+    let existing = snap.val();
+
+    // 24시간 넘게 아무도 접속하지 않은 방은 만료된 것으로 보고 지운다
+    if (existing && isExpired(existing)) {
+      await fb.remove(this.ref).catch(() => {});
+      existing = null;
+    }
 
     if (this.create) {
-      if (existing && Date.now() - (existing.createdAt || 0) < ROOM_TTL_MS) {
+      if (existing) {
         throw new Error('이미 사용 중인 방 코드입니다. 다시 시도해 주세요.');
       }
+      const now = Date.now();
       await fb.set(this.ref, {
-        createdAt: Date.now(),
+        createdAt: now,
+        lastActive: now,
         started: false,
-        seats: { [this.token]: { name: this.name, idx: 0, joinedAt: Date.now() } },
+        seats: { [this.token]: { name: this.name, idx: 0, joinedAt: now } },
       });
       this.subscribe();
     } else {
       if (!existing) {
-        const err = new Error('그런 방이 없습니다. 방 코드를 확인해 주세요.');
+        const err = new Error('그런 방이 없습니다. 방 코드가 틀렸거나, 24시간 넘게 아무도 접속하지 않아 삭제되었습니다.');
         err.fatal = true;
         throw err;
       }
@@ -137,6 +194,7 @@ export class FireRoom {
       await this.firstSnapshot();
       await this.claimSeat();
     }
+    rememberRoom(this.code);
     this.watchPresence();
   }
 
@@ -172,15 +230,25 @@ export class FireRoom {
     const connected = fb.ref(db, '.info/connected');
     const beat = () => fb.set(mine, Date.now()).catch(() => {});
 
+    // 방이 살아 있음을 표시한다. 24시간 기준이라 1분 간격이면 충분하다.
+    let lastTouch = 0;
+    const touch = () => {
+      const now = Date.now();
+      if (now - lastTouch < TOUCH_INTERVAL_MS) return;
+      lastTouch = now;
+      fb.set(fb.ref(db, `${roomPath(this.code)}/lastActive`), now).catch(() => {});
+    };
+    this.touch = touch;
+
     this.offConnected = fb.onValue(connected, snap => {
       if (this.closed) return;
       const isOn = snap.val() === true;
       this.status = isOn ? 'ok' : 'reconnecting';
-      if (isOn) beat();
+      if (isOn) { beat(); touch(); }
       this.onChange?.();
     });
 
-    this.seenTimer = setInterval(() => { if (!this.closed) beat(); }, SEEN_INTERVAL_MS);
+    this.seenTimer = setInterval(() => { if (!this.closed) { beat(); touch(); } }, SEEN_INTERVAL_MS);
     // 시간이 지나면서 '자리 비움' 판정이 바뀌므로 주기적으로 다시 그린다
     this.tick = setInterval(() => { if (!this.closed) this.onChange?.(); }, 5000);
   }
@@ -235,6 +303,7 @@ export class FireRoom {
       const state = E.createGame(list.map(([, s], i) => ({ name: s.name, ref: i })));
       room.started = true;
       room.state = JSON.stringify(state);
+      room.lastActive = Date.now();
       return room;
     });
     if (!ok) { this.error = failure; this.onChange?.(); }
@@ -256,6 +325,7 @@ export class FireRoom {
         const out = E.applyAction(state, playerIdx, action);
         if (!out.ok) return fail(out.error);
         room.state = JSON.stringify(state);
+        room.lastActive = Date.now();
         return room;
       });
       failure = res.ok ? null : res.failure;
@@ -273,6 +343,7 @@ export class FireRoom {
     await fb.push(fb.ref(db, `${roomPath(this.code)}/chat`), {
       from: me?.name || this.name, text: t, n: Date.now(),
     }).catch(() => {});
+    this.touch?.();
   }
 
   chatList() {

@@ -2,7 +2,7 @@
 import * as E from './engine.js';
 import * as Net from './net.js';
 import { HostRoom, GuestRoom, LocalRoom, loadHostGame, clearHostGame, MIN_PLAYERS, MAX_PLAYERS } from './room.js';
-import { loadFirebase, firebaseReady, FireRoom } from './fire.js';
+import { loadFirebase, firebaseReady, FireRoom, sweepMyRooms } from './fire.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -704,6 +704,9 @@ async function init() {
 
   // fireconfig.js 가 있으면 상시 서버(Firebase) 모드, 없으면 기존 P2P 모드
   const useFire = params.get('net') !== 'p2p' && !!(await loadFirebase().catch(() => null));
+  // 내가 다녀간 방 중 24시간 넘게 아무도 접속하지 않은 것을 정리한다
+  // (실패해도 게임 진행에는 영향 없음)
+  if (useFire) sweepMyRooms().catch(() => {});
   $('modeTag').textContent = useFire ? '상시 서버 모드' : 'P2P 모드 (방장이 서버)';
   $('modeTag').hidden = false;
 
