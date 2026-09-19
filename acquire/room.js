@@ -35,9 +35,10 @@ export function clearHostGame() {
 
 export class HostRoom {
   // onChange: 화면을 다시 그려야 할 때 호출
-  constructor({ code, hostName, onChange, onFatal, restore }) {
+  constructor({ code, hostName, onChange, onFatal, restore, opts }) {
     this.isHost = true;
     this.code = code;
+    this.opts = opts || (restore && restore.opts) || {};
     this.onChange = onChange;
     this.onFatal = onFatal;
     this.token = Net.myToken();
@@ -88,6 +89,7 @@ export class HostRoom {
     if (!this.state) return;
     saveHostGame({
       code: this.code,
+      opts: this.opts,
       savedAt: Date.now(),
       seats: this.seats.map(s => ({ token: s.token, name: s.name })),
       chat: this.chat.slice(-40),
@@ -181,7 +183,7 @@ export class HostRoom {
       this.onChange?.();
       return;
     }
-    this.state = E.createGame(this.seats.map((s, i) => ({ name: s.name, ref: i })));
+    this.state = E.createGame(this.seats.map((s, i) => ({ name: s.name, ref: i })), Date.now(), this.opts);
     this.pushChat(null, '게임이 시작되었습니다.');
     this.pushAll();
   }
@@ -213,6 +215,7 @@ export class HostRoom {
   lobbyPayload() {
     return {
       code: this.code,
+      opts: this.opts,
       started: !!this.state,
       seats: this.seats.map(s => ({ name: s.name, connected: s.connected })),
     };
@@ -405,9 +408,10 @@ export class GuestRoom {
 // 한 브라우저에서 전원을 조작하는 로컬 모드 (?local=N).
 // 네트워크 없이 룰을 연습하거나 UI를 확인할 때 쓴다.
 export class LocalRoom {
-  constructor({ count, names, onChange }) {
+  constructor({ count, names, onChange, opts }) {
     this.isHost = true;
     this.local = true;
+    this.opts = opts || {};
     this.code = 'LOCAL';
     this.onChange = onChange;
     this.seatNames = names || Array.from({ length: count }, (_, i) => `플레이어 ${i + 1}`);
@@ -420,7 +424,7 @@ export class LocalRoom {
   playerIndexForSeat(seatIdx) { return this.state ? this.state.players.findIndex(p => p.ref === seatIdx) : -1; }
 
   localStart() {
-    this.state = E.createGame(this.seatNames.map((name, i) => ({ name, ref: i })));
+    this.state = E.createGame(this.seatNames.map((name, i) => ({ name, ref: i })), Date.now(), this.opts);
     this.onChange?.();
   }
 
