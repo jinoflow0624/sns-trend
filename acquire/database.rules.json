@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "rooms": {
+      "$code": {
+        // 방 코드를 아는 사람만 접근할 수 있다. 코드는 31자 중 5자라 약 2,800만 가지.
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['createdAt'])",
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "started": { ".validate": "newData.isBoolean()" },
+        "state": { ".validate": "newData.isString() && newData.val().length < 400000" },
+        "seats": {
+          "$token": {
+            "name": { ".validate": "newData.isString() && newData.val().length <= 12" },
+            "idx": { ".validate": "newData.isNumber()" },
+            "joinedAt": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "online": { "$token": { ".validate": "newData.isBoolean()" } },
+        "chat": {
+          "$id": {
+            "from": { ".validate": "newData.isString() && newData.val().length <= 12" },
+            "text": { ".validate": "newData.isString() && newData.val().length <= 200" },
+            "n": { ".validate": "newData.isNumber()" }
+          }
+        }
+      }
+    }
+  }
+}

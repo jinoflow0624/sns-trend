@@ -2,6 +2,7 @@
 import * as E from './engine.js';
 import * as Net from './net.js';
 import { HostRoom, GuestRoom, LocalRoom, loadHostGame, clearHostGame, MIN_PLAYERS, MAX_PLAYERS } from './room.js';
+import { loadFirebase, firebaseReady, FireRoom } from './fire.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -80,6 +81,20 @@ async function doHost(restore = null) {
   setupMsg(restore ? '방을 다시 여는 중…' : '방을 만드는 중…');
   $('btnHost').disabled = $('btnJoin').disabled = true;
   try {
+    if (firebaseReady() && !restore) {
+      const r = new FireRoom({
+        code: Net.makeRoomCode(), name, create: true,
+        onChange: render,
+        onFatal: err => { setupMsg(err.message || '연결 오류'); show('setup'); },
+      });
+      wireRoom(r);  // 구독 콜백이 open() 도중에 올 수 있어 먼저 연결해 둔다
+      try {
+        await r.open();
+      } catch (err) { room = null; throw err; }
+      setupMsg('');
+      render();
+      return;
+    }
     const r = new HostRoom({
       code: restore ? restore.code : Net.makeRoomCode(),
       hostName: name,
@@ -106,6 +121,20 @@ async function doJoin() {
   setupMsg('방에 접속하는 중…');
   $('btnHost').disabled = $('btnJoin').disabled = true;
   try {
+    if (firebaseReady()) {
+      const r = new FireRoom({
+        code, name, create: false,
+        onChange: render,
+        onFatal: err => { setupMsg(err.message || '연결이 끊어졌습니다.'); show('setup'); },
+      });
+      wireRoom(r);
+      try {
+        await r.open();
+      } catch (err) { room = null; throw err; }
+      setupMsg('');
+      render();
+      return;
+    }
     const r = new GuestRoom({
       code, name,
       onChange: render,
@@ -129,17 +158,18 @@ function renderLobby(v) {
   v.lobby.seats.forEach((s, i) => {
     const li = el('li');
     li.append(el('span', 'dot' + (s.connected ? '' : ' off')), el('span', null, s.name));
-    if (i === 0) li.append(el('span', 'seat-tag', '방장'));
+    if (i === 0 && !v.serverless) li.append(el('span', 'seat-tag', '방장'));
     if (i === v.seat) li.append(el('span', 'you-tag', '나'));
     list.append(li);
   });
 
   const n = v.lobby.seats.length;
   const start = $('btnStart');
-  start.hidden = !v.isHost;
+  // 서버 모드에는 방장이 없어 누구나 시작할 수 있다
+  start.hidden = !(v.isHost || v.serverless);
   start.disabled = n < MIN_PLAYERS;
   start.textContent = n < MIN_PLAYERS ? `게임 시작 (${MIN_PLAYERS}명 이상 필요)` : `게임 시작 (${n}명)`;
-  $('lobbyWait').hidden = v.isHost;
+  $('lobbyWait').hidden = v.isHost || v.serverless;
   const reconnecting = v.status && v.status !== 'ok';
   $('lobbyMsg').textContent = reconnecting
     ? '연결이 끊겼습니다. 다시 연결하는 중…'
@@ -269,9 +299,11 @@ function renderAction(v) {
   pane.classList.toggle('is-offline', !!offline);
   if (offline) {
     pane.append(el('div', 'action-title', '연결이 끊겼습니다'));
-    pane.append(el('div', 'waiting', v.isHost
-      ? '브로커와 다시 연결하는 중입니다. 잠시만 기다려 주세요.'
-      : '방장과 다시 연결하는 중입니다. 방장이 돌아오면 자동으로 이어집니다.'));
+    pane.append(el('div', 'waiting', v.serverless
+      ? '서버와 다시 연결하는 중입니다. 잠시만 기다려 주세요.'
+      : (v.isHost
+        ? '브로커와 다시 연결하는 중입니다. 잠시만 기다려 주세요.'
+        : '방장과 다시 연결하는 중입니다. 방장이 돌아오면 자동으로 이어집니다.')));
     return;
   }
 
@@ -281,13 +313,24 @@ function renderAction(v) {
 
   if (!mine) {
     pane.append(el('div', 'action-title', `${actingName} 님의 차례`));
-    pane.append(el('div', 'waiting', phaseHint(state, false)));
+    const seat = v.lobby.seats[state.players[acting]?.ref];
+    if (seat && !seat.connected) {
+      pane.append(el('div', 'waiting', seat.absent
+        ? `${actingName} 님이 접속 중이 아닙니다. 잠시 후 다른 사람이 대신 진행할 수 있습니다.`
+        : `${actingName} 님의 연결이 끊겼습니다. 돌아오기를 기다리는 중…`));
+    } else {
+      pane.append(el('div', 'waiting', phaseHint(state, false)));
+    }
     return;
   }
 
   const title = el('div', 'action-title', phaseTitle(state));
   const hint = el('div', 'action-hint', phaseHint(state, true));
   pane.append(title, hint);
+  if (v.proxyFor) {
+    // 자리를 비운 사람을 대신 진행하는 중 — 누구 대신인지 분명히 보여준다
+    pane.append(el('div', 'proxy-note', `⚠ ${v.proxyFor} 님이 접속 중이 아니라 대신 진행합니다.`));
+  }
   const row = el('div', 'action-row');
 
   switch (state.phase) {
@@ -528,7 +571,9 @@ function renderPlayers(v) {
     const card = el('div', 'player-card' + (i === acting ? ' turn' : ''));
     const head = el('div', 'ph');
     head.append(el('span', null, p.name));
-    if (i === v.me) head.append(el('span', 'you-tag', v.local ? '조작 중' : '나'));
+    const myIdx = v.mySeatPlayer ?? v.me;
+    if (i === myIdx) head.append(el('span', 'you-tag', v.local ? '조작 중' : '나'));
+    if (v.proxyFor && i === v.me) head.append(el('span', 'proxy-tag', '대신 진행'));
     const seat = v.lobby.seats[p.ref];
     if (seat && !seat.connected) head.append(el('span', 'off-tag', '끊김'));
     head.append(el('span', 'money', won(p.money)));
@@ -610,9 +655,11 @@ function renderConnection(v) {
   const bar = $('connBar');
   if (!v.status || v.status === 'ok') { bar.hidden = true; return; }
   bar.hidden = false;
-  bar.textContent = v.isHost
-    ? '⚠ 브로커 연결이 끊겼습니다. 복구를 시도하는 중…'
-    : '⚠ 방장과의 연결이 끊겼습니다. 다시 연결하는 중…  (방장이 돌아오면 자동으로 이어집니다)';
+  bar.textContent = v.serverless
+    ? '⚠ 서버와의 연결이 끊겼습니다. 다시 연결하는 중…'
+    : (v.isHost
+      ? '⚠ 브로커 연결이 끊겼습니다. 복구를 시도하는 중…'
+      : '⚠ 방장과의 연결이 끊겼습니다. 다시 연결하는 중…  (방장이 돌아오면 자동으로 이어집니다)');
 }
 
 // ── 이벤트 연결 ──────────────────────────────────────────────────────────────
@@ -651,20 +698,28 @@ $('btnRules').onclick = () => {
 };
 
 // ── 진입 ─────────────────────────────────────────────────────────────────────
-(function init() {
+async function init() {
   $('nameInput').value = Net.recallName();
   const params = new URLSearchParams(location.search);
+
+  // fireconfig.js 가 있으면 상시 서버(Firebase) 모드, 없으면 기존 P2P 모드
+  const useFire = params.get('net') !== 'p2p' && !!(await loadFirebase().catch(() => null));
+  $('modeTag').textContent = useFire ? '상시 서버 모드' : 'P2P 모드 (방장이 서버)';
+  $('modeTag').hidden = false;
 
   const localCount = parseInt(params.get('local') || '', 10);
   if (localCount >= MIN_PLAYERS && localCount <= MAX_PLAYERS) {
     // 로컬 모드 — 한 화면에서 전원을 조작 (연습/점검용)
     const r = new LocalRoom({ count: localCount, onChange: render });
-    r.open().then(() => { wireRoom(r); r.localStart(); render(); });
+    await r.open();
+    wireRoom(r);
+    r.localStart();
+    render();
     return;
   }
 
   // 진행 중이던 방이 저장돼 있으면 이어서 열 수 있게 한다
-  const saved = loadHostGame();
+  const saved = useFire ? null : loadHostGame();
   if (saved && !params.get('room')) {
     const resume = $('btnResume');
     resume.hidden = false;
@@ -693,4 +748,6 @@ $('btnRules').onclick = () => {
     $('nameInput').focus();
   }
   show('setup');
-})();
+}
+
+init();
