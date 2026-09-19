@@ -25,7 +25,9 @@
 2. 왼쪽 메뉴 **빌드 → Realtime Database → 데이터베이스 만들기**
    - 위치는 `asia-southeast1` 권장
    - 보안 규칙은 **잠금 모드**로 시작 (3번에서 덮어씁니다)
-3. **규칙** 탭에 이 저장소의 `acquire/database.rules.json` 내용을 붙여넣고 **게시**
+3. **규칙** 탭의 내용을 지우고 `acquire/database.rules.json` 내용을 붙여넣은 뒤 **게시**
+   - 기본값인 `".read": false, ".write": false`를 통째로 지우고 붙여넣어야 합니다
+   - 이 규칙은 `/rooms` 목록 조회를 막고, **방 코드를 아는 사람만** 해당 방에 접근하게 합니다
 4. **프로젝트 설정(⚙️) → 내 앱 → 웹 앱 추가(`</>`)** 로 앱을 만들면 `firebaseConfig` 객체가 나옵니다
 5. 그 값을 `acquire/fireconfig.js`에 채워 넣고 커밋 → 배포되면 상시 서버 모드로 동작합니다
 
