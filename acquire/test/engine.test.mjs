@@ -446,5 +446,111 @@ test('게임이 끝나면 비공개라도 보유 주식이 공개된다', () => 
   assert.equal(v.players[1].shares.luxor, 3);
 });
 
+
+console.log('\n되돌리기');
+test('단순 배치를 되돌리면 손패와 보드가 복원된다', () => {
+  const s = blank(); give(s, 0, T('5E'));
+  const handBefore = [...s.players[0].hand];
+  must(E.applyAction(s, 0, { type: 'place', tile: T('5E') }));
+  assert.equal(s.board[T('5E')], 'orphan');
+  assert.equal(s.phase, 'buy');
+  assert.equal(E.canUndo(s, 0), true);
+  must(E.applyAction(s, 0, { type: 'undo' }));
+  assert.equal(s.board[T('5E')], null);
+  assert.deepEqual(s.players[0].hand, handBefore);
+  assert.equal(s.phase, 'place');
+  assert.equal(E.canUndo(s, 0), false);
+});
+test('창립을 되돌리면 창립 보너스 주식도 회수된다', () => {
+  const s = blank(); s.board[T('5E')] = 'orphan'; give(s, 0, T('6E'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('6E') }));
+  must(E.applyAction(s, 0, { type: 'found', chain: 'luxor' }));
+  assert.equal(s.players[0].shares.luxor, 1);
+  assert.equal(s.pool.luxor, 24);
+  must(E.applyAction(s, 0, { type: 'undo' }));
+  assert.equal(s.players[0].shares.luxor, 0);
+  assert.equal(s.pool.luxor, 25);
+  assert.equal(s.board[T('6E')], null);
+  assert.equal(s.board[T('5E')], 'orphan');   // 원래 있던 독립 타일은 그대로
+  assert.equal(s.phase, 'place');
+});
+test('합병 배당과 보드 병합도 되돌려진다', () => {
+  const s = blank();
+  ['5E', '5F', '5D'].forEach(n => s.board[T(n)] = 'tower');
+  ['8E', '9E'].forEach(n => s.board[T(n)] = 'luxor');
+  s.board[T('6E')] = 'tower';
+  s.players[0].shares.luxor = 3;   // 놓는 사람만 주주 → 남의 결정이 끼지 않는다
+  const moneyBefore = s.players[0].money;
+  give(s, 0, T('7E'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('7E') }));
+  assert.equal(s.phase, 'dispose');
+  assert.ok(s.players[0].money > moneyBefore);   // 단독 주주 배당
+  must(E.applyAction(s, 0, { type: 'undo' }));
+  assert.equal(s.players[0].money, moneyBefore);
+  assert.equal(s.players[0].shares.luxor, 3);
+  assert.equal(s.board[T('8E')], 'luxor');       // 병합 취소
+  assert.equal(s.board[T('7E')], null);
+  assert.equal(s.phase, 'place');
+});
+test('다른 사람이 주식을 처분한 뒤에는 되돌릴 수 없다', () => {
+  const s = blank();
+  ['5E', '5F', '5D'].forEach(n => s.board[T(n)] = 'tower');
+  ['8E', '9E'].forEach(n => s.board[T(n)] = 'luxor');
+  s.board[T('6E')] = 'tower';
+  s.players[1].shares.luxor = 2;   // 놓는 사람이 아닌 1번이 주주
+  give(s, 0, T('7E'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('7E') }));
+  assert.equal(E.canUndo(s, 0), true);           // 아직은 가능
+  must(E.applyAction(s, 1, { type: 'dispose', sell: 2 }));
+  assert.equal(E.canUndo(s, 0), false);          // 남이 결정한 뒤로는 불가
+  assert.equal(E.applyAction(s, 0, { type: 'undo' }).ok, false);
+});
+test('턴이 끝나면 되돌릴 수 없다', () => {
+  const s = blank(); give(s, 0, T('5E'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('5E') }));
+  must(E.applyAction(s, 0, { type: 'buy', picks: {} }));   // 턴 종료
+  assert.equal(E.canUndo(s, 0), false);
+  assert.equal(E.applyAction(s, 0, { type: 'undo' }).ok, false);
+});
+test('타일을 놓은 사람만 되돌릴 수 있다', () => {
+  const s = blank(); give(s, 0, T('5E'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('5E') }));
+  assert.equal(E.applyAction(s, 1, { type: 'undo' }).ok, false);
+  assert.equal(E.canUndo(s, 1), false);
+});
+test('되돌리면 안전 체인 표시와 이벤트도 함께 취소된다', () => {
+  const s = blank();
+  for (let i = 0; i < 10; i++) s.board[T(`${i + 1}A`)] = 'tower';
+  give(s, 0, T('11A'));
+  must(E.applyAction(s, 0, { type: 'place', tile: T('11A') }));
+  assert.equal(s.events.filter(e => e.type === 'safe').length, 1);
+  assert.deepEqual(s.safeSeen, ['tower']);
+  must(E.applyAction(s, 0, { type: 'undo' }));
+  assert.equal(s.events.filter(e => e.type === 'safe').length, 0);
+  assert.deepEqual(s.safeSeen, []);
+  // 다시 놓으면 또 알린다
+  must(E.applyAction(s, 0, { type: 'place', tile: T('11A') }));
+  assert.equal(s.events.filter(e => e.type === 'safe').length, 1);
+});
+test('되돌린 뒤 기록에서 그 수가 사라진다', () => {
+  const s = blank(); give(s, 0, T('5E'));
+  const before = s.log.length;
+  must(E.applyAction(s, 0, { type: 'place', tile: T('5E') }));
+  assert.ok(s.log.some(e => e.msg.includes('5E 배치')));
+  must(E.applyAction(s, 0, { type: 'undo' }));
+  assert.ok(!s.log.some(e => e.msg.includes('5E 배치')));
+  assert.ok(s.log.some(e => e.msg.includes('되돌렸습니다')));
+  assert.equal(s.log.length, before + 1);   // 배치 기록은 빠지고 되돌림 기록만 남는다
+});
+test('sanitize는 스냅샷을 내보내지 않는다 (남의 손패가 들어 있음)', () => {
+  const s = E.createGame(['가', '나'], 9);
+  const tile = E.playableTiles(s, s.players[0].hand)[0];
+  must(E.applyAction(s, 0, { type: 'place', tile }));
+  const v = E.sanitize(s, 0);
+  assert.equal(v.undo, null);
+  assert.equal(v.canUndo, true);
+  assert.equal(E.sanitize(s, 1).canUndo, false);
+});
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);
