@@ -1,0 +1,9 @@
+{
+  "name": "acquire-online",
+  "private": true,
+  "type": "module",
+  "description": "정적 호스팅용 아콰이어 온라인 보드게임 (엔진 테스트를 위한 ESM 선언)",
+  "scripts": {
+    "test": "node test/engine.test.mjs"
+  }
+}
