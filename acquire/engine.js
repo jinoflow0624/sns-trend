@@ -209,6 +209,7 @@ export function createGame(entries, seed = Date.now(), opts = {}) {
     log: [],
     events: [],
     safeSeen: [],
+    undo: null,
     privateShares: !!opts.privateShares,
     ended: false,
     results: null,
@@ -277,6 +278,64 @@ function absorbGroup(state, tile, chainId) {
   }
 }
 
+// ── 되돌리기 ─────────────────────────────────────────────────────────────────
+//
+// 타일을 놓기 직전 상태를 저장해 두고, 같은 턴 안에서 되돌릴 수 있게 한다.
+// 상태 전체를 복사하면 DB로 오가는 양이 크게 늘어나므로, 타일 배치가 바꿀 수 있는
+// 부분만 담는다. 로그·이벤트는 번호(logSeq/eventSeq)만 기억했다가 잘라내는 식으로 되돌린다.
+// 주머니(bag)는 턴이 끝날 때만 바뀌므로 담지 않는다.
+function takeUndoSnapshot(state, playerIdx) {
+  state.undo = {
+    by: playerIdx,
+    board: state.board.slice(),
+    players: state.players.map(p => ({ money: p.money, shares: { ...p.shares }, hand: p.hand.slice() })),
+    pool: { ...state.pool },
+    phase: state.phase,
+    turn: state.turn,
+    merger: state.merger ? JSON.parse(JSON.stringify(state.merger)) : null,
+    pendingFound: state.pendingFound ? { ...state.pendingFound } : null,
+    buy: state.buy ? { ...state.buy } : null,
+    safeSeen: (state.safeSeen || []).slice(),
+    logSeq: state.logSeq || 0,
+    eventSeq: state.eventSeq || 0,
+  };
+}
+
+// 누가 지금 되돌릴 수 있는지 (UI가 버튼을 보여줄지 판단하는 데도 쓴다)
+export function canUndo(state, playerIdx) {
+  return !state.ended && !!state.undo && state.undo.by === playerIdx;
+}
+
+function actUndo(state, playerIdx) {
+  if (!state.undo) return fail('되돌릴 수 있는 수가 없습니다.');
+  if (state.undo.by !== playerIdx) return fail('타일을 놓은 사람만 되돌릴 수 있습니다.');
+
+  const u = state.undo;
+  const name = state.players[playerIdx].name;
+  state.board = u.board.slice();
+  state.players.forEach((p, i) => {
+    p.money = u.players[i].money;
+    p.shares = { ...u.players[i].shares };
+    p.hand = u.players[i].hand.slice();
+  });
+  state.pool = { ...u.pool };
+  state.phase = u.phase;
+  state.turn = u.turn;
+  state.merger = u.merger;
+  state.pendingFound = u.pendingFound;
+  state.buy = u.buy;
+  state.safeSeen = u.safeSeen.slice();
+  // 되돌린 수가 남긴 기록과 팝업을 지운다
+  state.log = state.log.filter(e => e.n <= u.logSeq);
+  state.logSeq = u.logSeq;
+  state.events = (state.events || []).filter(e => e.n <= u.eventSeq);
+  state.eventSeq = u.eventSeq;
+  state.undo = null;
+
+  log(state, `↩ ${name}이(가) 마지막 수를 되돌렸습니다.`);
+  return ok();
+}
+
 // ── 액션 처리 ────────────────────────────────────────────────────────────────
 // 반환: { ok: true } 또는 { ok: false, error: '...' }
 export function applyAction(state, playerIdx, action) {
@@ -289,6 +348,7 @@ export function applyAction(state, playerIdx, action) {
     dispose: actDispose,
     buy: actBuy,
     pass: actPass,
+    undo: actUndo,
   };
   const fn = handlers[action.type];
   if (!fn) return fail('알 수 없는 동작입니다.');
@@ -308,6 +368,7 @@ function actPlace(state, playerIdx, action) {
   if (status === 'dead') return fail('영구히 놓을 수 없는 타일입니다.');
   if (status === 'blocked') return fail('7개 체인이 모두 보드에 있어 새 체인을 만들 수 없습니다.');
 
+  takeUndoSnapshot(state, playerIdx);   // 되돌리기용 — 손패를 건드리기 전에 찍는다
   player.hand = player.hand.filter(t => t !== tile);
 
   const sizes = chainSizes(state);
@@ -498,6 +559,9 @@ function actDispose(state, playerIdx, action) {
     log(state, `   ${player.name}: ${chainInfo(defunct).ko} ${parts.join(', ') || '변동 없음'}`);
   }
 
+  // 다른 사람이 결정을 내린 뒤에는 되돌릴 수 없다
+  if (state.undo && state.undo.by !== playerIdx) state.undo = null;
+
   m.queueIdx++;
   if (m.queueIdx >= m.queue.length) return completeDefunct(state);
   return ok();
@@ -584,6 +648,7 @@ function actPass(state, playerIdx) {
 }
 
 function endTurn(state) {
+  state.undo = null;   // 턴을 넘기면 되돌릴 수 없다
   const player = state.players[state.turn];
   refill(state, player);
   state.buy = null;
@@ -596,6 +661,7 @@ function endTurn(state) {
 }
 
 function endGame(state, declarerIdx) {
+  state.undo = null;
   log(state, `🏁 ${state.players[declarerIdx].name}이(가) 게임 종료를 선언했습니다.`);
   const sizes = chainSizes(state);
   const active = CHAIN_IDS.filter(id => sizes[id] > 0);
@@ -661,6 +727,9 @@ export function sanitize(state, forPlayer) {
     ...state,
     bag: null,
     bagCount: state.bag.length,
+    // 스냅샷에는 모두의 손패가 들어 있다 — 내보내지 않고 되돌리기 가능 여부만 알린다
+    undo: null,
+    canUndo: canUndo(state, forPlayer),
     players: state.players.map((p, i) => ({
       ...p,
       hand: i === forPlayer ? p.hand : null,

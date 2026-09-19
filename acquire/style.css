@@ -162,9 +162,17 @@ h1, h2, h3 { margin: 0 0 .5em; line-height: 1.25; }
   background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 10px; box-shadow: var(--shadow);
 }
+/* 데스크톱에서는 보드가 너무 커져 세로 스크롤이 생긴다.
+   폭을 절반 수준으로 묶고 가운데 정렬해 한 화면에 전부 들어오게 한다.
+   화면이 낮으면 높이에 맞춰 더 줄인다 (보드는 12:9 비율). */
+@media (min-width: 901px) {
+  /* .board-pane 이 flex 라 margin-inline:auto 를 쓰면 stretch 가 꺼져 내용 크기로 줄어든다.
+     width + max-width 로 크기를 정하고 align-self 로 가운데에 둔다. */
+  .board { width: 100%; max-width: 460px; align-self: center; }
+}
 .cell {
   aspect-ratio: 1; border-radius: 5px; background: var(--empty-cell);
-  display: grid; place-items: center; font-size: clamp(7px, 1.1vw, 11px);
+  display: grid; place-items: center; font-size: clamp(7px, 1vw, 10px);
   font-weight: 700; color: var(--text-dim); border: none; padding: 0;
   font-variant-numeric: tabular-nums; user-select: none;
 }
@@ -387,3 +395,5 @@ h1, h2, h3 { margin: 0 0 .5em; line-height: 1.25; }
   padding: 7px 14px; font-size: 12.5px; font-weight: 600;
 }
 .usage-bar.danger { background: var(--danger); }
+.btn-undo { border-color: var(--text-dim); color: var(--text-dim); font-weight: 600; }
+.btn-undo:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }

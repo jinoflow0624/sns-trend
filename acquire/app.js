@@ -417,6 +417,19 @@ function renderAction(v) {
       break;
   }
 
+  // 되돌리기 — 타일을 놓은 뒤 턴이 끝나기 전까지, 놓은 사람만
+  if (state.canUndo) {
+    const undo = el('button', 'btn btn-undo', '↩ 방금 놓은 타일 되돌리기');
+    undo.onclick = () => {
+      ui.selTile = null;
+      ui.buy = {};
+      ui.dispose = { sell: 0, trade: 0 };
+      room.localAct({ type: 'undo' });
+      toast('마지막 수를 되돌렸습니다');
+    };
+    row.append(undo);
+  }
+
   pane.append(row);
   if (v.error) pane.append(el('div', 'action-err', v.error));
 }
@@ -792,6 +805,9 @@ function drainEvents(v) {
   if (!state) return;
 
   const events = state.events || [];
+  // 되돌리기로 이벤트가 지워졌으면 기준 번호도 함께 낮춘다 (다시 놓으면 또 알리도록)
+  const maxN = events.length ? Math.max(...events.map(e => e.n)) : 0;
+  if (ui.seenEvent > maxN) ui.seenEvent = maxN;
   if (ui.seenEvent === 0 && events.length) {
     // 처음 들어왔거나 재접속한 경우 — 지난 사건을 몰아서 띄우지 않는다
     ui.seenEvent = Math.max(...events.map(e => e.n));
