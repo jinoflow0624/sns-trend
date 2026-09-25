@@ -238,6 +238,7 @@ function renderBoard(v) {
     if (val && val !== 'orphan') {
       const info = E.chainInfo(val);
       cell.classList.add('chain');
+      if (info.ink) cell.classList.add('ink');   // 밝은 체인은 검은 글자
       cell.style.background = info.color;
       cell.textContent = info.name[0];
       cell.title = `${info.ko} · ${E.tileName(i)}`;
@@ -594,6 +595,7 @@ function renderChains(v) {
   for (const c of E.CHAINS) {
     const size = sizes[c.id];
     const tr = el('tr', size === 0 ? 'gone' : '');
+    tr.dataset.tier = c.tier;   // 등급이 높을수록 건물 실루엣이 높아진다
     const nameCell = el('td');
     const cn = el('div', 'cn');
     const sw = el('span', 'swatch'); sw.style.background = c.color;
@@ -642,7 +644,7 @@ function renderPlayers(v) {
       const pills = el('div', 'shares');
       for (const id of held) {
         const info = E.chainInfo(id);
-        const pill = el('span', 'share-pill', `${info.name[0]} ${p.shares[id]}`);
+        const pill = el('span', 'share-pill' + (info.ink ? ' ink' : ''), `${info.name[0]} ${p.shares[id]}`);
         pill.style.background = info.color;
         pill.title = `${info.ko} ${p.shares[id]}장${sizes[id] ? ` · 평가액 ${won(p.shares[id] * E.stockPrice(id, sizes[id]))}` : ' · 소멸 상태'}`;
         pills.append(pill);
@@ -780,7 +782,7 @@ function popupResults(state) {
       const pills = el('div', 'rank-shares');
       for (const [id, n] of held) {
         const info = E.chainInfo(id);
-        const pill = el('span', 'share-pill', `${info.name[0]} ${n}`);
+        const pill = el('span', 'share-pill' + (info.ink ? ' ink' : ''), `${info.name[0]} ${n}`);
         pill.style.background = info.color;
         pill.title = `${info.ko} ${n}장`;
         pills.append(pill);

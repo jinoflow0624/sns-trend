@@ -11,15 +11,19 @@ export const START_MONEY = 6000;
 export const HAND_SIZE = 6;
 export const MAX_BUY = 3;
 
+// 1962년 인쇄물 톤. 색은 선명하게 두되(게임의 핵심 신호라서),
+// 밝은 앰버·주황은 간판처럼 검은 글자를 써서 대비를 확보한다(ink: true).
+// 모든 조합이 흰/검은 글자 기준 4.7:1 이상.
 export const CHAINS = [
-  { id: 'tower',       name: 'Tower',       ko: '타워',       color: '#d9a400', tier: 0 },
-  { id: 'luxor',       name: 'Luxor',       ko: '룩소르',     color: '#d93f2f', tier: 0 },
-  { id: 'american',    name: 'American',    ko: '아메리칸',   color: '#2f6fd9', tier: 1 },
-  { id: 'worldwide',   name: 'Worldwide',   ko: '월드와이드', color: '#8348c9', tier: 1 },
-  { id: 'festival',    name: 'Festival',    ko: '페스티벌',   color: '#1f9450', tier: 1 },
-  { id: 'imperial',    name: 'Imperial',    ko: '임페리얼',   color: '#d97a1f', tier: 2 },
-  { id: 'continental', name: 'Continental', ko: '컨티넨탈',   color: '#128c83', tier: 2 },
+  { id: 'tower',       name: 'Tower',       ko: '타워',       color: '#E3AF1B', ink: true,  tier: 0 },
+  { id: 'luxor',       name: 'Luxor',       ko: '룩소르',     color: '#C0392B', ink: false, tier: 0 },
+  { id: 'american',    name: 'American',    ko: '아메리칸',   color: '#2C64A8', ink: false, tier: 1 },
+  { id: 'worldwide',   name: 'Worldwide',   ko: '월드와이드', color: '#7A4A9E', ink: false, tier: 1 },
+  { id: 'festival',    name: 'Festival',    ko: '페스티벌',   color: '#2E7D4F', ink: false, tier: 1 },
+  { id: 'imperial',    name: 'Imperial',    ko: '임페리얼',   color: '#DA6A16', ink: true,  tier: 2 },
+  { id: 'continental', name: 'Continental', ko: '컨티넨탈',   color: '#14807A', ink: false, tier: 2 },
 ];
+export const CHAIN_INK = '#241F1A';   // 밝은 체인 위에 얹는 글자색
 export const CHAIN_IDS = CHAINS.map(c => c.id);
 const CHAIN_BY_ID = Object.fromEntries(CHAINS.map(c => [c.id, c]));
 export const chainInfo = id => CHAIN_BY_ID[id];
