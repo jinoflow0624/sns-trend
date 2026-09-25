@@ -126,7 +126,7 @@ test('7개 체인이 모두 있으면 8번째 창립 타일은 blocked', () => {
 console.log('\n합병');
 function mergerSetup() {
   const s = blank();
-  // Tower 3칸 (생존) / Luxor 2칸 (소멸), 7E로 연결
+  // Tower 3칸 (생존) / Sackson 2칸 (소멸), 7E로 연결
   ['5E', '5F', '5D'].forEach(n => s.board[T(n)] = 'tower');
   ['8E', '9E'].forEach(n => s.board[T(n)] = 'luxor');
   s.board[T('6E')] = 'tower';
@@ -139,13 +139,13 @@ test('큰 체인이 작은 체인을 흡수하고 배당 지급', () => {
   s.players[2].shares.luxor = 2;
   const before1 = s.players[1].money, before2 = s.players[2].money;
   must(E.applyAction(s, 0, { type: 'place', tile: T('7E') }));
-  // Luxor 2칸 → 주가 $200, 대주주 $2000 / 소주주 $1000
+  // Sackson 2칸 → 주가 $200, 대주주 $2000 / 소주주 $1000
   assert.equal(s.players[1].money, before1 + 2000);
   assert.equal(s.players[2].money, before2 + 1000);
   assert.equal(s.phase, 'dispose');
   assert.equal(s.merger.survivor, 'tower');
   assert.equal(s.merger.current, 'luxor');
-  assert.deepEqual(s.merger.queue, [1, 2]); // 타일 놓은 사람(0)은 Luxor 미보유 → 제외
+  assert.deepEqual(s.merger.queue, [1, 2]); // 타일 놓은 사람(0)은 Sackson 미보유 → 제외
 });
 test('처분: 매각 / 2대1 교환 / 보유', () => {
   const s = mergerSetup();

@@ -194,7 +194,7 @@ python3 -m http.server 8777    # 저장소 루트에서
 
 클래식 룰을 전부 구현했다.
 
-- 12×9 보드(`1A`~`12I`), 7개 체인(저가 Tower·Luxor / 중가 American·Worldwide·Festival / 고가 Imperial·Continental), 체인당 주식 25장, 초기 자금 $6,000
+- 12×9 보드(`1A`~`12I`), 7개 체인(저가 Tower·Sackson / 중가 American·Worldwide·Festival / 고가 Imperial·Continental), 체인당 주식 25장, 초기 자금 $6,000
 - 시작 타일 1장씩 뽑아 **`1A`에 가까운 순으로 선공** 결정
 - 턴: **타일 1개 배치 → 주식 최대 3장 구매 → 손패 6장으로 보충**
 - 창립(**창립 보너스 주식 1장**), 확장, 합병
