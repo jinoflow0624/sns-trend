@@ -16,7 +16,9 @@ export const MAX_BUY = 3;
 // 모든 조합이 흰/검은 글자 기준 4.7:1 이상.
 export const CHAINS = [
   { id: 'tower',       name: 'Tower',       ko: '타워',       color: '#E3AF1B', ink: true,  tier: 0 },
-  { id: 'luxor',       name: 'Luxor',       ko: '룩소르',     color: '#C0392B', ink: false, tier: 0 },
+  // 후기 아발론힐판에서 룩소르를 대체한 이름. 내부 id는 'luxor' 그대로 둔다 —
+  // 진행 중인 게임의 보드·보유 주식·재고가 전부 이 id로 저장돼 있어 바꾸면 깨진다.
+  { id: 'luxor',       name: 'Sackson',     ko: '색슨',       color: '#C0392B', ink: false, tier: 0 },
   { id: 'american',    name: 'American',    ko: '아메리칸',   color: '#2C64A8', ink: false, tier: 1 },
   { id: 'worldwide',   name: 'Worldwide',   ko: '월드와이드', color: '#7A4A9E', ink: false, tier: 1 },
   { id: 'festival',    name: 'Festival',    ko: '페스티벌',   color: '#2E7D4F', ink: false, tier: 1 },
