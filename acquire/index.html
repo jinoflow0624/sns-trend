@@ -2,165 +2,39 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>아콰이어 온라인 — Acquire</title>
-<meta name="description" content="링크만 있으면 바로 들어오는 아콰이어(Acquire) 클래식 온라인 보드게임. 2~6인.">
-<meta name="color-scheme" content="light dark">
-<meta property="og:title" content="아콰이어 온라인">
-<meta property="og:description" content="링크만 공유하면 바로 같이 하는 아콰이어 클래식. 2~6인.">
-<link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🏨</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>아콰이어 온라인 — 새 주소로 이동합니다</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://jinoflow0624.github.io/">
+<script>
+  // 초대 링크의 ?room=코드 와 #해시를 그대로 넘겨야 방으로 바로 들어간다
+  location.replace('https://jinoflow0624.github.io/' + location.search + location.hash);
+</script>
+<meta http-equiv="refresh" content="1; url=https://jinoflow0624.github.io/">
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100dvh; display: grid; place-items: center;
+    background: #EFE6D3; color: #241F1A; text-align: center; padding: 24px;
+    font-family: Futura, 'Century Gothic', 'Avenir Next', Pretendard,
+                 -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { body { background: #17140F; color: #EFE5D0; } }
+  .box { max-width: 380px; }
+  h1 { font-size: 20px; margin: 0 0 10px; letter-spacing: .02em; }
+  p { font-size: 14px; line-height: 1.6; opacity: .8; margin: 0 0 18px; }
+  a {
+    display: inline-block; padding: 11px 20px; border: 2px solid currentColor;
+    border-radius: 4px; color: inherit; text-decoration: none; font-weight: 700;
+    box-shadow: 3px 3px 0 rgba(128, 104, 60, .3);
+  }
+</style>
 </head>
 <body>
-
-<!-- ── 시작 화면 ─────────────────────────────────────────────────────────── -->
-<main id="setup" class="setup">
-  <div class="setup-card">
-    <h1 class="brand">🏨 아콰이어 <span>온라인</span></h1>
-    <p class="brand-sub">호텔 체인을 세우고, 합병으로 돈을 버는 클래식 보드게임 · 2~6인</p>
-
-    <label class="field">
-      <span>내 이름</span>
-      <input id="nameInput" type="text" maxlength="12" placeholder="최대 12자" autocomplete="nickname">
-    </label>
-
-    <div id="joinBlock" class="field-row" hidden>
-      <label class="field">
-        <span>방 코드</span>
-        <input id="codeInput" type="text" maxlength="7" placeholder="예: K7QMB" autocapitalize="characters" spellcheck="false">
-      </label>
-    </div>
-
-    <label class="opt-row">
-      <input id="optPrivate" type="checkbox">
-      <span><b>내 주식 비공개</b><small>다른 사람이 내 보유 종목·수량을 볼 수 없습니다 (방 만들 때만 적용)</small></span>
-    </label>
-
-    <div class="setup-actions">
-      <button id="btnHost" class="btn btn-primary">방 만들기</button>
-      <button id="btnJoin" class="btn">코드로 참가</button>
-    </div>
-    <button id="btnCancelAuto" class="btn btn-wide btn-discard" hidden>자동 복귀 취소</button>
-    <button id="btnResume" class="btn btn-wide btn-resume" hidden></button>
-    <button id="btnDiscard" class="btn btn-wide btn-discard" hidden>저장된 게임 버리기</button>
-
-    <p id="setupMsg" class="setup-msg" role="status"></p>
-
-    <details class="rules">
-      <summary>📖 룰 요약 보기</summary>
-      <div class="rules-body">
-        <h3>한 턴에 하는 일</h3>
-        <ol>
-          <li><b>타일 1개 놓기</b> — 빈칸에 놓거나, 독립 타일에 붙여 <b>체인 창립</b>(무료 주식 1장), 기존 체인에 붙여 <b>확장</b>, 두 체인을 이어 <b>합병</b></li>
-          <li><b>주식 최대 3장 구매</b> — 보드에 있는 체인만, 현재 주가로</li>
-          <li><b>타일 보충</b> — 손패 6장으로</li>
-        </ol>
-        <h3>합병</h3>
-        <ul>
-          <li>큰 체인이 작은 체인을 흡수 (동률이면 타일 놓은 사람이 선택)</li>
-          <li>소멸 체인의 <b>대주주 10×주가</b>, <b>소주주 5×주가</b> 배당. 주주가 1명이면 둘 다 수령. 동률이면 합쳐서 균등 분배($100 올림)</li>
-          <li>소멸 주식은 <b>보유 / 매각 / 2장→생존 체인 1장 교환</b> 중 선택</li>
-          <li><b>11칸 이상 = 안전 체인</b>, 절대 소멸하지 않음. 안전 체인 2개를 잇는 타일은 영구 사용 불가</li>
-        </ul>
-        <h3>종료</h3>
-        <p>어떤 체인이 41칸 이상이거나 보드의 모든 체인이 안전해지면, 자기 턴에 종료를 선언할 수 있습니다. 모든 체인 배당을 지급하고 주식을 전량 현금화해 <b>현금이 가장 많은 사람이 승리</b>.</p>
-        <table class="price-table">
-          <thead><tr><th>칸</th><th>저가<br><small>Tower·Sackson</small></th><th>중가<br><small>American·Worldwide·Festival</small></th><th>고가<br><small>Imperial·Continental</small></th></tr></thead>
-          <tbody>
-            <tr><td>2</td><td>$200</td><td>$300</td><td>$400</td></tr>
-            <tr><td>3</td><td>$300</td><td>$400</td><td>$500</td></tr>
-            <tr><td>4</td><td>$400</td><td>$500</td><td>$600</td></tr>
-            <tr><td>5</td><td>$500</td><td>$600</td><td>$700</td></tr>
-            <tr><td>6–10</td><td>$600</td><td>$700</td><td>$800</td></tr>
-            <tr><td>11–20</td><td>$700</td><td>$800</td><td>$900</td></tr>
-            <tr><td>21–30</td><td>$800</td><td>$900</td><td>$1,000</td></tr>
-            <tr><td>31–40</td><td>$900</td><td>$1,000</td><td>$1,100</td></tr>
-            <tr><td>41+</td><td>$1,000</td><td>$1,100</td><td>$1,200</td></tr>
-          </tbody>
-        </table>
-        <p class="note">대주주 배당 = 주가 × 10 · 소주주 배당 = 주가 × 5</p>
-      </div>
-    </details>
-
-    <p id="modeTag" class="mode-tag" hidden></p>
-    <p class="fineprint">P2P 모드에서는 방장 브라우저가 서버 역할을 하므로, 게임 중 방장이 이 탭을 닫지 않아야 합니다. 상시 서버 모드에서는 누가 나가도 게임이 유지됩니다.</p>
+  <div class="box">
+    <h1>🏨 주소가 짧아졌습니다</h1>
+    <p>아콰이어 온라인은 이제 아래 주소로 옮겼습니다.<br>잠시 후 자동으로 이동합니다.</p>
+    <a href="https://jinoflow0624.github.io/">jinoflow0624.github.io 로 이동</a>
   </div>
-</main>
-
-<!-- ── 로비 ──────────────────────────────────────────────────────────────── -->
-<main id="lobby" class="lobby" hidden>
-  <div class="setup-card">
-    <h1 class="brand">대기실</h1>
-    <div class="code-box">
-      <div>
-        <div class="code-label">방 코드</div>
-        <div id="lobbyCode" class="code-value">—</div>
-      </div>
-      <button id="btnCopy" class="btn btn-small">🔗 초대 링크 복사</button>
-    </div>
-    <p id="lobbyPrivate" class="mode-tag" hidden>🔒 주식 비공개 모드</p>
-    <ul id="lobbySeats" class="seat-list"></ul>
-    <p id="lobbyMsg" class="setup-msg" role="status"></p>
-    <button id="btnStart" class="btn btn-primary btn-wide" hidden>게임 시작</button>
-    <p id="lobbyWait" class="fineprint">방장이 게임을 시작할 때까지 기다리는 중…</p>
-  </div>
-</main>
-
-<!-- ── 게임 화면 ─────────────────────────────────────────────────────────── -->
-<div id="game" class="game" hidden>
-  <header class="topbar">
-    <div class="topbar-left">
-      <span class="topbar-brand">🏨 아콰이어</span>
-      <button id="btnCopy2" class="chip" title="초대 링크 복사">방 <b id="topCode">—</b> · 🔗</button>
-    </div>
-    <div id="turnBanner" class="turn-banner">—</div>
-    <button id="btnMute" class="chip" title="소리 끄기">🔊</button>
-    <button id="btnRules" class="chip">📖 룰</button>
-    <button id="btnLeave" class="chip chip-danger" title="방에서 나가기">나가기</button>
-  </header>
-  <div id="connBar" class="conn-bar" role="status" hidden></div>
-  <div id="usageBar" class="usage-bar" role="status" hidden></div>
-
-  <div class="layout">
-    <section class="board-pane">
-      <div id="board" class="board" aria-label="게임 보드"></div>
-      <div id="actionPane" class="action-pane"></div>
-      <div id="hand" class="hand"></div>
-    </section>
-
-    <aside class="side-pane">
-      <div class="side-tabs">
-        <button class="side-tab is-on" data-tab="info">현황</button>
-        <button class="side-tab" data-tab="log">기록</button>
-        <button class="side-tab" data-tab="chat">채팅<span id="chatBadge" class="tab-badge" hidden></span></button>
-      </div>
-      <div id="tab-info" class="side-body">
-        <div id="chainTable"></div>
-        <div id="playerList"></div>
-      </div>
-      <div id="tab-log" class="side-body" hidden><div id="logList" class="log-list"></div></div>
-      <div id="tab-chat" class="side-body" hidden>
-        <div id="chatList" class="log-list"></div>
-        <form id="chatForm" class="chat-form">
-          <input id="chatInput" type="text" maxlength="200" placeholder="메시지…" autocomplete="off">
-          <button class="btn btn-small" type="submit">보내기</button>
-        </form>
-      </div>
-    </aside>
-  </div>
-</div>
-
-<div id="toast" class="toast" hidden></div>
-
-<dialog id="fxDialog" class="fx-dialog">
-  <div id="fxBody"></div>
-</dialog>
-
-<dialog id="rulesDialog" class="rules-dialog">
-  <div class="rules-body" id="rulesDialogBody"></div>
-  <form method="dialog"><button class="btn btn-wide">닫기</button></form>
-</dialog>
-
-<script type="module" src="app.js"></script>
 </body>
 </html>
