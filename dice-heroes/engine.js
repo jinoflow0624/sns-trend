@@ -448,28 +448,34 @@ export function useNudge(s, i, delta) {
 }
 
 // 특성·직업·이벤트까지 반영한 항목 점수. 주사위 6개면 가장 좋은 5개 조합.
-export function catScore(s, p, cat, d = s.dice) {
-  const ev = event(s);
-  let best = 0;
-  for (const set of fiveSets(d)) {
-    const base = baseScore(cat, set);
-    if (base <= 0) continue;
-    let v = base;
+// 칸 점수를 '기본 점수 + 보너스 목록'으로 나눠 돌려준다 (화면에 어디서 몇 점 붙었는지 보여 주려고).
+// 보너스는 기본 점수가 0보다 클 때만 붙는다. 주사위 6개면 기본 점수가 가장 큰 5개 조합.
+export function scoreParts(s, p, cat, d = s.dice) {
+  const base = Math.max(0, ...fiveSets(d).map(set => baseScore(cat, set)));
+  const bonus = [];
+  if (base > 0) {
+    const ev = event(s);
+    const add = (ko, amt) => { if (amt) bonus.push({ ko, amt }); };
     if (UPPER_IDS.includes(cat)) {
-      v += 2 * perkCount(p, 'basic');
-      if (ev === 'harvest') v += 5;
+      add('기초 수련', 2 * perkCount(p, 'basic'));
+      add('풍년', ev === 'harvest' ? 5 : 0);
     }
-    if (cat === 'choice') v += 8 * perkCount(p, 'choice');
-    if (cat === 'full') v += 10 * perkCount(p, 'full');
-    if (cat === 'sstr' || cat === 'lstr') v += 8 * perkCount(p, 'straight');
-    if (cat === 'four') v += 10 * perkCount(p, 'fourk');
+    if (cat === 'choice') add('선택의 달인', 8 * perkCount(p, 'choice'));
+    if (cat === 'full') add('풀하우스 장인', 10 * perkCount(p, 'full'));
+    if (cat === 'sstr' || cat === 'lstr') add('질주', 8 * perkCount(p, 'straight'));
+    if (cat === 'four') add('사냥 본능', 10 * perkCount(p, 'fourk'));
     if (cat === 'yacht') {
-      v += 40 * perkCount(p, 'yacht') + (p.cls === 'gambler' ? 12 : 0);
-      if (ev === 'jackpot') v += 50;
+      add('요트 신봉자', 40 * perkCount(p, 'yacht'));
+      add('도박사', p.cls === 'gambler' ? 12 : 0);
+      add('요트 잭팟', ev === 'jackpot' ? 50 : 0);
     }
-    best = Math.max(best, v);
   }
-  return best;
+  return { base, bonus, total: base + bonus.reduce((a, b) => a + b.amt, 0) };
+}
+
+// 특성·직업·이벤트까지 반영한 항목 점수
+export function catScore(s, p, cat, d = s.dice) {
+  return scoreParts(s, p, cat, d).total;
 }
 
 // 의뢰 보상 — 난이도가 높을수록 뒤집기·조정을 더 준다
@@ -502,6 +508,13 @@ export function xpMultiplier(s, p) {
 export const BARD_BONUS = 1;
 const bardBonus = (p, pts, quests) => (p.cls === 'bard' && quests.length && pts > 0 ? BARD_BONUS : 0);
 
+// 점수표 미리보기·기록 알림용: 음유시인 보너스까지 합친 보너스 목록
+export function bonusList(s, p, cat, quests = claimableQuests(s, p)) {
+  const parts = scoreParts(s, p, cat);
+  const bard = bardBonus(p, parts.total, quests);
+  return bard ? [...parts.bonus, { ko: '음유시인', amt: bard }] : parts.bonus;
+}
+
 export function preview(s) {
   const p = current(s);
   const quests = claimableQuests(s, p);
@@ -510,9 +523,10 @@ export function preview(s) {
     if (p.scores[c.id] !== null) return { id: c.id, taken: true };
     let pts = catScore(s, p, c.id);
     pts += bardBonus(p, pts, quests);
+    const bonus = bonusList(s, p, c.id, quests);
     let xp = pts > 0 ? pts : ZERO_XP + (perkCount(p, 'insure') ? 20 : 0) + (event(s) === 'zen' ? 20 : 0);
     xp = Math.round((xp + qXp) * xpMultiplier(s, p));
-    return { id: c.id, pts, xp, taken: false };
+    return { id: c.id, pts, xp, bonus, taken: false };
   });
 }
 
@@ -542,6 +556,7 @@ export function commitScore(s, cat) {
   if (p.scores[cat] !== null) fail('이미 기록한 항목입니다.');
 
   const quests = claimableQuests(s, p);
+  const bonus = bonusList(s, p, cat, quests);
   let pts = catScore(s, p, cat);
   pts += bardBonus(p, pts, quests);
   const before = cardTotal(p);
@@ -558,7 +573,7 @@ export function commitScore(s, cat) {
   }
   const catName = catInfo(cat).ko;
   log(s, `${p.name} · ${catName} ${pts}점`);
-  fx(s, { type: 'score', player: s.turn, cat, pts });
+  fx(s, { type: 'score', player: s.turn, cat, pts, bonus });
   if (s.boss) {
     // 점수(상단 보너스 달성분 포함)가 곧 피해. 드래곤 갑옷은 상단 피해를 깎는다.
     let dmg = cardTotal(p) - before;

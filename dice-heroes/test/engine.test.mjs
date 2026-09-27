@@ -146,6 +146,24 @@ test('상태는 JSON 왕복해도 그대로 이어진다', () => {
   assert.ok(s.round >= 1);
 });
 
+test('칸 점수 = 기본 점수 + 보너스 합 (보너스는 모두 이름이 붙는다)', () => {
+  for (let seed = 1; seed <= 60; seed++) {
+    const s = E.createGame([{ name: 'A', cls: E.CLASSES[seed % 5].id, bot: true }, { name: 'B', cls: 'bard', bot: true }], seed);
+    while (!s.ended) {
+      if (s.phase === 'roll' && s.rolled) {
+        const p = E.current(s);
+        for (const r of E.preview(s)) {
+          if (r.taken) continue;
+          const base = Math.max(0, ...E.fiveSets(s.dice).map(d => E.baseScore(r.id, d)));
+          assert.equal(r.pts, base + r.bonus.reduce((a, b) => a + b.amt, 0), `${r.id} ${s.dice}`);
+          if (!base) assert.equal(r.pts, 0);
+        }
+      }
+      E.applyBot(s, E.botAction(s, () => E.rand(s), 4));
+    }
+  }
+});
+
 console.log('\n특성 카드 후보');
 test('이미 채운 칸의 특성은 후보에 나오지 않는다', () => {
   for (let seed = 1; seed <= 40; seed++) {
