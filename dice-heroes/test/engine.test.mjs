@@ -31,7 +31,7 @@ test('스트레이트 15 / 30, 요트 50', () => {
   assert.equal(E.baseScore('lstr', [1, 2, 3, 4, 6]), 0);
   assert.equal(E.baseScore('yacht', [4, 4, 4, 4, 4]), 50);
 });
-test('상단 63점 이상이면 보너스 35, 전사는 55', () => {
+test('상단 63점 이상이면 보너스 35, 전사는 50', () => {
   const s = game();
   const p = s.players[0];
   Object.assign(p.scores, { ones: 3, twos: 6, threes: 9, fours: 12, fives: 15, sixes: 12 }); // 57
@@ -98,7 +98,7 @@ test('0점을 기록하면 위로 경험치', () => {
   E.commitScore(s, 'yacht');
   assert.equal(s.players[0].xp, E.ZERO_XP);
 });
-test('퀘스트를 깨면 명성·경험치를 얻고 보드가 다시 채워진다', () => {
+test('의뢰를 깨면 난이도별 뒤집기·조정과 경험치를 얻고 보드가 다시 채워진다', () => {
   const s = game();
   s.board = ['high', 'pairs', 'odd'];
   E.roll(s);
@@ -106,7 +106,7 @@ test('퀘스트를 깨면 명성·경험치를 얻고 보드가 다시 채워진
   E.commitScore(s, 'choice');
   const p = s.players[0];
   assert.equal(p.questsDone.length, 1);
-  assert.equal(p.fame, 3);
+  assert.equal(p.flip + p.nudge, 1);                  // 쉬운 의뢰(합계 25↑·두 쌍) → 조정 1
   assert.equal(s.board.length, 3);
 });
 test('연쇄 의뢰면 퀘스트 2개', () => {
@@ -173,24 +173,32 @@ test('고를 특성이 모자라면 즉시 보상 카드로 채우고, 고르면
   const offer = p.offers[0];
   assert.equal(offer.length, 3);
   assert.ok(offer.every(id => E.perkInfo(id).filler));
-  const fame0 = p.fame;
-  E.pickPerk(s, offer.includes('fameBag') ? 'fameBag' : offer[0]);
-  assert.ok(p.fame > fame0 || p.flip > 0);
-  assert.equal(p.perks.fameBag, undefined);
+  const c0 = p.flip + p.nudge;
+  E.pickPerk(s, offer[0]);
+  assert.ok(p.flip + p.nudge > c0);
+  assert.equal(p.perks[offer[0]], undefined);
+});
+
+test('의뢰 난이도가 높을수록 보상이 크다', () => {
+  const s = game();
+  const p = s.players[0];
+  const tot = q => { const r = E.questReward(s, p, q); return r.flip * 2 + r.nudge; };
+  assert.ok(tot('pairs') < tot('quad'));
+  assert.ok(tot('quad') < tot('yacht'));
 });
 
 console.log('\n협동모드');
 const coop = (boss, diff = 1, n = 2) =>
   E.createGame([...Array(n)].map((_, i) => ({ name: `P${i}`, cls: 'mage' })), 11, { mode: 'coop', boss, diff });
-test('점수가 곧 보스 피해, 명성은 2배 피해', () => {
+test('점수가 곧 보스 피해, 의뢰는 뒤집기·조정 보상', () => {
   const s = coop('orc');
   const hp0 = s.boss.hp;
   s.board = ['high', 'pairs', 'odd'];
   E.roll(s);
-  s.dice = [6, 6, 5, 5, 4];                  // 초이스 26 + 의뢰(명성 3) → 26 + 6
+  s.dice = [6, 6, 5, 5, 4];                  // 초이스 26, 의뢰 보상은 충전으로
   E.commitScore(s, 'choice');
-  assert.equal(hp0 - s.boss.hp, 26 + 3 * E.FAME_DAMAGE);
-  assert.equal(Math.round(s.boss.dmg[0]), 32);
+  assert.equal(hp0 - s.boss.hp, 26);
+  assert.equal(s.players[0].nudge, 1);
 });
 test('드래곤 용린 갑옷: 상단 피해 감소', () => {
   const s = coop('dragon', 1);

@@ -77,15 +77,15 @@ export function fiveSets(d) {
 // ── 직업 ─────────────────────────────────────────────────────────────────────
 export const CLASSES = [
   { id: 'warrior', ko: '전사',     icon: '🗡️', color: '#FF6B5B',
-    desc: '상단 보너스 조건이 63 → 55점으로 쉬워진다' },
+    desc: '상단 보너스 조건이 63 → 50점으로 쉬워진다' },
   { id: 'rogue',   ko: '도적',     icon: '🗝️', color: '#3EE6B4',
     desc: '뒤집기 1회를 들고 시작한다' },
   { id: 'mage',    ko: '마법사',   icon: '🔮', color: '#B36BFF',
     desc: '얻는 경험치 +35%' },
   { id: 'bard',    ko: '음유시인', icon: '🎻', color: '#4FB3FF',
-    desc: '퀘스트를 깰 때마다 명성 +3' },
+    desc: '의뢰를 깬 턴에 기록하는 점수 +1, 의뢰 보상 조정 +1' },
   { id: 'gambler', ko: '도박사',   icon: '🎲', color: '#FFC83D',
-    desc: '요트 +15점, 포카인드 +5점' },
+    desc: '요트 +12점' },
 ];
 export const classInfo = id => CLASSES.find(c => c.id === id);
 
@@ -96,9 +96,9 @@ export const PERKS = [
   { id: 'nudge',    ko: '미세 조정',       icon: '🎯', rarity: 1, max: 9, desc: '주사위 1개를 ±1 바꾸는 기술 2회 충전' },
   { id: 'basic',    ko: '기초 수련',       icon: '🥋', rarity: 1, max: 2, desc: '상단(에이스~식스) 점수 +2' },
   { id: 'choice',   ko: '선택의 달인',     icon: '🍀', rarity: 1, max: 2, desc: '초이스 +8' },
-  { id: 'fame',     ko: '명성 사냥꾼',     icon: '📜', rarity: 1, max: 2, desc: '퀘스트 명성 +2' },
+  { id: 'fame',     ko: '의뢰 전문가',     icon: '📜', rarity: 1, max: 2, desc: '의뢰 보상(뒤집기·조정)이 두 배' },
   { id: 'fast',     ko: '빠른 성장',       icon: '⚡', rarity: 1, max: 2, desc: '얻는 경험치 +25%' },
-  { id: 'insure',   ko: '보험',            icon: '🛡️', rarity: 1, max: 1, desc: '0점을 기록하면 경험치 +20, 명성 +3' },
+  { id: 'insure',   ko: '보험',            icon: '🛡️', rarity: 1, max: 1, desc: '0점을 기록하면 경험치 +20, 뒤집기 +1' },
   { id: 'full',     ko: '풀하우스 장인',   icon: '🏠', rarity: 2, max: 2, desc: '풀하우스 +10' },
   { id: 'straight', ko: '질주',            icon: '🏃', rarity: 2, max: 2, desc: '두 스트레이트 +8' },
   { id: 'fourk',    ko: '사냥 본능',       icon: '🐺', rarity: 2, max: 2, desc: '포카인드 +10' },
@@ -107,12 +107,12 @@ export const PERKS = [
   { id: 'chain',    ko: '연쇄 의뢰',       icon: '⛓️', rarity: 2, max: 1, desc: '한 턴에 퀘스트를 2개까지 깬다' },
   { id: 'scholar',  ko: '현자의 눈',       icon: '👁️', rarity: 2, max: 1, desc: '이후 레벨업 때 카드 4장 중에 고른다' },
   { id: 'sixth',    ko: '여섯 번째 주사위', icon: '🌟', rarity: 3, max: 1, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
-  { id: 'midas',    ko: '황금손',          icon: '👑', rarity: 3, max: 1, desc: '내 턴이 시작될 때마다 명성 +2' },
+  { id: 'midas',    ko: '황금손',          icon: '👑', rarity: 3, max: 1, desc: '내 턴이 시작될 때마다 조정 +1' },
   { id: 'yacht',    ko: '요트 신봉자',     icon: '⛵', rarity: 3, max: 1, desc: '요트 +40, 뒤집기 1회 충전' },
   // 대체 보상 — 고를 만한 특성이 모자랄 때만 나온다 (보유 목록에 남지 않고 즉시 받는다)
-  { id: 'fameBag',  ko: '명성 주머니',     icon: '💰', rarity: 1, max: 99, instant: true, filler: true, desc: '즉시 명성 +8 (최종 점수 +8)' },
   { id: 'toolkit',  ko: '모험가 공구함',   icon: '🧰', rarity: 1, max: 99, instant: true, filler: true, desc: '뒤집기 1회 + 조정 1회 충전' },
-  { id: 'bigFame',  ko: '영웅의 훈장',     icon: '🎖️', rarity: 2, max: 99, instant: true, filler: true, desc: '즉시 명성 +15 (최종 점수 +15)' },
+  { id: 'nudgeBag', ko: '조정 꾸러미',     icon: '🎒', rarity: 1, max: 99, instant: true, filler: true, desc: '조정 3회 충전' },
+  { id: 'bigKit',   ko: '장인의 공구함',   icon: '🎖️', rarity: 2, max: 99, instant: true, filler: true, desc: '뒤집기 2회 + 조정 2회 충전' },
 ];
 // 특정 점수 칸에만 붙는 특성 — 그 칸을 모두 채웠으면 효과가 없으므로 후보에서 뺀다
 const PERK_CATS = {
@@ -124,8 +124,8 @@ export const perkInfo = id => PERKS.find(p => p.id === id);
 export const RARITY = { 1: { ko: '일반', w: 60 }, 2: { ko: '희귀', w: 30 }, 3: { ko: '전설', w: 10 } };
 
 // ── 퀘스트 (공용 보드, 먼저 깬 사람이 가져간다) ───────────────────────────────
-// test(info, dice) → 조건 충족 여부.  fame = 명성(최종 점수), xp = 경험치
-const Q = (id, ko, icon, desc, fame, xp, test) => ({ id, ko, icon, desc, fame, xp, test });
+// test(info, dice) → 조건 충족 여부.  diff = 난이도 점수(보상 등급을 정함), xp = 경험치
+const Q = (id, ko, icon, desc, diff, xp, test) => ({ id, ko, icon, desc, diff, xp, test });
 export const QUESTS = [
   Q('pairs',   '쌍둥이 사냥',  '👯', '두 쌍 이상',               3, 10, x => x.counts.filter(c => c >= 2).length >= 2),
   Q('triple',  '삼연격',       '⚔️', '같은 눈 3개 이상',         3, 10, x => x.maxCount >= 3),
@@ -165,11 +165,11 @@ export const EVENTS = [
   { id: 'festival', ko: '수확 축제',   icon: '🎉', desc: '이번 라운드 경험치 2배' },
   { id: 'fog',      ko: '짙은 안개',   icon: '🌫️', desc: '굴림 기회 -1' },
   { id: 'wind',     ko: '순풍',        icon: '🍃', desc: '굴림 기회 +1' },
-  { id: 'bounty',   ko: '현상금',      icon: '💰', desc: '퀘스트 명성 +3' },
+  { id: 'bounty',   ko: '현상금',      icon: '💰', desc: '이번 라운드 의뢰 보상 두 배' },
   { id: 'zen',      ko: '명상의 날',   icon: '🧘', desc: '0점을 기록해도 경험치 +20' },
   { id: 'jackpot',  ko: '요트 잭팟',   icon: '🎰', desc: '요트 +50' },
   { id: 'harvest',  ko: '풍년',        icon: '🌾', desc: '상단(에이스~식스) 점수 +5' },
-  { id: 'duel',     ko: '결투 대회',   icon: '🏆', desc: '이번 라운드 최고 득점자 명성 +5' },
+  { id: 'duel',     ko: '결투 대회',   icon: '🏆', desc: '이번 라운드 최고 득점자 뒤집기 +1 · 조정 +1' },
   { id: 'refresh',  ko: '게시판 갱신', icon: '📋', desc: '퀘스트 보드가 전부 새로 바뀐다' },
   { id: 'blessing', ko: '여신의 축복', icon: '✨', desc: '모두 뒤집기 1회 충전' },
 ];
@@ -179,18 +179,17 @@ const EVENT_DECK = ['calm', 'festival', 'fog', 'wind', 'bounty', 'zen', 'jackpot
 
 // ── 협동모드 보스 ────────────────────────────────────────────────────────────
 // 파티 전원이 한 보스를 상대한다. 기록한 점수(상단 보너스 포함)가 곧 피해이고,
-// 명성은 2배 피해로 들어간다(약점 공격). 12라운드 안에 쓰러뜨리면 승리.
+// 의뢰 보상(뒤집기·조정)으로 더 좋은 족보를 만들어 피해를 키운다. 12라운드 안에 쓰러뜨리면 승리.
 // 난이도 d: 0 쉬움 / 1 보통 / 2 매우 어려움.  능력 수치는 [쉬움, 보통, 매우 어려움] 순서.
 export const DIFFS = [
   { id: 0, ko: '쉬움',        hp: 170, color: '#3EE6B4' },
   { id: 1, ko: '보통',        hp: 205, color: '#FFC83D' },
   { id: 2, ko: '매우 어려움', hp: 235, color: '#E8435A' },
 ];
-export const FAME_DAMAGE = 2;
 
 export const BOSSES = [
   {
-    id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: 1.1,
+    id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
     skills: [
       { id: 'breath', icon: '🔥', ko: '화염 숨결',
         desc: d => `${[4, 3, 2][d]}라운드마다 모두의 첫 굴림에서 가장 높은 주사위 ${d === 2 ? 2 : 1}개가 1로 타 버린다` },
@@ -200,7 +199,7 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'orc', ko: '오크 대장 그로크', title: '약탈자 군단의 우두머리', color: '#6BBE45', hpMul: 0.97,
+    id: 'orc', ko: '오크 대장 그로크', title: '약탈자 군단의 우두머리', color: '#6BBE45', hpMul: [1.26, 1.17, 1.1],
     skills: [
       { id: 'drums', icon: '🥁', ko: '전쟁의 북',
         desc: d => `${[3, 2, 2][d]}라운드마다 모두의 굴림 기회가 1 줄어든다` },
@@ -210,7 +209,7 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: 0.95,
+    id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: [1.16, 1.03, 0.91],
     skills: [
       { id: 'twist', icon: '🌀', ko: '운명 비틀기',
         desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 첫 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
@@ -268,10 +267,13 @@ function dealDamage(s, pIdx, amount, source) {
   }
 }
 
-function addFame(s, p, amount) {
-  p.fame += amount;
-  if (s.boss) dealDamage(s, s.players.indexOf(p), amount * FAME_DAMAGE, 'fame');
+// 뒤집기·조정 충전 보상
+function addCharges(s, p, r, why) {
+  p.flip += r.flip || 0;
+  p.nudge += r.nudge || 0;
+  if ((r.flip || 0) + (r.nudge || 0) > 0) fx(s, { type: 'charge', player: s.players.indexOf(p), flip: r.flip || 0, nudge: r.nudge || 0, why });
 }
+export const chargeText = r => [r.flip ? `뒤집기 +${r.flip}` : '', r.nudge ? `조정 +${r.nudge}` : ''].filter(Boolean).join(' · ');
 
 // 협동 결과 등급: 남은 라운드가 많을수록 높다
 export function coopGrade(s) {
@@ -310,10 +312,10 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
       return {
         name: p.name, cls, bot: !!p.bot,
         scores: Object.fromEntries(CAT_IDS.map(id => [id, null])),
-        fame: 0, xp: 0, level: 1, perks: {},
+        xp: 0, level: 1, perks: {},
         flip: cls === 'rogue' ? 1 : 0, nudge: 0,
         offers: [], questsDone: [], roundScore: 0,
-        stats: { xpEarned: 0, questFame: 0, zeros: 0 },
+        stats: { xpEarned: 0, zeros: 0 },
       };
     }),
     dice: [], held: [], rollsLeft: 0, rolled: false,
@@ -324,9 +326,10 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
   if (s.mode === 'coop') {
     const id = bossInfo(opts.boss) ? opts.boss : 'dragon';
     const diff = Math.min(2, Math.max(0, opts.diff | 0));
-    // 인원이 늘수록 1인당 체력을 조금 줄인다 (보스 능력이 모두에게 걸려 인원이 많을수록 불리해서)
-    const party = [1, 0.98, 0.96, 0.94][players.length - 1];
-    const hp = Math.round(DIFFS[diff].hp * bossInfo(id).hpMul * party * players.length / 5) * 5;
+    // 인원 보정 (난이도별, 봇 시뮬레이션으로 맞춘 값): 쉬움은 인원이 많을수록 편해져서 1인당 체력을 조금 늘리고,
+    // 보통·매우 어려움은 보스 능력이 모두에게 걸려 인원이 많을수록 불리해서 1인당 체력을 줄인다
+    const party = [[1, 1.015, 1.025, 1.035], [1, 0.97, 0.94, 0.92], [1, 0.92, 0.88, 0.85]][diff][players.length - 1];
+    const hp = Math.round(DIFFS[diff].hp * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
   }
   s.deck = shuffle(s, QUESTS.map(q => q.id));
@@ -380,7 +383,7 @@ function startTurn(s) {
     }
   }
   if (perkCount(p, 'midas')) {
-    addFame(s, p, 2);
+    p.nudge += 1;
     fx(s, { type: 'midas', player: s.turn });
   }
 }
@@ -459,9 +462,9 @@ export function catScore(s, p, cat, d = s.dice) {
     if (cat === 'choice') v += 8 * perkCount(p, 'choice');
     if (cat === 'full') v += 10 * perkCount(p, 'full');
     if (cat === 'sstr' || cat === 'lstr') v += 8 * perkCount(p, 'straight');
-    if (cat === 'four') v += 10 * perkCount(p, 'fourk') + (p.cls === 'gambler' ? 5 : 0);
+    if (cat === 'four') v += 10 * perkCount(p, 'fourk');
     if (cat === 'yacht') {
-      v += 40 * perkCount(p, 'yacht') + (p.cls === 'gambler' ? 15 : 0);
+      v += 40 * perkCount(p, 'yacht') + (p.cls === 'gambler' ? 12 : 0);
       if (ev === 'jackpot') v += 50;
     }
     best = Math.max(best, v);
@@ -469,14 +472,23 @@ export function catScore(s, p, cat, d = s.dice) {
   return best;
 }
 
-export const questFame = (s, p, qid) =>
-  questInfo(qid).fame + 2 * perkCount(p, 'fame') + (p.cls === 'bard' ? 3 : 0) + (event(s) === 'bounty' ? 3 : 0);
+// 의뢰 보상 — 난이도가 높을수록 뒤집기·조정을 더 준다
+export function questReward(s, p, qid) {
+  const d = questInfo(qid).diff;
+  const r = d >= 8 ? { flip: 2, nudge: 2 } : d >= 6 ? { flip: 1, nudge: 1 } : d >= 4 ? { flip: 1, nudge: 0 } : { flip: 0, nudge: 1 };
+  r.flip += perkCount(p, 'fame');
+  if (p.cls === 'bard') r.nudge += 1;
+  const mul = event(s) === 'bounty' ? 2 : 1;
+  r.flip *= mul; r.nudge *= mul;
+  return r;
+}
+const rewardValue = r => r.flip * 8 + r.nudge * 6;
 
 // 지금 주사위로 깰 수 있는 퀘스트 (보상 큰 순, 연쇄 의뢰면 2개)
 export function claimableQuests(s, p = current(s), d = s.dice) {
   if (!d.length || d.includes(0)) return [];
   const ok = s.board.filter(q => questMet(q, d))
-    .sort((a, b) => questFame(s, p, b) - questFame(s, p, a) || questInfo(b).xp - questInfo(a).xp);
+    .sort((a, b) => rewardValue(questReward(s, p, b)) - rewardValue(questReward(s, p, a)) || questInfo(b).xp - questInfo(a).xp);
   return ok.slice(0, perkCount(p, 'chain') ? 2 : 1);
 }
 
@@ -487,13 +499,17 @@ export function xpMultiplier(s, p) {
 }
 
 // 점수 칸마다 미리보기 (UI와 봇이 함께 쓴다)
+export const BARD_BONUS = 1;
+const bardBonus = (p, pts, quests) => (p.cls === 'bard' && quests.length && pts > 0 ? BARD_BONUS : 0);
+
 export function preview(s) {
   const p = current(s);
   const quests = claimableQuests(s, p);
   const qXp = quests.reduce((a, q) => a + questInfo(q).xp, 0);
   return CATS.map(c => {
     if (p.scores[c.id] !== null) return { id: c.id, taken: true };
-    const pts = catScore(s, p, c.id);
+    let pts = catScore(s, p, c.id);
+    pts += bardBonus(p, pts, quests);
     let xp = pts > 0 ? pts : ZERO_XP + (perkCount(p, 'insure') ? 20 : 0) + (event(s) === 'zen' ? 20 : 0);
     xp = Math.round((xp + qXp) * xpMultiplier(s, p));
     return { id: c.id, pts, xp, taken: false };
@@ -503,18 +519,18 @@ export function preview(s) {
 export function upperSum(p) {
   return UPPER_IDS.reduce((a, id) => a + (p.scores[id] || 0), 0);
 }
-export const upperNeed = p => (p.cls === 'warrior' ? 55 : UPPER_NEED);
+export const upperNeed = p => (p.cls === 'warrior' ? 50 : UPPER_NEED);
 export function cardTotal(p) {
   const all = CAT_IDS.reduce((a, id) => a + (p.scores[id] || 0), 0);
   return all + (upperSum(p) >= upperNeed(p) ? UPPER_BONUS : 0);
 }
 export function finalScore(p) {
-  return cardTotal(p) + p.fame + (p.level - 1) * LEVEL_POINTS;
+  return cardTotal(p) + (p.level - 1) * LEVEL_POINTS;
 }
 export function breakdown(p) {
   const bonus = upperSum(p) >= upperNeed(p) ? UPPER_BONUS : 0;
   return {
-    card: cardTotal(p) - bonus, bonus, fame: p.fame,
+    card: cardTotal(p) - bonus, bonus,
     level: (p.level - 1) * LEVEL_POINTS, total: finalScore(p),
   };
 }
@@ -525,8 +541,9 @@ export function commitScore(s, cat) {
   if (!(cat in p.scores)) fail('없는 항목입니다.');
   if (p.scores[cat] !== null) fail('이미 기록한 항목입니다.');
 
-  const pts = catScore(s, p, cat);
   const quests = claimableQuests(s, p);
+  let pts = catScore(s, p, cat);
+  pts += bardBonus(p, pts, quests);
   const before = cardTotal(p);
   p.scores[cat] = pts;
   p.roundScore = pts;
@@ -536,7 +553,7 @@ export function commitScore(s, cat) {
   if (pts === 0) {
     p.stats.zeros++;
     xp = ZERO_XP;
-    if (perkCount(p, 'insure')) { xp += 20; addFame(s, p, 3); }
+    if (perkCount(p, 'insure')) { xp += 20; addCharges(s, p, { flip: 1 }); }
     if (ev === 'zen') xp += 20;
   }
   const catName = catInfo(cat).ko;
@@ -557,15 +574,14 @@ export function commitScore(s, cat) {
 
   for (const qid of quests) {
     const q = questInfo(qid);
-    const fame = questFame(s, p, qid);
-    addFame(s, p, fame);
-    p.stats.questFame += fame;
+    const reward = questReward(s, p, qid);
+    addCharges(s, p, reward, 'quest');
     xp += q.xp;
     p.questsDone.push(qid);
     s.board.splice(s.board.indexOf(qid), 1);
     s.discard.push(qid);
-    log(s, `${p.name} · 퀘스트 「${q.ko}」 완료! 명성 +${fame}`);
-    fx(s, { type: 'quest', player: s.turn, quest: qid, fame, xp: q.xp });
+    log(s, `${p.name} · 의뢰 「${q.ko}」 완료! ${chargeText(reward)}`);
+    fx(s, { type: 'quest', player: s.turn, quest: qid, reward, xp: q.xp });
   }
   refillBoard(s);
 
@@ -617,9 +633,9 @@ export function pickPerk(s, perkId) {
   p.offers.shift();
   const k = perkInfo(perkId);
   if (k.instant) {
-    if (perkId === 'fameBag') addFame(s, p, 8);
-    if (perkId === 'bigFame') addFame(s, p, 15);
     if (perkId === 'toolkit') { p.flip += 1; p.nudge += 1; }
+    if (perkId === 'nudgeBag') p.nudge += 3;
+    if (perkId === 'bigKit') { p.flip += 2; p.nudge += 2; }
     log(s, `${p.name} · 「${k.ko}」 획득`);
     if (!p.offers.length && !s.ended) endTurn(s);
     return;
@@ -641,8 +657,8 @@ function endTurn(s) {
       if (top > 0) {
         s.players.forEach((p, i) => {
           if (p.roundScore === top) {
-            addFame(s, p, 5);
-            log(s, `${p.name} · 결투 대회 우승! 명성 +5`);
+            addCharges(s, p, { flip: 1, nudge: 1 });
+            log(s, `${p.name} · 결투 대회 우승! 뒤집기 +1 · 조정 +1`);
             fx(s, { type: 'duel', player: i });
           }
         });
@@ -701,7 +717,7 @@ function valueOf(s, p, d) {
     best = Math.max(best, v);
   }
   const qs = claimableQuests(s, p, d);
-  for (const q of qs) best += questFame(s, p, q) * 1.2 + questInfo(q).xp * 0.25;
+  for (const q of qs) best += rewardValue(questReward(s, p, q)) * 0.8 + questInfo(q).xp * 0.25;
   return best;
 }
 
