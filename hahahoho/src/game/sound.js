@@ -1,0 +1,109 @@
+// 효과음과 잔잔한 배경음. 파일 없이 WebAudio 로 합성한다.
+let ctx = null;
+let master = null;
+let musicGain = null;
+let settings = { sound: true, music: true };
+
+export function setSoundSettings(s) {
+  settings = s;
+  if (musicGain) musicGain.gain.value = s.music ? 0.05 : 0;
+}
+
+export function unlock() {
+  if (ctx) { if (ctx.state === 'suspended') ctx.resume().catch(() => {}); return; }
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = 0.8;
+    master.connect(ctx.destination);
+  } catch { ctx = null; }
+}
+
+function tone(freq, { start = 0, dur = 0.12, type = 'square', vol = 0.08, to = null } = {}) {
+  if (!ctx || !settings.sound) return;
+  const t0 = ctx.currentTime + start;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t0);
+  if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(master);
+  o.start(t0);
+  o.stop(t0 + dur + 0.02);
+}
+function noise(dur = 0.1, vol = 0.12, freq = 1200) {
+  if (!ctx || !settings.sound) return;
+  const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const s = ctx.createBufferSource();
+  s.buffer = b;
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass'; f.frequency.value = freq;
+  const g = ctx.createGain(); g.gain.value = vol;
+  s.connect(f).connect(g).connect(master);
+  s.start();
+}
+
+const SFX = {
+  hoe: () => noise(0.08, 0.15, 800),
+  can: () => { noise(0.25, 0.08, 3000); tone(900, { dur: 0.1, type: 'sine', vol: 0.03, to: 600 }); },
+  pick: () => { tone(1400, { dur: 0.05, vol: 0.05 }); noise(0.05, 0.1, 4000); },
+  axe: () => { tone(220, { dur: 0.06, vol: 0.08 }); noise(0.06, 0.12, 900); },
+  sword: () => noise(0.09, 0.12, 5000),
+  rod: () => tone(600, { dur: 0.2, type: 'sine', vol: 0.05, to: 300 }),
+  hand: () => {},
+  plant: () => tone(660, { dur: 0.08, type: 'triangle', vol: 0.06 }),
+  harvest: () => { tone(784, { dur: 0.08, type: 'triangle' }); tone(1175, { start: 0.07, dur: 0.12, type: 'triangle' }); },
+  fell: () => { noise(0.4, 0.2, 500); tone(110, { dur: 0.3, vol: 0.06, to: 60 }); },
+  break: () => { noise(0.2, 0.2, 2500); tone(300, { dur: 0.1, vol: 0.05, to: 120 }); },
+  coin: () => { tone(1318, { dur: 0.06 }); tone(1760, { start: 0.06, dur: 0.12 }); },
+  discover: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, { start: i * 0.07, dur: 0.2, type: 'triangle', vol: 0.06 })),
+  teleport: () => tone(300, { dur: 0.5, type: 'sine', vol: 0.08, to: 1600 }),
+  bite: () => { tone(880, { dur: 0.08, vol: 0.08 }); tone(880, { start: 0.12, dur: 0.08, vol: 0.08 }); },
+  cast: () => noise(0.15, 0.06, 2000),
+  catch: () => [659, 784, 988, 1318].forEach((f, i) => tone(f, { start: i * 0.06, dur: 0.15, type: 'triangle', vol: 0.06 })),
+  levelup: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, { start: i * 0.1, dur: 0.25, type: 'square', vol: 0.05 })),
+  hurt: () => tone(200, { dur: 0.15, type: 'sawtooth', vol: 0.07, to: 90 }),
+  click: () => tone(1000, { dur: 0.03, type: 'sine', vol: 0.04 }),
+  open: () => { tone(520, { dur: 0.05, type: 'triangle', vol: 0.05 }); tone(780, { start: 0.05, dur: 0.07, type: 'triangle', vol: 0.05 }); },
+  error: () => tone(180, { dur: 0.12, type: 'square', vol: 0.05 }),
+};
+export const sfx = name => { try { SFX[name]?.(); } catch { /* 무시 */ } };
+
+// ── 배경음: 느긋한 아르페지오 반복 ───────────────────────────────────────────
+const SONG = [
+  [60, 64, 67, 72], [57, 60, 64, 69], [53, 57, 60, 65], [55, 59, 62, 67],
+];
+let musicTimer = null;
+export function startMusic() {
+  if (!ctx || musicTimer) return;
+  musicGain = ctx.createGain();
+  musicGain.gain.value = settings.music ? 0.05 : 0;
+  musicGain.connect(master);
+  let bar = 0;
+  const play = () => {
+    if (!ctx) return;
+    const chord = SONG[bar % SONG.length];
+    const t0 = ctx.currentTime + 0.05;
+    const notes = [0, 1, 2, 3, 2, 1, 2, 3];
+    notes.forEach((n, i) => {
+      const f = 440 * 2 ** ((chord[n] - 69) / 12);
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = f;
+      const s = t0 + i * 0.3;
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.5, s + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.5);
+      o.connect(g).connect(musicGain); o.start(s); o.stop(s + 0.55);
+    });
+    const b = ctx.createOscillator(); const bg = ctx.createGain();
+    b.type = 'sine'; b.frequency.value = 440 * 2 ** ((chord[0] - 12 - 69) / 12);
+    bg.gain.setValueAtTime(0.0001, t0); bg.gain.exponentialRampToValueAtTime(0.6, t0 + 0.05); bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.3);
+    b.connect(bg).connect(musicGain); b.start(t0); b.stop(t0 + 2.4);
+    bar++;
+  };
+  play();
+  musicTimer = setInterval(play, 2400);
+}
