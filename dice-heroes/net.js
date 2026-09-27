@@ -92,6 +92,10 @@ class FirebaseBackend {
   }
   // RTDB 트랜잭션은 로컬 캐시가 비어 있으면 null 로 먼저 실행된다 — 그땐 서버 값을 읽고 다시 시도
   async txn(code, mutate) {
+    try { return await this.txnRaw(code, mutate); }
+    catch (err) { return { ok: false, failure: explain(err).text }; }
+  }
+  async txnRaw(code, mutate) {
     const ref = this.ref(code, '/state');
     for (let i = 0; i < 5; i++) {
       let sawNull = false, failure = null;
@@ -127,24 +131,56 @@ class FirebaseBackend {
 }
 
 let backend = null;
+let fbInit = null;   // Firebase 초기화는 한 번만 (다시 초기화하면 "이미 있음" 오류로 영영 실패한다)
+
+// 실패 원인을 사람이 읽을 수 있게 나눈다
+export function explain(err) {
+  const msg = String(err?.message || err || '');
+  const code = String(err?.code || '');
+  if (/permission|PERMISSION_DENIED/i.test(msg + code)) {
+    return { reason: 'permission', text: '서버가 접근을 거부했습니다. Firebase 데이터베이스 규칙에 rooms 경로가 열려 있는지 확인해 주세요.' };
+  }
+  if (/timeout/i.test(msg)) {
+    return { reason: 'timeout', text: '서버 응답이 늦습니다. 네트워크 상태를 확인하고 다시 눌러 주세요.' };
+  }
+  if (/import|module|Failed to fetch|dynamically/i.test(msg)) {
+    return { reason: 'load', text: '온라인 모듈을 불러오지 못했습니다. 페이지를 새로고침해 주세요.' };
+  }
+  return { reason: 'network', text: '서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.' };
+}
+
+// claude.ai 미리보기 같은 샌드박스에서는 외부 서버 연결이 막혀 있다
+const inPreview = () => /claude\.ai|claudeusercontent|anthropic/i.test(location.hostname);
+
 export async function getBackend() {
   if (backend) return backend;
   const want = new URLSearchParams(location.search).get('net');
   if (want === 'local') return (backend = new LocalBackend());
+  if (inPreview()) {
+    const e = new Error('미리보기 화면에서는 온라인 방을 쓸 수 없습니다. 배포된 주소(GitHub Pages)나 설치한 앱에서 열어 주세요.');
+    e.reason = 'preview';
+    throw e;
+  }
   try {
-    const { firebaseConfig } = await import('./fireconfig.js');
-    const fb = await import('./vendor/firebase.js');
-    const app = fb.initializeApp(firebaseConfig);
-    const db = fb.getDatabase(app);
-    backend = new FirebaseBackend(fb, db);
-    // 연결 확인 (막힌 환경이면 여기서 실패)
+    fbInit ||= (async () => {
+      const { firebaseConfig } = await import('./fireconfig.js');
+      const fb = await import('./vendor/firebase.js');
+      const app = fb.initializeApp(firebaseConfig, 'diceheroes');
+      return { fb, db: fb.getDatabase(app) };
+    })().catch(err => { fbInit = null; throw err; });
+    const { fb, db } = await fbInit;
+    // 연결 확인: 읽기 권한과 연결을 한 번에 본다. 모바일 첫 연결은 느릴 수 있어 넉넉히 기다린다.
     await Promise.race([
       fb.get(fb.ref(db, 'rooms/DH-PING/state')),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000)),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
     ]);
-    return backend;
+    return (backend = new FirebaseBackend(fb, db));
   } catch (err) {
-    backend = null;
-    throw new Error('온라인 서버에 연결하지 못했습니다. 인터넷 연결을 확인하거나, 설치된 앱·웹 버전에서 열어 주세요.');
+    console.error('[online]', err);
+    const why = explain(err);
+    const e = new Error(why.text);
+    e.reason = why.reason;
+    e.detail = String(err?.code || err?.message || err).slice(0, 120);
+    throw e;
   }
 }
