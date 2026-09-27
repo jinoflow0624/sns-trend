@@ -472,7 +472,7 @@ img.spr { image-rendering: pixelated; image-rendering: crisp-edges; display: blo
 .dice-ovl > * { pointer-events: auto; position: absolute; }
 .flip-tag {
   transform: translate(-50%, -125%); display: grid; justify-items: center; gap: 1px; padding: 2px 3px 3px;
-  background: rgba(6,4,26,.88); border: 2px solid var(--mint); animation: bob .9s ease-in-out infinite;
+  background: rgba(6,4,26,.88); border: 2px solid var(--mint);
 }
 .flip-tag i { font-style: normal; font-size: 8px; color: var(--mint); white-space: nowrap; }
 .flip-tag .md { width: 22px; height: 22px; }
