@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f1a2e">
+<meta name="description" content="하하호호 하우스 키우기 — 친구와 최대 4명이 함께 농사·광업·낚시·모험을 하며 집을 키우는 방치형 도트 생활 게임">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="하하호호">
+<meta property="og:title" content="하하호호 하우스 키우기">
+<meta property="og:description" content="같이 집 키우자! 🏠 링크를 누르면 내 세계로 들어와요">
+<title>하하호호 하우스 키우기</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2/dist/galmuri.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="screen"></div>
+  <div id="game-root" hidden>
+    <canvas id="game" aria-label="게임 화면"></canvas>
+    <div id="hud-root"></div>
+  </div>
+  <div id="toasts" role="status" aria-live="polite"></div>
+</div>
+<noscript>이 게임은 자바스크립트가 필요해요.</noscript>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

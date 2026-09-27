@@ -1,0 +1,10 @@
+{
+  "name": "hahahoho-house",
+  "version": "1.0.0",
+  "description": "하하호호 하우스 키우기 — 1~4인 방치형 협동 생활 게임",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

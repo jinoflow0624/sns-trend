@@ -1,0 +1,105 @@
+{
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": true,
+        ".write": true,
+        "lastActive": {
+          ".validate": "newData.isNumber()"
+        },
+        "state": {
+          ".validate": "newData.isString() && newData.val().length < 400000"
+        },
+        "seen": {
+          "$token": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "seats": {
+          "$token": {
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 12"
+            }
+          }
+        },
+        "chat": {
+          "$id": {
+            "from": {
+              ".validate": "newData.isString() && newData.val().length <= 12"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 200"
+            }
+          }
+        },
+        "privateShares": {
+          ".validate": "newData.isBoolean()"
+        }
+      }
+    },
+    "usage": {
+      "$month": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.isNumber()"
+      }
+    },
+    "hahahoho": {
+      "worlds": {
+        "$code": {
+          ".read": true,
+          ".write": true,
+          ".validate": "$code.matches(/^[A-Z0-9]{4,8}$/)",
+          "meta": {
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "createdAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "lastActive": {
+              ".validate": "newData.isNumber()"
+            }
+          },
+          "players": {
+            "$pid": {
+              ".validate": "newData.isString() && newData.val().length < 100000"
+            }
+          },
+          "pub": {
+            "$pid": {
+              "n": {
+                ".validate": "newData.isString() && newData.val().length <= 10"
+              },
+              "e": {
+                ".validate": "newData.isString() && newData.val().length <= 60"
+              }
+            }
+          },
+          "chat": {
+            ".validate": "newData.isString() && newData.val().length < 30000"
+          },
+          "farm": {
+            "$i": {
+              ".validate": "$i.matches(/^[0-9]{1,3}$/)"
+            }
+          },
+          "nodes": {
+            "$map": {
+              "$nid": {
+                ".validate": "newData.isNumber()"
+              }
+            }
+          },
+          "waypoints": {
+            "$wp": {
+              "by": {
+                ".validate": "newData.isString() && newData.val().length <= 10"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
