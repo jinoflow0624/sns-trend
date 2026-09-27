@@ -505,7 +505,11 @@ export class Game {
       this.ui.toast('기력이 부족해요. 음식을 먹거나 침대에서 쉬세요', 'bad');
       return false;
     }
-    this.action = { tool, until: performance.now() + 320 };
+    this.action = { tool, until: performance.now() + 320, dur: 320 };
+    // 다른 사람 화면에도 휘두르는 모습이 보이도록 바로 알리고, 끝나면 다시 알린다
+    this.pubNow();
+    clearTimeout(this.actPubTimer);
+    this.actPubTimer = setTimeout(() => this.pubNow(), 360);
     this.dirty = true;
     this.ui.sfx?.(tool);
     return true;
@@ -1490,7 +1494,7 @@ export class Game {
     return {
       n: this.me.name, j: this.me.job, l: P.lookOf(this.me), m: this.map.id,
       x: Math.round(this.px * 100) / 100, y: Math.round(this.py * 100) / 100, d: this.dir,
-      mv: this.moving ? 1 : 0, a: this.action && this.action.until > performance.now() ? this.action.tool : '',
+      mv: this.moving ? 1 : 0, a: this.action && this.action.until > performance.now() ? this.action.tool : '', at: this.action ? this.me.tools[this.action.tool] || 0 : 0,
       t: Date.now(), on: 1, lv: P.totalLevel(this.me), ...(this.pubExtra || {}),
     };
   }
