@@ -325,7 +325,7 @@ img.spr { image-rendering: pixelated; image-rendering: crisp-edges; display: blo
 .bonus .bar i { display: block; height: 100%; width: var(--w); background: var(--sky); }
 .bonus.got .bar i { background: var(--gold); }
 .bonus b { color: var(--gold); }
-.totals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 2px dashed #3A2F88; text-align: center; }
+.totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 2px dashed #3A2F88; text-align: center; }
 .totals div { display: grid; font-size: 10px; color: var(--muted); }
 .totals b { font-size: 17px; color: var(--text); font-variant-numeric: tabular-nums; }
 .totals .grand b { color: var(--gold); font-size: 20px; text-shadow: 2px 2px 0 var(--ink); }

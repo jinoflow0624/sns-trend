@@ -195,7 +195,7 @@ function modePicker(o, editable) {
     <ul class="skills">
       ${E.bossInfo(o.boss).skills.map(k => `<li><span>${k.icon}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
     </ul>
-    <p class="hint">점수를 적으면 그만큼 보스에게 피해. 명성은 2배 피해. 12라운드 안에 쓰러뜨리면 승리.</p>` :
+    <p class="hint">점수를 적으면 그만큼 보스에게 피해. 의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요. 12라운드 안에 쓰러뜨리면 승리.</p>` :
     '<p class="hint">12라운드 동안 점수표를 채우고 의뢰·레벨업으로 성장해 최종 점수가 가장 높은 영웅이 승리.</p>'}
   </section>`;
 }
@@ -652,7 +652,7 @@ function render() {
     <section class="board" id="quests">
       <div class="board-head">
         <b>📜 의뢰 게시판</b>
-        <button class="help-link" data-act="help-fame">★명성이란?</button>
+        <button class="help-link" data-act="help-quest">의뢰 보상이란?</button>
       </div>
       <div class="quests">
         ${S.board.map(qid => {
@@ -661,7 +661,7 @@ function render() {
             <span class="pin"></span>
             <span class="q-ic">${q.icon}</span>
             <div class="q-body"><b>${q.ko}</b><small>${q.desc}</small></div>
-            <span class="q-rw"><em>★${E.questFame(S, cur, qid)}</em><i>+${q.xp}XP</i></span>
+            <span class="q-rw"><em>${rewardIcons(E.questReward(S, cur, qid))}</em><i>+${q.xp}XP</i></span>
           </div>`;
         }).join('')}
       </div>
@@ -794,14 +794,13 @@ function sheet(p, idx, prev, best, canPick) {
     </div>
     <div class="totals">
       <div>점수표<b>${b.card + b.bonus}</b></div>
-      <button data-act="help-fame">명성 ⓘ<b>★${b.fame}</b></button>
       <div>레벨<b>+${b.level}</b></div>
       <div class="grand">총점<b>${b.total}</b></div>
     </div>
   </section>`;
 }
 
-// ── 작은 팝업 (특성·보스 능력·이벤트·명성·족보 설명) ─────────────────────────
+// ── 작은 팝업 (특성·보스 능력·이벤트·의뢰 보상·족보 설명) ─────────────────────────
 function popover(anchor, html) {
   closePopover();
   const el = document.createElement('div');
@@ -819,19 +818,22 @@ function popover(anchor, html) {
 }
 function closePopover() { document.querySelectorAll('.popover').forEach(p => p.remove()); }
 
-function showFameHelp() {
-  const coop = S?.mode === 'coop';
+// 의뢰 보상 아이콘: 🔄 뒤집기 · 🎯 조정
+const rewardIcons = r => [r.flip ? `🔄${r.flip}` : '', r.nudge ? `🎯${r.nudge}` : ''].filter(Boolean).join(' ');
+
+function showQuestHelp() {
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
-    <h2>★ 명성</h2>
-    <p class="big-note">명성은 <b>최종 점수에 1점씩 그대로 더해집니다.</b>${coop ? '<br>협동모드에서는 <b>명성 1 = 보스에게 피해 2</b> (약점 공격)!' : ''}</p>
+    <h2>📜 의뢰 보상</h2>
+    <p class="big-note">의뢰를 깨면 <b>🔄 뒤집기</b>와 <b>🎯 조정</b> 충전을 받아요.<br>다음 턴부터 주사위를 원하는 눈으로 바꿔 큰 족보를 노릴 수 있어요.</p>
     <ul class="list">
-      <li><b>📜 의뢰 완료</b> 게시판 조건을 맞춘 주사위로 기록하면 명성과 경험치</li>
-      <li><b>🏆 결투 대회</b> 그 라운드 최고 득점자 명성 +5</li>
-      <li><b>👑 황금손</b> 내 턴마다 명성 +2 (전설 특성)</li>
-      <li><b>🛡️ 보험</b> 0점을 기록해도 명성 +3</li>
-      <li><b>🎻 음유시인</b> 의뢰마다 명성 +3</li>
+      <li><b>쉬운 의뢰</b> 🎯 조정 1 (예: 두 쌍, 합계 25↑)</li>
+      <li><b>보통 의뢰</b> 🔄 뒤집기 1 (예: 모두 짝수, 풀하우스)</li>
+      <li><b>어려운 의뢰</b> 🔄 1 + 🎯 1 (예: 연속 5개, 같은 눈 4개)</li>
+      <li><b>전설 의뢰</b> 🔄 2 + 🎯 2 (요트)</li>
+      <li><b>🔄 뒤집기</b> 주사위를 반대 면으로 (1↔6, 2↔5, 3↔4)</li>
+      <li><b>🎯 조정</b> 주사위 눈을 ±1</li>
     </ul>
-    <p class="hint">의뢰는 먼저 깬 사람 몫. 점수표 칸이 아까울 때도 의뢰를 노리면 손해를 줄일 수 있어요.</p>
+    <p class="hint">의뢰는 먼저 깬 사람 몫. 음유시인·의뢰 전문가·현상금 이벤트는 보상을 늘려 줘요.</p>
     <button class="pbtn gold" data-act="close">알겠어요</button>
   </div></div>`;
 }
@@ -841,7 +843,7 @@ function showCatHelp() {
     <div class="cat-help">
       ${E.CATS.map(c => `<div class="ch-row"><b>${c.ko}</b><span>${CAT_HELP[c.id].rule}</span>${miniDice(CAT_HELP[c.id].ex)}<em>${CAT_HELP[c.id].pts}점</em></div>`).join('')}
     </div>
-    <p class="hint">에이스~식스 합이 63점 이상이면 보너스 +35 (전사는 55점). 조건이 안 맞는 칸에 적으면 0점.</p>
+    <p class="hint">에이스~식스 합이 63점 이상이면 보너스 +35 (전사는 50점). 조건이 안 맞는 칸에 적으면 0점.</p>
     <button class="pbtn gold" data-act="close">닫기</button>
   </div></div>`;
 }
@@ -925,15 +927,16 @@ async function playFx(list) {
       }
       case 'quest':
         sfx.quest();
-        await toast(E.questInfo(f.quest).icon, `의뢰 완료! 「${E.questInfo(f.quest).ko}」`, `${p.name} · 명성 +${f.fame} · 경험치 +${f.xp}`);
+        await toast(E.questInfo(f.quest).icon, `의뢰 완료! 「${E.questInfo(f.quest).ko}」`, `${p.name} · ${E.chargeText(f.reward)} · 경험치 +${f.xp}`);
         break;
       case 'xp': sfx.coin(); floatText(`+${f.amount} EXP`, 'mint', 38); await wait(320); break;
       case 'levelup':
         sfx.levelup();
         if (!(online ? p.token === online.token : !p.bot)) await toast('🆙', `${p.name} 레벨 ${f.level}!`, '특성 카드를 고르는 중…', 1300);
         break;
-      case 'midas': floatText('👑 황금손 ★+2', 'gold', -30); break;
-      case 'duel': sfx.quest(); await toast('🏆', '결투 대회 우승!', `${p.name} · 명성 +5`); break;
+      case 'midas': floatText('👑 황금손 조정 +1', 'gold', -30); break;
+      case 'duel': sfx.quest(); await toast('🏆', '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
+      case 'charge': if (f.why !== 'quest') floatText(E.chargeText(f), 'mint', -20); break;
     }
   }
 }
@@ -988,7 +991,7 @@ function showResults() {
       return `<div class="frame rank${k === 0 ? ' first' : ''}">
         <span class="medal m${k}">${medals[k]}</span>${portrait(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b>
-          <span>점수표 ${b.card}${b.bonus ? '+35' : ''} · 명성 ${b.fame} · 레벨 +${b.level} · 의뢰 ${r.p.questsDone.length}</span></div>
+          <span>점수표 ${b.card}${b.bonus ? '+35' : ''} · 레벨 +${b.level} · 의뢰 ${r.p.questsDone.length}</span></div>
         <span class="tot">${r.total}</span></div>`;
     }).join('')}
     ${resultActions()}
@@ -1004,7 +1007,7 @@ function showCoopResults() {
     <p class="hint">${info.ko} · ${E.DIFFS[b.diff].ko} · ${b.won ? `${S.round}라운드에 쓰러뜨림` : `남은 체력 ${b.hp}`}</p>
     ${order.map((r, k) => `<div class="frame rank${k === 0 ? ' first' : ''}">
         <span class="medal m${k}">${k === 0 ? 'MVP' : k + 1}</span>${portrait(r.p.cls)}
-        <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b><span>점수표 ${E.cardTotal(r.p)} · 명성 ${r.p.fame} · 의뢰 ${r.p.questsDone.length}</span></div>
+        <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b><span>점수표 ${E.cardTotal(r.p)} · 의뢰 ${r.p.questsDone.length}</span></div>
         <span class="tot">⚔${r.dmg}</span></div>`).join('')}
     ${resultActions()}
   </div></div>`;
@@ -1254,7 +1257,7 @@ async function onGameAct(act, t) {
   if (act === 'fast') { ui.fast = !ui.fast; sfx.select(); return render(); }
   if (act === 'pause') { sfx.select(); return showSettings(true); }
   if (act === 'view') { const i = Number(t.dataset.i); ui.view = i === S.turn ? null : i; sfx.tap(); return render(); }
-  if (act === 'help-fame') { sfx.select(); return showFameHelp(); }
+  if (act === 'help-quest') { sfx.select(); return showQuestHelp(); }
   if (act === 'help-cats') { sfx.select(); return showCatHelp(); }
   if (act === 'info-perk') {
     const k = E.perkInfo(t.dataset.id);

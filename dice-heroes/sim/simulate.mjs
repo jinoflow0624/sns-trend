@@ -26,7 +26,7 @@ const seatWins = new Array(PLAYERS).fill(0);
 const cls = {};      // id → { games, wins, scores[] }
 const perk = {};     // id → { owners, wins, taken }
 const quest = {};    // id → 완료 횟수
-const totals = [], cards = [], fames = [], lvlPts = [], levels = [], margins = [], zeros = [], upperHit = [];
+const totals = [], cards = [], charges = [], lvlPts = [], levels = [], margins = [], zeros = [], upperHit = [];
 const t0 = Date.now();
 
 for (let g = 0; g < N; g++) {
@@ -49,7 +49,7 @@ for (let g = 0; g < N; g++) {
     const b = E.breakdown(p);
     const win = winners.includes(i) ? 1 / winners.length : 0;
     seatWins[i] += win;
-    totals.push(b.total); cards.push(b.card + b.bonus); fames.push(b.fame); lvlPts.push(b.level);
+    totals.push(b.total); cards.push(b.card + b.bonus); charges.push(p.questsDone.length); lvlPts.push(b.level);
     levels.push(p.level); zeros.push(p.stats.zeros); upperHit.push(b.bonus > 0 ? 1 : 0);
     const c = (cls[p.cls] ||= { games: 0, wins: 0, scores: [] });
     c.games++; c.wins += win; c.scores.push(b.total);
@@ -67,7 +67,8 @@ console.log(`\n다이스 히어로즈 밸런스 리포트 — ${N}판 × ${PLAYE
 console.log('■ 최종 점수');
 console.log(`  평균 ${mean(totals).toFixed(1)} ± ${sd(totals).toFixed(1)}  (1·2위 격차 평균 ${mean(margins).toFixed(1)})`);
 const share = x => pct(mean(x) / mean(totals));
-console.log(`  구성: 점수표 ${mean(cards).toFixed(1)} (${share(cards)}) · 명성 ${mean(fames).toFixed(1)} (${share(fames)}) · 레벨 ${mean(lvlPts).toFixed(1)} (${share(lvlPts)})`);
+console.log(`  1인당 의뢰 ${mean(charges).toFixed(2)}개`);
+console.log(`  구성: 점수표 ${mean(cards).toFixed(1)} (${share(cards)}) · 레벨 ${mean(lvlPts).toFixed(1)} (${share(lvlPts)})`);
 console.log(`  상단 보너스 달성률 ${pct(mean(upperHit))} · 1인당 0점 기록 ${mean(zeros).toFixed(2)}회`);
 
 console.log('\n■ 성장');
@@ -96,4 +97,4 @@ Object.entries(perk).sort((a, b) => b[1].wins / b[1].owners - a[1].wins / a[1].o
 
 console.log('\n■ 퀘스트 완료 횟수 (판당)');
 E.QUESTS.map(q => [q, (quest[q.id] || 0) / N]).sort((a, b) => b[1] - a[1])
-  .forEach(([q, n]) => console.log(`  ${pad(q.ko, 8)} ${n.toFixed(2).padStart(5)}  명성 ${q.fame}`));
+  .forEach(([q, n]) => console.log(`  ${pad(q.ko, 8)} ${n.toFixed(2).padStart(5)}  난이도 ${q.diff}`));
