@@ -167,6 +167,110 @@ export const eventInfo = id => EVENTS.find(e => e.id === id);
 // 12라운드에 쓸 덱. 평온은 둘, 나머지는 한 장씩 (첫 라운드는 항상 평온)
 const EVENT_DECK = ['calm', 'festival', 'fog', 'wind', 'bounty', 'zen', 'jackpot', 'harvest', 'duel', 'refresh', 'blessing'];
 
+// ── 협동모드 보스 ────────────────────────────────────────────────────────────
+// 파티 전원이 한 보스를 상대한다. 기록한 점수(상단 보너스 포함)가 곧 피해이고,
+// 명성은 2배 피해로 들어간다(약점 공격). 12라운드 안에 쓰러뜨리면 승리.
+// 난이도 d: 0 쉬움 / 1 보통 / 2 매우 어려움.  능력 수치는 [쉬움, 보통, 매우 어려움] 순서.
+export const DIFFS = [
+  { id: 0, ko: '쉬움',        hp: 170, color: '#3EE6B4' },
+  { id: 1, ko: '보통',        hp: 205, color: '#FFC83D' },
+  { id: 2, ko: '매우 어려움', hp: 235, color: '#E8435A' },
+];
+export const FAME_DAMAGE = 2;
+
+export const BOSSES = [
+  {
+    id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: 1.1,
+    skills: [
+      { id: 'breath', icon: '🔥', ko: '화염 숨결',
+        desc: d => `${[4, 3, 2][d]}라운드마다 모두의 첫 굴림에서 가장 높은 주사위 ${d === 2 ? 2 : 1}개가 1로 타 버린다` },
+      { id: 'scale', icon: '🛡️', ko: '용린 갑옷',
+        desc: d => `에이스~식스로 주는 피해가 ${[25, 50, 50][d]}% 줄어든다` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 화염 숨결을 매 라운드 쓴다' : '매우 어려움에서만 쓴다' },
+    ],
+  },
+  {
+    id: 'orc', ko: '오크 대장 그로크', title: '약탈자 군단의 우두머리', color: '#6BBE45', hpMul: 0.97,
+    skills: [
+      { id: 'drums', icon: '🥁', ko: '전쟁의 북',
+        desc: d => `${[3, 2, 2][d]}라운드마다 모두의 굴림 기회가 1 줄어든다` },
+      { id: 'plunder', icon: '💰', ko: '약탈',
+        desc: d => `누군가 0점을 기록하면 체력을 ${[10, 20, 30][d]} 회복한다` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 약탈 회복량이 두 배' : '매우 어려움에서만 쓴다' },
+    ],
+  },
+  {
+    id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: 0.95,
+    skills: [
+      { id: 'twist', icon: '🌀', ko: '운명 비틀기',
+        desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 첫 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
+      { id: 'bone', icon: '💀', ko: '뼈 방패',
+        desc: d => `${[4, 3, 3][d]}라운드마다 인원 1명당 ${[12, 20, 28][d]}의 보호막을 두른다 (체력보다 먼저 깎임)` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '매우 어려움에서만 쓴다' },
+    ],
+  },
+];
+export const bossInfo = id => BOSSES.find(b => b.id === id);
+const enraged = s => s.boss.diff === 2 && s.boss.hp * 2 < s.boss.maxHp;
+const every = (s, k) => s.round % k === 0;
+
+function bossRollMod(s) {
+  const b = s.boss;
+  if (!b || b.id !== 'orc') return 0;
+  return every(s, [3, 2, 2][b.diff]) ? -1 : 0;
+}
+
+// 첫 굴림 직후 보스 능력
+function bossAfterFirstRoll(s) {
+  const b = s.boss;
+  if (!b) return;
+  const n = b.diff === 2 ? 2 : 1;
+  if (b.id === 'dragon' && (every(s, [4, 3, 2][b.diff]) || enraged(s))) {
+    const idx = s.dice.map((v, i) => i).sort((x, y) => s.dice[y] - s.dice[x]).slice(0, n);
+    idx.forEach(i => (s.dice[i] = 1));
+    log(s, `이그니스의 화염 숨결! 주사위 ${n}개가 1로 탔다`);
+    fx(s, { type: 'boss', skill: 'breath', dice: idx });
+  }
+  if (b.id === 'lich' && every(s, [3, 2, 1][b.diff])) {
+    const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
+    idx.forEach(i => (s.dice[i] = 7 - s.dice[i]));
+    log(s, `모르가스가 운명을 비틀었다! 주사위 ${idx.length}개가 뒤집혔다`);
+    fx(s, { type: 'boss', skill: 'twist', dice: idx });
+  }
+}
+
+function dealDamage(s, pIdx, amount, source) {
+  const b = s.boss;
+  if (!b || amount <= 0 || b.hp <= 0) return;
+  let left = Math.round(amount);
+  const blocked = Math.min(b.shield, left);
+  b.shield -= blocked;
+  left -= blocked;
+  b.hp = Math.max(0, b.hp - left);
+  b.dmg[pIdx] = (b.dmg[pIdx] || 0) + amount;
+  fx(s, { type: 'damage', player: pIdx, amount: Math.round(amount), blocked, source });
+  if (b.hp <= 0 && !s.ended) {
+    s.ended = true;
+    s.phase = 'over';
+    b.won = true;
+    log(s, `${bossInfo(b.id).ko} 토벌 성공!`);
+    fx(s, { type: 'over', won: true });
+  }
+}
+
+function addFame(s, p, amount) {
+  p.fame += amount;
+  if (s.boss) dealDamage(s, s.players.indexOf(p), amount * FAME_DAMAGE, 'fame');
+}
+
+// 협동 결과 등급: 남은 라운드가 많을수록 높다
+export function coopGrade(s) {
+  const b = s.boss;
+  if (!b?.won) return 'F';
+  const left = ROUNDS - s.round;
+  return left >= 3 ? 'S' : left >= 1 ? 'A' : 'B';
+}
+
 // ── 난수 (상태에 저장되는 mulberry32) ───────────────────────────────────────
 export function rand(s) {
   let t = (s.rng = (s.rng + 0x6D2B79F5) >>> 0);
@@ -185,7 +289,8 @@ function shuffle(s, arr) {
 
 // ── 게임 생성 ────────────────────────────────────────────────────────────────
 // players: [{ name, cls, bot }]
-export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0) {
+// opts: { mode: 'versus' | 'coop', boss: 'dragon'|'orc'|'lich', diff: 0~2 }
+export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts = {}) {
   if (players.length < 1 || players.length > 4) throw new Error('1~4명까지 할 수 있습니다.');
   const s = {
     v: 1, rng: seed >>> 0, seed: seed >>> 0,
@@ -204,7 +309,16 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0) {
     dice: [], held: [], rollsLeft: 0, rolled: false,
     board: [], deck: [], discard: [],
     events: [], log: [], fx: [], ended: false,
+    mode: opts.mode === 'coop' ? 'coop' : 'versus', boss: null,
   };
+  if (s.mode === 'coop') {
+    const id = bossInfo(opts.boss) ? opts.boss : 'dragon';
+    const diff = Math.min(2, Math.max(0, opts.diff | 0));
+    // 인원이 늘수록 1인당 체력을 조금 줄인다 (보스 능력이 모두에게 걸려 인원이 많을수록 불리해서)
+    const party = [1, 0.98, 0.96, 0.94][players.length - 1];
+    const hp = Math.round(DIFFS[diff].hp * bossInfo(id).hpMul * party * players.length / 5) * 5;
+    s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
+  }
   s.deck = shuffle(s, QUESTS.map(q => q.id));
   s.board = s.deck.splice(0, QUEST_SLOTS);
   const rest = shuffle(s, [...EVENT_DECK.filter(e => e !== 'calm'), 'calm']);
@@ -222,6 +336,7 @@ export function maxRolls(s, p = current(s)) {
   let n = BASE_ROLLS + perkCount(p, 'reroll') - perkCount(p, 'sixth');
   if (event(s) === 'wind') n++;
   if (event(s) === 'fog') n--;
+  n += bossRollMod(s);
   return Math.max(1, n);
 }
 
@@ -249,9 +364,13 @@ function startTurn(s) {
     if (ev === 'blessing') s.players.forEach(pl => pl.flip++);
     s.players.forEach(pl => (pl.roundScore = 0));
     fx(s, { type: 'round', round: s.round, event: ev });
+    if (bossRollMod(s)) {
+      log(s, '그로크의 전쟁의 북! 이번 라운드 굴림 기회 -1');
+      fx(s, { type: 'boss', skill: 'drums' });
+    }
   }
   if (perkCount(p, 'midas')) {
-    p.fame += 2;
+    addFame(s, p, 2);
     fx(s, { type: 'midas', player: s.turn });
   }
 }
@@ -284,9 +403,11 @@ export function roll(s) {
     if (r === 1 && perkCount(p, 'lucky')) r = die(s);
     return r;
   });
-  if (!s.rolled) s.held = s.held.map(() => false);
+  const first = !s.rolled;
+  if (first) s.held = s.held.map(() => false);
   s.rolled = true;
   s.rollsLeft--;
+  if (first && !forced) bossAfterFirstRoll(s);
 }
 
 export function toggleHold(s, i) {
@@ -396,6 +517,7 @@ export function commitScore(s, cat) {
 
   const pts = catScore(s, p, cat);
   const quests = claimableQuests(s, p);
+  const before = cardTotal(p);
   p.scores[cat] = pts;
   p.roundScore = pts;
   const ev = event(s);
@@ -404,17 +526,29 @@ export function commitScore(s, cat) {
   if (pts === 0) {
     p.stats.zeros++;
     xp = ZERO_XP;
-    if (perkCount(p, 'insure')) { xp += 20; p.fame += 3; }
+    if (perkCount(p, 'insure')) { xp += 20; addFame(s, p, 3); }
     if (ev === 'zen') xp += 20;
   }
   const catName = catInfo(cat).ko;
   log(s, `${p.name} · ${catName} ${pts}점`);
   fx(s, { type: 'score', player: s.turn, cat, pts });
+  if (s.boss) {
+    // 점수(상단 보너스 달성분 포함)가 곧 피해. 드래곤 갑옷은 상단 피해를 깎는다.
+    let dmg = cardTotal(p) - before;
+    if (s.boss.id === 'dragon' && UPPER_IDS.includes(cat)) dmg *= 1 - [0.25, 0.5, 0.5][s.boss.diff];
+    dealDamage(s, s.turn, Math.round(dmg), cat);
+    if (pts === 0 && s.boss.id === 'orc' && !s.ended) {
+      const heal = [10, 20, 30][s.boss.diff] * (enraged(s) ? 2 : 1);
+      s.boss.hp = Math.min(s.boss.maxHp, s.boss.hp + heal);
+      log(s, `그로크의 약탈! 체력 ${heal} 회복`);
+      fx(s, { type: 'boss', skill: 'plunder', amount: heal });
+    }
+  }
 
   for (const qid of quests) {
     const q = questInfo(qid);
     const fame = questFame(s, p, qid);
-    p.fame += fame;
+    addFame(s, p, fame);
     p.stats.questFame += fame;
     xp += q.xp;
     p.questsDone.push(qid);
@@ -428,6 +562,7 @@ export function commitScore(s, cat) {
   const gained = Math.round(xp * xpMultiplier(s, p));
   gainXp(s, p, gained);
 
+  if (s.ended) return;          // 보스를 쓰러뜨리면 그 자리에서 끝
   if (p.offers.length) s.phase = 'levelup';
   else endTurn(s);
 }
@@ -483,12 +618,20 @@ function endTurn(s) {
       if (top > 0) {
         s.players.forEach((p, i) => {
           if (p.roundScore === top) {
-            p.fame += 5;
+            addFame(s, p, 5);
             log(s, `${p.name} · 결투 대회 우승! 명성 +5`);
             fx(s, { type: 'duel', player: i });
           }
         });
       }
+    }
+    if (s.ended) return;
+    const b = s.boss;
+    if (b?.id === 'lich' && every(s, [4, 3, 3][b.diff])) {
+      const add = [12, 20, 28][b.diff] * s.players.length;
+      b.shield += add;
+      log(s, `모르가스가 뼈 방패를 둘렀다! 보호막 +${add}`);
+      fx(s, { type: 'boss', skill: 'bone', amount: add });
     }
     s.turn = 0;
     s.round++;
@@ -496,7 +639,8 @@ function endTurn(s) {
       s.ended = true;
       s.phase = 'over';
       s.round = ROUNDS;
-      fx(s, { type: 'over' });
+      if (s.boss) log(s, `${bossInfo(s.boss.id).ko}를 쓰러뜨리지 못했다…`);
+      fx(s, { type: 'over', won: false });
       return;
     }
   }

@@ -146,5 +146,69 @@ test('상태는 JSON 왕복해도 그대로 이어진다', () => {
   assert.ok(s.round >= 1);
 });
 
+console.log('\n협동모드');
+const coop = (boss, diff = 1, n = 2) =>
+  E.createGame([...Array(n)].map((_, i) => ({ name: `P${i}`, cls: 'mage' })), 11, { mode: 'coop', boss, diff });
+test('점수가 곧 보스 피해, 명성은 2배 피해', () => {
+  const s = coop('orc');
+  const hp0 = s.boss.hp;
+  s.board = ['high', 'pairs', 'odd'];
+  E.roll(s);
+  s.dice = [6, 6, 5, 5, 4];                  // 초이스 26 + 의뢰(명성 3) → 26 + 6
+  E.commitScore(s, 'choice');
+  assert.equal(hp0 - s.boss.hp, 26 + 3 * E.FAME_DAMAGE);
+  assert.equal(Math.round(s.boss.dmg[0]), 32);
+});
+test('드래곤 용린 갑옷: 상단 피해 감소', () => {
+  const s = coop('dragon', 1);
+  s.board = [];
+  E.roll(s);
+  s.dice = [6, 6, 6, 1, 2];
+  const hp0 = s.boss.hp;
+  E.commitScore(s, 'sixes');                 // 18 × 50%
+  assert.equal(hp0 - s.boss.hp, 9);
+});
+test('오크 약탈: 0점이면 회복, 전쟁의 북: 굴림 -1', () => {
+  const s = coop('orc', 1);
+  s.board = [];
+  s.boss.hp -= 50;
+  const hp0 = s.boss.hp;
+  E.roll(s);
+  s.dice = [1, 2, 3, 5, 6];
+  E.commitScore(s, 'yacht');
+  assert.equal(s.boss.hp, hp0 + 20);
+  s.round = 2; s.events[1] = 'calm';          // 보통: 2라운드마다 북
+  assert.equal(E.maxRolls(s), E.BASE_ROLLS - 1);
+});
+test('리치 뼈 방패는 체력보다 먼저 깎인다', () => {
+  const s = coop('lich', 0);
+  s.board = [];
+  s.boss.shield = 10;
+  E.roll(s);
+  s.dice = [6, 6, 5, 5, 4];
+  const hp0 = s.boss.hp;
+  E.commitScore(s, 'choice');
+  assert.equal(s.boss.shield, 0);
+  assert.equal(hp0 - s.boss.hp, 16);
+});
+test('체력이 0이 되면 그 자리에서 승리로 끝난다', () => {
+  const s = coop('dragon', 0);
+  s.board = [];
+  s.boss.hp = 5;
+  E.roll(s);
+  s.dice = [6, 6, 5, 5, 4];
+  E.commitScore(s, 'choice');
+  assert.ok(s.ended && s.boss.won);
+  assert.notEqual(E.coopGrade(s), 'F');
+});
+test('보스 3종 × 난이도 3 봇 완주', () => {
+  for (const b of E.BOSSES) for (const d of E.DIFFS) {
+    const s = coop(b.id, d.id, 3);
+    let guard = 0;
+    while (!s.ended && guard++ < 20000) E.applyBot(s, E.botAction(s, () => E.rand(s), 4));
+    assert.ok(s.ended, `${b.id}/${d.id}`);
+  }
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
