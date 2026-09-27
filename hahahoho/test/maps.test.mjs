@@ -24,6 +24,24 @@ test('지상 맵이 모두 만들어지고 출구 도착 지점이 막혀 있지
   }
 });
 
+test('모든 출구 칸은 밟을 수 있다 (광산 입구 포함)', () => {
+  for (const id of ['farm', 'town', 'lake', 'forest', 'mine_gate', 'house']) {
+    const m = getMap(id);
+    for (const w of m.warps) for (let j = w.y; j < w.y + w.h; j++) for (let i = w.x; i < w.x + w.w; i++) {
+      assert.ok(!isSolid(m, i + 0.5, j + 0.5), `${id} (${i},${j}) → ${w.to} 막힘`);
+    }
+  }
+  const gate = getMap('mine_gate');
+  assert.ok(reachable(gate, { x: 11.5, y: 13.5 }, { x: 11.5, y: 4.5 }), '광산 입구까지 걸어갈 수 있다');
+});
+
+test('농장 NPC(두리)와 동물 경로가 막히지 않았다', () => {
+  const farm = getMap('farm');
+  const duri = farm.npcs.find(n => n.id === 'duri');
+  assert.ok(reachable(farm, { x: 7.5, y: 9.6 }, { x: duri.x, y: duri.y + 1 }));
+  for (const [x, y] of farm.npcs.find(n => n.id === 'dog').route) assert.ok(!isSolid(farm, x, y), `강아지 경로 (${x},${y})`);
+});
+
 test('순간이동 석상 옆에 설 수 있다', () => {
   for (const [id, wp] of Object.entries(WAYPOINTS)) {
     const m = getMap(wp.map);

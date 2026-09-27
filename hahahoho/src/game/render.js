@@ -1,6 +1,6 @@
 // 캔버스 렌더러. 모든 그림은 16px 도트를 정수 배율(Z)로 키워 또렷하게 그린다.
 import { groundCanvas, drawWaterFx, objectSprite, cropSprite, soilOverlay, lockedSoil, furniture, TS } from '../art/world.js';
-import { charSheet, catSheet, monsterSheet } from '../art/chars.js';
+import { charSheet, petSheet, monsterSheet } from '../art/chars.js';
 import { itemIcon, toolIcon } from '../art/items.js';
 import { MONSTERS, ITEMS } from '../data.js';
 import { FARM_SOIL, T } from '../world/maps.js';
@@ -98,7 +98,7 @@ export class Renderer {
         if (!inView(x, y)) continue;
         const idx = j * S.w + i;
         if (idx >= lim) { ctx.drawImage(lockedSoil(), x * TS, y * TS); continue; }
-        const p = g.farm[idx];
+        const p = g.effPlot(g.farm[idx]); // 밭 일꾼이 있으면 늘 촉촉
         if (p?.tilled) ctx.drawImage(soilOverlay(Farm.isWet(p, nowMs)), x * TS, y * TS);
         if (p?.crop) {
           const stage = Farm.stageOf(p, nowMs, g.plotBonus(p));
@@ -151,10 +151,12 @@ export class Renderer {
     for (const n of g.npcList()) {
       if (!inView(n.x, n.y)) continue;
       if (n.pet) {
-        const sh = catSheet();
+        const sh = petSheet(n.pet);
         const fr = n.moving ? Math.floor(now / 160) % 2 : 0;
         const c = (n.dir === 'left' ? sh.left : sh.right)[fr];
-        list.push({ y: n.y, d: () => { this.shadow(n.x, n.y, 5); ctx.drawImage(c, Math.round(n.x * TS) - 8, Math.round(n.y * TS) - 11); } });
+        list.push({ y: n.y, d: () => { if (n.pet !== 'duck') this.shadow(n.x, n.y, 5); ctx.drawImage(c, Math.round(n.x * TS) - Math.round(c.width / 2), Math.round(n.y * TS) - c.height + 1); } });
+        const pb = g.petBubble;
+        if (pb && pb.id === n.id && pb.until > Date.now()) list.push({ y: 999, d: () => {}, tag: { x: n.x, y: n.y + 0.9, text: '', bubble: pb.text } });
         continue;
       }
       const look = { bottom: '#5a4a3a', ...n.data.look };

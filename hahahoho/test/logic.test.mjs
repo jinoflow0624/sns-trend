@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ITEMS, JOBS, RECIPES, CROPS, MIN, IDLE_JOBS, HOUR_MS, SHOPS, MONSTERS, NPCS, REQUEST_POOL, HOUSE_LEVELS } from '../src/data.js';
+import { ITEMS, JOBS, RECIPES, CROPS, MIN, IDLE_JOBS, REAL_HOUR, SHOPS, MONSTERS, NPCS, REQUEST_POOL, HOUSE_LEVELS, NPC_TASTE } from '../src/data.js';
 import * as Inv from '../src/logic/inventory.js';
 import * as P from '../src/logic/player.js';
 import * as F from '../src/logic/farm.js';
@@ -19,6 +19,10 @@ test('데이터: 참조하는 아이템이 모두 존재한다', () => {
   for (const m of Object.values(MONSTERS)) m.drops.forEach(([id]) => need.add(id));
   REQUEST_POOL.forEach(([id]) => need.add(id));
   HOUSE_LEVELS.filter(Boolean).forEach(h => (h.cost?.items || []).forEach(([id]) => need.add(id)));
+  for (const [npc, t] of Object.entries(NPC_TASTE)) {
+    assert.ok(NPCS[npc], `취향만 있고 NPC 없음: ${npc}`);
+    [...t.love, ...t.like, ...t.dislike].filter(k => !k.startsWith('type:')).forEach(id => need.add(id));
+  }
   for (const id of need) assert.ok(ITEMS[id], `없는 아이템: ${id}`);
   for (const [id, it] of Object.entries(ITEMS)) if (it.type === 'seed') assert.ok(CROPS[it.crop], id);
   assert.ok(Object.keys(NPCS).length >= 6);
@@ -138,21 +142,31 @@ test('농사: 물 기간이 걸쳐 있을 때 정확히 합산', () => {
   assert.ok(F.progressAt(plot, t0 + 35 * MIN) < 1);
 });
 
+test('밭 일꾼 수확: 자란 횟수만큼 거두고 남은 진행도는 이어진다', () => {
+  const t0 = 0;
+  const plot = { tilled: true, crop: 'turnip', progress: 0, at: t0, wetUntil: t0 + 100 * MIN };
+  const h = F.helperHarvest(plot, t0 + 7.5 * MIN, mulberry32(2));
+  assert.equal(h.cycles, 2, '순무 3분짜리 두 번');
+  assert.ok(h.n >= 2 && h.n <= 4);
+  assert.ok(Math.abs(h.plot.progress - 0.5) < 1e-9);
+  assert.equal(F.helperHarvest(plot, t0 + MIN, mulberry32(2)), null);
+});
+
 test('방치 보상: 시간·레벨·직업에 비례, 상한 적용', () => {
   const p = P.createPlayer({ id: 'a', name: 'a', job: 'miner' });
   p.idle = 'mine';
   assert.equal(computeIdle(p, 30 * 1000), null);
-  const one = computeIdle(p, HOUR_MS, { seed: 3 });
-  const two = computeIdle(p, 2 * HOUR_MS, { seed: 3 });
+  const one = computeIdle(p, REAL_HOUR, { seed: 3 });
+  const two = computeIdle(p, 2 * REAL_HOUR, { seed: 3 });
   const total = r => r.items.reduce((a, [, n]) => a + n, 0);
   assert.ok(total(two) > total(one));
-  const capped = computeIdle(p, 100 * HOUR_MS, { seed: 3 });
+  const capped = computeIdle(p, 100 * REAL_HOUR, { seed: 3 });
   assert.equal(capped.hours, 8);
-  const big = computeIdle(p, 100 * HOUR_MS, { seed: 3, houseLv: 4 });
+  const big = computeIdle(p, 100 * REAL_HOUR, { seed: 3, houseLv: 4 });
   assert.equal(big.hours, 16);
   const other = P.createPlayer({ id: 'b', name: 'b', job: 'cook' });
   other.idle = 'mine';
-  assert.ok(total(computeIdle(other, 8 * HOUR_MS, { seed: 3 })) < total(capped), '광부가 채굴을 더 잘한다');
+  assert.ok(total(computeIdle(other, 8 * REAL_HOUR, { seed: 3 })) < total(capped), '광부가 채굴을 더 잘한다');
 });
 
 test('제작: 재료 소모와 결과물, 레벨 제한', () => {

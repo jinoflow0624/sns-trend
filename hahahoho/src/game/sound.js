@@ -50,7 +50,15 @@ function noise(dur = 0.1, vol = 0.12, freq = 1200) {
 
 const SFX = {
   hoe: () => noise(0.08, 0.15, 800),
-  can: () => { noise(0.25, 0.08, 3000); tone(900, { dur: 0.1, type: 'sine', vol: 0.03, to: 600 }); },
+  // 물뿌리개: 쏴아 하는 물줄기 + 톡톡 떨어지는 물방울
+  can: () => {
+    noise(0.45, 0.14, 2600);
+    [0.05, 0.13, 0.2, 0.3, 0.38].forEach((t, i) => tone(1400 + i * 160, { start: t, dur: 0.05, type: 'sine', vol: 0.05, to: 700 }));
+  },
+  meow: () => { tone(620, { dur: 0.18, type: 'triangle', vol: 0.08, to: 880 }); tone(880, { start: 0.17, dur: 0.28, type: 'triangle', vol: 0.07, to: 520 }); },
+  bark: () => { [0, 0.2].forEach(t => { noise(0.07, 0.18, 900); tone(420, { start: t, dur: 0.1, type: 'sawtooth', vol: 0.07, to: 260 }); }); },
+  quack: () => { [0, 0.18].forEach(t => tone(520, { start: t, dur: 0.12, type: 'square', vol: 0.06, to: 380 })); },
+  save: () => tone(1320, { dur: 0.05, type: 'sine', vol: 0.025 }),
   pick: () => { tone(1400, { dur: 0.05, vol: 0.05 }); noise(0.05, 0.1, 4000); },
   axe: () => { tone(220, { dur: 0.06, vol: 0.08 }); noise(0.06, 0.12, 900); },
   sword: () => noise(0.09, 0.12, 5000),

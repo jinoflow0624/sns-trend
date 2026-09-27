@@ -154,17 +154,21 @@ h3 { margin: 14px 0 6px; font-size: 14px; color: var(--wood-d); }
 .sel-name.show { animation: fadeinout 2s; }
 @keyframes fadeinout { 10%, 70% { opacity: 1; } 100% { opacity: 0; } }
 .act-wrap { display: flex; align-items: flex-end; gap: 6px; }
-.auto-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--wood-d); background: var(--paper2); box-shadow: 0 2px 0 var(--wood-d); font-size: 17px; padding: 0; }
-.auto-btn.on { background: #6a5acd; box-shadow: 0 0 12px #b8a8ff, 0 2px 0 var(--wood-d); }
+.idle-btn { position: relative; width: 48px; height: 48px; border-radius: 12px; border: 2px solid var(--wood-d); background: var(--paper2); box-shadow: 0 2px 0 var(--wood-d); padding: 0; display: grid; place-items: center; }
+.idle-btn .fill { position: absolute; left: 4px; right: 4px; bottom: 3px; height: 4px; background: #4a3526; border-radius: 2px; overflow: hidden; }
+.idle-btn .fill em { display: block; height: 100%; background: var(--green); transition: width .5s; }
+.idle-btn.full { animation: nudge 1.4s ease-in-out infinite; }
+.idle-btn.full .fill em { background: var(--gold); }
+@keyframes nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .act-btn { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--wood-d); background: radial-gradient(circle at 35% 30%, #fff8e0, var(--gold)); box-shadow: 0 4px 0 var(--wood-d); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; touch-action: none; }
 .act-btn:active { transform: translateY(4px); box-shadow: none; }
-.act-btn .ai { font-size: 28px; line-height: 1; }
+.act-btn .pix.lg { width: 34px; height: 34px; }
 .act-btn small { font-size: 11px; margin-top: 2px; }
 /* 조이스틱 모드: 왼쪽 아래는 조이스틱 자리라 가방을 액션 버튼 위로 올린다 */
 .bottom-row { position: relative; }
-.mode-joy .bag-btn { position: absolute; right: 132px; bottom: 0; width: 52px; height: 52px; }
+.mode-joy .bag-btn { position: absolute; right: 142px; bottom: 0; width: 52px; height: 52px; }
 .lefty .bottom-row { flex-direction: row-reverse; }
-.lefty.mode-joy .bag-btn { right: auto; left: 132px; }
+.lefty.mode-joy .bag-btn { right: auto; left: 142px; }
 .joy { position: absolute; display: none; width: 100px; height: 100px; margin: -50px 0 0 -50px; border-radius: 50%; background: rgba(255,255,255,.18); border: 3px solid rgba(255,255,255,.5); pointer-events: none; }
 .joy i { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(251,238,203,.9); border: 3px solid var(--wood-d); }
 
@@ -270,3 +274,24 @@ body.hurt #game-root::after { content: ''; position: absolute; inset: 0; pointer
   .menu-wrap { align-items: center; top: 32%; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+/* ── 도트 아이콘 · 추가 요소 ─────────────────────────────── */
+.pix { width: 26px; height: 26px; image-rendering: pixelated; vertical-align: middle; flex: none; }
+.pix.sm { width: 16px; height: 16px; }
+.pix.lg { width: 30px; height: 30px; }
+.ico.sm { width: 20px; height: 20px; }
+.top-btns button { display: grid; place-items: center; }
+.bag-btn .pix { margin-bottom: 1px; }
+.clockbox span { display: inline-flex; align-items: center; gap: 3px; }
+.gold { display: flex; align-items: center; gap: 3px; }
+.row.left { justify-content: flex-start; }
+.row.right { justify-content: flex-end; }
+.qty { display: flex; flex-direction: column; gap: 3px; }
+.qty .btn.small { min-height: 28px; padding: 2px 8px; }
+.idle-card { display: flex; gap: 10px; align-items: center; background: #fff8e6; border: 2px solid var(--paper3); border-radius: 8px; padding: 8px; margin: 8px 0; }
+.detail .grow p { margin: 4px 0; font-size: 12px; }
+.job-card { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.jobs .job-card .ico { width: 24px; height: 24px; }
+.li .pix { width: 24px; height: 24px; }
+.toast.save { font-size: 11px; padding: 3px 10px; background: rgba(251,238,203,.9); box-shadow: none; opacity: .9; }
+#toasts.low { top: auto; bottom: calc(170px + var(--safe-b)); flex-direction: column-reverse; }

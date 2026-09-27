@@ -11,7 +11,7 @@ const { Game } = await import('../src/game/game.js');
 const { createPlayer } = await import('../src/logic/player.js');
 const Inv = await import('../src/logic/inventory.js');
 const { FARM_SOIL } = await import('../src/world/maps.js');
-const { HOUR_MS, MIN } = await import('../src/data.js');
+const { REAL_HOUR, MIN } = await import('../src/data.js');
 
 // 트랜잭션이 원자적인 메모리 저장소 (Firebase 와 같은 의미)
 class MemStore {
@@ -49,13 +49,100 @@ async function mkGame({ job = 'farmer', shared, lastSeen } = {}) {
   return { g, ui, store };
 }
 
-test('접속하면 방치 보상이 뜨고, 받으면 가방/보관함으로 들어간다', async () => {
-  const { g, ui } = await mkGame({ job: 'miner', lastSeen: Date.now() - 3 * HOUR_MS });
-  assert.ok(ui.idle, '방치 보상 없음');
-  assert.ok(ui.idle.hours > 2.9);
+test('방치 창고: 오래 비웠다 오면 창이 뜨고, 받으면 가방/보관함으로 들어가며 다시 0부터 쌓인다', async () => {
+  const { g, ui } = await mkGame({ job: 'miner', lastSeen: Date.now() - 3 * REAL_HOUR });
+  assert.ok(ui.idle !== null, '방치 창고 창이 떠야 한다');
+  const r = g.idleNow();
+  assert.ok(r.hours > 2.9);
   const before = Inv.count(g.me.inv, 'stone') + (g.me.stash.stone || 0);
-  g.acceptIdle(ui.idle);
+  assert.ok(g.collectIdle());
   assert.ok(Inv.count(g.me.inv, 'stone') + (g.me.stash.stone || 0) > before);
+  assert.equal(g.idleNow(), null, '받은 직후에는 비어 있다');
+  // 접속해 있는 동안에도 쌓인다
+  g.me.idleAt = Date.now() - 2 * REAL_HOUR;
+  assert.ok(g.idleNow().items.length > 0);
+  assert.ok(g.idleFill() > 0.2 && g.idleFill() < 0.3);
+  g.stop();
+});
+
+test('벤 나무는 다시 자라지 않고 그 자리는 지나갈 수 있으며, 두리가 되살린다', async () => {
+  const { g } = await mkGame();
+  const tree = g.map.objects.find(o => o.t === 'tree' && !o.deco);
+  assert.ok(g.solidAt(tree.x + 0.5, tree.y + 0.5), '베기 전엔 막혀 있다');
+  for (let k = 0; k < 6 && !g.nodeDead(tree); k++) { g.action = null; await g.objectAction(tree); }
+  assert.ok(g.nodeDead(tree));
+  assert.ok(!g.solidAt(tree.x + 0.5, tree.y + 0.5), '벤 자리는 지나갈 수 있다');
+  assert.ok((g.nodes[tree.nid]) > Date.now() + 365 * 24 * REAL_HOUR, '다시 자라지 않는다');
+  const info = (await g.regrowInfo()).find(x => x.id === 'farm');
+  assert.equal(info.gone, 1);
+  g.me.gold = 0;
+  assert.ok(!(await g.regrow('farm')).ok, '돈이 없으면 불가');
+  g.me.gold = 1000;
+  assert.ok((await g.regrow('farm')).ok);
+  assert.equal(g.me.gold, 1000 - info.cost);
+  assert.ok(!g.nodeDead(tree));
+  g.stop();
+});
+
+test('큰 바위(boulder)도 캘 수 있다', async () => {
+  const { g } = await mkGame({ job: 'miner' });
+  g.enterMap('mine_gate', 11.5, 13.5);
+  const b = g.map.objects.find(o => o.t === 'boulder');
+  assert.ok(b, '광산 입구에 큰 바위가 있어야 테스트가 된다');
+  const stone = Inv.count(g.me.inv, 'stone');
+  for (let k = 0; k < 6 && !g.nodeDead(b); k++) { g.action = null; await g.objectAction(b); }
+  assert.ok(g.nodeDead(b));
+  assert.ok(Inv.count(g.me.inv, 'stone') > stone);
+  g.stop();
+});
+
+test('광산 입구로 걸어 들어갈 수 있다', async () => {
+  const { g } = await mkGame();
+  g.enterMap('mine_gate', 11.5, 6);
+  g.keys.add('w');
+  for (let i = 0; i < 60 && g.map.id === 'mine_gate'; i++) g.update(0.05);
+  assert.equal(g.map.id, 'mine:1');
+  g.stop();
+});
+
+test('여러 개 한 번에 만들기', async () => {
+  const { g } = await mkGame({ job: 'farmer' });
+  Inv.give(g.me, 'potato', 7);
+  assert.equal(g.maxCraftable('r_baked_potato'), 7);
+  const r = g.craftMany('r_baked_potato', 5);
+  assert.ok(r.ok);
+  assert.equal(r.times, 5);
+  const r2 = g.craftMany('r_baked_potato', 10);
+  assert.equal(r2.times, 2, '재료가 떨어지면 거기서 멈춘다');
+  assert.equal(Inv.count(g.me.inv, 'potato'), 0);
+  assert.ok(Inv.count(g.me.inv, 'baked_potato') >= 7);
+  g.stop();
+});
+
+test('선물: 취향에 따라 친밀도가 다르다 (촌장님은 건강식)', async () => {
+  const { g } = await mkGame();
+  const give = (id, npc) => { Inv.give(g.me, id, 1); const slot = g.me.inv.findIndex(s => s?.id === id); const f = g.me.friends[npc]; if (f) f.gift = 0; return g.gift(npc, slot); };
+  const love = give('herb_salve', 'mayor');
+  assert.equal(love.taste, 'love');
+  const lovePts = g.me.friends.mayor.pts;
+  const bad = give('slime_gel', 'mayor');
+  assert.equal(bad.taste, 'dislike');
+  assert.ok(g.me.friends.mayor.pts < lovePts);
+  assert.equal(give('gold_ore', 'chulsu').taste, 'love');
+  assert.equal(give('copper_ore', 'chulsu').taste, 'like');
+  g.stop();
+});
+
+test('밭 일꾼: 고용하면 물을 안 줘도 제 속도로 자라고, 다 자란 작물을 보관함에 넣고 다시 심는다', async () => {
+  const { g } = await mkGame();
+  g.me.gold = 1000;
+  assert.ok((await g.hireHelper(0)).ok);
+  assert.ok(g.helperActive());
+  await g.store.set('farm/0', { tilled: true, crop: 'turnip', progress: 0, at: Date.now() - 7 * MIN, wetUntil: 0 });
+  await g.helperTick();
+  assert.ok((g.chest.turnip || 0) >= 2, '순무 두 번 이상 수확');
+  assert.equal(g.farm[0].crop, 'turnip', '같은 작물을 다시 심는다');
+  assert.ok(g.farm[0].at > Date.now() - 1000);
   g.stop();
 });
 
