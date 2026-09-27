@@ -612,3 +612,5 @@ img.t-boss { width: 44px; height: 44px; }
 .scroll-hint.down { bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
 .scroll-hint.up { top: calc(18px + env(safe-area-inset-top, 0px)); }
 @keyframes nudgeY { 50% { transform: translate(-50%, 6px); } }
+
+.error small { display: block; margin-top: 6px; font-size: 10px; opacity: .7; word-break: break-all; }

@@ -278,7 +278,7 @@ function onSetupAct(act, t) {
 }
 
 // ── 온라인: 방 만들기 · 참가 ─────────────────────────────────────────────────
-function showOnlineMenu(error = '') {
+function showOnlineMenu(error = '', detail = '') {
   screen = 'online';
   setStage(null);
   layer.innerHTML = '';
@@ -299,14 +299,17 @@ function showOnlineMenu(error = '') {
         <label class="field">방 코드<input id="join-code" placeholder="예) K7MQ2" maxlength="8" autocapitalize="characters"></label>
         <button class="pbtn" data-act="room-join">코드로 참가</button>
       </section>
-      ${error ? `<p class="error">${esc(error)}</p>` : ''}
+      ${error ? `<p class="error">${esc(error)}${detail ? `<small>오류 코드: ${esc(detail)}</small>` : ''}</p>` : ''}
     </div>
   </div>`;
 }
 
 async function connect() {
+  app.querySelector('.error')?.remove();
+  if (screen === 'online') app.querySelector('.wrap')?.insertAdjacentHTML('beforeend', '<p class="waiting" id="connecting">서버에 연결하는 중…</p>');
   try { return await Net.getBackend(); }
-  catch (err) { showOnlineMenu(err.message); return null; }
+  catch (err) { showOnlineMenu(err.message, err.detail); return null; }
+  finally { document.getElementById('connecting')?.remove(); }
 }
 
 async function createRoom() {
@@ -315,7 +318,8 @@ async function createRoom() {
   const backend = await connect();
   if (!backend) return;
   let code = Net.makeCode();
-  for (let i = 0; i < 3 && await backend.exists(code); i++) code = Net.makeCode();
+  try { for (let i = 0; i < 3 && await backend.exists(code); i++) code = Net.makeCode(); }
+  catch (err) { const w = Net.explain(err); return showOnlineMenu(w.text, String(err?.code || err?.message || '').slice(0, 120)); }
   const token = Net.myToken();
   const room = {
     v: 1, host: token, started: false,
@@ -324,7 +328,8 @@ async function createRoom() {
     game: null, fxLog: [], fxId: 0,
     seen: { [token]: Date.now() },
   };
-  await backend.create(code, room);
+  try { await backend.create(code, room); }
+  catch (err) { const w = Net.explain(err); return showOnlineMenu(w.text, String(err?.code || err?.message || '').slice(0, 120)); }
   enterRoom(backend, code);
 }
 
@@ -335,7 +340,10 @@ async function joinRoom(code) {
   if (input) { myName = input.value.trim().slice(0, 10) || myName; store.set(KEYS.name, myName); }
   const backend = await connect();
   if (!backend) return;
-  if (!(await backend.exists(code))) return showOnlineMenu(`방 ${code}을(를) 찾지 못했습니다. 코드를 확인해 주세요.`);
+  let found;
+  try { found = await backend.exists(code); }
+  catch (err) { const w = Net.explain(err); return showOnlineMenu(w.text, String(err?.code || err?.message || '').slice(0, 120)); }
+  if (!found) return showOnlineMenu(`방 ${code}을(를) 찾지 못했습니다. 코드를 확인해 주세요.`);
   const token = Net.myToken();
   const res = await backend.txn(code, (room, fail) => {
     if (room.seats.some(s => s.token === token)) return room;          // 재접속
