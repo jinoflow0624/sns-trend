@@ -938,22 +938,30 @@ async function playFx(list) {
   }
 }
 
+// 같은 팝업이 이미 떠 있으면 다시 그리지 않는다
+// (온라인에서는 8초마다 오는 접속 신호에도 화면을 갱신해서, 그때마다 팝업이 새로 튀어나왔다)
+const popupShown = key => ui.popupKey === key && layer.firstElementChild;
+
 function showLevelUp() {
   const p = E.current(S);
   const offer = p.offers[0];
+  const key = `lv:${S.seed}:${S.round}:${S.turn}:${p.level}:${p.offers.length}:${offer.join()}`;
+  if (popupShown(key) && layer.querySelector('.lv-overlay')) return;
+  ui.popupKey = key;
   const hasLegend = offer.some(id => E.perkInfo(id).rarity === 3);
+  const total = Math.max(p.lvBatch || 1, p.offers.length), nth = total - p.offers.length + 1;
   layer.innerHTML = `<div class="overlay lv-overlay"><div class="lvup">
     <div class="rays"></div>
     <div class="lv-hero">${portrait(p.cls, 'big')}</div>
     <h1>LEVEL UP!</h1>
     <div class="lv-sub">${esc(p.name)} · <b>Lv.${p.level - p.offers.length + 1}</b></div>
-    <p class="lv-hint">카드 한 장을 골라 영구 특성을 얻으세요</p>
+    <p class="lv-hint">${total > 1 ? `<b class="lv-count">레벨업 보상 ${nth} / ${total}</b> · ` : ''}카드 한 장을 골라 영구 특성을 얻으세요</p>
     <div class="cards" style="--n:${offer.length}">
       ${offer.map(id => {
         const k = E.perkInfo(id), have = E.perkCount(p, id);
         return `<button class="card r${k.rarity}" data-act="perk" data-id="${id}">
           <span class="rar">${E.RARITY[k.rarity].ko}</span><span class="c-ic">${k.icon}</span><b>${k.ko}</b><p>${k.desc}</p>
-          ${have ? `<em>보유 ${have} → ${have + 1}</em>` : ''}</button>`;
+          ${have && !k.instant ? `<em>보유 ${have} → ${have + 1}</em>` : ''}${k.instant ? '<em>즉시 받음</em>' : ''}</button>`;
       }).join('')}
     </div>
   </div></div>`;
@@ -962,6 +970,9 @@ function showLevelUp() {
 }
 
 function showResults() {
+  const key = `res:${S.seed}:${S.round}:${online ? online.room?.fxId : ''}`;
+  if (popupShown(key) && layer.querySelector('.results')) return;
+  ui.popupKey = key;
   stopBgm();
   sfx.win();
   setTimeout(() => playBgm('victory'), 1500);

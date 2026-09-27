@@ -109,7 +109,17 @@ export const PERKS = [
   { id: 'sixth',    ko: '여섯 번째 주사위', icon: '🌟', rarity: 3, max: 1, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
   { id: 'midas',    ko: '황금손',          icon: '👑', rarity: 3, max: 1, desc: '내 턴이 시작될 때마다 명성 +2' },
   { id: 'yacht',    ko: '요트 신봉자',     icon: '⛵', rarity: 3, max: 1, desc: '요트 +40, 뒤집기 1회 충전' },
+  // 대체 보상 — 고를 만한 특성이 모자랄 때만 나온다 (보유 목록에 남지 않고 즉시 받는다)
+  { id: 'fameBag',  ko: '명성 주머니',     icon: '💰', rarity: 1, max: 99, instant: true, filler: true, desc: '즉시 명성 +8 (최종 점수 +8)' },
+  { id: 'toolkit',  ko: '모험가 공구함',   icon: '🧰', rarity: 1, max: 99, instant: true, filler: true, desc: '뒤집기 1회 + 조정 1회 충전' },
+  { id: 'bigFame',  ko: '영웅의 훈장',     icon: '🎖️', rarity: 2, max: 99, instant: true, filler: true, desc: '즉시 명성 +15 (최종 점수 +15)' },
 ];
+// 특정 점수 칸에만 붙는 특성 — 그 칸을 모두 채웠으면 효과가 없으므로 후보에서 뺀다
+const PERK_CATS = {
+  basic: ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'],
+  choice: ['choice'], full: ['full'], straight: ['sstr', 'lstr'], fourk: ['four'], yacht: ['yacht'],
+};
+export const perkUseless = (p, id) => !!PERK_CATS[id] && PERK_CATS[id].every(c => p.scores[c] !== null);
 export const perkInfo = id => PERKS.find(p => p.id === id);
 export const RARITY = { 1: { ko: '일반', w: 60 }, 2: { ko: '희귀', w: 30 }, 3: { ko: '전설', w: 10 } };
 
@@ -571,6 +581,7 @@ function gainXp(s, p, amount) {
   p.xp += amount;
   p.stats.xpEarned += amount;
   fx(s, { type: 'xp', player: s.players.indexOf(p), amount });
+  const before = p.offers.length;
   while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
     p.xp -= xpToNext(p.level);
     p.level++;
@@ -578,12 +589,15 @@ function gainXp(s, p, amount) {
     log(s, `${p.name} · 레벨 ${p.level} 달성!`);
     fx(s, { type: 'levelup', player: s.players.indexOf(p), level: p.level });
   }
+  if (p.offers.length > before) p.lvBatch = p.offers.length;   // 이번에 한꺼번에 받은 레벨업 수 (화면 표시용)
   if (p.level >= MAX_LEVEL) p.xp = 0;
 }
 
 function makeOffer(s, p) {
   const n = perkCount(p, 'scholar') ? 4 : 3;
-  const pool = PERKS.filter(k => perkCount(p, k.id) < k.max && (k.rarity < 3 || p.level >= 4));
+  const pool = PERKS.filter(k => !k.filler && perkCount(p, k.id) < k.max && (k.rarity < 3 || p.level >= 4) && !perkUseless(p, k.id));
+  // 고를 만한 특성이 모자라면 즉시 보상 카드로 채운다
+  if (pool.length < n) pool.push(...PERKS.filter(k => k.filler).slice(0, n - pool.length));
   const out = [];
   while (out.length < n && pool.length) {
     const total = pool.reduce((a, k) => a + RARITY[k.rarity].w, 0);
@@ -601,6 +615,15 @@ export function pickPerk(s, perkId) {
   if (s.phase !== 'levelup' || !p.offers.length) fail('고를 특성이 없습니다.');
   if (!p.offers[0].includes(perkId)) fail('제시된 카드가 아닙니다.');
   p.offers.shift();
+  const k = perkInfo(perkId);
+  if (k.instant) {
+    if (perkId === 'fameBag') addFame(s, p, 8);
+    if (perkId === 'bigFame') addFame(s, p, 15);
+    if (perkId === 'toolkit') { p.flip += 1; p.nudge += 1; }
+    log(s, `${p.name} · 「${k.ko}」 획득`);
+    if (!p.offers.length && !s.ended) endTurn(s);
+    return;
+  }
   p.perks[perkId] = perkCount(p, perkId) + 1;
   if (perkId === 'flip') p.flip += 2;
   if (perkId === 'nudge') p.nudge += 2;
