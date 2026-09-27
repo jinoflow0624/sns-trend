@@ -48,7 +48,7 @@ function noise(dur = 0.1, vol = 0.12, freq = 1200) {
   s.start();
 }
 
-// ── 동물 울음: 성대(톱니파) + 입 모양(포먼트 필터) + 숨소리로 흉내 낸다 ──────────
+// ── 강아지·오리 울음: 성대(톱니파) + 입 모양(포먼트 필터) + 숨소리로 흉내 낸다 ──────────
 // f0: [[초, Hz]...] 음높이 곡선, fm: [[초, [F1, F2, F3]]...] 모음 변화, env: [[초, 크기]...]
 const jit = (v, r = 0.08) => v * (1 + (Math.random() * 2 - 1) * r);
 function voice({ start = 0, f0, fm, env, q = [8, 10, 12], fg = [1, 0.6, 0.25], breath = 0.15, rough = 0, vib = 0 }) {
@@ -104,17 +104,6 @@ function voice({ start = 0, f0, fm, env, q = [8, 10, 12], fg = [1, 0.6, 0.25], b
   }
 }
 
-// 고양이 "미이아옹": 음이 올라갔다 내려오며 입이 이→아→우 로 열렸다 닫힌다
-function meow() {
-  const p = jit(1, 0.12);
-  const len = jit(0.75, 0.15);
-  voice({
-    f0: [[0, 560 * p], [len * 0.25, 820 * p], [len * 0.55, 780 * p], [len, 430 * p]],
-    fm: [[0, [700, 2300, 3600]], [len * 0.35, [1250, 1900, 3300]], [len * 0.7, [900, 1400, 3000]], [len, [650, 1050, 2800]]],
-    env: [[0.04, 0.22], [len * 0.4, 0.3], [len * 0.8, 0.2], [len, 0.0001]],
-    q: [7, 9, 12], breath: 0.12, vib: 14 * p,
-  });
-}
 // 강아지 "왕!": 짧고 거칠게 터졌다가 음이 뚝 떨어진다
 function bark(start) {
   const p = jit(1, 0.1);
@@ -145,7 +134,7 @@ const SFX = {
     noise(0.45, 0.14, 2600);
     [0.05, 0.13, 0.2, 0.3, 0.38].forEach((t, i) => tone(1400 + i * 160, { start: t, dur: 0.05, type: 'sine', vol: 0.05, to: 700 }));
   },
-  meow: () => meow(),
+  meow: () => { tone(620, { dur: 0.18, type: 'triangle', vol: 0.08, to: 880 }); tone(880, { start: 0.17, dur: 0.28, type: 'triangle', vol: 0.07, to: 520 }); },
   bark: () => { bark(0); bark(0.26 + Math.random() * 0.06); },
   quack: () => { quack(0); quack(0.2); },
   save: () => tone(1320, { dur: 0.05, type: 'sine', vol: 0.025 }),
