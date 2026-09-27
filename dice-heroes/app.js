@@ -1069,7 +1069,8 @@ function updateCoach() {
         <img class="spr coach-fairy" src="${spriteURL('fairy', 4)}" alt="">
         <div class="coach-text"><b>루루</b><p>${br(st.text)}</p>
           ${st.next ? `<button class="pbtn gold small" data-act="coach-next">${st.next}</button>` : ''}
-          <span class="coach-step">${tut.step + 1} / ${STEPS.length}</span></div>
+          <span class="coach-step">${tut.step + 1} / ${STEPS.length}</span>
+          <button class="coach-skip" data-act="coach-skip">튜토리얼 건너뛰기 ▶▶</button></div>
       </div>`;
   }
   const [b1, b2, b3, b4] = coachEl.querySelectorAll('.blk');
@@ -1129,7 +1130,7 @@ function advanceTutorial() {
 // 튜토리얼 중에는 안내한 동작만 받는다
 function tutorialAllows(act, t) {
   if (!tut) return true;
-  if (act === 'coach-next' || act === 'skip-banner') return true;
+  if (act === 'coach-next' || act === 'coach-skip' || act === 'skip-banner') return true;
   const st = STEPS[tut.step];
   if (!st || st.next) return false;
   if (!st.allow?.includes(act)) return false;
@@ -1142,19 +1143,24 @@ function tutorialAllows(act, t) {
   if (act === 'nudge' && only.d !== undefined && Number(t.dataset.d) !== only.d) return false;
   return true;
 }
+// 튜토리얼 끝내기 (다 봤거나 건너뛰었거나). 다음 실행부터는 자동으로 뜨지 않는다.
+function endTutorial(skipped) {
+  sfx.select();
+  tut = null;
+  layer.innerHTML = '';
+  markSeen('tutorial');
+  coachEl.innerHTML = '';
+  S = null;
+  store.del(KEYS.save);
+  toast('🎓', skipped ? '튜토리얼을 건너뛰었어요' : '튜토리얼 완료!',
+    skipped ? '메뉴 → 설정에서 언제든 다시 볼 수 있어요.' : '이제 파티를 꾸려 진짜 모험을 떠나 보자.', 2200);
+  return showSetup();
+}
+
 function coachNext() {
   const st = STEPS[tut.step];
   sfx.select();
-  if (st.end) {
-    tut = null;
-    layer.innerHTML = '';
-    markSeen('tutorial');
-    coachEl.innerHTML = '';
-    S = null;
-    store.del(KEYS.save);
-    toast('🎓', '튜토리얼 완료!', '이제 파티를 꾸려 진짜 모험을 떠나 보자.', 2200);
-    return showSetup();
-  }
+  if (st.end) return endTutorial(false);
   tut.step++;
   advanceTutorial();
   render();
@@ -1232,6 +1238,7 @@ async function onGameAct(act, t) {
   if (act === 'skip-banner') return skipBanner();
   if (act === 'blocked') { sfx.back(); return; }
   if (act === 'coach-next') return coachNext();
+  if (act === 'coach-skip') return endTutorial(true);
   if (!tutorialAllows(act, t)) { if (tut) sfx.back(); return; }
   if (act === 'fast') { ui.fast = !ui.fast; sfx.select(); return render(); }
   if (act === 'pause') { sfx.select(); return showSettings(true); }
@@ -1381,8 +1388,15 @@ addEventListener('resize', () => { updateCoach(); closePopover(); });
 addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: true });
 
 // 설치형 앱(PWA)으로 쓸 때 오프라인 캐시
-if ('serviceWorker' in navigator && location.protocol === 'https:' && !location.hostname.endsWith('claude.ai')) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai')) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  // 예전(캐시 우선) 서비스 워커가 새 것으로 바뀌면 한 번 새로고침해서 최신 파일로 연다
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded || screen === 'game' || screen === 'lobby') return;
+    reloaded = true;
+    location.reload();
+  });
 }
 
 // ?demo 봇 대결, ?skip 타이틀로 바로 (화면 점검용)
