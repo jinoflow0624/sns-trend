@@ -1,6 +1,6 @@
 // 오프라인 캐시 — 설치형 앱(PWA / 구글 플레이 TWA)으로 쓸 때 인터넷 없이도 실행되게 한다.
 // 파일을 바꿔 배포하면 VERSION 을 올려야 새 파일을 받는다.
-const VERSION = 'dh-0.3.2';
+const VERSION = 'dh-0.3.3';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
   'scenes.js', 'tutorial.js', 'net.js', 'fireconfig.js', 'manifest.webmanifest',

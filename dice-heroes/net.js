@@ -95,28 +95,34 @@ class FirebaseBackend {
     try { return await this.txnRaw(code, mutate); }
     catch (err) { return { ok: false, failure: explain(err).text }; }
   }
+  // RTDB 트랜잭션은 이 기기에 그 경로의 캐시가 없으면 null 로 먼저 실행된다.
+  // get() 으로 읽은 값은 캐시에 남지 않으므로, 트랜잭션 동안 잠깐 구독해서 캐시를 채워 둔다
+  // (방에 들어가기 전, 참가 트랜잭션에서 특히 필요하다).
   async txnRaw(code, mutate) {
     const ref = this.ref(code, '/state');
-    for (let i = 0; i < 5; i++) {
-      let sawNull = false, failure = null;
-      const res = await this.fb.runTransaction(ref, str => {
-        failure = null;
-        if (str === null || str === undefined) { sawNull = true; return; }
-        const next = mutate(JSON.parse(str), m => { failure = m; });
-        if (failure || next === undefined) return;
-        return JSON.stringify(next);
-      });
-      if (res.committed) { this.fb.set(this.ref(code, '/lastActive'), Date.now()).catch(() => {}); return { ok: true }; }
-      if (failure) return { ok: false, failure };
-      if (sawNull) {
-        const snap = await this.fb.get(ref);
-        if (!snap.exists()) return { ok: false, failure: '방이 사라졌습니다.' };
-        await new Promise(r => setTimeout(r, 120));
-        continue;
+    let unsub = null;
+    const first = new Promise(resolve => { unsub = this.fb.onValue(ref, snap => resolve(snap), () => resolve(null)); });
+    try {
+      const snap = await Promise.race([first, new Promise(r => setTimeout(() => r(undefined), 10000))]);
+      if (snap === null || (snap && !snap.exists())) return { ok: false, failure: '방이 사라졌습니다.' };
+      for (let i = 0; i < 6; i++) {
+        let sawNull = false, failure = null;
+        const res = await this.fb.runTransaction(ref, str => {
+          failure = null;
+          if (str === null || str === undefined) { sawNull = true; return; }
+          const next = mutate(JSON.parse(str), m => { failure = m; });
+          if (failure || next === undefined) return;
+          return JSON.stringify(next);
+        }, { applyLocally: true });
+        if (res.committed) { this.fb.set(this.ref(code, '/lastActive'), Date.now()).catch(() => {}); return { ok: true }; }
+        if (failure) return { ok: false, failure };
+        if (!sawNull) return { ok: true };   // 바꿀 것이 없었음
+        await new Promise(r => setTimeout(r, 150 * (i + 1)));
       }
-      return { ok: true };   // 변경할 것이 없었음
+      return { ok: false, failure: '서버가 바빠 적용하지 못했습니다. 다시 시도해 주세요.' };
+    } finally {
+      unsub?.();
     }
-    return { ok: false, failure: '서버가 바빠 적용하지 못했습니다. 다시 시도해 주세요.' };
   }
   async touch(code, token) {
     await this.fb.set(this.ref(code, `/seen/${token}`), Date.now()).catch(() => {});
@@ -150,7 +156,7 @@ export function explain(err) {
 }
 
 // claude.ai 미리보기 같은 샌드박스에서는 외부 서버 연결이 막혀 있다
-const inPreview = () => /claude\.ai|claudeusercontent|anthropic/i.test(location.hostname);
+const inPreview = () => !new URLSearchParams(location.search).get('fbemu') && /claude\.ai|claudeusercontent|anthropic/i.test(location.hostname);
 
 export async function getBackend() {
   if (backend) return backend;
@@ -166,7 +172,11 @@ export async function getBackend() {
       const { firebaseConfig } = await import('./fireconfig.js');
       const fb = await import('./vendor/firebase.js');
       const app = fb.initializeApp(firebaseConfig, 'diceheroes');
-      return { fb, db: fb.getDatabase(app) };
+      const db = fb.getDatabase(app);
+      // 로컬 에뮬레이터로 점검할 때: ?fbemu=127.0.0.1:9100
+      const emu = new URLSearchParams(location.search).get('fbemu');
+      if (emu) { const [h, p] = emu.split(':'); fb.connectDatabaseEmulator(db, h, Number(p)); }
+      return { fb, db };
     })().catch(err => { fbInit = null; throw err; });
     const { fb, db } = await fbInit;
     // 연결 확인: 읽기 권한과 연결을 한 번에 본다. 모바일 첫 연결은 느릴 수 있어 넉넉히 기다린다.
