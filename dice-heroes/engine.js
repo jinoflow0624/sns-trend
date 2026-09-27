@@ -275,8 +275,11 @@ export function roll(s) {
   if (s.rollsLeft <= 0) fail('굴림 기회를 다 썼습니다.');
   if (s.rolled && s.held.every(Boolean)) fail('모든 주사위를 잡고 있습니다.');
   const p = current(s);
+  // 튜토리얼처럼 결과를 미리 정해 둔 굴림 (s.script = [[눈...], ...])
+  const forced = s.script?.length ? s.script.shift() : null;
   s.dice = s.dice.map((v, i) => {
     if (s.rolled && s.held[i]) return v;
+    if (forced) return forced[i];
     let r = die(s);
     if (r === 1 && perkCount(p, 'lucky')) r = die(s);
     return r;
