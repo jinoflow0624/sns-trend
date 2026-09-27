@@ -619,3 +619,5 @@ img.t-boss { width: 44px; height: 44px; }
   display: block; margin-top: 8px; font-size: 11px; color: var(--muted);
   text-decoration: underline dotted; text-underline-offset: 3px; padding: 4px 0;
 }
+
+.lv-count { color: var(--gold); }

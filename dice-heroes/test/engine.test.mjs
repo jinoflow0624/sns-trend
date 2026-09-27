@@ -146,6 +146,39 @@ test('상태는 JSON 왕복해도 그대로 이어진다', () => {
   assert.ok(s.round >= 1);
 });
 
+console.log('\n특성 카드 후보');
+test('이미 채운 칸의 특성은 후보에 나오지 않는다', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = game(2, seed);
+    const p = s.players[0];
+    Object.assign(p.scores, { choice: 20, full: 0, sstr: 15, lstr: 30, four: 0, yacht: 50 });
+    s.board = [];
+    E.roll(s);
+    s.dice = [6, 6, 6, 5, 5];
+    p.level = 5; p.xp = 0;
+    E.commitScore(s, 'sixes');         // 28점 + 레벨업
+    for (const offer of p.offers) {
+      for (const id of offer) assert.ok(!['choice', 'full', 'straight', 'fourk', 'yacht'].includes(id), `seed ${seed}: ${id}`);
+    }
+  }
+});
+test('고를 특성이 모자라면 즉시 보상 카드로 채우고, 고르면 바로 받는다', () => {
+  const s = game(2, 3);
+  const p = s.players[0];
+  for (const k of E.PERKS) if (!k.filler) p.perks[k.id] = k.max;   // 전부 최대치
+  s.board = [];
+  E.roll(s);
+  s.dice = [6, 6, 6, 5, 5];
+  E.commitScore(s, 'choice');
+  const offer = p.offers[0];
+  assert.equal(offer.length, 3);
+  assert.ok(offer.every(id => E.perkInfo(id).filler));
+  const fame0 = p.fame;
+  E.pickPerk(s, offer.includes('fameBag') ? 'fameBag' : offer[0]);
+  assert.ok(p.fame > fame0 || p.flip > 0);
+  assert.equal(p.perks.fameBag, undefined);
+});
+
 console.log('\n협동모드');
 const coop = (boss, diff = 1, n = 2) =>
   E.createGame([...Array(n)].map((_, i) => ({ name: `P${i}`, cls: 'mage' })), 11, { mode: 'coop', boss, diff });
