@@ -1,6 +1,6 @@
 // 캔버스 렌더러. 모든 그림은 16px 도트를 정수 배율(Z)로 키워 또렷하게 그린다.
 import { groundCanvas, drawWaterFx, objectSprite, cropSprite, soilOverlay, lockedSoil, furniture, TS } from '../art/world.js';
-import { charSheet, catSheet, monsterSheet } from '../art/chars.js';
+import { charSheet, petSheet, monsterSheet } from '../art/chars.js';
 import { itemIcon, toolIcon } from '../art/items.js';
 import { MONSTERS, ITEMS } from '../data.js';
 import { FARM_SOIL, T } from '../world/maps.js';
@@ -98,7 +98,7 @@ export class Renderer {
         if (!inView(x, y)) continue;
         const idx = j * S.w + i;
         if (idx >= lim) { ctx.drawImage(lockedSoil(), x * TS, y * TS); continue; }
-        const p = g.farm[idx];
+        const p = g.effPlot(g.farm[idx]); // 밭 일꾼이 있으면 늘 촉촉
         if (p?.tilled) ctx.drawImage(soilOverlay(Farm.isWet(p, nowMs)), x * TS, y * TS);
         if (p?.crop) {
           const stage = Farm.stageOf(p, nowMs, g.plotBonus(p));
@@ -151,10 +151,12 @@ export class Renderer {
     for (const n of g.npcList()) {
       if (!inView(n.x, n.y)) continue;
       if (n.pet) {
-        const sh = catSheet();
+        const sh = petSheet(n.pet);
         const fr = n.moving ? Math.floor(now / 160) % 2 : 0;
         const c = (n.dir === 'left' ? sh.left : sh.right)[fr];
-        list.push({ y: n.y, d: () => { this.shadow(n.x, n.y, 5); ctx.drawImage(c, Math.round(n.x * TS) - 8, Math.round(n.y * TS) - 11); } });
+        list.push({ y: n.y, d: () => { if (n.pet !== 'duck') this.shadow(n.x, n.y, 5); ctx.drawImage(c, Math.round(n.x * TS) - Math.round(c.width / 2), Math.round(n.y * TS) - c.height + 1); } });
+        const pb = g.petBubble;
+        if (pb && pb.id === n.id && pb.until > Date.now()) list.push({ y: 999, d: () => {}, tag: { x: n.x, y: n.y + 0.9, text: '', bubble: pb.text } });
         continue;
       }
       const look = { bottom: '#5a4a3a', ...n.data.look };
@@ -170,7 +172,7 @@ export class Renderer {
       if (!o.online || o.map !== m.id || !o.pub) continue;
       const sheet = charSheet(o.pub.l || {});
       const fr = o.moving ? Math.floor(o.animT * 8) % 4 : 0;
-      list.push({ y: o.y, d: () => this.drawChar(sheet, o.pub.d || 'down', fr, o.x, o.y, o.pub.a ? { tool: o.pub.a, t: now } : null) });
+      list.push({ y: o.y, d: () => this.drawChar(sheet, o.pub.d || 'down', fr, o.x, o.y, o.pub.a ? { tool: o.pub.a, tier: o.pub.at || 2, k: (now % 380) / 380 } : null) });
       list.push({ y: 999, d: () => {}, tag: { x: o.x, y: o.y, text: o.pub.n, color: '#9fe8ff', near: true, bubble: o.bubble && o.bubble.until > Date.now() ? o.bubble.text : null } });
     }
 
@@ -201,7 +203,7 @@ export class Renderer {
     const act = g.action && g.action.until > now ? g.action : null;
     const myFr = g.moving ? Math.floor(g.animT * 9) % 4 : 0;
     const blink = g.invuln > 0 && Math.floor(now / 70) % 2;
-    list.push({ y: g.py, d: () => { if (!blink) this.drawChar(meSheet, g.dir, myFr, g.px, g.py, act ? { tool: act.tool, t: now, until: act.until } : null, g.auto); } });
+    list.push({ y: g.py, d: () => { if (!blink) this.drawChar(meSheet, g.dir, myFr, g.px, g.py, act ? { tool: act.tool, tier: g.me.tools[act.tool], k: 1 - (act.until - now) / (act.dur || 320) } : null, false); } });
     if (g.myBubble && g.myBubble.until > Date.now()) list.push({ y: 999, d: () => {}, tag: { x: g.px, y: g.py, text: '', bubble: g.myBubble.text } });
 
     list.sort((a, b) => a.y - b.y);
@@ -252,33 +254,86 @@ export class Renderer {
     c.beginPath(); c.ellipse(Math.round(x * TS), Math.round(y * TS), r, r * 0.4, 0, 0, Math.PI * 2); c.fill();
   }
 
+  // act: { tool, tier, k(0~1 진행도) } — 도구를 휘두르는 중이면
   drawChar(sheet, dir, frame, x, y, act, sitting) {
     const c = this.ctx;
     this.shadow(x, y, 5);
     const d = sheet[dir] || sheet.down;
     let img = d.walk[frame];
-    let swing = -1;
-    if (act && act.tool !== 'hand') {
-      swing = act.until ? (act.until - act.t > 160 ? 0 : 1) : Math.floor(act.t / 160) % 2;
-      img = d.act[swing];
-    }
+    const tool = act && act.tool !== 'hand' ? act.tool : null;
+    if (tool) img = d.act[act.k < 0.45 ? 0 : 1];
     const dx = Math.round(x * TS) - 8;
     const dy = Math.round(y * TS) - 23 + (sitting ? 1 : 0);
+    // 등을 보이고 있으면 도구는 몸 뒤에 그린다
+    if (tool && dir === 'up') this.drawToolAnim(dx, dy, dir, tool, act.tier || 2, act.k);
     c.drawImage(img, dx, dy);
-    if (act && act.tool && act.tool !== 'hand') {
-      const icon = toolIcon(act.tool, 2);
-      const [hx, hy] = { down: [4, 8], up: [4, 2], left: [-6, 6], right: [10, 6] }[dir] || [4, 8];
-      c.save();
-      c.translate(dx + hx + 6, dy + hy + 10);
-      const ang = (swing === 0 ? -0.9 : 0.6) * (dir === 'left' ? -1 : 1);
-      c.rotate(ang);
-      c.drawImage(icon, -8, -12);
-      c.restore();
-    }
+    if (tool && dir !== 'up') this.drawToolAnim(dx, dy, dir, tool, act.tier || 2, act.k);
     if (sitting) {
       c.fillStyle = '#ffffff';
       c.font = `6px ${FONT}`;
       c.fillText('z', dx + 13, dy + 2 - (Math.floor(performance.now() / 500) % 3));
+    }
+  }
+
+  // 바라보는 방향과 도구에 따라 휘두르는 궤적이 다르다.
+  // 도구 아이콘은 손잡이가 왼쪽 아래(3,13), 머리가 오른쪽 위를 향한다. 손잡이를 손에 쥐고 돌린다.
+  drawToolAnim(dx, dy, dir, tool, tier, k) {
+    const c = this.ctx;
+    const ease = t => 1 - (1 - t) ** 3;
+    const e = ease(Math.max(0, Math.min(1, k)));
+    const lerp = (a, b) => a + (b - a) * e;
+    const side = dir === 'left' || dir === 'right';
+    const flip = dir === 'left' ? -1 : 1;
+    // 손 위치 (캐릭터 16×24 기준)
+    const hand = { down: [9, 16], up: [8, 12], right: [11, 15], left: [5, 15] }[dir];
+    let rot; let sx = 1; let lift = 0;
+    if (tool === 'can') {
+      // 물뿌리개: 앞으로 기울여 붓는다
+      rot = side ? lerp(-0.2, 0.9) : dir === 'down' ? lerp(0.3, 1.5) : lerp(-0.3, -0.9);
+      if (dir === 'up') lift = 3;
+    } else if (tool === 'sword') {
+      // 검: 옆으로 크게 벤다
+      rot = side ? lerp(-1.7, 1.3) : dir === 'down' ? lerp(-0.4, 2.6) : lerp(-2.2, 0.2);
+      if (dir === 'down') sx = 1;
+    } else if (tool === 'rod') {
+      // 낚싯대: 머리 뒤로 젖혔다 앞으로 던진다
+      rot = side ? lerp(-1.9, 0.2) : dir === 'down' ? lerp(-0.8, 1.6) : lerp(0.5, -0.8);
+      if (dir === 'up') lift = lerp(2, -4);
+    } else {
+      // 괭이 · 곡괭이 · 도끼: 머리 위로 들었다가 앞으로 내려친다
+      rot = side ? lerp(-1.5, 1.0) : dir === 'down' ? lerp(-0.8, 2.2) : lerp(0.6, -0.8);
+      if (dir === 'up') lift = lerp(3, -5);
+    }
+    const hx = dx + hand[0];
+    const hy = dy + hand[1] + lift;
+    c.save();
+    c.translate(hx, hy);
+    c.scale(flip * sx, 1);
+    c.rotate(rot);
+    c.drawImage(toolIcon(tool, tier), -3, -13);
+    c.restore();
+    // 부가 효과: 검의 궤적, 물뿌리개의 물줄기
+    if (tool === 'sword' && k > 0.15 && k < 0.9) {
+      const [cx, cy] = [dx + 8, dy + 15];
+      const base = { right: 0, left: Math.PI, down: Math.PI / 2, up: -Math.PI / 2 }[dir];
+      c.save();
+      c.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`;
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(cx, cy, 11, base - 1.1, base - 1.1 + 2.2 * e);
+      c.stroke();
+      c.restore();
+    }
+    if (tool === 'can' && k > 0.35) {
+      const out = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] }[dir];
+      const sx0 = dx + 8 + out[0] * 12;
+      const sy0 = dy + 14 + out[1] * 8;
+      c.fillStyle = '#9ad8ff';
+      const t = performance.now() / 60;
+      for (let i = 0; i < 5; i++) {
+        const f = (t + i * 1.7) % 6;
+        c.fillRect(Math.round(sx0 + out[0] * f + (i % 2)), Math.round(sy0 + f * 1.2 + out[1] * f), 1, 2);
+      }
     }
   }
 

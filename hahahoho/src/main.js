@@ -125,6 +125,7 @@ async function startGame(slotIndex, store, code, pid, me) {
   const ui = new UI($hud, { settings, saveSettings, onExit: () => exitGame(), inviteLink: () => inviteLink(code), onSettings: s => setSoundSettings(s) });
   const game = new Game({ store, code, pid, me, ui, settings, slotIndex });
   ui.attach(game);
+  ui.renderer = renderer; // 알림 위치를 캐릭터 반대쪽에 두려고
   let backupAt = 0;
   ui.onBackup = m => {
     if (Date.now() - backupAt < 5000) return;

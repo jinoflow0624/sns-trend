@@ -4,7 +4,7 @@ import { charSheet, catSheet } from '../art/chars.js';
 import { building, TS } from '../art/world.js';
 import { hash2 } from '../logic/rng.js';
 import { listSlots, clearSlot, SLOT_COUNT } from '../net/slots.js';
-import { helpHtml } from './ui.js';
+import { helpHtml, jobIcon } from './ui.js';
 import { sfx } from '../game/sound.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -160,12 +160,12 @@ export class Screens {
     const w = this.frame(`
       <div class="menu">
         ${msg ? `<p class="err">${esc(msg)}</p>` : ''}
-        ${latest ? `<button class="btn gold big" data-a="cont">▶ 이어하기<small>${esc(latest[0].name)} · ${esc(latest[0].world || '')}</small></button>` : ''}
-        <button class="btn big ${latest ? '' : 'gold'}" data-a="new">🌱 새로 시작</button>
-        <button class="btn" data-a="slots">💾 저장 슬롯</button>
-        <button class="btn" data-a="join">🔗 친구 세계 참가</button>
-        <div class="row"><button class="btn ghost" data-a="help">❓ 게임 방법</button><button class="btn ghost" data-a="settings">⚙ 설정</button></div>
-        <p class="muted small center">${this.h.firebase ? '🌐 온라인 서버 연결됨 (아콰이어 온라인과 같은 서버)' : '📱 서버 설정이 없어 이 기기에서만 저장돼요'}</p>
+        ${latest ? `<button class="btn gold big" data-a="cont">이어하기<small>${esc(latest[0].name)} · ${esc(latest[0].world || '')}</small></button>` : ''}
+        <button class="btn big ${latest ? '' : 'gold'}" data-a="new">새로 시작</button>
+        <button class="btn" data-a="slots">저장 슬롯</button>
+        <button class="btn" data-a="join">친구 세계 참가</button>
+        <div class="row"><button class="btn ghost" data-a="help">게임 방법</button><button class="btn ghost" data-a="settings">설정</button></div>
+        <p class="muted small center">${this.h.firebase ? '온라인 서버에 연결돼 있어요' : '서버 설정이 없어 이 기기에만 저장돼요'}</p>
       </div>`);
     const on = (a, fn) => w.querySelector(`[data-a="${a}"]`)?.addEventListener('click', () => { sfx('click'); fn(); });
     on('cont', () => this.h.onContinue(latest[1]));
@@ -180,13 +180,13 @@ export class Screens {
     const slots = listSlots();
     const w = this.frame(`
       <div class="menu panel">
-        <h2>💾 저장 슬롯</h2>
+        <h2>저장 슬롯</h2>
         ${mode === 'pick' ? '<p class="muted small">새 캐릭터를 저장할 칸을 고르세요. 이미 있는 칸을 고르면 덮어써요.</p>' : ''}
         ${slots.map((s, i) => `
           <div class="slot-card ${s ? '' : 'empty'}">
             ${s ? `<canvas data-face="${i}" width="32" height="48"></canvas>
-              <div class="grow"><b>${esc(s.name)}</b> <span class="muted small">${JOBS[s.job]?.icon || ''} ${JOBS[s.job]?.name || ''}</span>
-              <div class="muted small">${esc(s.world || '')} · ${s.mode === 'online' ? '🌐 온라인' : '📱 이 기기'} · ${ago(s.savedAt)}</div></div>`
+              <div class="grow"><b>${esc(s.name)}</b> <span class="muted small">${jobIcon(s.job)} ${JOBS[s.job]?.name || ''}</span>
+              <div class="muted small">${esc(s.world || '')} · ${s.mode === 'online' ? '온라인' : '이 기기'} · ${ago(s.savedAt)}</div></div>`
               : `<div class="grow muted">슬롯 ${i + 1} — 비어 있음</div>`}
             <div class="col">
               ${mode === 'pick' ? `<button class="btn small gold" data-pick="${i}">여기에</button>` : s ? `<button class="btn small gold" data-load="${i}">불러오기</button><button class="btn small ghost" data-del="${i}">삭제</button>` : ''}
@@ -231,7 +231,7 @@ export class Screens {
     const J = JOBS[d.job];
     const w = this.frame(`
       <div class="menu panel create">
-        <h2>${join ? `🔗 ${esc(join.name)}에 참가` : '🌱 캐릭터 만들기'}</h2>
+        <h2>${join ? `${esc(join.name)}에 참가` : '캐릭터 만들기'}</h2>
         <div class="create-top">
           <canvas id="cc-prev" width="96" height="144"></canvas>
           <div class="grow">
@@ -243,9 +243,9 @@ export class Screens {
         </div>
         <div class="chips">${STYLES.map(([k, n]) => `<button class="${d.look.hairStyle === k ? 'on' : ''}" data-look="hairStyle:${k}">${n}</button>`).join('')}</div>
         <h3>직업 <span class="muted small">— 초기 능력치와 특기가 달라요</span></h3>
-        <div class="jobs">${Object.entries(JOBS).map(([k, j]) => `<button class="job-card ${d.job === k ? 'on' : ''}" data-job="${k}" style="--c:${j.color}"><b>${j.icon} ${j.name}</b></button>`).join('')}</div>
+        <div class="jobs">${Object.entries(JOBS).map(([k, j]) => `<button class="job-card ${d.job === k ? 'on' : ''}" data-job="${k}" style="--c:${j.color}">${jobIcon(k)}<b>${j.name}</b></button>`).join('')}</div>
         <div class="job-detail" style="--c:${J.color}">
-          <p><b>${J.icon} ${J.name}</b> — ${J.desc}</p>
+          <p>${jobIcon(d.job)} <b>${J.name}</b> — ${J.desc}</p>
           <div class="statbars">${Object.entries(STATS).map(([k, n]) => {
             const v = J.stats[k];
             const max = k === 'hp' || k === 'en' ? 140 : 10;
@@ -256,9 +256,9 @@ export class Screens {
         ${join ? '' : `
           <h3>세계</h3>
           <label class="field"><span>세계 이름</span><input id="cc-world" maxlength="14" placeholder="예) 하하호호 마을" value="${esc(d.world || '')}"></label>
-          ${this.h.firebase ? `<div class="seg wide"><button class="${d.mode !== 'local' ? 'on' : ''}" data-mode="online">🌐 온라인 (친구 초대 가능)</button><button class="${d.mode === 'local' ? 'on' : ''}" data-mode="local">📱 혼자 (이 기기)</button></div>` : ''}`}
+          ${this.h.firebase ? `<div class="seg wide"><button class="${d.mode !== 'local' ? 'on' : ''}" data-mode="online">온라인 (친구 초대 가능)</button><button class="${d.mode === 'local' ? 'on' : ''}" data-mode="local">혼자 (이 기기)</button></div>` : ''}`}
         <p class="err" id="cc-err"></p>
-        <div class="row"><button class="btn ghost" data-back>← 뒤로</button><button class="btn gold" data-go>${join ? '참가하기' : '시작하기'} ▶</button></div>
+        <div class="row"><button class="btn ghost" data-back>← 뒤로</button><button class="btn gold" data-go>${join ? '참가하기' : '시작하기'}</button></div>
       </div>`, 'wide');
     const prev = w.querySelector('#cc-prev');
     const px = prev.getContext('2d');
@@ -306,7 +306,7 @@ export class Screens {
   joinCode(prefill = '', msg = '') {
     const w = this.frame(`
       <div class="menu panel">
-        <h2>🔗 친구 세계 참가</h2>
+        <h2>친구 세계 참가</h2>
         <p class="muted small">친구에게 받은 초대 링크를 열면 바로 여기로 와요. 코드로 직접 들어갈 수도 있어요.</p>
         <label class="field"><span>세계 코드</span><input id="jc" maxlength="8" placeholder="예) K7PQ2M" value="${esc(prefill)}" autocapitalize="characters"></label>
         <p class="err" id="jerr">${esc(msg)}</p>
@@ -330,25 +330,25 @@ export class Screens {
   joinInfo(world) {
     const w = this.frame(`
       <div class="menu panel">
-        <h2>🏡 ${esc(world.name)}</h2>
+        <h2>${esc(world.name)}</h2>
         <p>주민 ${world.members.length}/4명${world.members.length ? `: ${world.members.map(esc).join(', ')}` : ''}</p>
         <p class="muted small">세계 코드 ${esc(world.code)} · ${world.day}일차</p>
         ${world.full ? '<p class="err">이 세계는 이미 4명이 가득 찼어요.</p>' : ''}
-        <div class="row"><button class="btn ghost" data-back>← 뒤로</button>${world.full ? '' : '<button class="btn gold" data-go>새 캐릭터로 참가 ▶</button>'}</div>
+        <div class="row"><button class="btn ghost" data-back>← 뒤로</button>${world.full ? '' : '<button class="btn gold" data-go>새 캐릭터로 참가</button>'}</div>
       </div>`);
     w.querySelector('[data-back]').addEventListener('click', () => this.menu());
     w.querySelector('[data-go]')?.addEventListener('click', () => this.pickSlotForNew(i => this.createChar({ slot: i, join: world })));
   }
 
   help() {
-    const w = this.frame(`<div class="menu panel"><h2>❓ 게임 방법</h2>${helpHtml()}<button class="btn ghost" data-back>← 돌아가기</button></div>`, 'wide');
+    const w = this.frame(`<div class="menu panel"><h2>게임 방법</h2>${helpHtml()}<button class="btn ghost" data-back>← 돌아가기</button></div>`, 'wide');
     w.querySelector('[data-back]').addEventListener('click', () => this.menu());
   }
 
   settings() {
     const S = this.h.settings;
     const seg = (k, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="${String(S[k]) === String(v) ? 'on' : ''}" data-set="${k}:${v}">${l}</button>`).join('')}</div>`;
-    const w = this.frame(`<div class="menu panel"><h2>⚙ 설정</h2>
+    const w = this.frame(`<div class="menu panel"><h2>설정</h2>
       <div class="opt"><span>이동 방식</span>${seg('control', [['tap', '터치'], ['joystick', '조이스틱']])}</div>
       <div class="opt"><span>조이스틱 위치</span>${seg('lefty', [[false, '왼쪽'], [true, '오른쪽']])}</div>
       <div class="opt"><span>효과음</span>${seg('sound', [[true, '켜기'], [false, '끄기']])}</div>

@@ -212,6 +212,34 @@ export const catSheet = () => cached('cat', () => {
   return { right, left: right.map(flipX) };
 });
 
+function dogFrame(frame) {
+  const c = makeCanvas(18, 14);
+  const P = pen(c.getContext('2d'));
+  const col = '#d9923a'; const d = shade(col, -0.25); const w = '#fff3df';
+  const leg = frame % 2;
+  P.r(3, 6, 10, 5, col); P.r(5, 9, 6, 2, w);
+  P.r(3 + leg, 11, 2, 3, d); P.r(6 - leg, 11, 2, 3, col); P.r(10 + leg, 11, 2, 3, d); P.r(12 - leg, 11, 2, 3, col);
+  P.r(12, 2, 6, 6, col); P.r(13, 5, 5, 3, w); P.r(12, 0, 2, 3, d); P.r(16, 0, 2, 3, d);
+  P.p(14, 4, '#2b1e1c'); P.p(17, 6, '#2b1e1c'); P.p(15, 7, '#f48aa0');
+  P.r(0, 3 - leg, 2, 2, col); P.r(1, 5, 2, 2, col);
+  return outline(c);
+}
+function duckFrame(frame) {
+  const c = makeCanvas(14, 13);
+  const P = pen(c.getContext('2d'));
+  const bob = frame % 2;
+  P.oval(6, 8 + bob, 5, 3, '#ffffff'); P.r(2, 7 + bob, 3, 2, '#e8e8f0');
+  P.r(8, 2 + bob, 4, 5, '#ffffff'); P.p(10, 3 + bob, '#2b1e1c');
+  P.r(12, 4 + bob, 2, 2, '#f39c1f');
+  P.r(1, 11 + bob, 10, 1, '#8ad0f0');
+  return outline(c);
+}
+export const petSheet = kind => cached(`pet:${kind}`, () => {
+  if (kind === 'cat') return catSheet();
+  const right = [0, 1].map(kind === 'dog' ? dogFrame : duckFrame);
+  return { right, left: right.map(flipX) };
+});
+
 function slimeFrame(f, color) {
   const c = makeCanvas(16, 14);
   const P = pen(c.getContext('2d'));

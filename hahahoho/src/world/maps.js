@@ -35,7 +35,7 @@ class Builder {
     const w = o.w || 1;
     const h = o.h || 1;
     const obj = { w, h, ...o };
-    if (['tree', 'rock', 'bush', 'forage', 'ore'].includes(o.t) && obj.nid == null) obj.nid = `${o.t[0]}${this.nid++}`;
+    if (['tree', 'rock', 'bush', 'forage', 'boulder', 'crystal'].includes(o.t) && obj.nid == null) obj.nid = `${o.t[0]}${this.nid++}`;
     this.objects.push(obj);
     this.reserve(o.x, o.y, w, h);
     return obj;
@@ -71,9 +71,13 @@ class Builder {
       const fh = o.foot ?? o.h;
       for (let j = o.y + o.h - fh; j < o.y + o.h; j++) for (let i = o.x; i < o.x + o.w; i++) {
         if (o.door && i === o.door.x && j === o.door.y) continue;
+        if (o.doors?.some(([dx, dy]) => dx === i && dy === j)) continue; // 동굴 입구처럼 지나갈 수 있는 칸
         if (m.in(i, j)) m.solid[j * m.w + i] = 1;
       }
     }
+    // 자원 칸 → 물건 (베어 낸 뒤 지나갈 수 있게 할 때 쓴다)
+    m.nodeGrid = new Array(m.w * m.h);
+    for (const o of m.objects) if (o.nid && !o.deco) m.nodeGrid[o.y * m.w + o.x] = o;
     delete m.reserved;
     return m;
   }
@@ -115,7 +119,10 @@ function buildFarm() {
   b.reserve(1, 14, 11, 9);
   b.obj({ t: 'waypoint', x: 13, y: 15, wp: 'farm', name: '농장 석상' });
   b.reserve(12, 14, 3, 3);
-  b.obj({ t: 'sign', x: 18, y: 14, text: '→ 마을 · ↑ 광산 · ↓ 숲' });
+  b.obj({ t: 'sign', x: 18, y: 14, text: '오른쪽은 마을, 위는 광산, 아래는 숲' });
+  b.npcs.push({ id: 'duri', x: 20.5, y: 15.4, shop: 'regrow' });
+  b.reserve(19, 14, 4, 3);
+  b.npcs.push({ id: 'dog', pet: 'dog', route: [[8, 12.4], [25, 12.4], [25, 13.5], [8, 13.5]], speed: 1.6 });
 
   b.scatter('tree', 0.12, 11, grassy);
   b.scatter('rock', 0.05, 12, grassy);
@@ -218,6 +225,7 @@ function buildLake() {
   b.obj({ t: 'waypoint', x: 6, y: 17, wp: 'lake', name: '호수 석상' });
   b.reserve(5, 16, 3, 3);
   b.obj({ t: 'crate', x: 9, y: 9 });
+  b.npcs.push({ id: 'duck', pet: 'duck', route: [[18, 8], [25, 9], [26, 15], [19, 16]], speed: 0.8 });
   b.scatter('tree', 0.14, 31, grassy);
   b.scatter('flower', 0.12, 32, grassy);
   b.scatter('bush', 0.05, 33, grassy);
@@ -276,12 +284,12 @@ function buildMineGate() {
   b.borderTrees([{ x: 11, y: 15, w: 2 }, { x: 0, y: 0, w: 24, h: 3 }]);
   b.rect(11, 5, 2, 11, T.PATH);
   b.warp(11, 15, 2, 1, 'farm', 16.5, 1.5, '농장');
-  b.obj({ t: 'cave', x: 10, y: 2, w: 4, h: 3, foot: 2, name: '광산' });
+  b.obj({ t: 'cave', x: 10, y: 2, w: 4, h: 3, foot: 3, doors: [[11, 4], [12, 4]], name: '광산' });
   b.warp(11, 4, 2, 1, 'mine:1', 0, 0, '광산 1층');
   b.set(11, 4, T.CAVE); b.set(12, 4, T.CAVE);
   b.reserve(9, 1, 6, 15);
   b.obj({ t: 'waypoint', x: 6, y: 8, wp: 'mine_gate', name: '광산 석상' });
-  b.obj({ t: 'sign', x: 14, y: 6, text: '광산 — 깊이 갈수록 귀한 광석! 5층마다 승강기' });
+  b.obj({ t: 'sign', x: 14, y: 6, text: '광산: 깊이 갈수록 귀한 광석이 나와요. 5층마다 승강기가 있어요.' });
   b.obj({ t: 'lamp', x: 9, y: 5 });
   b.reserve(5, 7, 3, 3);
   b.scatter('rock', 0.12, 51, grassy);

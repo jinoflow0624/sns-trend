@@ -315,7 +315,7 @@ function fence(n, s, e, w) {
 
 function waypoint(kind, lit, frame) {
   return cached(`wp:${kind}:${lit}:${frame}`, () => {
-    const glow = lit ? ['#7ae8ff', '#b8f6ff', '#4ac8f0'][frame % 3] : '#6a7a88';
+    const glow = lit ? ['#7ae8ff', '#b8f6ff', '#4ac8f0'][frame % 3] : '#7a7a86';
     if (kind === 'lift') {
       const c = makeCanvas(16, 24);
       const P = pen(c.getContext('2d'));
@@ -329,12 +329,24 @@ function waypoint(kind, lit, frame) {
       P.oval(8, 8, 7, 5, '#3f4b4a'); P.oval(8, 8, 5, 3, glow); P.oval(8, 8, 3, 1, '#ffffff');
       return { c, ox: 0, oy: 0 };
     }
+    // 순간이동 석상: 돌기둥 가운데에 소용돌이 문이 돌고, 발밑에 빛나는 원
     const c = makeCanvas(16, 32);
     const P = pen(c.getContext('2d'));
-    P.r(2, 26, 12, 5, '#7d7d84'); P.r(2, 26, 12, 1, '#a3a3a8');
-    P.r(4, 4, 8, 22, '#9a9aa4'); P.r(4, 4, 2, 22, '#b3b3bd'); P.r(10, 4, 2, 22, '#7d7d86');
-    P.r(5, 1, 6, 3, '#9a9aa4'); P.r(6, 0, 4, 1, '#b3b3bd');
-    P.r(7, 8, 2, 2, glow); P.r(6, 12, 4, 1, glow); P.r(7, 14, 2, 5, glow); P.r(5, 16, 6, 1, glow);
+    P.oval(8, 29, 7, 2, lit ? '#4ac8f0' : '#6a6a74');
+    P.r(2, 26, 12, 4, '#7d7d84'); P.r(2, 26, 12, 1, '#a3a3a8');
+    P.r(3, 3, 10, 23, '#9a9aa4'); P.r(3, 3, 2, 23, '#b3b3bd'); P.r(11, 3, 2, 23, '#7d7d86');
+    P.r(4, 0, 8, 3, '#9a9aa4'); P.r(5, 0, 6, 1, '#b3b3bd');
+    // 소용돌이 문
+    P.oval(8, 13, 4, 6, lit ? '#3a2a6a' : '#55555e');
+    P.oval(8, 13, 3, 5, lit ? '#6a4ae0' : '#6a6a74');
+    P.oval(8, 13, 2, 3, glow);
+    if (lit) {
+      const ring = [[8, 8], [11, 11], [11, 15], [8, 18], [5, 15], [5, 11]];
+      for (let i = 0; i < 2; i++) { const [x, y] = ring[(frame + i * 3) % ring.length]; P.p(x, y, '#ffffff'); }
+      P.p(8, 13, '#ffffff');
+    }
+    // 위쪽 화살표 문양 (여기서 다른 곳으로 떠난다는 표시)
+    P.r(7, 22, 2, 3, lit ? '#ffd23c' : '#6a6a74'); P.r(6, 22, 4, 1, lit ? '#ffd23c' : '#6a6a74');
     return { c: outline(c), ox: 0, oy: -16 };
   });
 }
@@ -657,13 +669,13 @@ export function objectSprite(o, m, st) {
     }
     case 'bush': return bush(!st.felled?.(o) && hash2(o.x, o.y, 8) < 0.25);
     case 'rock': return st.felled?.(o) ? null : rock(o.ore || 'stone', !!m.cave);
-    case 'boulder': return boulder();
+    case 'boulder': return st.felled?.(o) ? null : boulder();
     case 'flower': return flower(Math.floor(hash2(o.x, o.y, 2) * 50), Math.sin(st.t / 500 + o.x) > 0.3 ? 1 : 0);
     case 'fence': {
       const has = (dx, dy) => m.objects.some(q => q.t === 'fence' && q.x === o.x + dx && q.y === o.y + dy);
       return fence(has(0, -1), has(0, 1), has(1, 0), has(-1, 0));
     }
-    case 'waypoint': return waypoint(o.kind || 'stone', !!st.discovered?.(o.wp), f3);
+    case 'waypoint': return waypoint(o.kind || 'stone', !!st.discovered?.(o.wp), Math.floor(st.t / 160) % 6);
     case 'lamp': return lamp(st.night);
     case 'sign': return sign();
     case 'board': return board();
@@ -672,7 +684,7 @@ export function objectSprite(o, m, st) {
     case 'station': return station(o.kind, f3);
     case 'bed': return bed();
     case 'ladder': return ladder(!!o.up);
-    case 'crystal': return crystal(f3);
+    case 'crystal': return st.felled?.(o) ? null : crystal(f3);
     case 'pillar': return pillar();
     case 'anvil': return anvil();
     case 'crate': return crate();

@@ -6,6 +6,7 @@
 export const DAY_MS = 24 * 60 * 1000;
 export const HOUR_MS = DAY_MS / 24;
 export const MIN = 60 * 1000;
+export const REAL_HOUR = 60 * MIN; // 현실 1시간 (방치·일꾼 시간은 현실 시간 기준)
 
 // ── 능력치 ───────────────────────────────────────────────────────────────────
 export const STATS = {
@@ -19,7 +20,7 @@ export const SKILLS = {
 // 초기 능력치 합은 직업마다 비슷하게 맞추고(체력·기력 제외 25~26), 전문 분야에 몰아 준다.
 export const JOBS = {
   farmer: {
-    name: '농부', icon: '🌾', color: '#7fbf4d',
+    name: '농부', color: '#7fbf4d',
     desc: '작물이 10% 빨리 자라고, 수확할 때 가끔 한 개 더 얻습니다.',
     stats: { hp: 100, en: 130, str: 6, dex: 5, luk: 6, crf: 5 },
     skills: { farm: 3 },
@@ -28,7 +29,7 @@ export const JOBS = {
     perk: { growth: 0.10, bonusHarvest: 0.2 },
   },
   miner: {
-    name: '광부', icon: '⛏️', color: '#c08a55',
+    name: '광부', color: '#c08a55',
     desc: '곡괭이 한 번에 더 많이 캐고, 광석이 더 자주 나옵니다.',
     stats: { hp: 115, en: 115, str: 9, dex: 4, luk: 5, crf: 4 },
     skills: { mine: 3 },
@@ -37,7 +38,7 @@ export const JOBS = {
     perk: { mineDmg: 1, oreLuck: 0.15 },
   },
   fisher: {
-    name: '어부', icon: '🎣', color: '#4d9fd6',
+    name: '어부', color: '#4d9fd6',
     desc: '입질이 빨리 오고, 낚시 판정 구간이 넓습니다.',
     stats: { hp: 95, en: 120, str: 5, dex: 8, luk: 8, crf: 4 },
     skills: { fish: 3 },
@@ -46,7 +47,7 @@ export const JOBS = {
     perk: { biteSpeed: 0.3, zone: 0.25 },
   },
   hunter: {
-    name: '사냥꾼', icon: '🏹', color: '#c0584d',
+    name: '사냥꾼', color: '#c0584d',
     desc: '공격력이 높고, 몬스터가 전리품을 더 많이 떨어뜨립니다.',
     stats: { hp: 125, en: 105, str: 9, dex: 8, luk: 5, crf: 3 },
     skills: { combat: 3 },
@@ -55,7 +56,7 @@ export const JOBS = {
     perk: { atk: 0.2, loot: 0.25 },
   },
   cook: {
-    name: '요리사', icon: '🍳', color: '#e0a03a',
+    name: '요리사', color: '#e0a03a',
     desc: '요리가 두 개씩 나올 때가 있고, 음식 효과가 30% 셉니다.',
     stats: { hp: 100, en: 120, str: 4, dex: 6, luk: 7, crf: 8 },
     skills: { cook: 3 },
@@ -64,7 +65,7 @@ export const JOBS = {
     perk: { foodPower: 0.3, doubleCook: 0.25 },
   },
   tailor: {
-    name: '재봉사', icon: '🧵', color: '#b06fd0',
+    name: '재봉사', color: '#b06fd0',
     desc: '옷을 만들 때 재료가 덜 들고, 옷 능력치가 +1 붙습니다.',
     stats: { hp: 95, en: 115, str: 4, dex: 7, luk: 6, crf: 9 },
     skills: { sew: 3 },
@@ -76,12 +77,12 @@ export const JOBS = {
 
 // ── 도구 ─────────────────────────────────────────────────────────────────────
 export const TOOLS = {
-  hoe: { name: '괭이', icon: 'tool_hoe', skill: 'farm' },
-  can: { name: '물뿌리개', icon: 'tool_can', skill: 'farm' },
-  pick: { name: '곡괭이', icon: 'tool_pick', skill: 'mine' },
-  axe: { name: '도끼', icon: 'tool_axe', skill: 'farm' },
-  rod: { name: '낚싯대', icon: 'tool_rod', skill: 'fish' },
-  sword: { name: '검', icon: 'tool_sword', skill: 'combat' },
+  hoe: { name: '괭이', skill: 'farm' },
+  can: { name: '물뿌리개', skill: 'farm' },
+  pick: { name: '곡괭이', skill: 'mine' },
+  axe: { name: '도끼', skill: 'farm' },
+  rod: { name: '낚싯대', skill: 'fish' },
+  sword: { name: '검', skill: 'combat' },
 };
 export const TOOL_TIERS = ['', '나무', '구리', '철', '금'];
 export const TOOL_TIER_COLOR = ['', '#a57a4a', '#d98c4a', '#c8d0da', '#f2c94c'];
@@ -293,11 +294,11 @@ export const HOUSE_GROWTH = [0, 0, 0, 0.05, 0.10, 0.15];
 // ── 방치 활동 ────────────────────────────────────────────────────────────────
 // 접속하지 않은 동안 캐릭터가 계속하는 일. 시간당 기대 수확량(기본값).
 export const IDLE_JOBS = {
-  farm: { name: '밭일 돕기', icon: '🌱', skill: 'farm', table: [['turnip', 5], ['potato', 3], ['wheat', 4], ['carrot', 3]] },
-  mine: { name: '광산 채굴', icon: '⛏️', skill: 'mine', table: [['stone', 10], ['coal', 3], ['copper_ore', 4], ['iron_ore', 1.5], ['gem', 0.15]] },
-  fish: { name: '호숫가 낚시', icon: '🎣', skill: 'fish', table: [['fish_crucian', 3], ['fish_carp', 1.5], ['fish_trout', 0.6], ['fish_catfish', 0.25], ['boot', 0.4]] },
-  hunt: { name: '숲 사냥', icon: '🏹', skill: 'combat', table: [['fur', 3], ['meat', 1], ['slime_gel', 3], ['bone', 0.4]] },
-  forage: { name: '숲 채집', icon: '🍄', skill: 'farm', table: [['wood', 12], ['berry', 2], ['mushroom', 1.5], ['flower', 2.5], ['herb', 2]] },
+  farm: { name: '밭일 돕기', skill: 'farm', table: [['turnip', 5], ['potato', 3], ['wheat', 4], ['carrot', 3]] },
+  mine: { name: '광산 채굴', skill: 'mine', table: [['stone', 10], ['coal', 3], ['copper_ore', 4], ['iron_ore', 1.5], ['gem', 0.15]] },
+  fish: { name: '호숫가 낚시', skill: 'fish', table: [['fish_crucian', 3], ['fish_carp', 1.5], ['fish_trout', 0.6], ['fish_catfish', 0.25], ['boot', 0.4]] },
+  hunt: { name: '숲 사냥', skill: 'combat', table: [['fur', 3], ['meat', 1], ['slime_gel', 3], ['bone', 0.4]] },
+  forage: { name: '숲 채집', skill: 'farm', table: [['wood', 12], ['berry', 2], ['mushroom', 1.5], ['flower', 2.5], ['herb', 2]] },
 };
 export const IDLE_CAP_H = 8;
 
@@ -335,7 +336,47 @@ export const NPCS = {
     name: '꼬마 민수', role: '마을 아이', look: { skin: '#f6d2b0', hair: '#3a2a1a', top: '#ffd23c', hairStyle: 'short', small: true },
     lines: ['같이 놀자!', '분수대에 동전 던지면 소원이 이뤄진대.', '고양이 나비 못 봤어?'],
   },
+  duri: {
+    name: '숲지기 두리', role: '자연 되살리기', look: { skin: '#e0b088', hair: '#6a8a3a', top: '#5a7a3a', hairStyle: 'cap', cap: '#4a6a2a', beard: true },
+    lines: ['베어 낸 나무와 캐낸 바위는 저절로 돌아오지 않아.', '조금만 보태 주면 숲과 들을 되살려 주지.', '자연은 아껴 써야 오래 간다네.'],
+  },
 };
+
+// NPC 취향: love(아주 좋아함) · like(좋아함) · dislike(싫어함). 아이템 id 또는 'type:종류'
+export const NPC_TASTE = {
+  bomi: { love: ['strawberry', 'pumpkin', 'flower_crown'], like: ['type:crop', 'flower'], dislike: ['boot', 'slime_gel'] },
+  chulsu: { love: ['gold_ore', 'gem', 'ruby', 'bbq'], like: ['type:ore', 'meat'], dislike: ['flower', 'flower_crown'] },
+  silvi: { love: ['cloth', 'wool', 'red_dress', 'dye_red', 'dye_blue', 'dye_yellow'], like: ['type:cloth', 'cotton', 'flower'], dislike: ['slime_gel', 'boot'] },
+  sunja: { love: ['pumpkin_pie', 'mushroom_stew', 'fish_salmon'], like: ['type:food', 'mushroom', 'tomato'], dislike: ['bone', 'bat_wing'] },
+  kang: { love: ['fish_gold', 'fish_catfish', 'sushi', 'spicy_stew'], like: ['type:fish', 'bait', 'boot'], dislike: ['flower_crown'] },
+  rea: { love: ['golem_core', 'gem', 'herb_salve', 'bbq'], like: ['type:drop', 'bread'], dislike: ['flower_crown', 'boot'] },
+  // 촌장님은 건강을 챙긴다
+  mayor: { love: ['herb_salve', 'veggie_soup', 'mushroom_stew', 'herb'], like: ['type:crop', 'grilled_fish', 'baked_potato'], dislike: ['slime_gel', 'bbq', 'pumpkin_pie'] },
+  minsu: { love: ['strawberry', 'berry_toast', 'f_bear'], like: ['flower', 'berry', 'type:furniture'], dislike: ['mushroom', 'bone'] },
+  duri: { love: ['herb', 'flower', 'f_plant'], like: ['type:forage', 'wood'], dislike: ['slime_gel', 'bone'] },
+};
+export const TASTE_POINTS = { love: 80, like: 40, neutral: 15, dislike: -20 };
+export const TASTE_HINT = {
+  bomi: '딸기나 커다란 호박', chulsu: '반짝이는 광석이나 고기 요리', silvi: '천과 염료', sunja: '정성 들인 요리',
+  kang: '귀한 물고기', rea: '유적의 전리품이나 약초 연고', mayor: '몸에 좋은 음식이나 약초', minsu: '달콤한 것이나 곰 인형', duri: '약초와 들꽃',
+};
+
+// 애완동물 (누르면 울음소리)
+export const PETS = {
+  cat: { name: '고양이 나비', cry: '야옹~', sound: 'meow' },
+  dog: { name: '강아지 보리', cry: '멍멍!', sound: 'bark' },
+  duck: { name: '오리 꽥이', cry: '꽥꽥!', sound: 'quack' },
+};
+
+// 밭 일꾼: 고용한 동안 밭이 늘 촉촉하고, 다 자란 작물은 수확해서 공용 보관함에 넣고 다시 심는다
+export const HELPER_PLANS = [
+  { hours: 4, gold: 300 },
+  { hours: 12, gold: 800 },
+  { hours: 24, gold: 1500 },
+];
+
+// 숲지기 두리: 베어 낸 자원을 되살리는 값 (자원 하나당)
+export const REGROW_COST = { perNode: 25, min: 60 };
 
 // ── 오늘의 부탁 (게시판) ─────────────────────────────────────────────────────
 export const REQUEST_POOL = [

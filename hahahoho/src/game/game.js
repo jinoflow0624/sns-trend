@@ -8,12 +8,12 @@
 
 import {
   ITEMS, JOBS, TOOLS, TOOL_UPGRADE, TOOL_TIERS, CROPS, MONSTERS, SHOPS, HOUSE_LEVELS, HOUSE_GROWTH,
-  NPCS, RECIPES, IDLE_JOBS, MIN, HOUR_MS,
+  NPCS, RECIPES, IDLE_JOBS, MIN, HOUR_MS, REAL_HOUR, NPC_TASTE, TASTE_POINTS, PETS, HELPER_PLANS, REGROW_COST,
 } from '../data.js';
 import * as Inv from '../logic/inventory.js';
 import * as P from '../logic/player.js';
 import * as Farm from '../logic/farm.js';
-import { computeIdle, trickle } from '../logic/idle.js';
+import { computeIdle, idleCapHours } from '../logic/idle.js';
 import { craft as doCraft, canCraft } from '../logic/craft.js';
 import { sellPrice, buyPrice, dailyRequests } from '../logic/market.js';
 import { mulberry32, hashStr, hash2, weighted, randInt, rngFor } from '../logic/rng.js';
@@ -24,7 +24,9 @@ import { clockOf, nextDayAt } from './clock.js';
 const SPEED = 4.2;          // 타일/초
 const PUB_MS = 140;         // 위치 전송 간격(움직일 때)
 const SAVE_MS = 6000;       // 캐릭터 저장 간격
-const RESPAWN = { tree: 8 * MIN, rock: 6 * MIN };
+// 지상의 나무·바위는 한 번 베거나 캐면 다시 자라지 않는다 (숲지기 두리에게 값을 치르면 되살아남)
+export const GONE = 9e15;
+const HELPER_TICK_MS = 15000;
 const FORAGE = {
   forest: [['mushroom', 3], ['berry', 3], ['herb', 3], ['flower', 2]],
   default: [['flower', 3], ['herb', 1]],
@@ -66,8 +68,6 @@ export class Game {
     this.lastSave = 0;
     this.lastPub = 0;
     this.lastRegen = performance.now();
-    this.auto = false;
-    this.autoAcc = 0;
     this.decor = null;       // 꾸미기 모드 { slot }
     this.unsubs = [];
     this.fade = 0;
@@ -100,10 +100,11 @@ export class Game {
     sub('pub', v => { this.onPlayers(v || {}); });
 
     await S.update('', { 'meta/lastActive': Date.now() }).catch(() => {});
-    // 방치 보상
-    const away = Date.now() - (this.me.lastSeen || Date.now());
-    const reward = computeIdle(this.me, away, { seed: hashStr(`${this.pid}:${this.me.lastSeen}`), houseLv: this.house.level });
-    if (reward) this.ui.showIdle(reward);
+    sub('helper', v => { this.helper = v || null; });
+    // 방치 창고: 접속 중이든 아니든 idleAt 이후로 계속 쌓인다. 오래 비웠다 돌아오면 먼저 보여 준다.
+    if (!this.me.idleAt) this.me.idleAt = this.me.lastSeen || Date.now();
+    const stored = this.idleNow();
+    if (stored && Date.now() - (this.me.lastSeen || 0) > 5 * MIN) this.ui.showIdle(stored);
     this.me.lastSeen = Date.now();
     this.me.hp = Math.max(1, Math.min(this.me.hp, P.maxHp(this.me)));
 
@@ -232,18 +233,10 @@ export class Game {
       if (this.me.en < st.en) { this.me.en = Math.min(st.en, this.me.en + 2); this.dirty = true; }
       if (this.me.hp < st.hp && !this.inCombat()) { this.me.hp = Math.min(st.hp, this.me.hp + 2); this.dirty = true; }
     }
-    // 자동 모드: 화면을 켜 둔 채 방치 활동
-    if (this.auto) {
-      this.autoAcc += dt;
-      if (this.autoAcc >= 60) {
-        this.autoAcc = 0;
-        const r = trickle(this.me, 60 * 1000 * 2.5, hashStr(`${this.pid}:${now}`));
-        if (r) {
-          for (const [id, n] of r.items) { Inv.give(this.me, id, n); this.floatItem(id, n); }
-          this.gainXp(r.skill, r.xp);
-          this.dirty = true;
-        }
-      }
+    // 밭 일꾼: 접속한 사람 중 한 명(아이디가 가장 작은 사람)이 대표로 수확한다
+    if (now - (this.lastHelperTick || 0) > HELPER_TICK_MS) {
+      this.lastHelperTick = now;
+      if (this.helperActive() && this.isLeader()) this.helperTick().catch(() => {});
     }
     if (this.dirty && now - this.lastSave > SAVE_MS) this.saveNow();
   }
@@ -259,7 +252,7 @@ export class Game {
     if (k.has('ArrowDown') || k.has('s')) vy += 1;
     if (this.joy.x || this.joy.y) { vx = this.joy.x; vy = this.joy.y; }
     if (this.fishing || this.decor?.busy) { vx = 0; vy = 0; this.path = null; }
-    if (vx || vy) { this.path = null; this.pending = null; this.auto = false; }
+    if (vx || vy) { this.path = null; this.pending = null; }
 
     if (!vx && !vy && this.path?.length) {
       const tgt = this.path[0];
@@ -286,11 +279,19 @@ export class Game {
     this.pubSoon();
   }
 
+  // 베어 내거나 캐낸 자원이 있던 칸은 지나갈 수 있다
+  deadNodeAt(x, y) {
+    const o = this.map.nodeGrid?.[Math.floor(y) * this.map.w + Math.floor(x)];
+    return !!o && this.nodeDead(o);
+  }
+  solidAt(x, y) { return isSolid(this.map, x, y) && !this.deadNodeAt(x, y); }
+  pathIgnore() { return o => !!o.nid && this.nodeDead(o); }
+
   blocked(x, y) {
     const r = 0.28;
     const pts = [[x - r, y - 0.15], [x + r, y - 0.15], [x - r, y + 0.2], [x + r, y + 0.2]];
     for (const [px, py] of pts) {
-      if (isSolid(this.map, px, py)) return true;
+      if (this.solidAt(px, py)) return true;
       if (this.map.id === 'house' && this.furnitureSolidAt(Math.floor(px), Math.floor(py))) return true;
     }
     return false;
@@ -311,15 +312,14 @@ export class Game {
     if (this.fishing) return this.action_();
     const tx = Math.floor(wx); const ty = Math.floor(wy);
     const target = this.targetAt(wx, wy);
-    this.auto = false;
     if (target) {
       const d = Math.hypot(target.cx - this.px, target.cy - this.py);
       if (d < target.reach) { this.face(target.cx, target.cy); return this.interact(target); }
-      const path = findPath(this.map, this.px, this.py, target.px ?? target.cx, target.py ?? target.cy, { adjacent: true, maxNodes: 6000 });
+      const path = findPath(this.map, this.px, this.py, target.px ?? target.cx, target.py ?? target.cy, { adjacent: true, maxNodes: 6000, ignore: this.pathIgnore() });
       if (path) { this.path = path; this.pending = target; this.marker = { x: target.cx, y: target.cy, t: 0.6 }; return; }
     }
-    if (!isSolid(this.map, wx, wy)) {
-      const path = findPath(this.map, this.px, this.py, tx + 0.5, ty + 0.5, { maxNodes: 6000 });
+    if (!this.solidAt(wx, wy)) {
+      const path = findPath(this.map, this.px, this.py, tx + 0.5, ty + 0.5, { maxNodes: 6000, ignore: this.pathIgnore() });
       if (path) { this.path = path.length ? path : [{ x: tx + 0.5, y: ty + 0.5 }]; this.pending = null; this.marker = { x: tx + 0.5, y: ty + 0.5, t: 0.6 }; }
     }
   }
@@ -328,9 +328,23 @@ export class Game {
     const t = this.pending;
     this.pending = null;
     if (!t) return;
+    // 걷는 동안 움직이는 NPC·동물은 지금 위치를 다시 찾는다
+    if (t.kind === 'npc' || t.kind === 'pet') {
+      const n = this.npcList().find(q => q.id === t.npc.id);
+      if (n) {
+        const d = Math.hypot(n.x - this.px, n.y - this.py);
+        if (d > 2.4 && (t.retry || 0) < 3) {
+          const path = findPath(this.map, this.px, this.py, n.x, n.y, { adjacent: true, maxNodes: 6000, ignore: this.pathIgnore() });
+          if (path?.length) { this.path = path; this.pending = { ...t, npc: n, cx: n.x, cy: n.y, retry: (t.retry || 0) + 1 }; return; }
+        }
+        this.face(n.x, n.y);
+        if (d <= 2.8) this.interact({ ...t, npc: n, cx: n.x, cy: n.y });
+        return;
+      }
+    }
     this.face(t.cx, t.cy);
     const d = Math.hypot(t.cx - this.px, t.cy - this.py);
-    if (d < t.reach + 0.6) this.interact(t);
+    if (d < t.reach + 0.8) this.interact(t);
   }
 
   face(x, y) {
@@ -346,9 +360,12 @@ export class Game {
     for (const mo of this.monsters) {
       if (!mo.dead && Math.hypot(mo.x - wx, mo.y - wy) < 0.8) return { kind: 'monster', mo, cx: mo.x, cy: mo.y, reach: 1.3 };
     }
-    // NPC
+    // NPC · 동물 (머리부터 발밑까지 넉넉하게)
     for (const n of this.npcList()) {
-      if (Math.abs(n.x - wx) < 0.7 && wy > n.y - 1.4 && wy < n.y + 0.4) return { kind: 'npc', npc: n, cx: n.x, cy: n.y, reach: 1.6 };
+      const tall = n.pet ? 0.9 : 1.7;
+      if (Math.abs(n.x - wx) < 0.75 && wy > n.y - tall && wy < n.y + 0.5) {
+        return { kind: n.pet ? 'pet' : 'npc', npc: n, cx: n.x, cy: n.y, reach: n.pet ? 1.8 : 2.0 };
+      }
     }
     // 다른 사람
     for (const [pid, o] of Object.entries(this.players)) {
@@ -366,6 +383,7 @@ export class Game {
       const below = objectAt(m, wx, wy + 1);
       if (below && (below.t === 'tree' || below.t === 'waypoint' || below.t === 'lamp' || below.t === 'station' || below.t === 'board')) o = below;
     }
+    if (o && (o.t === 'building' || o.t === 'hut')) return this.buildingTarget(o);
     if (o && this.interactable(o)) {
       const cx = o.x + o.w / 2; const cy = o.y + o.h - 0.5;
       return { kind: 'object', o, cx, cy, reach: Math.max(o.w, o.h) / 2 + 1.0, px: o.x + Math.floor(o.w / 2) + 0.5, py: o.y + o.h - 0.5 };
@@ -376,10 +394,20 @@ export class Game {
     return null;
   }
 
+  // 건물을 누르면: 우리 집은 문으로 들어가고, 가게는 앞에 선 주인에게 말을 건다
+  buildingTarget(o) {
+    if (o.kind === 'house' && o.door) {
+      return { kind: 'door', o, cx: o.door.x + 0.5, cy: o.door.y + 0.5, px: o.door.x + 0.5, py: o.door.y + 0.5, reach: 0.9, walkIn: true };
+    }
+    const owner = this.npcList().find(n => !n.pet && n.x >= o.x - 1 && n.x <= o.x + o.w + 1 && n.y >= o.y + o.h - 1 && n.y <= o.y + o.h + 3);
+    if (owner) return { kind: 'npc', npc: owner, cx: owner.x, cy: owner.y, reach: 2.0 };
+    return null;
+  }
+
   interactable(o) {
     if (o.deco) return false;
-    if (['tree', 'rock', 'bush', 'forage'].includes(o.t)) return !this.nodeDead(o) || o.t === 'bush';
-    return ['waypoint', 'station', 'chest', 'bed', 'board', 'sign', 'fountain', 'building', 'hut', 'anvil', 'crate', 'boulder', 'crystal'].includes(o.t);
+    if (['tree', 'rock', 'bush', 'forage', 'boulder', 'crystal'].includes(o.t)) return !this.nodeDead(o) || o.t === 'bush';
+    return ['waypoint', 'station', 'chest', 'bed', 'board', 'sign', 'fountain', 'anvil', 'crate'].includes(o.t);
   }
 
   // 바라보는 앞 칸의 대상 (액션 버튼용)
@@ -395,49 +423,55 @@ export class Game {
     if (best && !best.passive) return { kind: 'monster', mo: best, cx: best.x, cy: best.y, reach: 1.5 };
     for (const dist of [0.8, 1.3]) {
       const t = this.targetAt(this.px + dx * dist, this.py - 0.1 + dy * dist);
-      if (t && t.kind !== 'player') return t;
+      if (t && t.kind !== 'player' && t.kind !== 'door') return t;
+    }
+    // 바라보는 방향이 조금 어긋나도 바로 옆 사람에게는 말을 걸 수 있게
+    for (const n of this.npcList()) {
+      if (Math.hypot(n.x - this.px, n.y - this.py) < 1.5) return { kind: n.pet ? 'pet' : 'npc', npc: n, cx: n.x, cy: n.y, reach: 2 };
     }
     if (best) return { kind: 'monster', mo: best, cx: best.x, cy: best.y, reach: 1.5 };
     return null;
   }
 
-  // 액션 버튼에 보여 줄 아이콘/글자
+  // 액션 버튼에 보여 줄 아이콘/글자 (아이콘은 ui 의 도트 아이콘 이름)
   contextHint() {
-    if (this.fishing) return { icon: '🎣', label: this.fishing.state === 'bite' ? '지금!' : this.fishing.state === 'reel' ? '잡기!' : '거두기' };
-    if (this.decor) return { icon: '🪑', label: '놓기' };
+    if (this.fishing) return { icon: 'rod', label: this.fishing.state === 'bite' ? '지금!' : this.fishing.state === 'reel' ? '잡기!' : '거두기' };
+    if (this.decor) return { icon: 'chair', label: '놓기' };
     const t = this.facingTarget();
-    if (!t) return { icon: '✋', label: '살펴보기' };
+    if (!t) return { icon: 'hand', label: '살펴보기' };
     return this.describeTarget(t);
   }
   describeTarget(t) {
     switch (t.kind) {
-      case 'monster': return { icon: '⚔️', label: t.mo.passive && !t.mo.angry ? '사냥' : '공격' };
-      case 'npc': return { icon: '💬', label: t.npc.shop ? '거래' : '대화' };
-      case 'player': return { icon: '👋', label: '인사' };
-      case 'furniture': return { icon: '🪑', label: '가구' };
-      case 'water': return { icon: '🎣', label: '낚시' };
+      case 'monster': return { icon: 'sword', label: t.mo.passive && !t.mo.angry ? '사냥' : '공격' };
+      case 'npc': return { icon: 'talk', label: t.npc.shop ? '거래' : '대화' };
+      case 'pet': return { icon: 'heart', label: '쓰다듬기' };
+      case 'player': return { icon: 'hand', label: '인사' };
+      case 'furniture': return { icon: 'chair', label: '가구' };
+      case 'water': return { icon: 'rod', label: '낚시' };
+      case 'door': return { icon: 'house', label: '들어가기' };
       case 'plot': {
         const i = this.plotIndex(t.x, t.y);
-        if (i >= this.plotLimit()) return { icon: '🔒', label: '잠김' };
-        const p = this.farm[i];
+        if (i >= this.plotLimit()) return { icon: 'lock', label: '잠김' };
+        const p = this.effPlot(this.farm[i]);
         const now = Date.now();
-        if (!p?.tilled) return { icon: '⛏', label: '밭 갈기' };
-        if (!p.crop) return this.selectedItem()?.type === 'seed' ? { icon: '🌱', label: '심기' } : { icon: '🌱', label: '씨앗?' };
-        if (Farm.isRipe(p, now, this.plotBonus(p))) return { icon: '🧺', label: '수확' };
-        if (!Farm.isWet(p, now)) return { icon: '💧', label: '물 주기' };
-        return { icon: '⏳', label: '자라는 중' };
+        if (!p?.tilled) return { icon: 'hoe', label: '밭 갈기' };
+        if (!p.crop) return { icon: 'seed', label: this.selectedItem()?.type === 'seed' ? '심기' : '씨앗 심기' };
+        if (Farm.isRipe(p, now, this.plotBonus(p))) return { icon: 'basket', label: '수확' };
+        if (!Farm.isWet(p, now)) return { icon: 'can', label: '물 주기' };
+        return { icon: 'clock', label: '자라는 중' };
       }
       case 'object': {
         const o = t.o;
         return ({
-          tree: { icon: '🪓', label: '벌목' }, rock: { icon: '⛏️', label: '채굴' }, bush: { icon: '🌿', label: '흔들기' },
-          forage: { icon: '🧺', label: '줍기' }, waypoint: { icon: '✨', label: '순간이동' }, station: { icon: '🍳', label: '제작' },
-          chest: { icon: '📦', label: o.kind === 'shipbox' ? '출하' : '열기' }, bed: { icon: '💤', label: '자기' }, board: { icon: '📋', label: '부탁' },
-          sign: { icon: '🪧', label: '읽기' }, fountain: { icon: '🪙', label: '소원' },
-        })[o.t] || { icon: '✋', label: '살펴보기' };
+          tree: { icon: 'axe', label: '벌목' }, rock: { icon: 'pick', label: '채굴' }, boulder: { icon: 'pick', label: '채굴' }, crystal: { icon: 'pick', label: '채굴' },
+          bush: { icon: 'hand', label: '흔들기' }, forage: { icon: 'basket', label: '줍기' }, waypoint: { icon: 'portal', label: '순간이동' },
+          station: { icon: 'craft', label: '제작' }, chest: { icon: 'box', label: o.kind === 'shipbox' ? '출하' : '열기' }, bed: { icon: 'bed', label: '자기' },
+          board: { icon: 'board', label: '부탁' }, sign: { icon: 'board', label: '읽기' }, fountain: { icon: 'coin', label: '소원' },
+        })[o.t] || { icon: 'hand', label: '살펴보기' };
       }
     }
-    return { icon: '✋', label: '살펴보기' };
+    return { icon: 'hand', label: '살펴보기' };
   }
 
   // 액션 버튼
@@ -450,10 +484,11 @@ export class Game {
   }
 
   interact(t) {
-    this.auto = false;
     switch (t.kind) {
       case 'monster': return this.attack(t.mo);
       case 'npc': return this.ui.openNpc(t.npc);
+      case 'pet': return this.petCry(t.npc);
+      case 'door': return this.enterDoor(t.o);
       case 'player': return this.wave(t.pid);
       case 'furniture': return this.ui.toast(`${ITEMS[t.f.i]?.name || '가구'} — 꾸미기 모드에서 옮길 수 있어요`);
       case 'water': this.face(t.cx, t.cy); return this.startFishing();
@@ -467,10 +502,14 @@ export class Game {
     if (this.action && this.action.until > performance.now()) return false;
     const c = cost ?? P.toolCost(this.me, tool);
     if (!P.spendEn(this.me, c)) {
-      this.ui.toast('기력이 부족해요. 음식을 먹거나 침대에서 쉬세요 😵', 'bad');
+      this.ui.toast('기력이 부족해요. 음식을 먹거나 침대에서 쉬세요', 'bad');
       return false;
     }
-    this.action = { tool, until: performance.now() + 320 };
+    this.action = { tool, until: performance.now() + 320, dur: 320 };
+    // 다른 사람 화면에도 휘두르는 모습이 보이도록 바로 알리고, 끝나면 다시 알린다
+    this.pubNow();
+    clearTimeout(this.actPubTimer);
+    this.actPubTimer = setTimeout(() => this.pubNow(), 360);
     this.dirty = true;
     this.ui.sfx?.(tool);
     return true;
@@ -512,9 +551,9 @@ export class Game {
   async plotAction(x, y) {
     const i = this.plotIndex(x, y);
     if (i < 0) return;
-    if (i >= this.plotLimit()) return this.ui.toast('집을 키우면 밭이 넓어져요 🏠');
+    if (i >= this.plotLimit()) return this.ui.toast('이 칸은 집을 키우면 쓸 수 있어요');
     const now = Date.now();
-    const p = this.farm[i];
+    const p = this.effPlot(this.farm[i]);
     if (!p?.tilled) {
       if (!this.useTool('hoe')) return;
       this.dust(x + 0.5, y + 0.5);
@@ -532,7 +571,7 @@ export class Game {
     if (!p.crop) {
       const sel = this.selectedItem();
       const seedSlot = sel?.type === 'seed' ? this.selected : this.me.inv.findIndex(s => s && ITEMS[s.id].type === 'seed');
-      if (seedSlot < 0) return this.ui.toast('씨앗이 없어요. 시장에서 살 수 있어요 🌱');
+      if (seedSlot < 0) return this.ui.toast('씨앗이 없어요. 봄이네 시장에서 살 수 있어요');
       const seedId = this.me.inv[seedSlot].id;
       const crop = ITEMS[seedId].crop;
       Inv.removeAt(this.me.inv, seedSlot, 1);
@@ -562,7 +601,7 @@ export class Game {
       return;
     }
     const left = Farm.timeLeft(p, now, this.plotBonus(p));
-    this.ui.toast(`${CROPS[p.crop].name} — 약 ${Math.max(1, Math.ceil(left / MIN))}분 뒤 수확 (촉촉해요 💧)`);
+    this.ui.toast(`${CROPS[p.crop].name} — 약 ${Math.max(1, Math.ceil(left / MIN))}분 뒤 수확할 수 있어요`);
   }
 
   async harvestPlot(i, x, y) {
@@ -570,9 +609,9 @@ export class Game {
     const extra = (perk.bonusHarvest || 0) + this.stats().luk * 0.01;
     let got = null;
     const r = await this.store.txn(`farm/${i}`, cur => {
-      const h = Farm.harvest(cur, Date.now(), mulberry32(hashStr(`${i}:${cur?.at}:${this.pid}`)), { bonus: this.plotBonus(cur), extraChance: extra });
+      const h = Farm.harvest(this.effPlot(cur), Date.now(), mulberry32(hashStr(`${i}:${cur?.at}:${this.pid}`)), { bonus: this.plotBonus(cur), extraChance: extra });
       got = h;
-      return h ? h.plot : undefined;
+      return h ? { ...h.plot, wetUntil: cur.wetUntil || 0 } : undefined;
     });
     if (!r.committed || !got) return this.ui.toast('이미 누가 수확했어요');
     this.action = { tool: 'hand', until: performance.now() + 250 };
@@ -599,7 +638,7 @@ export class Game {
     const now = Date.now();
     switch (o.t) {
       case 'tree': {
-        if (this.nodeDead(o)) return this.ui.toast('그루터기만 남았어요. 곧 다시 자라요');
+        if (this.nodeDead(o)) return this.ui.toast('그루터기만 남았어요. 숲지기 두리에게 부탁하면 되살아나요');
         if (!this.useTool('axe')) return;
         this.face(o.x + 0.5, o.y + 0.5);
         const need = Math.max(1, 4 - (this.me.tools.axe || 1) + (this.map.id === 'forest' ? 1 : 0));
@@ -609,7 +648,7 @@ export class Game {
         this.leaves(o.x + 0.5, o.y - 0.5);
         if (h < need) return;
         this.hits.delete(o.nid);
-        if (!(await this.claimNode(o, now + RESPAWN.tree))) return this.ui.toast('누가 먼저 베었어요');
+        if (!(await this.claimNode(o, GONE))) return this.ui.toast('누가 먼저 베었어요');
         const rnd = mulberry32(hashStr(`${o.nid}:${now}`));
         this.give('wood', randInt(rnd, 3, 5) + (this.me.tools.axe >= 3 ? 2 : 0));
         if (rnd() < 0.25) this.give(this.map.id === 'forest' ? 'mushroom' : 'herb', 1);
@@ -617,22 +656,36 @@ export class Game {
         this.ui.sfx?.('fell');
         return;
       }
-      case 'rock': {
+      case 'rock': case 'boulder': case 'crystal': {
         if (this.nodeDead(o)) return;
         if (!this.useTool('pick')) return;
         this.face(o.x + 0.5, o.y + 0.5);
         const perk = JOBS[this.me.job]?.perk || {};
         const dmg = (this.me.tools.pick || 1) + (perk.mineDmg || 0) + Math.floor(this.stats().str / 8);
-        const hp = o.hp || 2;
+        const hp = o.hp || { boulder: 5, crystal: 3 }[o.t] || 2;
         const h = (this.hits.get(o.nid) || 0) + dmg;
         this.hits.set(o.nid, h);
         this.shakeObj = { o, t: 0.2 };
         this.chips(o.x + 0.5, o.y + 0.5);
         if (h < hp) return;
         this.hits.delete(o.nid);
-        const until = this.map.cave ? nextDayAt(now, this.epoch) : now + RESPAWN.rock;
-        if (!(await this.claimNode(o, until))) return;
+        // 광산 층은 날마다 새로 만들어지므로 사실상 하루 뒤 다시 생기고, 지상 바위는 되살리기 전까지 없다
+        if (!(await this.claimNode(o, GONE))) return;
         const rnd = mulberry32(hashStr(`${o.nid}:${now}:${this.pid}`));
+        if (o.t === 'crystal') {
+          this.give(rnd() < 0.7 ? 'gem' : 'stone', 1);
+          this.gainXp('mine', 15);
+          this.ui.sfx?.('break');
+          return;
+        }
+        if (o.t === 'boulder') {
+          this.give('stone', randInt(rnd, 4, 6));
+          if (rnd() < 0.5) this.give(weighted(rnd, [['coal', 2], ['copper_ore', 2], ['iron_ore', 1]]), 1);
+          this.me.stats.mined++;
+          this.gainXp('mine', 8);
+          this.ui.sfx?.('break');
+          return;
+        }
         let ore = o.ore;
         if (!ore) ore = weighted(rnd, [['stone', 8], ['coal', 1], ['copper_ore', 1.5]]);
         if (ore === 'stone' && this.map.cave && rnd() < (perk.oreLuck || 0) + this.stats().luk * 0.005) ore = weighted(rnd, oreTable(this.map.floor).filter(([id]) => id !== 'stone'));
@@ -664,10 +717,10 @@ export class Game {
       case 'waypoint': {
         if (!this.waypoints[o.wp]) {
           await this.store.txn(`waypoints/${o.wp}`, cur => cur || { by: this.me.name, t: now });
-          this.ui.toast(`✨ ${waypointInfo(o.wp)?.name || o.name} 석상이 깨어났어요! 이제 순간이동할 수 있어요`, 'good');
+          this.ui.toast(`${waypointInfo(o.wp)?.name || o.name} 석상이 깨어났어요. 이제 어디서든 이곳으로 순간이동할 수 있어요`, 'good');
           this.sparkle(o.x + 0.5, o.y, '#7ae8ff', 14);
           this.ui.sfx?.('discover');
-          this.chatSys(`${this.me.name} 님이 ${waypointInfo(o.wp)?.name} 석상을 깨웠어요 ✨`);
+          this.chatSys(`${this.me.name} 님이 ${waypointInfo(o.wp)?.name} 석상을 깨웠어요`);
         }
         return this.ui.openTeleport();
       }
@@ -678,7 +731,7 @@ export class Game {
         return this.ui.openChest();
       case 'bed': return this.sleep();
       case 'board': return this.ui.openBoard();
-      case 'sign': return this.ui.toast(o.text || '…');
+      case 'sign': return this.ui.toast(o.text || '낡은 표지판이에요');
       case 'fountain': {
         if (this.me.gold < 10) return this.ui.toast('동전이 없어요');
         this.me.gold -= 10;
@@ -686,12 +739,11 @@ export class Game {
         this.me.buffs.push({ src: 'fountain', stats: { luk: 2 }, until: now + 15 * MIN });
         this.splash(o.x + 2, o.y + 1.5);
         this.dirty = true;
-        return this.ui.toast('🪙 퐁당! 행운 +2 (15분)', 'good');
+        return this.ui.toast('퐁당! 동전을 던졌어요. 행운 +2 (15분)', 'good');
       }
-      case 'building': case 'hut':
-        return this.ui.toast(o.name ? `${o.name} — 앞에 선 사람에게 말을 걸어 보세요` : '…');
-      case 'crystal': return this.ui.toast('은은하게 빛나는 수정이에요 💎');
-      default: return this.ui.toast('…');
+      case 'anvil': return this.ui.toast('철수 아저씨의 모루예요. 도구 강화는 철수 아저씨에게 부탁하세요');
+      case 'crate': return this.ui.toast('낚시 도구가 담긴 나무 상자예요');
+      default: return undefined;
     }
   }
 
@@ -720,7 +772,7 @@ export class Game {
     this.me.hp = st.hp;
     this.fade = 1.6;
     this.dirty = true;
-    this.ui.toast('💤 푹 잤어요! 기력과 체력이 가득 찼어요', 'good');
+    this.ui.toast('푹 잤어요. 기력과 체력이 가득 찼어요', 'good');
   }
 
   // ── 전투 ───────────────────────────────────────────────────────────────────
@@ -756,7 +808,7 @@ export class Game {
       const t = tileAt(this.map, x, y);
       return ![T.CAVEWALL, T.RUINWALL, T.VOID, T.CLIFF, T.WALL].includes(t);
     }
-    return !isSolid(this.map, x - 0.25, y) && !isSolid(this.map, x + 0.25, y) && !isSolid(this.map, x, y - 0.2) && !isSolid(this.map, x, y + 0.2);
+    return !this.solidAt(x - 0.25, y) && !this.solidAt(x + 0.25, y) && !this.solidAt(x, y - 0.2) && !this.solidAt(x, y + 0.2);
   }
 
   updateMonsters(dt) {
@@ -829,7 +881,7 @@ export class Game {
     const st = this.stats();
     this.me.hp = Math.round(st.hp * 0.4);
     this.me.en = Math.max(this.me.en, Math.round(st.en * 0.3));
-    this.ui.toast(`😵 기절했어요… 집에서 깨어났어요${lost ? ` (${lost}G 잃음)` : ''}`, 'bad');
+    this.ui.toast(`기절했어요. 집에서 깨어났어요${lost ? ` (${lost}G 잃음)` : ''}`, 'bad');
     this.enterMap('house', null, null);
   }
 
@@ -870,7 +922,7 @@ export class Game {
     this.me.stats.hunted++;
     this.gainXp('combat', M.xp * (1 + (mo.sp.lv || 0) * 0.1));
     this.sparkle(mo.x, mo.y, M.color, 10);
-    if (mo.boss) this.chatSys(`🎉 ${this.me.name} 님이 ${this.map.name}의 ${M.name}을(를) 쓰러뜨렸어요!`);
+    if (mo.boss) this.chatSys(`${this.me.name} 님이 ${this.map.name}의 ${M.name}을(를) 쓰러뜨렸어요!`);
   }
 
   // ── 낚시 ───────────────────────────────────────────────────────────────────
@@ -896,7 +948,7 @@ export class Game {
       f.state = 'bite'; f.t = 0;
       if (this.settings.vibrate) navigator.vibrate?.([60, 40, 60]);
       this.ui.sfx?.('bite');
-    } else if (f.state === 'bite' && f.t > 1.1) { this.fishing = null; this.ui.toast('놓쳤어요… 🐟💨'); }
+    } else if (f.state === 'bite' && f.t > 1.1) { this.fishing = null; this.ui.toast('입질을 놓쳤어요'); }
     else if (f.state === 'reel') {
       f.pos += f.vel * dt;
       if (f.pos < 0) { f.pos = 0; f.vel = Math.abs(f.vel); }
@@ -923,7 +975,7 @@ export class Game {
     if (f.state === 'reel') {
       const ok = f.pos >= f.zoneAt && f.pos <= f.zoneAt + f.zone;
       this.fishing = null;
-      if (!ok) return this.ui.toast('아깝다! 물고기가 도망갔어요 🐟💨');
+      if (!ok) return this.ui.toast('아깝다, 물고기가 도망갔어요');
       this.give(f.fish, 1);
       this.me.stats.fished++;
       this.gainXp('fish', f.fish === 'boot' ? 2 : 6 + (ITEMS[f.fish].fishLv || 1) * 4);
@@ -977,20 +1029,51 @@ export class Game {
     const line = lines[(this.day + hashStr(npcId)) % lines.length];
     return { line, hearts: Math.min(10, Math.floor(f.pts / 50)), first };
   }
+  // 취향에 따라 친밀도가 달라진다 (아주 좋아함 · 좋아함 · 보통 · 싫어함)
+  tasteOf(npcId, itemId) {
+    const t = NPC_TASTE[npcId];
+    if (!t) return 'neutral';
+    const it = ITEMS[itemId];
+    const hit = list => (list || []).some(k => k === itemId || k === `type:${it?.type}`);
+    if (hit(t.love)) return 'love';
+    if (hit(t.dislike)) return 'dislike';
+    if (hit(t.like)) return 'like';
+    return 'neutral';
+  }
   gift(npcId, slot) {
     const s = this.me.inv[slot];
     if (!s) return null;
     const f = this.me.friends[npcId] || (this.me.friends[npcId] = { pts: 0, day: 0, gift: 0 });
-    if (f.gift === this.day) return { ok: false, msg: '오늘은 이미 선물했어요' };
+    if (f.gift === this.day) return { ok: false, msg: '오늘은 이미 선물했어요. 내일 또 주세요' };
     const it = ITEMS[s.id];
     Inv.removeAt(this.me.inv, slot, 1);
     f.gift = this.day;
-    const pts = Math.min(80, 10 + Math.round(it.price / 12));
-    f.pts += pts;
+    const taste = this.tasteOf(npcId, s.id);
+    const pts = TASTE_POINTS[taste] + (taste === 'neutral' ? Math.min(20, Math.round(it.price / 30)) : 0);
+    f.pts = Math.max(0, f.pts + pts);
+    (f.known ||= {})[s.id] = taste;
     this.dirty = true;
-    return { ok: true, msg: `${NPCS[npcId].name}: "${it.name}! 고마워요 💕" (+${pts} 친밀도)` };
+    const line = {
+      love: `"${it.name}! 이거 정말 좋아해요. 어떻게 알았어요?"`,
+      like: `"${it.name}, 고마워요. 잘 쓸게요."`,
+      neutral: `"${it.name}이네요. 고마워요."`,
+      dislike: `"음… ${it.name}은(는) 별로예요."`,
+    }[taste];
+    return { ok: taste !== 'dislike', taste, msg: `${NPCS[npcId].name}: ${line} (친밀도 ${pts > 0 ? '+' : ''}${pts})` };
   }
   hearts(npcId) { return Math.min(10, Math.floor((this.me.friends[npcId]?.pts || 0) / 50)); }
+
+  petCry(n) {
+    const pet = PETS[n.pet];
+    if (!pet) return;
+    this.petBubble = { id: n.id, text: pet.cry, until: Date.now() + 1800 };
+    this.particles(n.x, n.y - 0.8, '#ff8ac0', 5, 1.2, 1.5, 0.8, 2);
+    this.ui.sfx?.(pet.sound);
+  }
+  enterDoor(o) {
+    const w = this.map.warps.find(q => q.x === o.door.x && q.y === o.door.y);
+    if (w) this.takeWarp(w);
+  }
 
   // ── 가방 ───────────────────────────────────────────────────────────────────
   selectedItem() { const s = this.me.inv[this.selected]; return s ? ITEMS[s.id] : null; }
@@ -1008,11 +1091,11 @@ export class Game {
       this.ui.toast(r.msg, r.ok ? 'good' : 'bad');
       this.pubNow();
     } else if (it.type === 'furniture') {
-      if (this.map.id !== 'house') return this.ui.toast('가구는 집 안에서 놓을 수 있어요 🏠');
+      if (this.map.id !== 'house') return this.ui.toast('가구는 집 안에서 놓을 수 있어요');
       this.startDecor(i);
     } else if (it.type === 'seed') {
       this.select(i);
-      this.ui.toast('밭을 눌러 심으세요 🌱');
+      this.ui.toast('갈아 둔 밭을 누르면 심어요');
     } else this.select(i);
     this.dirty = true;
     this.ui.refresh?.();
@@ -1031,19 +1114,109 @@ export class Game {
     this.dirty = true;
     return moved;
   }
-  setIdleJob(j) { if (IDLE_JOBS[j]) { this.me.idle = j; this.dirty = true; } }
-  toggleAuto() {
-    this.auto = !this.auto;
-    this.autoAcc = 0;
-    this.path = null;
-    this.ui.toast(this.auto ? `🌙 자동 모드: ${IDLE_JOBS[this.me.idle].name} (1분마다 조금씩)` : '자동 모드 끔');
+  // ── 방치 창고 ──────────────────────────────────────────────────────────────
+  // idleAt 이후로 고른 활동의 수확물이 계속 쌓인다(접속 중에도, 꺼 둔 동안에도). 상한은 집 레벨에 따라 8/16시간.
+  idleCapMs() { return idleCapHours(this.house.level) * REAL_HOUR; }
+  idleNow(now = Date.now()) {
+    const since = this.me.idleAt || now;
+    return computeIdle(this.me, now - since, { seed: hashStr(`${this.pid}:${since}`), houseLv: this.house.level });
   }
-
-  acceptIdle(r) {
-    for (const [id, n] of r.items) Inv.give(this.me, id, n);
+  idleFill(now = Date.now()) { return Math.min(1, (now - (this.me.idleAt || now)) / this.idleCapMs()); }
+  collectIdle() {
+    const r = this.idleNow();
+    if (!r || !r.items.length) return null;
+    let stashed = 0;
+    for (const [id, n] of r.items) stashed += Inv.give(this.me, id, n);
     this.gainXp(r.skill, r.xp);
+    this.me.idleAt = Date.now();
     this.dirty = true;
     this.saveNow();
+    return { ...r, stashed };
+  }
+  setIdleJob(j) {
+    if (!IDLE_JOBS[j] || j === this.me.idle) return;
+    this.collectIdle(); // 바꾸기 전까지 쌓인 것은 먼저 받는다
+    this.me.idle = j;
+    this.me.idleAt = Date.now();
+    this.dirty = true;
+  }
+
+  // ── 밭 일꾼 ────────────────────────────────────────────────────────────────
+  helperActive(now = Date.now()) { return (this.helper?.until || 0) > now; }
+  // 일꾼이 일하는 동안 밭은 늘 촉촉하다 (고용 전에 심은 작물은 고용한 뒤부터)
+  effPlot(p) {
+    if (!p || !this.helper?.until) return p;
+    return { ...p, wetUntil: Math.max(p.wetUntil || 0, this.helper.until) };
+  }
+  isLeader() {
+    const online = Object.entries(this.players).filter(([, o]) => o.online).map(([pid]) => pid);
+    return [this.pid, ...online].sort()[0] === this.pid;
+  }
+  async hireHelper(i) {
+    const plan = HELPER_PLANS[i];
+    if (!plan) return { ok: false, msg: '잘못된 선택이에요' };
+    if (this.me.gold < plan.gold) return { ok: false, msg: '골드가 부족해요' };
+    this.me.gold -= plan.gold;
+    const now = Date.now();
+    const r = await this.store.txn('helper', cur => ({ until: Math.max(now, cur?.until || 0) + plan.hours * REAL_HOUR, by: this.me.name }));
+    if (!r.committed) { this.me.gold += plan.gold; return { ok: false, msg: '고용하지 못했어요. 다시 시도해 주세요' }; }
+    this.helper = r.value;
+    this.dirty = true;
+    this.chatSys(`${this.me.name} 님이 밭 일꾼을 ${plan.hours}시간 고용했어요`);
+    return { ok: true, msg: `밭 일꾼이 ${plan.hours}시간 동안 물을 주고, 다 자란 작물을 거둬 공용 보관함에 넣어요` };
+  }
+  async helperTick() {
+    const now = Math.min(Date.now(), this.helper.until);
+    const got = {};
+    for (let i = 0; i < this.plotLimit(); i++) {
+      const p = this.farm[i];
+      if (!p?.crop) continue;
+      if (Farm.rawProgress(this.effPlot(p), now, this.plotBonus(p)) < 1) continue;
+      let res = null;
+      const r = await this.store.txn(`farm/${i}`, cur => {
+        if (!cur?.crop) return undefined;
+        res = Farm.helperHarvest(this.effPlot(cur), now, mulberry32(hashStr(`h${i}:${cur.at}`)), this.plotBonus(cur));
+        return res ? { ...res.plot, wetUntil: cur.wetUntil || 0 } : undefined;
+      });
+      if (r.committed && res) got[res.item] = (got[res.item] || 0) + res.n;
+    }
+    const ids = Object.keys(got);
+    if (!ids.length) return;
+    await this.store.txn('chest', cur => {
+      const next = { ...(cur || {}) };
+      for (const id of ids) next[id] = (next[id] || 0) + got[id];
+      return next;
+    });
+    this.chatSys(`밭 일꾼이 ${ids.map(id => `${ITEMS[id].name} ${got[id]}개`).join(', ')}를 거둬 공용 보관함에 넣었어요`);
+  }
+
+  // ── 숲지기 두리: 베어 낸 나무·바위 되살리기 ────────────────────────────────
+  async regrowInfo() {
+    const out = [];
+    for (const id of ['farm', 'town', 'lake', 'forest', 'mine_gate']) {
+      const m = getMap(id, this.mapCtx());
+      const nodes = (await this.store.get(`nodes/${m.key}`)) || {};
+      const gone = m.objects.filter(o => o.nid && ['tree', 'rock', 'boulder', 'crystal'].includes(o.t) && (nodes[o.nid] || 0) >= GONE).length;
+      out.push({ id, name: m.name, gone, cost: gone ? Math.max(REGROW_COST.min, gone * REGROW_COST.perNode) : 0 });
+    }
+    return out;
+  }
+  async regrow(mapId) {
+    const m = getMap(mapId, this.mapCtx());
+    const info = (await this.regrowInfo()).find(x => x.id === mapId);
+    if (!info?.gone) return { ok: false, msg: '되살릴 것이 없어요' };
+    if (this.me.gold < info.cost) return { ok: false, msg: `골드가 부족해요 (${info.cost}G 필요)` };
+    this.me.gold -= info.cost;
+    const kinds = new Set(m.objects.filter(o => o.nid && ['tree', 'rock', 'boulder', 'crystal'].includes(o.t)).map(o => o.nid));
+    const r = await this.store.txn(`nodes/${m.key}`, cur => {
+      const next = { ...(cur || {}) };
+      for (const [k, v] of Object.entries(next)) if (v >= GONE && kinds.has(k)) delete next[k];
+      return next;
+    });
+    if (!r.committed) { this.me.gold += info.cost; return { ok: false, msg: '되살리지 못했어요' }; }
+    this.dirty = true;
+    this.chatSys(`숲지기 두리가 ${m.name}의 나무와 바위 ${info.gone}개를 되살렸어요`);
+    return { ok: true, msg: `${m.name}의 나무와 바위 ${info.gone}개가 되살아났어요 (-${info.cost}G)` };
   }
 
   // ── 제작 ───────────────────────────────────────────────────────────────────
@@ -1058,6 +1231,23 @@ export class Game {
     return res;
   }
   canCraft(recipeId) { return canCraft(this.me, RECIPES.find(x => x.id === recipeId)); }
+  // 최대 n번 만든다 (재료가 떨어지면 거기서 멈춤)
+  craftMany(recipeId, n) {
+    let made = 0; let times = 0; let item = null; let last = null;
+    for (let i = 0; i < n; i++) {
+      const res = this.craft(recipeId);
+      if (!res.ok) { last = res; break; }
+      times++; made += res.n; item = res.item;
+    }
+    if (!times) return last || { ok: false, msg: '만들 수 없어요' };
+    return { ok: true, item, n: made, times, msg: `${ITEMS[item].name} ${made}개를 만들었어요${times < n && last ? ` (재료가 떨어져 ${times}번만)` : ''}` };
+  }
+  maxCraftable(recipeId) {
+    const r = RECIPES.find(x => x.id === recipeId);
+    const chk = canCraft(this.me, r);
+    if (!chk.ok) return 0;
+    return Math.max(1, Math.min(...chk.inputs.map(([id, n]) => Math.floor(Inv.count(this.me.inv, id) / n))));
+  }
 
   // ── 시장 ───────────────────────────────────────────────────────────────────
   shopBonus(shop) { const npc = SHOPS[shop]?.npc; return npc ? this.hearts(npc) * 0.02 : 0; }
@@ -1093,7 +1283,7 @@ export class Game {
     this.me.gold -= cost.gold;
     this.me.tools[tool] = tier + 1;
     this.dirty = true;
-    return { ok: true, msg: `🔨 ${TOOLS[tool].name}이(가) ${TOOL_TIERS[tier + 1]} 단계가 되었어요!` };
+    return { ok: true, msg: `${TOOLS[tool].name}이(가) ${TOOL_TIERS[tier + 1]} 단계가 되었어요` };
   }
 
   // ── 오늘의 부탁 ────────────────────────────────────────────────────────────
@@ -1107,7 +1297,7 @@ export class Game {
     const f = this.me.friends.mayor || (this.me.friends.mayor = { pts: 0, day: 0, gift: 0 });
     f.pts += 25;
     this.dirty = true;
-    this.chatSys(`${this.me.name} 님이 마을 부탁(${ITEMS[req.id].name} ${req.n}개)을 해결했어요 👏`);
+    this.chatSys(`${this.me.name} 님이 마을 부탁(${ITEMS[req.id].name} ${req.n}개)을 해결했어요`);
     return { ok: true, msg: `부탁 완료! +${req.reward}G` };
   }
 
@@ -1132,7 +1322,7 @@ export class Game {
     }
     this.dirty = true;
     this.saveNow();
-    return { ok: true, msg: `🏠 집 키우기에 ${id === 'gold' ? `${n}G` : `${ITEMS[id].name} ${n}개`}를 보탰어요` };
+    return { ok: true, msg: `집 키우기에 ${id === 'gold' ? `${n}G` : `${ITEMS[id].name} ${n}개`}를 보탰어요` };
   }
   houseNeeds() {
     const next = HOUSE_LEVELS[this.house.level + 1];
@@ -1159,8 +1349,8 @@ export class Game {
       return { ...h, level: (h.level || 1) + 1, fund: { gold: fund.gold - next.cost.gold, items } };
     });
     if (r.committed && ok) {
-      this.chatSys(`🎉 집이 "${HOUSE_LEVELS[r.value.level].name}"(으)로 커졌어요!`);
-      return { ok: true, msg: `🎉 ${HOUSE_LEVELS[r.value.level].name}! ${HOUSE_LEVELS[r.value.level].perks}` };
+      this.chatSys(`집이 "${HOUSE_LEVELS[r.value.level].name}"(으)로 커졌어요!`);
+      return { ok: true, msg: `${HOUSE_LEVELS[r.value.level].name}(으)로 커졌어요. ${HOUSE_LEVELS[r.value.level].perks}` };
     }
     return { ok: false, msg: '아직 재료가 모자라요' };
   }
@@ -1296,7 +1486,7 @@ export class Game {
   }
   wave(pid) {
     const o = this.players[pid];
-    this.sendChat(`👋 ${o?.pub?.n || ''} 안녕!`);
+    this.sendChat(`${o?.pub?.n || ''} 안녕!`);
   }
 
   // ── 저장 · 전송 ────────────────────────────────────────────────────────────
@@ -1304,7 +1494,7 @@ export class Game {
     return {
       n: this.me.name, j: this.me.job, l: P.lookOf(this.me), m: this.map.id,
       x: Math.round(this.px * 100) / 100, y: Math.round(this.py * 100) / 100, d: this.dir,
-      mv: this.moving ? 1 : 0, a: this.action && this.action.until > performance.now() ? this.action.tool : '',
+      mv: this.moving ? 1 : 0, a: this.action && this.action.until > performance.now() ? this.action.tool : '', at: this.action ? this.me.tools[this.action.tool] || 0 : 0,
       t: Date.now(), on: 1, lv: P.totalLevel(this.me), ...(this.pubExtra || {}),
     };
   }
@@ -1328,6 +1518,7 @@ export class Game {
     this.store.set(`players/${this.pid}`, json).catch(err => console.warn('save', err));
     this.pubNow();
     this.ui.backup?.(this.me);
+    this.ui.saved?.();
   }
 
   // ── 연출 ───────────────────────────────────────────────────────────────────

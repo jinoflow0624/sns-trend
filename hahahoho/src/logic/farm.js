@@ -6,8 +6,8 @@ import { randInt } from './rng.js';
 
 export const DRY_RATE = 0.5; // 물이 마르면 이 비율로 자란다
 
-// at 부터 now 까지 자란 양을 반영한 새 progress
-export function progressAt(plot, now, bonus = 0) {
+// at 부터 now 까지 자란 양 (1을 넘을 수 있음 — 밭 일꾼이 여러 번 수확할 때 쓴다)
+export function rawProgress(plot, now, bonus = 0) {
   if (!plot?.crop) return 0;
   const c = CROPS[plot.crop];
   if (!c) return 0;
@@ -17,7 +17,27 @@ export function progressAt(plot, now, bonus = 0) {
   const wetMs = wetEnd - from;
   const dryMs = now - from - wetMs;
   const perMs = (1 + bonus) / (c.grow * MIN);
-  return Math.min(1, (plot.progress || 0) + perMs * (wetMs + dryMs * DRY_RATE));
+  return (plot.progress || 0) + perMs * (wetMs + dryMs * DRY_RATE);
+}
+
+// at 부터 now 까지 자란 양을 반영한 새 progress (0~1)
+export const progressAt = (plot, now, bonus = 0) => Math.min(1, rawProgress(plot, now, bonus));
+
+// 밭 일꾼 수확: 다 자란 횟수만큼 거두고 같은 작물을 다시 심는다 (최대 12번)
+export function helperHarvest(plot, now, rnd, bonus = 0) {
+  const raw = rawProgress(plot, now, bonus);
+  if (raw < 1) return null;
+  const c = CROPS[plot.crop];
+  const cycles = Math.min(12, Math.floor(raw));
+  let n = 0;
+  for (let i = 0; i < cycles; i++) n += randInt(rnd, c.yield[0], c.yield[1]);
+  return {
+    plot: { ...plot, progress: cycles >= 12 ? 0 : raw - cycles, at: now },
+    item: plot.crop,
+    n,
+    cycles,
+    xp: c.xp * cycles,
+  };
 }
 
 // 0: 씨앗, 1~3: 자라는 중, 4: 수확 가능
