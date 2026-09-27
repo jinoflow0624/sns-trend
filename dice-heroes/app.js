@@ -774,8 +774,12 @@ function sheet(p, idx, prev, best, canPick) {
     const r = canPick && !done ? pv(c.id) : null;
     const cls = done ? 'done' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}` : '';
     const val = done ? p.scores[c.id] : r ? `${r.pts}<small>+${r.xp}xp</small>` : '–';
+    // 보너스가 붙으면 규칙 설명 대신 어디서 몇 점 붙었는지 보여 준다
+    const sub = r?.bonus?.length && r.pts > 0
+      ? `<small class="bonus-src">${r.bonus.map(b => `${esc(b.ko)} +${b.amt}`).join(' · ')}</small>`
+      : `<small>${CAT_HELP[c.id].rule}</small>`;
     return `<button class="row ${cls}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
-      <span class="nm">${c.ko}<small>${CAT_HELP[c.id].rule}</small></span><span class="v">${val}</span>
+      <span class="nm">${c.ko}${sub}</span><span class="v">${val}</span>
       ${c.id === best && r?.pts > 0 ? '<span class="best-tag">최고</span>' : ''}</button>`;
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
@@ -910,7 +914,11 @@ async function playFx(list) {
         if (!S.tutorial || f.round > 1) await banner(f.round, f.event);
         break;
       case 'score':
-        if (f.pts > 0) { sfx.score(); floatText(`${E.catInfo(f.cat).ko} +${f.pts}`, 'gold'); }
+        if (f.pts > 0) {
+          sfx.score();
+          floatText(`${E.catInfo(f.cat).ko} +${f.pts}`, 'gold');
+          if (f.bonus?.length) floatText(f.bonus.map(b => `${b.ko} +${b.amt}`).join(' · '), 'mint', 30);
+        }
         else { sfx.zero(); floatText(`${E.catInfo(f.cat).ko} 0`, 'dim'); }
         await wait(380);
         break;
