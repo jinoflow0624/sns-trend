@@ -11,9 +11,9 @@ export function coupleDay(now = Date.now()) {
 }
 
 // → 대사 문자열 ({heart} 는 화면에서 하트 아이콘으로 바꾼다)
-export function greeting(npcId, rnd = Math.random, now = Date.now()) {
+export function greeting(npcId, rnd = Math.random, now = Date.now(), name = '') {
   const secret = NPC_SECRET_LINES[npcId];
   const pool = secret?.length && rnd() < SECRET_CHANCE ? secret : NPCS[npcId]?.lines || ['…'];
   const line = pool[Math.floor(rnd() * pool.length) % pool.length];
-  return line.replace('{N}', coupleDay(now).toLocaleString('ko-KR'));
+  return line.replace('{N}', coupleDay(now).toLocaleString('ko-KR')).replaceAll('{name}', name || '친구');
 }

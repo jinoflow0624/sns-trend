@@ -24,6 +24,7 @@ import { clockAt, legacyDay } from './clock.js';
 import { shouldEndDay, mustPassOut, wakeStats, settleStall } from '../logic/day.js';
 import * as Brew from '../logic/purifier.js';
 import { greeting } from '../logic/npc.js';
+import { pickScene, choose as chooseDate, countsToday } from '../logic/date.js';
 
 const SPEED = 4.2;          // 타일/초
 const PUB_MS = 140;         // 위치 전송 간격(움직일 때)
@@ -1217,7 +1218,7 @@ export class Game {
     let first = false;
     if (f.day !== this.day) { f.day = this.day; f.pts += 10; first = true; this.dirty = true; }
     // 말을 걸 때마다 인사가 달라진다 (가끔 이스터에그)
-    const line = greeting(npcId);
+    const line = greeting(npcId, Math.random, Date.now(), this.me.name);
     return { line, hearts: Math.min(10, Math.floor(f.pts / 50)), first };
   }
   // 취향에 따라 친밀도가 달라진다 (아주 좋아함 · 좋아함 · 보통 · 싫어함)
@@ -1253,6 +1254,35 @@ export class Game {
     return { ok: taste !== 'dislike', taste, msg: `${NPCS[npcId].name}: ${line} (친밀도 ${pts > 0 ? '+' : ''}${pts})` };
   }
   hearts(npcId) { return Math.min(10, Math.floor((this.me.friends[npcId]?.pts || 0) / 50)); }
+
+  // ── 대화하기 (연애 시뮬레이션풍) ─────────────────────────────────────────
+  friendOf(npcId) { return this.me.friends[npcId] || (this.me.friends[npcId] = { pts: 0, day: 0, gift: 0 }); }
+  dateScene(npcId) {
+    const f = this.friendOf(npcId);
+    this.dateTurns ||= {};
+    const k = `${npcId}:${this.day}`;
+    const n = f.dated === this.day ? (this.dateTurns[k] = (this.dateTurns[k] || 0) + 1) : 0;
+    const scene = pickScene(npcId, f, this.day, n);
+    if (!scene) return null;
+    const name = this.me.name;
+    const sub = t => t.replaceAll('{name}', name);
+    return {
+      ...scene,
+      lines: scene.lines.map(sub),
+      ask: scene.ask ? sub(scene.ask) : '',
+      choices: scene.choices.map(([t, pts, reply, emote]) => [sub(t), pts, sub(reply), emote]),
+      counts: countsToday(f, scene, this.day),
+    };
+  }
+  dateChoose(scene, idx) {
+    const f = this.friendOf(scene.npcId);
+    const r = chooseDate(f, scene, idx, this.day);
+    if (!r) return null;
+    this.dirty = true;
+    this.ui.sfx?.(r.gain > 0 ? 'harvest' : r.gain < 0 ? 'error' : 'click');
+    if (r.up) this.ui.sfx?.('levelup');
+    return r;
+  }
 
   petCry(n) {
     const pet = PETS[n.pet];

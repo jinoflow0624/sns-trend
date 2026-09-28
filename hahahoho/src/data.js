@@ -379,6 +379,14 @@ export const NPCS = {
     name: '숲지기 두리', role: '자연 되살리기', look: { skin: '#e0b088', hair: '#6a8a3a', top: '#5a7a3a', hairStyle: 'cap', cap: '#4a6a2a', beard: true },
     lines: ['베어 낸 나무와 캐낸 바위는 저절로 돌아오지 않아.', '조금만 보태 주면 숲과 들을 되살려 주지.', '자연은 아껴 써야 오래 간다네.'],
   },
+  eunwoo: {
+    name: '차은우', role: '가수 겸 배우', look: { skin: '#f8dcc4', hair: '#23232e', top: '#1f2a44', bottom: '#2c2c34', hairStyle: 'short' },
+    lines: ['오, {name}! 오늘 버스킹 보러 왔어?', '사인? {name}한테는 특별히 두 장 해 줄게.', '광장 분수대 앞이 소리가 제일 잘 퍼져.', '커피 한 잔이면 새벽 촬영도 거뜬해.', '박자 맞춰서 박수 쳐 주면 힘 나!'],
+  },
+  karina: {
+    name: '카리나', role: '가수 · 댄서', look: { skin: '#f8dcc4', hair: '#15151c', top: '#f4f0fa', bottom: '#3a3a4a', hairStyle: 'long' },
+    lines: ['어, 왔어? 방금 안무 하나 완성했어!', '호숫가 바람 맞으면서 추는 게 제일 좋아.', '딸기 스무디 마시고 싶다…', '같이 스트레칭 할래?', '오늘 컨디션 최고야!'],
+  },
 };
 
 // 가끔 섞여 나오는 이스터에그 인사. {N} 은 지노·하영 기념일(2019-05-28 = 1일차) 날수, {heart} 는 하트 아이콘.
@@ -403,11 +411,14 @@ export const NPC_TASTE = {
   mayor: { love: ['herb_salve', 'veggie_soup', 'mushroom_stew', 'herb'], like: ['type:crop', 'grilled_fish', 'baked_potato'], dislike: ['slime_gel', 'bbq', 'pumpkin_pie'] },
   minsu: { love: ['strawberry', 'berry_toast', 'f_bear'], like: ['flower', 'berry', 'type:furniture'], dislike: ['mushroom', 'bone'] },
   duri: { love: ['herb', 'flower', 'f_plant'], like: ['type:forage', 'wood'], dislike: ['slime_gel', 'bone'] },
+  eunwoo: { love: ['coffee', 'berry_toast', 'sushi'], like: ['type:food', 'flower'], dislike: ['boot', 'slime_gel'] },
+  karina: { love: ['strawberry', 'flower_crown', 'red_dress'], like: ['type:cloth', 'flower', 'coffee'], dislike: ['bone', 'bat_wing'] },
 };
 export const TASTE_POINTS = { love: 80, like: 40, neutral: 15, dislike: -20 };
 export const TASTE_HINT = {
   bomi: '딸기나 커다란 호박', chulsu: '반짝이는 광석이나 고기 요리', silvi: '천과 염료', sunja: '정성 들인 요리',
   kang: '귀한 물고기', rea: '유적의 전리품이나 약초 연고', mayor: '몸에 좋은 음식이나 약초', minsu: '달콤한 것이나 곰 인형', duri: '약초와 들꽃',
+  eunwoo: '커피나 힘이 나는 음식', karina: '딸기나 예쁜 옷',
 };
 
 // 애완동물 (누르면 울음소리)
