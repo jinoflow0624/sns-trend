@@ -1,7 +1,7 @@
 // 게임 화면 위의 HUD 와 창들 (DOM). 규칙 판정은 전부 game.js 에 있고 여기선 보여 주고 부르기만 한다.
 import {
   ITEMS, JOBS, SKILLS, STATS, TOOLS, TOOL_TIERS, TOOL_UPGRADE, RECIPES, STATION_NAME, STATION_SKILL, SHOPS,
-  HOUSE_LEVELS, NPCS, IDLE_JOBS, xpForLevel, MAX_SKILL, HELPER_PLANS, TASTE_HINT, CUPS_PER_BUCKET, BREW_MS, purifierLimit,
+  HOUSE_LEVELS, NPCS, IDLE_JOBS, NEST_LEVELS, MARRY_PTS, xpForLevel, MAX_SKILL, HELPER_PLANS, TASTE_HINT, CUPS_PER_BUCKET, BREW_MS, purifierLimit,
 } from '../data.js';
 import { brewState, brewProgress } from '../logic/purifier.js';
 import { itemUrl, toolUrl } from '../art/items.js';
@@ -15,6 +15,7 @@ import { count } from '../logic/inventory.js';
 import { sfx } from '../game/sound.js';
 import { APP_VERSION } from '../version.js';
 import { DATES, EMOTE_TEXT } from '../dates.js';
+import { isCandidate } from '../logic/date.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (id, cls = '') => `<img class="ico ${cls}" src="${itemUrl(id)}" alt="">`;
@@ -282,6 +283,7 @@ export class UI {
   }
   close() {
     this.panel = null;
+    document.querySelectorAll('.drag-ghost').forEach(el => el.remove());
     this.$('sheet').hidden = true;
     this.$('sheet').innerHTML = '';
   }
@@ -291,6 +293,7 @@ export class UI {
   openStall() { this.open('stall'); }
   openPurifier(fid) { this.open('purifier', fid); }
   askSleep() { this.open('bed'); }
+  openNest() { this.open('nest'); }
   openCraft(kind) { this.open('craft', kind); }
   openShop(shop, sellOnly = false) { this.open('shop', { shop, sellOnly, tab: sellOnly ? 'sell' : 'buy' }); }
   openChest() { this.open('chest'); }
@@ -306,16 +309,28 @@ export class UI {
       board: () => this.pBoard(), teleport: () => this.pTeleport(), chest: () => this.pChest(), house: () => this.pHouse(),
       chat: () => this.pChat(), menu: () => this.pMenu(), idle: () => this.pIdle(), smithy: () => this.pSmithy(), gift: () => this.pGift(),
       stash: () => this.pStash(), help: () => this.pHelp(), regrow: () => this.pRegrow(),
-      stall: () => this.pStall(), purifier: () => this.pPurifier(), bed: () => this.pBed(),
+      stall: () => this.pStall(), purifier: () => this.pPurifier(), bed: () => this.pBed(), nest: () => this.pNest(),
     };
     const { title, body, cls = '' } = map[this.panel]();
-    const scroll = sh.querySelector('.sheet-body')?.scrollTop || 0;
-    sh.innerHTML = `<div class="sheet ${cls}" role="dialog">
-      <header><h2>${title}</h2><button class="x" data-close aria-label="닫기">×</button></header>
-      <div class="sheet-body">${body}</div></div>`;
-    sh.querySelector('.sheet-body').scrollTop = scroll;
-    sh.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => this.close()));
-    sh.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { sfx('click'); this.open(b.dataset.go, this.arg); }));
+    document.querySelectorAll('.drag-ghost').forEach(el => el.remove());
+    // 이미 열린 창이면 틀은 그대로 두고 안쪽만 바꾼다 (창이 사라졌다 다시 올라오는 깜빡임 방지)
+    let box = sh.querySelector('.sheet');
+    if (box) {
+      box.className = `sheet ${cls} still`;
+      const bodyEl = box.querySelector('.sheet-body');
+      const scroll = bodyEl.scrollTop;
+      box.querySelector('h2').innerHTML = title;
+      bodyEl.innerHTML = body;
+      bodyEl.scrollTop = scroll;
+    } else {
+      sh.innerHTML = `<div class="sheet ${cls}" role="dialog">
+        <header><h2>${title}</h2><button class="x" data-close aria-label="닫기">×</button></header>
+        <div class="sheet-body">${body}</div></div>`;
+      box = sh.querySelector('.sheet');
+      box.querySelector('header [data-close]').addEventListener('click', () => this.close());
+    }
+    box.querySelectorAll('.sheet-body [data-close]').forEach(b => b.addEventListener('click', () => this.close()));
+    box.querySelectorAll('.sheet-body [data-go]').forEach(b => b.addEventListener('click', () => { sfx('click'); this.open(b.dataset.go, this.arg); }));
     this.bind?.(sh);
     this.bind = null;
   }
@@ -359,6 +374,9 @@ export class UI {
         }
         if (d.el) { d.el.style.left = `${e.clientX}px`; d.el.style.top = `${e.clientY}px`; }
       });
+      const drop = () => { d?.el?.remove(); d = null; };
+      b.addEventListener('pointercancel', drop);
+      b.addEventListener('lostpointercapture', () => { if (d?.moved) drop(); });
       b.addEventListener('pointerup', e => {
         if (!d) return;
         const cur = d; d = null;
@@ -412,7 +430,14 @@ export class UI {
         const a = b.dataset.ia;
         if (a === 'use') { g.useSlot(i); if (it.type === 'furniture') this.close(); }
         if (a === 'hot') { const to = inv.slice(0, 8).findIndex(x => !x); g.moveSlot(i, to >= 0 ? to : g.selected); this.sel = null; }
-        if (a === 'trash' && confirm(`${it.name} ${s.n}개를 버릴까요?`)) { g.trashSlot(i); this.sel = null; }
+        if (a === 'trash') {
+          askConfirm(`${it.name} ${s.n}개를 버릴까요?`, { ok: '버리기', danger: true }).then(yes => {
+            if (!yes) return;
+            g.trashSlot(i); this.sel = null;
+            if (this.panel) this.render();
+          });
+          return;
+        }
         if (this.panel) this.render();
       }));
       sh.querySelector('[data-sort]')?.addEventListener('click', () => { g.sortBag(); this.sel = null; this.render(); });
@@ -460,6 +485,7 @@ export class UI {
     this.bind = sh => {
       this.previewCanvas = sh.querySelector('#preview');
       sh.querySelectorAll('[data-uneq]').forEach(b => b.addEventListener('click', () => g.unequip(b.dataset.uneq)));
+      sh.querySelectorAll('[data-gender]').forEach(b => b.addEventListener('click', () => { g.setGender(b.dataset.gender); sfx('click'); this.render(); }));
     };
     const buffs = (me.buffs || []).filter(b => b.until > Date.now());
     return {
@@ -475,7 +501,8 @@ export class UI {
         </div>
         <h3>능력치</h3>
         <div class="stats">${Object.entries(STATS).map(([k, n]) => `<div><span>${n}</span><b>${st[k]}</b><em>${k === 'hp' || k === 'en' ? '' : `기본 ${me.base[k]}`}</em></div>`).join('')}</div>
-        ${buffs.length ? `<p class="buffs">버프: ${buffs.map(b => `${ITEMS[b.src]?.name || '분수 행운'} ${Object.entries(b.stats).map(([k, v]) => `${STATS[k]}+${v}`).join(' ')} (${Math.ceil((b.until - Date.now()) / 60000)}분)`).join(' · ')}</p>` : ''}
+        <div class="opt"><span>성별</span>${me.spouse ? `<b>${me.gender === 'f' ? '여자' : '남자'}</b> · 배우자 ${esc(NPCS[me.spouse.id]?.name || '')}` : `<div class="seg">${[['m', '남자'], ['f', '여자']].map(([k, l]) => `<button class="${me.gender === k ? 'on' : ''}" data-gender="${k}">${l}</button>`).join('')}</div>`}</div>
+        ${buffs.length ? `<p class="buffs">버프: ${buffs.map(b => `${ITEMS[b.src]?.name || { nest: '신혼집 단잠', fountain: '분수 행운' }[b.src] || b.src} ${Object.entries(b.stats).map(([k, v]) => `${STATS[k]}+${v}`).join(' ')} (${Math.ceil((b.until - Date.now()) / 60000)}분)`).join(' · ')}</p>` : ''}
         <h3>기술</h3>
         <div class="skills">${Object.entries(SKILLS).map(([k, n]) => {
           const s = me.skills[k];
@@ -671,19 +698,34 @@ export class UI {
       sh.querySelector('[data-trade]')?.addEventListener('click', () => (shopKind === 'smithy' ? this.open('smithy') : this.openShop(shopKind)));
       sh.querySelector('[data-gift]')?.addEventListener('click', () => this.open('gift', n));
       sh.querySelector('[data-board]')?.addEventListener('click', () => this.open('board'));
+      sh.querySelector('[data-propose]')?.addEventListener('click', () => {
+        const chk = g.proposeCheck(n.id);
+        if (!chk.ok) return this.toast(chk.why, 'bad');
+        askConfirm(`${D.name}에게 청혼 반지를 건넬까요?`, { ok: '청혼하기' }).then(yes => {
+          if (!yes) return;
+          const r = g.propose(n.id);
+          if (!r.ok) return this.toast(r.msg, 'bad');
+          sfx('levelup');
+          this.openDate(n, { npcId: n.id, key: 'wed', wedding: true, lines: r.lines, choices: [] });
+        });
+      });
     };
-    const hearts = '♥'.repeat(Math.min(5, t.hearts)) + '♡'.repeat(Math.max(0, 5 - t.hearts));
+    const hearts = `${'♥'.repeat(t.hearts)}<em>${'♡'.repeat(Math.max(0, 10 - t.hearts))}</em>`;
+    const wed = g.me.spouse?.id === n.id;
+    const cand = !g.me.spouse && isCandidate(g.me, n.id);
     return {
       title: esc(D.name),
       body: `<div class="npc">${this.portraitHtml(n.id, 'npc-face')}
-        <div><div class="muted small">${esc(D.role)} · <span class="hearts">${hearts}</span></div>${DATES[n.id] ? `<div class="muted small">${esc(DATES[n.id].profile)}</div>` : ''}<p class="line">"${lineHtml(t.line)}"</p>${t.first ? '<p class="muted small">오늘 첫 대화라 친밀도가 올랐어요.</p>' : ''}</div></div>
+        <div><div class="muted small">${wed ? '<b class="spouse-tag">배우자</b> · ' : ''}${esc(D.role)} · <span class="hearts">${hearts}</span></div>${DATES[n.id] ? `<div class="muted small">${esc(DATES[n.id].profile)}</div>` : ''}<p class="line">"${lineHtml(t.line)}"</p>${t.first ? '<p class="muted small">오늘 첫 대화라 친밀도가 올랐어요.</p>' : ''}</div></div>
         <p class="muted small">좋아할 것 같은 것: ${esc(TASTE_HINT[n.id] || '글쎄요')}${loved.length ? ` · 확실히 좋아하는 것: ${loved.map(esc).join(', ')}` : ''}</p>
         <div class="row">
           ${DATES[n.id] ? `<button class="btn gold" data-date>${iconImg('heart', 'sm')} 대화하기</button>` : ''}
           ${shopKind ? `<button class="btn" data-trade>${shopKind === 'smithy' ? '도구 강화' : '거래하기'}</button>` : ''}
           ${n.id === 'mayor' ? '<button class="btn" data-board>오늘의 부탁</button>' : ''}
           <button class="btn ghost" data-gift>선물하기</button>
+          ${cand ? `<button class="btn ${t.hearts >= 10 ? 'gold' : 'ghost'}" data-propose>청혼하기</button>` : ''}
         </div>
+        ${cand && t.hearts < 10 ? `<p class="muted small">하트 10개가 되면 청혼 반지로 청혼할 수 있어요 (지금 ${g.me.friends[n.id]?.pts || 0}/${MARRY_PTS})</p>` : ''}
         ${n.id === 'rea' ? `<p class="muted small">레아의 탐험 수첩: 유적 최고 ${g.me.done.ruinsMax || 0}층, 광산 최고 ${g.me.done.mineMax || 0}층. 5층마다 순간이동 문양과 승강기가 있어요.</p>` : ''}`,
     };
   }
@@ -825,21 +867,21 @@ export class UI {
   }
 
   // ── 대화하기: 연애 시뮬레이션풍 전체 화면 ────────────────────────────────
-  openDate(n) {
+  openDate(n, given = null) {
     const g = this.g;
-    const scene = g.dateScene(n.id);
+    const scene = given || g.dateScene(n.id);
     if (!scene) return;
     const D = DATES[n.id];
     const N = NPCS[n.id];
     const steps = scene.lines.map(t => ({ t }));
     if (scene.ask) steps.push({ t: scene.ask, choices: true });
-    else steps[steps.length - 1].choices = true;
+    else if (scene.choices.length) steps[steps.length - 1].choices = true;
     const el = document.createElement('div');
     el.className = 'vn';
     el.style.setProperty('--c1', D.theme[0]);
     el.style.setProperty('--c2', D.theme[1]);
     el.innerHTML = `<div class="vn-bg">${Array.from({ length: 14 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(i * 0.37) % 4}s;animation-duration:${4 + (i % 5)}s"></i>`).join('')}</div>
-      ${scene.event ? `<div class="vn-badge">${iconImg('heart', 'sm')} 특별한 이야기</div>` : ''}
+      ${scene.event || scene.wedding || scene.close || scene.married ? `<div class="vn-badge">${iconImg('heart', 'sm')} ${scene.wedding ? '청혼' : scene.event ? '특별한 이야기' : scene.married ? '신혼 이야기' : '가까워진 사이'}</div>` : ''}
       <button class="vn-x" aria-label="닫기">×</button>
       <div class="vn-stage"><div class="vn-portrait">${this.portraitHtml(n.id, 'vn-face')}</div><div class="vn-emote"></div></div>
       <div class="vn-choices"></div>
@@ -854,7 +896,7 @@ export class UI {
     let typing = null;
     let i = -1;
     let queue = steps;
-    let done = false;
+    let done = !scene.choices.length;
     const say = (who, text, cls = '') => {
       $('.vn-name b').textContent = who === 'me' ? g.me.name : N.name;
       $('.vn-role').textContent = who === 'me' ? '' : N.role;
@@ -1074,6 +1116,8 @@ export class UI {
     } else L.push('<li class="muted">가판대에 올린 물건이 없었어요</li>');
     L.push(`<li class="de-sum"><span class="grow">오늘 번 돈</span><b class="${sum.earned < 0 ? 'no' : 'ok'}">${sum.earned < 0 ? '-' : '+'}${fmtN(Math.abs(sum.earned))}G</b></li>`);
     L.push(`<li class="de-sum"><img class="pix sm" src="${uiIconUrl('coin')}" alt=""><span class="grow">가진 돈</span><b>${fmtN(sum.gold)}G</b></li>`);
+    if (sum.gifts?.length) L.push(`<li class="de-out">${iconImg('heart')} ${esc(NPCS[sum.spouse]?.name || '')}이(가) 아침을 챙겨 줬어요: ${sum.gifts.map(id => esc(ITEMS[id].name)).join(', ')}</li>`);
+    if (sum.bonus) L.push(`<li class="de-out">${iconImg('bed')} 신혼집에서 푹 자서 ${Object.entries(sum.bonus).map(([k, v]) => `${STATS[k]} +${v}`).join(' · ')}</li>`);
     L.push(`<li class="de-next">${iconImg('sun')} ${sum.next}일차 오전 6:00</li>`);
     el.hidden = false;
     el.innerHTML = `<div class="de-card">
@@ -1103,6 +1147,31 @@ export class UI {
       if (performance.now() - openedAt < 400) return;
       if (e.target.closest('[data-denext]')) { clearInterval(this.deTimer); el.hidden = true; el.innerHTML = ''; sfx('open'); return; }
       showAll();
+    };
+  }
+
+  // 신혼집
+  pNest() {
+    const g = this.g;
+    const lv = g.nestLv();
+    const cur = NEST_LEVELS[lv];
+    const next = g.nestNext();
+    const spouse = g.me.spouse ? NPCS[g.me.spouse.id] : null;
+    this.bind = sh => sh.querySelector('[data-nestup]')?.addEventListener('click', () => {
+      const r = g.nestUpgrade();
+      this.toast(r.msg, r.ok ? 'good' : 'bad');
+      this.render();
+    });
+    const ok = next && g.me.gold >= next.cost.gold && next.cost.items.every(([id, n]) => count(g.me.inv, id) >= n);
+    return {
+      title: '신혼집',
+      cls: 'wide',
+      body: !spouse ? '<p>결혼하면 이 땅에 신혼집을 지을 수 있어요. 하트 10개가 된 주민에게 청혼 반지로 청혼해 보세요.</p>'
+        : `<div class="house-card"><div class="lv">Lv.${lv}</div><div><b class="big">${esc(cur.name)}</b><div class="muted small">${esc(spouse.name)}와(과) 함께 · ${esc(cur.perks || '아직 집이 없어요')}</div></div></div>
+        ${next ? `<h3>${lv ? '다음 단계' : '짓기'}: ${esc(next.name)}</h3><p class="muted small">${esc(next.perks)}</p>
+          <div class="needs"><span class="${g.me.gold >= next.cost.gold ? 'ok' : 'no'}">${fmtN(g.me.gold)}/${fmtN(next.cost.gold)}G</span>${next.cost.items.map(([id, n]) => `<span class="${count(g.me.inv, id) >= n ? 'ok' : 'no'}">${icon(id)}${esc(ITEMS[id].name)} ${count(g.me.inv, id)}/${n}</span>`).join('')}</div>
+          <button class="btn wide ${ok ? 'gold' : ''}" data-nestup ${ok ? '' : 'disabled'}>${lv ? '신혼집 키우기' : '신혼집 짓기'}</button>` : '<p class="center">꿈의 신혼집을 완성했어요.</p>'}
+        <p class="muted small">신혼집은 나만의 집이에요. 가방의 재료와 내 돈으로 지어요. 신혼집 침대에서 자면 배우자와 함께 아침을 맞아요.</p>`,
     };
   }
 
@@ -1225,6 +1294,21 @@ export class UI {
   pHelp() { return { title: '게임 방법', body: helpHtml() }; }
 }
 
+// 게임 안 확인 창 (브라우저 기본 confirm 대신). → Promise<boolean>
+export function askConfirm(msg, { ok = '확인', cancel = '취소', danger = false } = {}) {
+  return new Promise(res => {
+    const el = document.createElement('div');
+    el.className = 'ask-ov';
+    el.innerHTML = `<div class="ask-card" role="alertdialog"><p>${esc(msg).replace(/\n/g, '<br>')}</p>
+      <div class="row"><button class="btn ghost" data-no>${esc(cancel)}</button><button class="btn ${danger ? 'danger' : 'gold'}" data-yes>${esc(ok)}</button></div></div>`;
+    const done = v => { el.remove(); sfx('click'); res(v); };
+    el.addEventListener('click', e => { if (e.target === el) done(false); });
+    el.querySelector('[data-no]').addEventListener('click', () => done(false));
+    el.querySelector('[data-yes]').addEventListener('click', () => done(true));
+    (document.getElementById('app') || document.body).appendChild(el);
+  });
+}
+
 export function helpHtml() {
   return `<div class="help">
     <p><b>이동</b> — 가고 싶은 곳을 누르면 걸어가요. 누른 채 끌면 그쪽으로 걸어요. 메뉴에서 조이스틱으로 바꿀 수 있어요.</p>
@@ -1239,7 +1323,8 @@ export function helpHtml() {
     <p><b>사냥 · 모험</b> — 숲에는 토끼·멧돼지·슬라임, 숲 남쪽 유적에는 해골과 5층마다 골렘이 있어요.</p>
     <p><b>요리 · 재봉 · 목공</b> — 마을 식당·의상실·대장간 옆, 또는 집을 키우면 집 안에서. 한 번에 여러 개 만들 수 있어요.</p>
     <p><b>자연</b> — 베어 낸 나무와 캐낸 바위는 다시 나지 않아요. 농장의 숲지기 두리에게 값을 치르면 되살려 줘요.</p>
-    <p><b>친밀도</b> — 사람마다 좋아하는 선물이 달라요. 좋아하는 걸 주면 크게 올라요.</p>
+    <p><b>친밀도</b> — 사람마다 좋아하는 선물이 달라요. 좋아하는 걸 주면 크게 올라요. "대화하기"로도 오르고, 하트 5개부터는 더 가까운 이야기가 나와요.</p>
+    <p><b>결혼</b> — 하트 10개가 된 결혼 상대(어르신·아이 제외, 나와 다른 성별)에게 청혼 반지로 청혼할 수 있어요. 결혼하면 농장 동쪽 길 너머 신혼집 터에 나만의 신혼집을 짓고 키워요. 배우자는 말투가 바뀌고, 신혼집이 커지면 아침마다 음식을 챙겨 줘요.</p>
     <p><b>순간이동</b> — 각 지역의 석상을 한 번 깨우면 어디서든 이동할 수 있어요 (세계 공용).</p>
     <p><b>집 키우기</b> — 모두가 골드와 재료를 모아 집을 키워요. 집이 크면 밭이 넓어지고 작물이 빨리 자라요.</p>
     <p><b>함께 하기</b> — 초대 링크를 보내면 최대 4명이 같은 세계에서 놀 수 있어요.</p>

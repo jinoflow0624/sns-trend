@@ -101,7 +101,7 @@ const screens = new Screens($screen, {
     const pid = makeId();
     const now = Date.now();
     await store.set('meta', { name: data.world, createdAt: now, lastActive: now, owner: pid, v: 1 });
-    const me = createPlayer({ id: pid, name: data.name, job: data.job, look: data.look }, now);
+    const me = createPlayer({ id: pid, name: data.name, job: data.job, look: data.look, gender: data.gender }, now);
     await store.set(`players/${pid}`, JSON.stringify(me));
     Slots.saveSlot(slot, { code, pid, mode: data.mode, name: me.name, job: me.job, look: me.look, world: data.world, me: JSON.stringify(me) });
     startGame(slot, store, code, pid, me);
@@ -114,7 +114,7 @@ const screens = new Screens($screen, {
     if (Object.keys(pubs).length >= MAX_PLAYERS) { store.close(); return '이 세계는 이미 4명이 가득 찼어요.'; }
     const meta = await store.get('meta');
     const pid = makeId();
-    const me = createPlayer({ id: pid, name: data.name, job: data.job, look: data.look });
+    const me = createPlayer({ id: pid, name: data.name, job: data.job, look: data.look, gender: data.gender });
     await store.set(`players/${pid}`, JSON.stringify(me));
     Slots.saveSlot(slot, { code, pid, mode: joinMode(), name: me.name, job: me.job, look: me.look, world: meta?.name || code, me: JSON.stringify(me) });
     startGame(slot, store, code, pid, me);

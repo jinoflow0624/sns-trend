@@ -162,6 +162,7 @@ export const ITEMS = Object.fromEntries([
   I('dye_blue', '파란 염료', 'mat', 60, { kind: 'dye', c: '#3a7ae0' }),
   I('dye_yellow', '노란 염료', 'mat', 60, { kind: 'dye', c: '#ffd23c' }),
   I('iron_bar', '철 주괴', 'mat', 220, { kind: 'bar', c: '#c8d0da' }),
+  I('ring', '청혼 반지', 'mat', 2500, { kind: 'ring', c: '#ffd23c', c2: '#b565f0' }, { stack: 5 }),
   // 양동이: 물가에서 든 채로 물을 누르면 물 양동이가 된다. 물 양동이 하나로 커피 10잔.
   I('bucket', '양동이', 'mat', 240, { kind: 'bucket', c: '#9aa4b0' }, { stack: 20 }),
   I('water_bucket', '물 양동이', 'mat', 250, { kind: 'bucket', c: '#9aa4b0', c2: '#5ab4f0' }, { stack: 20 }),
@@ -274,6 +275,7 @@ export const RECIPES = [
   { id: 'r_f_purifier', out: ['f_purifier', 1], in: [['iron_bar', 2], ['stone', 10], ['copper_ore', 3]], station: 'bench', lv: 1, xp: 16 },
   // 용광로 (집에 놓은 용광로를 누르면)
   { id: 'r_iron_bar', out: ['iron_bar', 1], in: [['iron_ore', 3], ['coal', 1]], station: 'furnace', lv: 1, xp: 10 },
+  { id: 'r_ring', out: ['ring', 1], in: [['gold_ore', 3], ['gem', 1]], station: 'furnace', lv: 1, xp: 30 },
 ];
 export const STATION_NAME = { stove: '화덕 요리', sewing: '재봉틀', bench: '목공 작업대', furnace: '용광로' };
 export const STATION_SKILL = { stove: 'cook', sewing: 'sew', bench: 'sew', furnace: 'mine' };
@@ -299,7 +301,7 @@ export const MONSTERS = {
 export const SHOPS = {
   market: {
     name: '봄이네 시장', npc: 'bomi',
-    sells: ['seed_turnip', 'seed_potato', 'seed_carrot', 'seed_wheat', 'seed_tomato', 'seed_cotton', 'seed_strawberry', 'seed_pumpkin', 'seed_coffee', 'bread', 'bait', 'f_chair', 'f_plant', 'f_lamp', 'f_sofa', 'f_clock', 'f_piano', 'f_purifier'],
+    sells: ['seed_turnip', 'seed_potato', 'seed_carrot', 'seed_wheat', 'seed_tomato', 'seed_cotton', 'seed_strawberry', 'seed_pumpkin', 'seed_coffee', 'bread', 'bait', 'f_chair', 'f_plant', 'f_lamp', 'f_sofa', 'f_clock', 'f_piano', 'f_purifier', 'ring'],
     buys: ['crop', 'forage', 'fish', 'ore', 'drop', 'food', 'mat', 'cloth', 'furniture'],
   },
   tailor: { name: '실비 의상실', npc: 'silvi', sells: ['cloth', 'dye_red', 'dye_blue', 'dye_yellow', 'wool'], buys: ['cloth', 'mat'] },
@@ -344,46 +346,57 @@ export const IDLE_CAP_H = 8;
 // ── NPC ─────────────────────────────────────────────────────────────────────
 export const NPCS = {
   bomi: {
+    gender: 'f', spouse: true,
     name: '봄이', role: '시장 상인', look: { skin: '#f6d2b0', hair: '#7a3a2a', top: '#f08aa0', hairStyle: 'bun' },
     lines: ['어서 와요! 오늘 시세 좋아요~', '신선한 작물은 언제든 사요!', '호박은 비싸게 쳐 드릴게요.', '씨앗 필요하면 말만 해요!', '가판대에 올린 건 밤 12시에 제가 싹 사 갈게요.', '커피 씨앗 들어왔어요! 밤샘엔 커피죠~', '오늘도 부지런하네요?'],
   },
   chulsu: {
+    gender: 'm', spouse: true,
     name: '철수', role: '대장장이', look: { skin: '#e0b088', hair: '#2c2c34', top: '#6a6a78', hairStyle: 'short', beard: true },
     lines: ['쇠는 뜨거울 때 두드려야지.', '광석만 가져오면 도구를 튼튼하게 해 주마.', '금 곡괭이? 그건 네 실력에 달렸지.', '철광석 세 개에 석탄 하나면 주괴 하나야. 용광로는 작업대에서 만들고.', '주괴 하나면 양동이 하나 뚝딱이지.'],
   },
   silvi: {
-    name: '실비', role: '재봉사', look: { skin: '#f6d2b0', hair: '#e8c65a', top: '#b06fd0', hairStyle: 'long' },
+    gender: 'f', spouse: true,
+    name: '실비', role: '재봉사', look: { skin: '#f6d2b0', hair: '#3a2a24', top: '#b08ad0', hairStyle: 'long' },
     lines: ['목화 두 송이면 천 한 장!', '옷이 날개라니까요~', '빨간 원피스는 행운을 불러와요.', '오늘 옷 예쁘다! 어디서 샀어요?', '바느질은 밤에 해야 잘 된다니까요.'],
   },
   sunja: {
+    gender: 'f', spouse: false,
     name: '순자 할머니', role: '식당 주인', look: { skin: '#f0c8a8', hair: '#d8d8d8', top: '#d0605a', hairStyle: 'bun' },
     lines: ['배고프면 일을 못 해. 먹고 가!', '버섯 스튜는 우리 집 자랑이란다.', '호박 파이 굽는 법 알려줄까?', '밤 12시 전엔 꼭 들어가 자거라. 길에서 쓰러지면 큰일 나.', '커피는 하루 한 잔만 마시는 거야.'],
   },
   kang: {
+    gender: 'm', spouse: false,
     name: '강태공', role: '낚시꾼', look: { skin: '#d8a078', hair: '#5a4a3a', top: '#3a8c7a', hairStyle: 'cap' },
     lines: ['물고기는 기다리는 자에게 온다네.', '황금 잉어를 봤다는 소문이 있어.', '미끼는 넉넉히 챙기게.', '양동이 들고 물가를 누르면 물을 뜰 수 있다네.'],
   },
   rea: {
-    name: '레아', role: '모험가', look: { skin: '#e8b890', hair: '#c0584d', top: '#4a6a3a', hairStyle: 'pony' },
+    gender: 'f', spouse: true,
+    name: '레아', role: '모험가', look: { skin: '#e8b890', hair: '#5a3024', top: '#4a6a3a', hairStyle: 'pony' },
     lines: ['숲 깊은 곳에 오래된 유적이 있어.', '유적 5층마다 강한 녀석이 기다리고 있지.', '조심해, 해골 병사는 끈질기거든.'],
   },
   mayor: {
+    gender: 'm', spouse: false,
     name: '촌장님', role: '마을 촌장', look: { skin: '#f0c8a8', hair: '#f4f4f4', top: '#3a5a8c', hairStyle: 'bald', beard: true },
     lines: ['하하호호 마을에 온 걸 환영하네!', '게시판에 오늘의 부탁이 붙어 있다네.', '집을 크게 키우면 마을도 기뻐할 걸세.', '일찍 자고 일찍 일어나는 게 건강의 비결이지.'],
   },
   minsu: {
+    gender: 'm', spouse: false,
     name: '꼬마 민수', role: '마을 아이', look: { skin: '#f6d2b0', hair: '#3a2a1a', top: '#ffd23c', hairStyle: 'short', small: true },
     lines: ['같이 놀자!', '분수대에 동전 던지면 소원이 이뤄진대.', '고양이 나비 못 봤어?', '어른들은 왜 쓴 커피를 마셔?', '보리가 오늘 내 신발 물어 갔어!'],
   },
   duri: {
+    gender: 'm', spouse: true,
     name: '숲지기 두리', role: '자연 되살리기', look: { skin: '#e0b088', hair: '#6a8a3a', top: '#5a7a3a', hairStyle: 'cap', cap: '#4a6a2a', beard: true },
     lines: ['베어 낸 나무와 캐낸 바위는 저절로 돌아오지 않아.', '조금만 보태 주면 숲과 들을 되살려 주지.', '자연은 아껴 써야 오래 간다네.'],
   },
   juhyuk: {
+    gender: 'm', spouse: true,
     name: '남주혁', role: '배우', look: { skin: '#f2d4bc', hair: '#1c1c24', top: '#f2f0ea', bottom: '#3a4a66', hairStyle: 'spiky' },
     lines: ['오, {name}! 대본 연습하다 잠깐 쉬는 중이야.', '사인? {name}한테는 특별히 두 장 해 줄게.', '분수대 앞이 대사 연습하기 딱 좋아.', '커피 한 잔이면 새벽 촬영도 거뜬해.', '비 맞는 장면 찍었더니 머리가 아직도 축축해.'],
   },
   karina: {
+    gender: 'f', spouse: true,
     name: '카리나', role: '가수 · 댄서', look: { skin: '#f8e2d6', hair: '#16141c', top: '#f6f4f6', bottom: '#4a6a9a', hairStyle: 'long' },
     lines: ['어, 왔어? 방금 안무 하나 완성했어!', '호숫가 바람 맞으면서 추는 게 제일 좋아.', '딸기 스무디 마시고 싶다…', '같이 스트레칭 할래?', '오늘 컨디션 최고야!'],
   },
@@ -427,6 +440,21 @@ export const PETS = {
   dog: { name: '강아지 보리', cry: '멍멍!', sound: 'bark' },
   duck: { name: '오리 꽥이', cry: '꽥꽥!', sound: 'quack' },
 };
+
+// ── 결혼 · 신혼집 ────────────────────────────────────────────────────────────
+// 하트 10개(친밀도 500)에 청혼 반지가 있으면 결혼 대상(어르신·아이 제외, 나와 다른 성별)에게 청혼할 수 있다
+export const MARRY_PTS = 500;
+// 신혼집: 결혼하면 농장 동쪽 "신혼집 터"에 짓고 키운다 (각자 자기 집)
+export const NEST_LEVELS = [
+  { name: '빈 땅', perks: '' },
+  { name: '작은 신혼집', room: [9, 7], perks: '배우자와 함께 살아요 · 신혼집 침대에서 잘 수 있어요', cost: { gold: 2000, items: [['wood', 50], ['stone', 30]] } },
+  { name: '아늑한 신혼집', room: [11, 8], perks: '배우자가 매일 아침 음식 1개를 챙겨 줘요', cost: { gold: 6000, items: [['wood', 100], ['stone', 60], ['iron_bar', 5]] } },
+  { name: '예쁜 신혼집', room: [13, 9], perks: '아침 선물 2개 · 방이 넓어져요', cost: { gold: 15000, items: [['wood', 150], ['iron_bar', 15], ['cloth', 10], ['gem', 2]] } },
+  { name: '정원 딸린 신혼집', room: [15, 10], perks: '아침 선물 3개 · 신혼집에서 자면 다음 날 기력 +20', cost: { gold: 30000, items: [['wood', 200], ['iron_bar', 25], ['wool', 10], ['gem', 4]] } },
+  { name: '꿈의 신혼집', room: [17, 11], perks: '아침 선물 4개 · 다음 날 기력·체력 +30', cost: { gold: 60000, items: [['wood', 300], ['gold_ore', 20], ['ruby', 2], ['golem_core', 1]] } },
+];
+// 배우자가 아침에 챙겨 주는 음식
+export const SPOUSE_GIFTS = ['bread', 'baked_potato', 'veggie_soup', 'grilled_fish', 'berry_toast', 'mushroom_stew', 'tomato_pasta', 'coffee'];
 
 // 밭 일꾼: 고용한 동안 밭이 늘 촉촉하고, 다 자란 작물은 수확해서 공용 보관함에 넣고 다시 심는다
 export const HELPER_PLANS = [
