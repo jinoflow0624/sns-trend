@@ -11,7 +11,8 @@
 const PREFIX = 'DH-';
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const SEEN_MS = 8000;       // 살아 있다고 알리는 주기
-export const ABSENT_MS = 45000;    // 이만큼 소식이 없으면 다른 사람이 대신 진행할 수 있다
+export const ABSENT_MS = 20000;    // 이만큼 소식이 없으면 '연결 끊김'으로 보인다
+export const DROP_MS = 60000;      // 이만큼 돌아오지 않으면 봇으로 바뀐다 (1대1 대전은 기권패)
 
 export function makeCode(len = 5) {
   const buf = new Uint32Array(len);
