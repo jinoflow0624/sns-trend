@@ -96,3 +96,14 @@ test('게임: 대화하기 → 선택 → 친밀도와 하트', async () => {
   assert.ok(r.reply);
   g.stop();
 });
+
+test('프로필 사진: portraits.json 에 적힌 파일이 모두 있다', async () => {
+  const { readFile, stat } = await import('node:fs/promises');
+  const dir = new URL('../assets/portraits/', import.meta.url);
+  const list = JSON.parse(await readFile(new URL('portraits.json', dir), 'utf8'));
+  for (const [id, file] of Object.entries(list)) {
+    assert.ok(NPCS[id], `없는 NPC: ${id}`);
+    const s = await stat(new URL(file, dir));
+    assert.ok(s.size > 1000 && s.size < 400_000, `${file} 크기 ${s.size}`);
+  }
+});
