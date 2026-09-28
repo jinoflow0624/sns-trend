@@ -4,7 +4,7 @@ import { makeInv, give, removeAt } from './inventory.js';
 
 export const LOOK_DEFAULT = { skin: '#f6d2b0', hair: '#5a3a2a', top: '#e0605a', bottom: '#4a5a8a', hairStyle: 'short' };
 
-export function createPlayer({ id, name, job, look }, now = Date.now()) {
+export function createPlayer({ id, name, job, look, gender }, now = Date.now()) {
   const J = JOBS[job] || JOBS.farmer;
   const skills = {};
   for (const k of Object.keys(SKILLS)) skills[k] = { lv: J.skills[k] || 1, xp: 0 };
@@ -14,6 +14,7 @@ export function createPlayer({ id, name, job, look }, now = Date.now()) {
     id,
     name: String(name || '주민').slice(0, 10),
     job: JOBS[job] ? job : 'farmer',
+    gender: gender === 'f' || gender === 'm' ? gender : null,
     look: { ...LOOK_DEFAULT, ...(look || {}) },
     base: { ...J.stats },
     hp: J.stats.hp,

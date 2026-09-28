@@ -3,7 +3,7 @@
 // 순수 로직이라 테스트에서도 불러 검증한다.
 
 import { hash2, mulberry32, hashStr, randInt } from '../logic/rng.js';
-import { HOUSE_LEVELS } from '../data.js';
+import { HOUSE_LEVELS, NEST_LEVELS } from '../data.js';
 
 export const T = {
   GRASS: 0, FLOWER: 1, PATH: 2, WATER: 3, SAND: 4, BRIDGE: 5, CLIFF: 6, SOIL: 7,
@@ -91,7 +91,7 @@ export const HOUSE_DOOR = { x: 7, y: 8 };
 
 function buildFarm() {
   const b = new Builder('farm', '하하호호 농장', 34, 26, T.GRASS, { outdoor: true, fishTable: 'pond', music: 'farm' });
-  b.borderTrees([{ x: 16, y: 0, w: 2 }, { x: 33, y: 12, h: 2 }, { x: 16, y: 25, w: 2 }]);
+  b.borderTrees([{ x: 16, y: 0, w: 2 }, { x: 33, y: 12, h: 2 }, { x: 16, y: 25, w: 2 }, { x: 33, y: 20, h: 2 }]);
   b.rect(16, 0, 2, 26, T.PATH);
   b.rect(7, 12, 27, 2, T.PATH);
   b.rect(7, 9, 1, 3, T.PATH);
@@ -100,6 +100,11 @@ function buildFarm() {
   b.warp(16, 0, 2, 1, 'mine_gate', 11.5, 13.5, '광산 입구');
   b.warp(33, 12, 1, 2, 'town', 1.5, 13, '마을');
   b.warp(16, 25, 2, 1, 'forest', 17.5, 1.5, '숲');
+  // 신혼집 가는 길 (결혼한 사람만 지나갈 수 있다)
+  b.rect(18, 20, 16, 2, T.PATH);
+  b.reserve(17, 19, 17, 4);
+  b.warp(33, 20, 1, 2, 'nest_yard', 1.5, 9, '신혼집 터');
+  b.obj({ t: 'sign', x: 30, y: 19, text: '이 길 너머는 신혼집 터예요. 결혼하면 지나갈 수 있어요.' });
 
   b.obj({ t: 'building', kind: 'house', x: 4, y: 4, w: 7, h: 5, foot: 3, door: HOUSE_DOOR, name: '우리 집' });
   b.warp(HOUSE_DOOR.x, HOUSE_DOOR.y, 1, 1, 'house', 0, 0, '집 안');
@@ -158,6 +163,55 @@ export function buildHouse(level = 1) {
   b.reserve(door.x - 1, H - 3, 3, 3);
   // 가구를 놓을 수 있는 영역
   b.decor = { x: 1, y: 3, w: W - 2, h: H - 4 };
+  return b.done();
+}
+
+// ── 신혼집 터 (결혼한 사람마다 자기 신혼집. lv 0 은 빈 땅) ─────────────────
+export const NEST_DOOR = { x: 13, y: 8 };
+function buildNestYard(lv = 0) {
+  const b = new Builder('nest_yard', '신혼집 터', 26, 18, T.GRASS, { outdoor: true, music: 'farm' });
+  b.borderTrees([{ x: 0, y: 8, h: 2 }]);
+  b.warp(0, 8, 1, 2, 'farm', 32, 21, '농장');
+  b.rect(0, 8, 13, 2, T.PATH);
+  b.rect(13, 8, 1, 2, T.PATH);
+  b.reserve(0, 7, 15, 4);
+  if (lv >= 1) {
+    b.obj({ t: 'building', kind: 'nest', x: 10, y: 4, w: 7, h: 5, foot: 3, door: NEST_DOOR, name: '신혼집' });
+    b.warp(NEST_DOOR.x, NEST_DOOR.y, 1, 1, 'nest', 0, 0, '신혼집 안');
+    for (const x of [8, 18]) b.obj({ t: 'lamp', x, y: 9 });
+  } else {
+    // 빈 땅: 말뚝으로 둘러친 터
+    b.rect(10, 4, 7, 5, T.PATH);
+    for (let x = 10; x < 17; x++) { b.obj({ t: 'fence', x, y: 3 }); b.obj({ t: 'fence', x, y: 9 }); }
+    b.obj({ t: 'sign', kind: 'nestlot', x: 13, y: 6, text: '여기에 신혼집을 지을 수 있어요' });
+  }
+  b.reserve(8, 2, 11, 9);
+  b.obj({ t: 'board', kind: 'nest', x: 18, y: 7, name: '신혼집 짓기' });
+  b.reserve(18, 6, 2, 3);
+  b.scatter('flower', 0.22, 41, grassy);
+  b.scatter('tree', 0.06, 42, grassy);
+  return b.done();
+}
+function buildNest(lv = 1, spouse = null) {
+  const L = Math.max(1, Math.min(NEST_LEVELS.length - 1, lv));
+  const [rw, rh] = NEST_LEVELS[L].room;
+  const W = rw + 2;
+  const H = rh + 3;
+  const b = new Builder('nest', `신혼집 · ${NEST_LEVELS[L].name}`, W, H, T.FLOOR, { indoor: true, level: L });
+  b.rect(0, 0, W, 3, T.WALL);
+  b.rect(0, 0, 1, H, T.WALL);
+  b.rect(W - 1, 0, 1, H, T.WALL);
+  b.rect(0, H - 1, W, 1, T.WALL);
+  const door = { x: Math.floor(W / 2), y: H - 1 };
+  b.set(door.x, door.y, T.FLOOR);
+  b.warp(door.x, door.y, 1, 1, 'nest_yard', NEST_DOOR.x + 0.5, NEST_DOOR.y + 1.6, '밖으로');
+  b.door = door;
+  b.obj({ t: 'bed', x: 1, y: 3, w: 2, h: 2, name: '침대' });
+  if (L >= 2) b.obj({ t: 'station', kind: 'stove', x: W - 3, y: 3, name: '화덕' });
+  b.obj({ t: 'window', x: 4, y: 1, w: 2, h: 1 });
+  if (W > 10) b.obj({ t: 'window', x: W - 6, y: 1, w: 2, h: 1 });
+  b.reserve(door.x - 1, H - 3, 3, 3);
+  if (spouse) b.npcs.push({ id: spouse, route: [[4.5, 5.5], [W - 3.5, 5.5], [W - 3.5, H - 3.5], [4.5, H - 3.5]], speed: 0.7, spouse: true });
   return b.done();
 }
 
@@ -479,13 +533,16 @@ export function buildRuins(floor, seedKey) {
 // ── 조회 ─────────────────────────────────────────────────────────────────────
 const cache = new Map();
 const STATIC = { farm: buildFarm, town: buildTown, lake: buildLake, forest: buildForest, mine_gate: buildMineGate };
+export const PERSONAL_MAPS = new Set(['nest_yard', 'nest']);
 
 // ctx: { houseLv, seedKey(세계 코드 + 날짜) }
 export function getMap(id, ctx = {}) {
-  const key = id === 'house' ? `house:${ctx.houseLv || 1}` : id.includes(':') ? `${id}@${ctx.seedKey}` : id;
+  const key = id === 'house' ? `house:${ctx.houseLv || 1}` : id === 'nest_yard' ? `nest_yard:${ctx.nestLv || 0}` : id === 'nest' ? `nest:${ctx.nestLv || 1}:${ctx.spouse || ''}` : id.includes(':') ? `${id}@${ctx.seedKey}` : id;
   if (cache.has(key)) return cache.get(key);
   let m;
   if (id === 'house') m = buildHouse(ctx.houseLv || 1);
+  else if (id === 'nest_yard') m = buildNestYard(ctx.nestLv || 0);
+  else if (id === 'nest') { if (!(ctx.nestLv >= 1)) return null; m = buildNest(ctx.nestLv, ctx.spouse); }
   else if (id.startsWith('mine:')) m = buildMine(Number(id.split(':')[1]), ctx.seedKey || 'x');
   else if (id.startsWith('ruins:')) m = buildRuins(Number(id.split(':')[1]), ctx.seedKey || 'x');
   else if (STATIC[id]) m = STATIC[id]();

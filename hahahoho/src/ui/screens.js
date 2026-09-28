@@ -4,7 +4,7 @@ import { charSheet, catSheet } from '../art/chars.js';
 import { building, TS } from '../art/world.js';
 import { hash2 } from '../logic/rng.js';
 import { listSlots, clearSlot, SLOT_COUNT } from '../net/slots.js';
-import { helpHtml, jobIcon } from './ui.js';
+import { helpHtml, jobIcon, askConfirm } from './ui.js';
 import { sfx } from '../game/sound.js';
 import { APP_VERSION } from '../version.js';
 
@@ -205,15 +205,15 @@ export class Screens {
     });
     w.querySelector('[data-back]').addEventListener('click', () => this.menu());
     w.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => this.h.onContinue(Number(b.dataset.load))));
-    w.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    w.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
       const i = Number(b.dataset.del);
-      if (!confirm(`슬롯 ${i + 1}의 "${slots[i].name}"을(를) 삭제할까요?${slots[i].mode === 'local' ? '\n이 기기에만 있는 세계라 되돌릴 수 없어요.' : '\n온라인 세계에는 캐릭터가 남아 있어요.'}`)) return;
+      if (!(await askConfirm(`슬롯 ${i + 1}의 "${slots[i].name}"을(를) 삭제할까요?${slots[i].mode === 'local' ? '\n이 기기에만 있는 세계라 되돌릴 수 없어요.' : '\n온라인 세계에는 캐릭터가 남아 있어요.'}`, { ok: '삭제', danger: true }))) return;
       this.h.onDeleteSlot(i);
       this.slots();
     }));
-    w.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
+    w.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', async () => {
       const i = Number(b.dataset.pick);
-      if (slots[i] && !confirm(`"${slots[i].name}" 슬롯을 덮어쓸까요?`)) return;
+      if (slots[i] && !(await askConfirm(`"${slots[i].name}" 슬롯을 덮어쓸까요?`, { ok: '덮어쓰기', danger: true }))) return;
       after(i);
     }));
   }
@@ -228,7 +228,7 @@ export class Screens {
   // 캐릭터 만들기
   createChar({ slot, join = null, draft = null }) {
     const d = draft || {
-      name: '', job: 'farmer',
+      name: '', job: 'farmer', gender: 'm',
       look: { skin: SKINS[0], hair: HAIRS[1], top: TOPS[0], bottom: '#4a5a8a', hairStyle: 'short' },
     };
     const J = JOBS[d.job];
@@ -245,6 +245,7 @@ export class Screens {
           </div>
         </div>
         <div class="chips">${STYLES.map(([k, n]) => `<button class="${d.look.hairStyle === k ? 'on' : ''}" data-look="hairStyle:${k}">${n}</button>`).join('')}</div>
+        <div class="chips gender"><span class="muted small">성별 (결혼 상대가 달라져요)</span>${[['m', '남자'], ['f', '여자']].map(([k, n]) => `<button class="${d.gender === k ? 'on' : ''}" data-gender="${k}">${n}</button>`).join('')}</div>
         <h3>직업 <span class="muted small">— 초기 능력치와 특기가 달라요</span></h3>
         <div class="jobs">${Object.entries(JOBS).map(([k, j]) => `<button class="job-card ${d.job === k ? 'on' : ''}" data-job="${k}" style="--c:${j.color}">${jobIcon(k)}<b>${j.name}</b></button>`).join('')}</div>
         <div class="job-detail" style="--c:${J.color}">
@@ -290,6 +291,7 @@ export class Screens {
       this.createChar({ slot, join, draft: d });
     }));
     w.querySelectorAll('[data-job]').forEach(b => b.addEventListener('click', () => { keep(); d.job = b.dataset.job; sfx('click'); alive = false; this.createChar({ slot, join, draft: d }); }));
+    w.querySelectorAll('[data-gender]').forEach(b => b.addEventListener('click', () => { keep(); d.gender = b.dataset.gender; sfx('click'); alive = false; this.createChar({ slot, join, draft: d }); }));
     w.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { keep(); d.mode = b.dataset.mode; alive = false; this.createChar({ slot, join, draft: d }); }));
     w.querySelector('[data-back]').addEventListener('click', () => { alive = false; this.menu(); });
     w.querySelector('[data-go]').addEventListener('click', async () => {
@@ -300,7 +302,7 @@ export class Screens {
       btn.disabled = true;
       btn.textContent = '준비 중…';
       alive = false;
-      const data = { name, job: d.job, look: d.look, world: (d.world || '').trim() || `${name}네 마을`, mode: this.h.firebase && d.mode !== 'local' ? 'online' : 'local' };
+      const data = { name, job: d.job, gender: d.gender || 'm', look: d.look, world: (d.world || '').trim() || `${name}네 마을`, mode: this.h.firebase && d.mode !== 'local' ? 'online' : 'local' };
       const err = join ? await this.h.onJoin(join.code, slot, data) : await this.h.onNew(slot, data);
       if (err) { w.querySelector('#cc-err').textContent = err; btn.disabled = false; btn.textContent = '다시 시도'; }
     });

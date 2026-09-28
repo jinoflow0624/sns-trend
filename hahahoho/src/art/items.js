@@ -143,6 +143,10 @@ function draw(kind, c, c2) {
       P.r(4, 6, 7, 2, c); P.r(5, 6, 3, 1, l);
       P.p(5, 2, '#ffffff'); P.p(6, 3, '#ffffff'); P.p(8, 1, '#ffffff'); P.p(9, 2, '#ffffff');
       break;
+    case 'ring':
+      P.r(5, 8, 6, 1, c); P.r(5, 14, 6, 1, d); P.r(4, 9, 1, 5, c); P.r(11, 9, 1, 5, d); P.r(5, 9, 1, 1, l);
+      P.r(6, 3, 4, 4, c2 || '#b565f0'); P.r(6, 3, 2, 1, '#ffffff'); P.r(7, 7, 2, 1, c);
+      break;
     case 'bar':
       P.r(2, 8, 12, 5, c); P.r(4, 6, 8, 2, l); P.r(2, 12, 12, 1, d); P.r(5, 9, 5, 1, l);
       break;

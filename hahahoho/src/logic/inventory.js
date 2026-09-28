@@ -37,6 +37,17 @@ export function add(inv, id, n = 1) {
   return n;
 }
 
+// 이 물건이 가방에 몇 개까지 더 들어가나
+export function roomFor(inv, id) {
+  const max = stackOf(id);
+  let room = 0;
+  for (const s of inv) {
+    if (!s) room += max;
+    else if (s.id === id) room += max - s.n;
+  }
+  return room;
+}
+
 export function canAdd(inv, id, n = 1) {
   const max = stackOf(id);
   let room = 0;

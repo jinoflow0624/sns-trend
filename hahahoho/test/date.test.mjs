@@ -5,7 +5,7 @@ import { DATES } from '../src/dates.js';
 import { NPCS, NPC_TASTE, TASTE_HINT, ITEMS } from '../src/data.js';
 import { pickScene, choose, heartsOf } from '../src/logic/date.js';
 import { getMap, isSolid } from '../src/world/maps.js';
-import { mkGame } from './helpers.mjs';
+import { mkGame, settle } from './helpers.mjs';
 
 const EMOTES = new Set(['heart', 'happy', 'surprise', 'sweat', 'sad']);
 
@@ -106,4 +106,102 @@ test('프로필 사진: portraits.json 에 적힌 파일이 모두 있다', asyn
     const s = await stat(new URL(file, dir));
     assert.ok(s.size > 1000 && s.size < 400_000, `${file} 크기 ${s.size}`);
   }
+});
+
+// ── 가까운 사이 · 결혼 · 신혼집 ──────────────────────────────────────────────
+const { CLOSE, MARRIED } = await import('../src/dates.js');
+const { canPropose, isCandidate } = await import('../src/logic/date.js');
+const { NEST_LEVELS, MARRY_PTS } = await import('../src/data.js');
+const Inv = await import('../src/logic/inventory.js');
+
+test('대본: 하트 5개 이야기(모든 NPC)와 결혼 이야기(결혼 상대만)', () => {
+  assert.deepEqual(Object.keys(CLOSE).sort(), Object.keys(NPCS).sort());
+  for (const [id, list] of Object.entries(CLOSE)) {
+    assert.ok(list.length >= 2, id);
+    for (const sc of list) for (const c of sc.choices) assert.ok(EMOTES.has(c[3]), id);
+    if (!DATES[id].romance) assert.ok(list.every(sc => sc.choices.every(c => c[3] !== 'heart')), `연애 대상 아닌 ${id}`);
+  }
+  const spouses = Object.keys(NPCS).filter(id => NPCS[id].spouse).sort();
+  assert.deepEqual(Object.keys(MARRIED).sort(), spouses);
+  for (const id of ['sunja', 'mayor', 'kang', 'minsu']) assert.equal(NPCS[id].spouse, false, `${id} 는 결혼 상대가 아니다`);
+  for (const id of spouses) {
+    assert.ok(MARRIED[id].accept.length >= 2 && MARRIED[id].lines.length >= 3 && MARRIED[id].topics.length >= 2, id);
+    assert.ok(DATES[id].romance, id);
+  }
+});
+
+test('장면: 하트 5개부터 가까운 이야기, 결혼하면 부부 이야기', () => {
+  const low = new Set(); const high = new Set();
+  for (let d = 0; d < 40; d++) {
+    low.add(pickScene('bomi', { pts: 100, ev: { 3: 1 } }, d).key[0]);
+    high.add(pickScene('bomi', { pts: 260, ev: { 3: 1 } }, d).key[0]);
+  }
+  assert.ok(!low.has('c'));
+  assert.ok(high.has('c') && high.has('t'));
+  const wed = new Set();
+  for (let d = 0; d < 20; d++) wed.add(pickScene('bomi', { pts: 600, ev: { 3: 1, 6: 1 } }, d, 0, { married: true }).key[0]);
+  assert.ok(wed.has('m') && !wed.has('t'));
+});
+
+test('청혼 조건: 하트 10개 · 반지 · 다른 성별 · 한 번만 · 어르신 제외', () => {
+  const me = { gender: 'm', friends: { bomi: { pts: MARRY_PTS }, juhyuk: { pts: MARRY_PTS }, sunja: { pts: MARRY_PTS } } };
+  assert.ok(canPropose(me, 'bomi', true).ok);
+  assert.ok(!canPropose(me, 'bomi', false).ok, '반지 필요');
+  assert.ok(!canPropose(me, 'juhyuk', true).ok, '같은 성별');
+  assert.ok(!canPropose(me, 'sunja', true).ok, '어르신');
+  assert.ok(!canPropose({ ...me, friends: { bomi: { pts: 499 } } }, 'bomi', true).ok, '하트 모자람');
+  assert.ok(!canPropose({ ...me, gender: null }, 'bomi', true).ok, '성별 먼저');
+  assert.ok(!canPropose({ ...me, spouse: { id: 'rea' } }, 'bomi', true).ok, '이미 결혼');
+  assert.ok(isCandidate({ gender: 'f' }, 'juhyuk') && !isCandidate({ gender: 'f' }, 'bomi'));
+});
+
+test('게임: 결혼 → 신혼집 터 → 짓기 · 키우기 → 아침 선물', async () => {
+  const { g } = await mkGame({ name: '지노' });
+  // 결혼 전엔 신혼집 터로 못 간다
+  g.takeWarp({ to: 'nest_yard' });
+  assert.equal(g.map.id, 'farm');
+  g.setGender('m');
+  g.friendOf('karina').pts = MARRY_PTS;
+  assert.ok(!g.propose('karina').ok, '반지가 없으면 불가');
+  Inv.give(g.me, 'ring', 1);
+  const r = g.propose('karina');
+  assert.ok(r.ok && r.lines.every(t => !t.includes('{name}')));
+  assert.equal(g.me.spouse.id, 'karina');
+  assert.ok(g.talk('karina').line, '결혼 뒤 인사');
+  g.setGender('f');
+  assert.equal(g.me.gender, 'm', '결혼하면 성별을 못 바꾼다');
+  g.takeWarp({ to: 'nest_yard', tx: 1.5, ty: 9 });
+  assert.equal(g.map.id, 'nest_yard');
+  // 짓기
+  g.me.gold = 0;
+  assert.ok(!g.nestUpgrade().ok);
+  g.me.gold = 100000;
+  for (const [id, n] of NEST_LEVELS[1].cost.items) Inv.give(g.me, id, n);
+  assert.ok(g.nestUpgrade().ok);
+  assert.equal(g.nestLv(), 1);
+  assert.ok(g.map.objects.some(o => o.kind === 'nest'), '신혼집이 생겼다');
+  g.enterMap('nest', null, null);
+  assert.equal(g.map.id, 'nest');
+  assert.ok(g.npcList().some(n => n.id === 'karina'), '배우자가 집에 있다');
+  // 2단계 → 아침 선물
+  g.me.nest.lv = 2;
+  g.enterMap('nest', null, null);
+  const before = g.me.inv.filter(Boolean).length + Object.keys(g.me.stash).length;
+  g.goToBed();
+  await g.dayTick();
+  await settle(g);
+  assert.equal(g.map.id, 'nest', '신혼집에서 깬다');
+  const sum = g.ui.dayEnds.at(-1);
+  assert.equal(sum.gifts.length, 1);
+  assert.ok(g.me.inv.filter(Boolean).length + Object.keys(g.me.stash).length >= before);
+  g.stop();
+});
+
+test('상자에서 전부 꺼내기: 들어가는 만큼 한 번에', async () => {
+  const { g } = await mkGame();
+  await g.store.set('chest', { stone: 150 });
+  await g.chestTake('stone', 999);
+  assert.equal(Inv.count(g.me.inv, 'stone'), 150);
+  assert.equal(g.chest.stone, undefined);
+  g.stop();
 });

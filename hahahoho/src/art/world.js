@@ -511,6 +511,7 @@ const arch = () => cached('arch', () => {
 // ── 건물 ─────────────────────────────────────────────────────────────────────
 const BUILD = {
   house: { roof: '#c0504a', wall: '#f0dcb4', icon: null },
+  nest: { roof: '#e27a9a', wall: '#fff2ea', icon: null },
   market: { roof: '#4aa05a', wall: '#f4ead4', icon: 'turnip', awning: true },
   tailor: { roof: '#9a5ac0', wall: '#f4e4f0', icon: 'cloth' },
   diner: { roof: '#e08a3a', wall: '#fff0d8', icon: 'veggie_soup' },

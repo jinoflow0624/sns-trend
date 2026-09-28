@@ -9,8 +9,9 @@
 import {
   ITEMS, JOBS, TOOLS, TOOL_UPGRADE, TOOL_TIERS, CROPS, MONSTERS, SHOPS, HOUSE_LEVELS, HOUSE_GROWTH,
   NPCS, RECIPES, IDLE_JOBS, MIN, HOUR_MS, REAL_HOUR, NPC_TASTE, TASTE_POINTS, PETS, HELPER_PLANS, REGROW_COST,
-  BEDTIME_H, COFFEE_H, purifierLimit,
+  BEDTIME_H, COFFEE_H, purifierLimit, NEST_LEVELS, SPOUSE_GIFTS,
 } from '../data.js';
+import { MARRIED } from '../dates.js';
 import * as Inv from '../logic/inventory.js';
 import * as P from '../logic/player.js';
 import * as Farm from '../logic/farm.js';
@@ -24,7 +25,7 @@ import { clockAt, legacyDay } from './clock.js';
 import { shouldEndDay, mustPassOut, wakeStats, settleStall } from '../logic/day.js';
 import * as Brew from '../logic/purifier.js';
 import { greeting } from '../logic/npc.js';
-import { pickScene, choose as chooseDate, countsToday } from '../logic/date.js';
+import { pickScene, choose as chooseDate, countsToday, canPropose } from '../logic/date.js';
 
 const SPEED = 4.2;          // 타일/초
 const PUB_MS = 140;         // 위치 전송 간격(움직일 때)
@@ -161,7 +162,8 @@ export class Game {
   // ── 시간 ───────────────────────────────────────────────────────────────────
   get clock() { return clockAt(Date.now(), this.dayState); }
   get day() { return this.clock.day; }
-  mapCtx() { return { houseLv: this.house.level, seedKey: `${this.code}-d${this.day}` }; }
+  mapCtx() { return { houseLv: this.house.level, seedKey: `${this.code}-d${this.day}`, nestLv: this.me.nest?.lv || 0, spouse: this.me.spouse?.id || null }; }
+  nestLv() { return this.me.nest?.lv || 0; }
   stats() { return P.statsOf(this.me); }
   houseGrowth() { return HOUSE_GROWTH[this.house.level] || 0; }
   plotBonus(plot) { return (plot?.b || 0) + this.houseGrowth(); }
@@ -200,7 +202,7 @@ export class Game {
     const prevId = this.map?.id;
     this.map = m;
     this.me.map = id;
-    if (id === 'house' && (x == null || x === 0)) { x = m.door.x + 0.5; y = m.door.y - 0.6; }
+    if ((id === 'house' || id === 'nest') && (x == null || x === 0)) { x = m.door.x + 0.5; y = m.door.y - 0.6; }
     if ((m.cave || m.ruins) && (x == null || x === 0)) {
       const up = fromFloor != null && fromFloor > m.floor;
       ({ x, y } = up ? m.exitDown : m.entry);
@@ -237,6 +239,13 @@ export class Game {
 
   takeWarp(w) {
     const to = w.to;
+    if (to === 'nest_yard' && !this.me.spouse) {
+      // 결혼 전에는 신혼집 터로 못 간다
+      this.px -= 0.8;
+      this.path = null;
+      if (!this.nestWarned || performance.now() - this.nestWarned > 3000) { this.nestWarned = performance.now(); this.ui.toast('결혼하면 이 길 너머에 신혼집을 지을 수 있어요'); }
+      return;
+    }
     const from = this.map;
     this.hits.clear();
     if (to.startsWith('mine:') || to.startsWith('ruins:')) {
@@ -507,7 +516,7 @@ export class Game {
           tree: { icon: 'axe', label: '벌목' }, rock: { icon: 'pick', label: '채굴' }, boulder: { icon: 'pick', label: '채굴' }, crystal: { icon: 'pick', label: '채굴' },
           bush: { icon: 'hand', label: '흔들기' }, forage: { icon: 'basket', label: '줍기' }, waypoint: { icon: 'portal', label: '순간이동' },
           station: { icon: 'craft', label: '제작' }, chest: { icon: 'box', label: o.kind === 'shipbox' ? '가판대' : '열기' }, bed: { icon: 'bed', label: '자기' },
-          board: { icon: 'board', label: '부탁' }, sign: { icon: 'board', label: '읽기' }, fountain: { icon: 'coin', label: '소원' },
+          board: o.kind === 'nest' ? { icon: 'house', label: '신혼집' } : { icon: 'board', label: '부탁' }, sign: { icon: 'board', label: o.kind === 'nestlot' ? '신혼집' : '읽기' }, fountain: { icon: 'coin', label: '소원' },
         })[o.t] || { icon: 'hand', label: '살펴보기' };
       }
     }
@@ -780,8 +789,8 @@ export class Game {
         if (o.kind === 'treasure') return this.openTreasure(o);
         return this.ui.openChest();
       case 'bed': return this.ui.askSleep ? this.ui.askSleep() : this.goToBed();
-      case 'board': return this.ui.openBoard();
-      case 'sign': return this.ui.toast(o.text || '낡은 표지판이에요');
+      case 'board': return o.kind === 'nest' ? this.ui.openNest?.() : this.ui.openBoard();
+      case 'sign': return o.kind === 'nestlot' ? this.ui.openNest?.() : this.ui.toast(o.text || '낡은 표지판이에요');
       case 'fountain': {
         if (this.me.gold < 10) return this.ui.toast('동전이 없어요');
         this.me.gold -= 10;
@@ -822,6 +831,7 @@ export class Game {
     if (this.sleeping) return;
     const bed = this.map.objects.find(o => o.t === 'bed');
     this.sleeping = 'bed';
+    this.sleptIn = this.map.id;
     this.path = null; this.pending = null; this.fishing = null; this.decor = null;
     if (bed) { this.px = bed.x + bed.w / 2; this.py = bed.y + 1.2; }
     this.dir = 'down';
@@ -898,9 +908,26 @@ export class Game {
       const earned = this.me.gold - (this.me.dayGold0 ?? this.me.gold);
       this.me.dayN = this.day;
       this.me.dayGold0 = this.me.gold;
+      // 결혼했으면 배우자가 아침을 챙겨 주고, 신혼집에서 잤으면 힘이 난다
+      const lv = this.nestLv();
+      const gifts = [];
+      if (this.me.spouse && lv >= 2) {
+        const rnd = mulberry32(hashStr(`${this.pid}:gift:${this.day}`));
+        for (let k = 0; k < lv - 1; k++) gifts.push(SPOUSE_GIFTS[Math.floor(rnd() * SPOUSE_GIFTS.length)]);
+        for (const id of gifts) Inv.give(this.me, id, 1);
+      }
+      const bonus = outcome === 'slept' && this.sleptIn === 'nest' ? (lv >= 5 ? { en: 30, hp: 30 } : lv >= 4 ? { en: 20 } : null) : null;
+      if (bonus) {
+        this.me.buffs = P.activeBuffs(this.me).filter(b => b.src !== 'nest');
+        this.me.buffs.push({ src: 'nest', stats: bonus, until: Date.now() + 20 * MIN });
+        const st2 = this.stats();
+        this.me.hp = st2.hp; this.me.en = st2.en;
+      }
       this.sleeping = null;
+      this.sleptIn = null;
       this.hits.clear();
-      this.enterMap('house', null, null, true);
+      const home = this.me.spouse && lv >= 1 ? 'nest' : 'house';
+      this.enterMap(home, null, null, true);
       const bed = this.map.objects.find(o => o.t === 'bed');
       if (bed) ({ x: this.px, y: this.py } = this.safeSpot(this.map, bed.x + bed.w + 0.5, bed.y + bed.h + 0.5));
       this.dir = 'down';
@@ -908,7 +935,7 @@ export class Game {
       this.dirty = true;
       this.saveNow();
       this.ui.sleepChanged?.();
-      this.ui.showDayEnd?.({ day: prevDay, next: this.day, outcome, sold, earned, gold: this.me.gold, hp: w.hp, en: w.en, st });
+      this.ui.showDayEnd?.({ day: prevDay, next: this.day, outcome, sold, earned, gold: this.me.gold, hp: w.hp, en: w.en, st, gifts, spouse: this.me.spouse?.id, bonus });
       if (this.meta && (this.meta.dayN || 0) < this.day) this.store.update('meta', { dayN: this.day }).catch(() => {});
     } finally {
       this.dayBusy = false;
@@ -1218,7 +1245,8 @@ export class Game {
     let first = false;
     if (f.day !== this.day) { f.day = this.day; f.pts += 10; first = true; this.dirty = true; }
     // 말을 걸 때마다 인사가 달라진다 (가끔 이스터에그)
-    const line = greeting(npcId, Math.random, Date.now(), this.me.name);
+    const wed = this.me.spouse?.id === npcId && MARRIED[npcId];
+    const line = wed ? wed.lines[Math.floor(Math.random() * wed.lines.length)].replaceAll('{name}', this.me.name) : greeting(npcId, Math.random, Date.now(), this.me.name);
     return { line, hearts: Math.min(10, Math.floor(f.pts / 50)), first };
   }
   // 취향에 따라 친밀도가 달라진다 (아주 좋아함 · 좋아함 · 보통 · 싫어함)
@@ -1262,7 +1290,7 @@ export class Game {
     this.dateTurns ||= {};
     const k = `${npcId}:${this.day}`;
     const n = f.dated === this.day ? (this.dateTurns[k] = (this.dateTurns[k] || 0) + 1) : 0;
-    const scene = pickScene(npcId, f, this.day, n);
+    const scene = pickScene(npcId, f, this.day, n, { married: this.me.spouse?.id === npcId });
     if (!scene) return null;
     const name = this.me.name;
     const sub = t => t.replaceAll('{name}', name);
@@ -1274,6 +1302,43 @@ export class Game {
       counts: countsToday(f, scene, this.day),
     };
   }
+  // ── 결혼 ───────────────────────────────────────────────────────────────────
+  setGender(g) {
+    if (this.me.spouse || !['m', 'f'].includes(g)) return;
+    this.me.gender = g;
+    this.dirty = true;
+  }
+  proposeCheck(npcId) { return canPropose(this.me, npcId, Inv.count(this.me.inv, 'ring') > 0); }
+  propose(npcId) {
+    const chk = this.proposeCheck(npcId);
+    if (!chk.ok) return { ok: false, msg: chk.why };
+    Inv.remove(this.me.inv, 'ring', 1);
+    this.me.spouse = { id: npcId, day: this.day };
+    this.me.nest ||= { lv: 0 };
+    this.dirty = true;
+    this.saveNow();
+    this.chatSys(`${this.me.name} 님과 ${NPCS[npcId].name}이(가) 결혼했어요! 축하해 주세요`);
+    const name = this.me.name;
+    return { ok: true, lines: MARRIED[npcId].accept.map(t => t.replaceAll('{name}', name)) };
+  }
+  // 신혼집 짓기 · 키우기 (내 가방과 돈으로)
+  nestNext() { return NEST_LEVELS[this.nestLv() + 1] || null; }
+  nestUpgrade() {
+    if (!this.me.spouse) return { ok: false, msg: '결혼하면 신혼집을 지을 수 있어요' };
+    const next = this.nestNext();
+    if (!next) return { ok: false, msg: '이미 최고 단계예요' };
+    if (this.me.gold < next.cost.gold) return { ok: false, msg: '골드가 부족해요' };
+    if (!Inv.hasAll(this.me.inv, next.cost.items)) return { ok: false, msg: '재료가 부족해요' };
+    Inv.removeAll(this.me.inv, next.cost.items);
+    this.me.gold -= next.cost.gold;
+    this.me.nest = { ...(this.me.nest || {}), lv: this.nestLv() + 1 };
+    this.dirty = true;
+    this.saveNow();
+    if (this.map.id === 'nest_yard' || this.map.id === 'nest') this.enterMap(this.map.id, this.px, this.py, true);
+    this.ui.sfx?.('discover');
+    return { ok: true, msg: `${next.name}이(가) 되었어요! ${next.perks}` };
+  }
+
   dateChoose(scene, idx) {
     const f = this.friendOf(scene.npcId);
     const r = chooseDate(f, scene, idx, this.day);
@@ -1656,7 +1721,8 @@ export class Game {
   }
   async chestTake(id, n) {
     let took = 0;
-    const room = Inv.canAdd(this.me.inv, id, n) ? n : 1;
+    const room = Math.min(n, Inv.roomFor(this.me.inv, id));
+    if (room <= 0) { this.ui.toast('가방에 자리가 없어요', 'bad'); return; }
     const r = await this.store.txn('chest', cur => {
       const have = cur?.[id] || 0;
       took = Math.min(have, room);
