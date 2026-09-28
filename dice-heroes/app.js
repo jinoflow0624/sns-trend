@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL } from './pixel.js';
 import { titleScene, storyScene, STORY } from './scenes.js';
-import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz } from './audio.js';
+import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, attackStyle, RAGE, shake } from './fx.js';
@@ -534,7 +534,7 @@ async function onRoom(room) {
     screen = 'game';
     setStage(null);
     layer.innerHTML = '';
-    playBgm('adventure');
+    playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
     online.fxSeen = room.fxId - 1;
   } else {
     S = g;
@@ -600,7 +600,7 @@ function startGame(state) {
   screen = 'game';
   setStage(null);
   layer.innerHTML = '';
-  playBgm('adventure');
+  playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
   step();
 }
 
