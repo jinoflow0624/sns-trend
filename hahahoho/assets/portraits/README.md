@@ -2,15 +2,15 @@
 
 NPC를 누르면 나오는 프로필과 "대화하기" 화면에 쓰는 사진입니다. 사진이 없으면 게임 속 도트 초상화가 대신 나옵니다.
 
-지금 들어 있는 사진 9장(봄이·실비·레아·철수·순자·강태공·촌장님·민수·두리)은 AI(pollinations.ai · flux)로 만든 가상 인물이고, 아래쪽 워터마크를 잘라 2:3 WebP 로 줄였습니다. 차은우(`eunwoo`)·카리나(`karina`)는 사진이 없어 도트 초상화가 나옵니다.
+지금 들어 있는 사진 9장(봄이·실비·레아·철수·순자·강태공·촌장님·민수·두리)은 AI(pollinations.ai · flux)로 만든 가상 인물이고, 아래쪽 워터마크를 잘라 2:3 WebP 로 줄였습니다. 남주혁(`juhyuk`)·카리나(`karina`)는 사진이 없어 도트 초상화가 나옵니다.
 
 ## 넣는 방법
 
-1. 이 폴더에 사진을 넣습니다. 파일 이름은 NPC 아이디 (예: `karina.jpg`, `eunwoo.webp`).
+1. 이 폴더에 사진을 넣습니다. 파일 이름은 NPC 아이디 (예: `karina.jpg`, `juhyuk.webp`).
 2. `portraits.json` 에 한 줄씩 적습니다.
 
 ```json
-{ "karina": "karina.jpg", "eunwoo": "eunwoo.webp" }
+{ "karina": "karina.jpg", "juhyuk": "juhyuk.webp" }
 ```
 
 - 세로 2:3 비율 (예: 800×1200), 얼굴이 위쪽 1/3쯤 오게, 상반신
@@ -23,8 +23,8 @@ NPC를 누르면 나오는 프로필과 "대화하기" 화면에 쓰는 사진�
 
 | 아이디 | 이름 · 직업 | 프롬프트 예시 |
 |---|---|---|
-| `eunwoo` | 차은우 · 가수 겸 배우 | handsome young Korean man in his 20s, singer and actor, black two-block haircut, navy bomber jacket, busking with a microphone at a small town plaza fountain, warm evening light |
-| `karina` | 카리나 · 가수 · 댄서 | beautiful young Korean woman in her 20s, singer and dancer, long straight black hair, white crop top and dance pants, lakeside at golden hour, breeze in her hair |
+| `juhyuk` | 남주혁 · 배우 | (받은 사진 사용) |
+| `karina` | 카리나 · 가수 · 댄서 | (받은 사진 사용) |
 | `bomi` | 봄이 · 시장 상인 | cheerful young Korean woman, market vendor, auburn hair in a bun, pink apron, holding a basket of strawberries, cozy village market stall |
 | `silvi` | 실비 · 재봉사 | elegant young woman, tailor, long blonde hair, lavender blouse, measuring tape around neck, sewing studio with fabric rolls |
 | `rea` | 레아 · 모험가 | confident young woman, adventurer, red ponytail, green leather jacket, map and sword, ancient forest ruins background |
