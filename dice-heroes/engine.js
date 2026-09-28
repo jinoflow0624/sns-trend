@@ -86,6 +86,8 @@ export const CLASSES = [
     desc: '의뢰를 깬 턴에 기록하는 점수 +1, 의뢰 보상 조정 +1' },
   { id: 'gambler', ko: '도박사',   icon: '🎲', color: '#FFC83D',
     desc: '요트 +10점' },
+  { id: 'monk',    ko: '수도승',   icon: '📿', color: '#FF9A1F',
+    desc: '점수를 기록할 때 남은 굴림 1회당 조정 +1' },
 ];
 export const classInfo = id => CLASSES.find(c => c.id === id);
 
@@ -216,9 +218,11 @@ export const BOSSES = [
   },
   {
     id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: [1.22, 1.03, 0.87],
+    // 운명 비틀기가 두 번째 굴림으로 바뀐 뒤 여럿이 할수록 어려워져서, 인원별로 체력을 따로 깎는다 [1인, 2인, 3인, 4인]
+    partyAdj: [[1, 0.95, 0.96, 0.97], [1.01, 0.94, 0.945, 0.95], [1, 0.95, 0.94, 0.93]],
     skills: [
       { id: 'twist', icon: '🌀', ko: '운명 비틀기',
-        desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 첫 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
+        desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
       { id: 'bone', icon: '💀', ko: '뼈 방패',
         desc: d => `${[4, 3, 3][d]}라운드마다 인원 1명당 ${[12, 20, 28][d]}의 보호막을 두른다 (체력보다 먼저 깎임)` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '매우 어려움에서만 쓴다' },
@@ -235,22 +239,24 @@ function bossRollMod(s) {
   return every(s, [3, 2, 2][b.diff]) ? -1 : 0;
 }
 
-// 첫 굴림 직후 보스 능력
-function bossAfterFirstRoll(s) {
+// 굴림 직후 보스 능력 — 화염 숨결은 첫 굴림, 운명 비틀기는 두 번째 굴림.
+// fx 의 from 은 능력이 바꾸기 전 눈 (화면은 이 눈으로 굴러 멈춘 뒤 불타거나 뒤집히는 연출을 한다)
+function bossAfterRoll(s) {
   const b = s.boss;
   if (!b) return;
+  const from = s.dice.slice();
   const n = b.diff === 2 ? 2 : 1;
-  if (b.id === 'dragon' && (every(s, [4, 3, 2][b.diff]) || enraged(s))) {
+  if (b.id === 'dragon' && s.rollNo === 1 && (every(s, [4, 3, 2][b.diff]) || enraged(s))) {
     const idx = s.dice.map((v, i) => i).sort((x, y) => s.dice[y] - s.dice[x]).slice(0, n);
     idx.forEach(i => (s.dice[i] = 1));
     log(s, `이그니스의 화염 숨결! 주사위 ${n}개가 1로 탔다`);
-    fx(s, { type: 'boss', skill: 'breath', dice: idx });
+    fx(s, { type: 'boss', skill: 'breath', dice: idx, from });
   }
-  if (b.id === 'lich' && every(s, [3, 2, 1][b.diff])) {
+  if (b.id === 'lich' && s.rollNo === 2 && every(s, [3, 2, 1][b.diff])) {
     const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
     idx.forEach(i => (s.dice[i] = 7 - s.dice[i]));
     log(s, `모르가스가 운명을 비틀었다! 주사위 ${idx.length}개가 뒤집혔다`);
-    fx(s, { type: 'boss', skill: 'twist', dice: idx });
+    fx(s, { type: 'boss', skill: 'twist', dice: idx, from });
   }
 }
 
@@ -334,7 +340,8 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
     const diff = Math.min(2, Math.max(0, opts.diff | 0));
     // 인원 보정 (난이도별, 봇 시뮬레이션으로 맞춘 값): 인원이 많을수록 레벨업·소급 보너스가 쌓여
     // 파티가 강해지므로 1인당 체력을 조금씩 늘린다
-    const party = [[1, 1.045, 1.055, 1.065], [1, 0.99, 0.985, 0.98], [1, 0.96, 0.95, 0.94]][diff][players.length - 1];
+    const party = [[1, 1.045, 1.055, 1.065], [1, 0.99, 0.985, 0.98], [1, 0.96, 0.95, 0.94]][diff][players.length - 1]
+      * (bossInfo(id).partyAdj?.[diff][players.length - 1] ?? 1);
     const hp = Math.round(DIFFS[diff].hp * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
   }
@@ -370,6 +377,7 @@ function startTurn(s) {
   s.dice = new Array(diceCount(p)).fill(0);
   s.held = new Array(diceCount(p)).fill(false);
   s.rollsLeft = maxRolls(s, p);
+  s.rollNo = 0;
   s.rolled = false;
   s.phase = 'roll';
   if (s.turn === 0) {
@@ -422,11 +430,11 @@ export function roll(s) {
     if (r === 1 && perkCount(p, 'lucky')) r = die(s);
     return r;
   });
-  const first = !s.rolled;
-  if (first) s.held = s.held.map(() => false);
+  if (!s.rolled) s.held = s.held.map(() => false);
   s.rolled = true;
   s.rollsLeft--;
-  if (first && !forced) bossAfterFirstRoll(s);
+  s.rollNo = (s.rollNo || 0) + 1;
+  if (!forced) bossAfterRoll(s);
 }
 
 export function toggleHold(s, i) {
@@ -579,7 +587,7 @@ export function commitScore(s, cat) {
   }
   const catName = catInfo(cat).ko;
   log(s, `${p.name} · ${catName} ${pts}점`);
-  fx(s, { type: 'score', player: s.turn, cat, pts, bonus });
+  fx(s, { type: 'score', player: s.turn, cat, pts, bonus, dice: s.dice.slice() });
   if (s.boss) {
     // 점수(상단 보너스 달성분 포함)가 곧 피해. 드래곤 갑옷은 상단 피해를 깎는다.
     let dmg = cardTotal(p) - before;
@@ -591,6 +599,12 @@ export function commitScore(s, cat) {
       log(s, `그로크의 약탈! 체력 ${heal} 회복`);
       fx(s, { type: 'boss', skill: 'plunder', amount: heal });
     }
+  }
+
+  // 수도승: 굴림을 아낀 만큼 조정 충전
+  if (p.cls === 'monk' && s.rollsLeft > 0) {
+    log(s, `${p.name} · 수도승의 절제! 조정 +${s.rollsLeft}`);
+    addCharges(s, p, { nudge: s.rollsLeft }, 'monk');
   }
 
   for (const qid of quests) {

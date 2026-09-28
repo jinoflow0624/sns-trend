@@ -1,9 +1,10 @@
 // 협동모드 밸런스 — 보스 × 난이도 × 인원별 승률과 토벌 라운드.
-//   node sim/coop.mjs [판수=120]
-// 목표 승률(봇 기준): 쉬움 85~95% · 보통 50~65% · 매우 어려움 15~30%
+//   node sim/coop.mjs [판수=120] [보스 id: dragon|orc|lich — 생략하면 전부]
+// 목표 승률(봇 기준): 쉬움 약 70~80% · 보통 약 35~45% · 매우 어려움 약 15~30%
 import * as E from '../engine.js';
 
 const N = Number(process.argv[2]) || 120;
+const ONLY = process.argv[3];
 function mulberry(seed) {
   return () => {
     let t = (seed = (seed + 0x6D2B79F5) >>> 0);
@@ -15,7 +16,7 @@ function mulberry(seed) {
 const pct = x => (100 * x).toFixed(0).padStart(4) + '%';
 console.log(`\n협동모드 밸런스 — 조합당 ${N}판 (봇, 카드는 희귀도 우선)\n`);
 console.log('보스            난이도        1인            2인            4인');
-for (const b of E.BOSSES) {
+for (const b of E.BOSSES.filter(x => !ONLY || x.id === ONLY)) {
   for (const d of E.DIFFS) {
     const cells = [];
     for (const n of [1, 2, 4]) {
