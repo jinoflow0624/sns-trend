@@ -83,7 +83,7 @@ export class Renderer {
     const night = darkness(clock.hour) > 0.3;
     const st = {
       t: now, night,
-      felled: o => (g.nodes[o.nid] || 0) > nowMs,
+      felled: o => g.nodeDead(o), // 게임 판정과 같은 기준 (시각이든 날짜든)
       discovered: wp => !!g.waypoints[wp],
       forageItem: o => g.forageItem(o),
     };
