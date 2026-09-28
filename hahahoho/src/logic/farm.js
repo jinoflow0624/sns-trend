@@ -33,7 +33,7 @@ export function helperHarvest(plot, now, rnd, bonus = 0) {
   for (let i = 0; i < cycles; i++) n += randInt(rnd, c.yield[0], c.yield[1]);
   return {
     plot: { ...plot, progress: cycles >= 12 ? 0 : raw - cycles, at: now },
-    item: plot.crop,
+    item: c.item || plot.crop,
     n,
     cycles,
     xp: c.xp * cycles,
@@ -82,7 +82,7 @@ export function harvest(plot, now, rnd, { bonus = 0, extraChance = 0 } = {}) {
   if (rnd() < extraChance) n++;
   return {
     plot: { tilled: true, crop: null, progress: 0, at: 0, wetUntil: plot.wetUntil || 0 },
-    item: plot.crop,
+    item: c.item || plot.crop,
     n,
     xp: c.xp,
   };

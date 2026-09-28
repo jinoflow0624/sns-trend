@@ -1,8 +1,9 @@
 // 게임 화면 위의 HUD 와 창들 (DOM). 규칙 판정은 전부 game.js 에 있고 여기선 보여 주고 부르기만 한다.
 import {
   ITEMS, JOBS, SKILLS, STATS, TOOLS, TOOL_TIERS, TOOL_UPGRADE, RECIPES, STATION_NAME, STATION_SKILL, SHOPS,
-  HOUSE_LEVELS, NPCS, IDLE_JOBS, xpForLevel, MAX_SKILL, HELPER_PLANS, TASTE_HINT,
+  HOUSE_LEVELS, NPCS, IDLE_JOBS, xpForLevel, MAX_SKILL, HELPER_PLANS, TASTE_HINT, CUPS_PER_BUCKET, BREW_MS, purifierLimit,
 } from '../data.js';
+import { brewState, brewProgress } from '../logic/purifier.js';
 import { itemUrl, toolUrl } from '../art/items.js';
 import { iconImg, uiIconUrl } from '../art/icons.js';
 import { charSheet } from '../art/chars.js';
@@ -23,7 +24,9 @@ export const jobIcon = job => {
   return `<img class="ico sm" src="${k === 'tool' ? toolUrl(id, 2) : itemUrl(id)}" alt="">`;
 };
 const IDLE_ICON = { farm: 'turnip', mine: 'copper_ore', fish: 'fish_carp', hunt: 'fur', forage: 'mushroom' };
-const PANELS_WITH_BAG = new Set(['bag', 'stash', 'chest', 'craft', 'shop', 'smithy', 'gift', 'house', 'char', 'board']);
+const PANELS_WITH_BAG = new Set(['bag', 'stash', 'chest', 'craft', 'shop', 'smithy', 'gift', 'house', 'char', 'board', 'stall', 'purifier']);
+// NPC 대사: {heart} 는 도트 하트로
+const lineHtml = t => esc(t).replace('{heart}', iconImg('heart', 'sm'));
 
 export class UI {
   constructor(root, { settings, saveSettings, onExit, inviteLink, onSettings }) {
@@ -46,7 +49,7 @@ export class UI {
     this.root.innerHTML = `
       <div class="hud">
         <div class="hud-top">
-          <div class="clockbox"><b id="h-day"></b><span><img class="pix sm" id="h-sky" alt=""><span id="h-time"></span></span></div>
+          <div class="clockbox"><b id="h-day"></b><span><img class="pix sm" id="h-sky" alt=""><span id="h-time"></span><img class="pix sm caff" id="h-caff" src="${uiIconUrl('coffee')}" alt="카페인" title="커피를 마셨어요 (새벽 2시까지)" hidden></span></div>
           <div class="statbox">
             <div class="bar hp"><i id="h-hp"></i><span id="h-hpt"></span></div>
             <div class="bar en"><i id="h-en"></i><span id="h-ent"></span></div>
@@ -76,7 +79,9 @@ export class UI {
         </div>
       </div>
       <div class="joy" id="joy"><i></i></div>
-      <div class="sheet-bg" id="sheet" hidden></div>`;
+      <div class="sleep-ov" id="sleepov" hidden></div>
+      <div class="sheet-bg" id="sheet" hidden></div>
+      <div class="dayend" id="dayend" hidden></div>`;
     this.$ = id => this.root.querySelector(`#${id}`);
     this.root.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { sfx('click'); this.open(b.dataset.open); }));
     this.$('h-act').addEventListener('pointerdown', e => { e.preventDefault(); this.g.action_(); });
@@ -106,6 +111,8 @@ export class UI {
     set('h-day', `${c.day}일차`, (el, v) => { el.textContent = v; });
     set('h-sky', c.h >= 6 && c.h < 19 ? 'sun' : 'moon', (el, v) => { el.src = uiIconUrl(v); });
     set('h-time', fmtClock(c), (el, v) => { el.textContent = v; });
+    set('h-caff', g.hasCaffeine(), (el, v) => { el.hidden = !v; });
+    if (g.sleeping && performance.now() - (this.sleepDrawn || 0) > 500) this.renderSleep();
     set('h-gold', `${fmtN(me.gold)}G`, (el, v) => { el.textContent = v; });
     set('h-hp', Math.round(me.hp / st.hp * 100), (el, v) => { el.style.width = `${v}%`; });
     set('h-en', Math.round(me.en / st.en * 100), (el, v) => { el.style.width = `${v}%`; });
@@ -137,6 +144,7 @@ export class UI {
       if (PANELS_WITH_BAG.has(this.panel)) this.render();
     }
     if (this.panel === 'idle' && performance.now() - (this.idleDrawn || 0) > 3000) this.render();
+    if (this.panel === 'purifier' && performance.now() - (this.purDrawn || 0) > 500) this.render();
     // 캐릭터가 화면 위쪽이면 알림은 아래에, 아래쪽이면 위에
     if (this.renderer) {
       const y = this.renderer.toScreen(g.px, g.py).y / innerHeight;
@@ -186,6 +194,7 @@ export class UI {
     if (part === 'hotbar' || !part) this.renderHotbar();
     if (part === 'decor' || part === 'map' || !part) this.renderDecor();
     if (part === 'map' && this.panel === 'teleport') this.close();
+    else if (part === 'stall' && this.panel !== 'stall') return;
     else if (this.panel && part !== 'players' && part !== 'map' && part !== 'hotbar') this.render();
   }
 
@@ -248,7 +257,11 @@ export class UI {
     this.$('sheet').innerHTML = '';
   }
   // 게임이 부르는 창 열기
-  openNpc(n) { this.open(n.shop === 'regrow' ? 'regrow' : 'npc', n); }
+  // 인사는 말을 걸 때 한 번 정한다 (창을 다시 그려도 바뀌지 않게)
+  openNpc(n) { this.open(n.shop === 'regrow' ? 'regrow' : 'npc', { ...n, talk: this.g.talk(n.id) }); }
+  openStall() { this.open('stall'); }
+  openPurifier(fid) { this.open('purifier', fid); }
+  askSleep() { this.open('bed'); }
   openCraft(kind) { this.open('craft', kind); }
   openShop(shop, sellOnly = false) { this.open('shop', { shop, sellOnly, tab: sellOnly ? 'sell' : 'buy' }); }
   openChest() { this.open('chest'); }
@@ -264,6 +277,7 @@ export class UI {
       board: () => this.pBoard(), teleport: () => this.pTeleport(), chest: () => this.pChest(), house: () => this.pHouse(),
       chat: () => this.pChat(), menu: () => this.pMenu(), idle: () => this.pIdle(), smithy: () => this.pSmithy(), gift: () => this.pGift(),
       stash: () => this.pStash(), help: () => this.pHelp(), regrow: () => this.pRegrow(),
+      stall: () => this.pStall(), purifier: () => this.pPurifier(), bed: () => this.pBed(),
     };
     const { title, body, cls = '' } = map[this.panel]();
     const scroll = sh.querySelector('.sheet-body')?.scrollTop || 0;
@@ -337,6 +351,12 @@ export class UI {
     return `<div class="detail">${icon(id, 'big')}<div class="grow"><b>${esc(it.name)}</b> <span class="muted">${n}개 · ${TYPE[it.type] || ''} · 기본가 ${it.price}G</span>
       ${eat || bonus || buff ? `<p>${[eat, bonus, buff].filter(Boolean).join('<br>')}</p>` : ''}
       ${it.type === 'seed' ? '<p>밭을 갈고 이 씨앗을 고른 채 밭을 누르면 심어요</p>' : ''}
+      ${it.caffeine ? '<p>마신 날은 새벽 2시까지 쓰러지지 않아요. 하루 한 잔만 마실 수 있어요</p>' : ''}
+      ${id === 'bucket' ? '<p>핫바에서 고른 채 물가를 누르면 물을 떠요</p>' : ''}
+      ${id === 'water_bucket' ? `<p>집의 정수기에 끼우면 커피 ${CUPS_PER_BUCKET}잔을 내릴 수 있어요</p>` : ''}
+      ${id === 'coffee_bean' ? '<p>물을 채운 정수기에 넣으면 30초 뒤 커피 한 잔이 돼요</p>' : ''}
+      ${it.station ? `<p>집에 놓고 누르면 ${esc(STATION_NAME[it.station])}로 쓸 수 있어요</p>` : ''}
+      ${it.purifier ? '<p>집에 놓고 물 양동이를 끼운 뒤 커피콩을 넣으면 커피를 내려요</p>' : ''}
       ${actions ? `<div class="row left">${actions}</div>` : ''}</div></div>`;
   }
 
@@ -617,7 +637,7 @@ export class UI {
   pNpc() {
     const g = this.g;
     const n = this.arg;
-    const t = g.talk(n.id);
+    const t = n.talk || g.talk(n.id);
     const D = NPCS[n.id];
     const shopKind = n.shop === 'smithy' ? 'smithy' : n.shop;
     const known = g.me.friends[n.id]?.known || {};
@@ -632,7 +652,7 @@ export class UI {
     return {
       title: esc(D.name),
       body: `<div class="npc"><canvas id="npcface" width="64" height="72"></canvas>
-        <div><div class="muted small">${esc(D.role)} · <span class="hearts">${hearts}</span></div><p class="line">"${esc(t.line)}"</p>${t.first ? '<p class="muted small">오늘 첫 대화라 친밀도가 올랐어요.</p>' : ''}</div></div>
+        <div><div class="muted small">${esc(D.role)} · <span class="hearts">${hearts}</span></div><p class="line">"${lineHtml(t.line)}"</p>${t.first ? '<p class="muted small">오늘 첫 대화라 친밀도가 올랐어요.</p>' : ''}</div></div>
         <p class="muted small">좋아할 것 같은 것: ${esc(TASTE_HINT[n.id] || '글쎄요')}${loved.length ? ` · 확실히 좋아하는 것: ${loved.map(esc).join(', ')}` : ''}</p>
         <div class="row">
           ${shopKind ? `<button class="btn" data-trade>${shopKind === 'smithy' ? '도구 강화' : '거래하기'}</button>` : ''}
@@ -673,7 +693,7 @@ export class UI {
       g.regrowInfo().then(list => { this.regrowCache = { at: performance.now(), list }; if (this.panel === 'regrow') this.render(); });
     }
     const list = this.regrowCache.list;
-    const t = g.talk(n.id);
+    const t = n.talk || g.talk(n.id);
     this.bind = sh => {
       this.npcFace(sh, n);
       sh.querySelectorAll('[data-regrow]').forEach(b => b.addEventListener('click', async () => {
@@ -688,7 +708,7 @@ export class UI {
     return {
       title: '숲지기 두리',
       cls: 'wide',
-      body: `<div class="npc"><canvas id="npcface" width="64" height="72"></canvas><div><div class="muted small">${esc(NPCS.duri.role)}</div><p class="line">"${esc(t.line)}"</p></div></div>
+      body: `<div class="npc"><canvas id="npcface" width="64" height="72"></canvas><div><div class="muted small">${esc(NPCS.duri.role)}</div><p class="line">"${lineHtml(t.line)}"</p></div></div>
         <p class="small">베어 낸 나무와 캐낸 바위는 저절로 다시 나지 않아요. 두리에게 값을 치르면 그 지역의 나무와 바위를 전부 되살려 줘요. (광산 층은 매일 새로 생겨요)</p>
         ${list ? `<div class="list">${list.map(x => `<div class="li ${x.gone ? '' : 'dim'}"><b>${esc(x.name)}</b><span class="muted small">${x.gone ? `${x.gone}개 사라짐` : '그대로예요'}</span><span class="grow"></span>
           ${x.gone ? `<button class="btn small" data-regrow="${x.id}" ${g.me.gold >= x.cost ? '' : 'disabled'}>${fmtN(x.cost)}G 되살리기</button>` : ''}</div>`).join('')}</div>` : '<p class="muted center">살펴보는 중…</p>'}
@@ -775,6 +795,181 @@ export class UI {
         <h3>내 가방</h3>
         ${this.grid('inv', g.me.inv.map((x, k) => ({ key: k, id: x?.id, n: x?.n })))}
         ${detail || '<p class="muted small">칸을 누르면 꺼내거나 넣을 수 있어요.</p>'}`,
+    };
+  }
+
+  // 가판대 (각자 자기 칸)
+  pStall() {
+    const g = this.g;
+    const items = g.stall?.items || {};
+    const ids = Object.keys(items).filter(id => items[id] > 0 && ITEMS[id]);
+    const est = g.stallEstimate();
+    const each = id => est.lines.find(l => l.id === id)?.each ?? g.priceOf(id, 'market');
+    const sel = this.sel;
+    const sellable = id => SHOPS.market.buys.includes(ITEMS[id]?.type);
+    let detail = '';
+    if (sel?.from === 'stall' && items[sel.key]) {
+      detail = this.detail(sel.key, items[sel.key], `<span class="muted small">개당 약 ${fmtN(each(sel.key))}G</span><button class="btn small" data-st="1">내리기 1개</button><button class="btn small" data-st="all">전부 내리기</button>`);
+    } else if (sel?.from === 'inv' && g.me.inv[sel.key]) {
+      const s = g.me.inv[sel.key];
+      detail = this.detail(s.id, s.n, sellable(s.id)
+        ? `<span class="muted small">오늘 시세 개당 ${fmtN(g.priceOf(s.id, 'market'))}G</span><button class="btn small" data-sp="1">올리기 1개</button><button class="btn small gold" data-sp="all">전부 올리기</button>`
+        : '<span class="no small">가판대에서는 팔 수 없어요</span>');
+    }
+    this.bind = sh => {
+      this.bindGrid(sh);
+      sh.querySelectorAll('[data-sp]').forEach(b => b.addEventListener('click', async () => {
+        const r = await g.stallPut(Number(sel.key), b.dataset.sp === 'all' ? 999 : 1);
+        if (!r.ok) this.toast(r.msg, 'bad');
+        if (!g.me.inv[sel.key]) this.sel = null;
+        this.render();
+      }));
+      sh.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', async () => {
+        await g.stallTake(sel.key, b.dataset.st === 'all' ? 9999 : 1);
+        if (!g.stall?.items?.[sel.key]) this.sel = null;
+        this.render();
+      }));
+    };
+    return {
+      title: '가판대',
+      cls: 'wide',
+      body: `<p class="small">여기 올린 물건은 <b>하루가 끝날 때</b>(모두 잠들거나 밤 12시) 오늘 시세로 팔리고, 판 돈은 올린 사람에게 들어와요. 그 전에는 다시 내릴 수 있어요.</p>
+        <h3>내가 올린 물건</h3>
+        ${ids.length ? this.grid('stall', ids.map(id => ({ key: id, id, n: items[id] })), { min: 8 }) : '<p class="center muted small">아직 아무것도 없어요</p>'}
+        ${ids.length ? `<p class="stall-sum">오늘 밤 예상 <b>${fmtN(est.total)}G</b></p>` : ''}
+        <h3>내 가방</h3>
+        ${this.grid('inv', g.me.inv.map((x, k) => ({ key: k, id: x?.id, n: x?.n })))}
+        ${detail || '<p class="muted small">칸을 누르면 올리거나 내릴 수 있어요.</p>'}`,
+    };
+  }
+
+  // 정수기
+  pPurifier() {
+    const g = this.g;
+    const fid = this.arg;
+    const f = g.purifier(fid);
+    this.purDrawn = performance.now();
+    if (!f) return { title: '정수기', body: '<p class="center muted">정수기가 치워졌어요</p>' };
+    const now = Date.now();
+    const st = brewState(f, now);
+    const prog = brewProgress(f, now);
+    const beans = count(g.me.inv, 'coffee_bean');
+    const buckets = count(g.me.inv, 'water_bucket');
+    const left = st.b ? Math.ceil((1 - prog) * BREW_MS / 1000) : 0;
+    const act = async fn => { const r = await fn(); this.toast(r.msg, r.ok ? 'good' : 'bad'); this.render(); };
+    this.bind = sh => {
+      sh.querySelector('[data-load]')?.addEventListener('click', () => act(() => g.purifierLoad(fid)));
+      sh.querySelectorAll('[data-bean]').forEach(b => b.addEventListener('click', () => act(() => g.purifierBrew(fid, b.dataset.bean === 'all' ? 999 : 1))));
+      sh.querySelector('[data-cup]')?.addEventListener('click', () => act(() => g.purifierTake(fid)));
+    };
+    const cups = Array.from({ length: CUPS_PER_BUCKET }, (_, i) => `<i class="${i < st.w ? 'on' : ''}"></i>`).join('');
+    return {
+      title: '정수기',
+      cls: 'wide',
+      body: `<div class="idle-card">${icon('f_purifier', 'big')}<div class="grow">
+          <b>남은 물</b> <span class="muted small">${st.w}/${CUPS_PER_BUCKET}잔</span><div class="cups">${cups}</div>
+          ${st.b ? `<span class="small">커피 내리는 중 · ${st.b}잔 남음 (이번 잔 ${left}초)</span><div class="prog brew"><i style="width:${Math.round(prog * 100)}%"></i></div>` : '<span class="muted small">내리는 커피가 없어요</span>'}
+        </div></div>
+        ${st.r ? `<button class="btn gold wide" data-cup>${icon('coffee')} 다 내린 커피 ${st.r}잔 꺼내기</button>` : ''}
+        <div class="row">
+          <button class="btn small" data-load ${st.w === 0 && buckets ? '' : 'disabled'}>물 양동이 끼우기 (${buckets})</button>
+          <button class="btn small" data-bean="1" ${st.w && beans ? '' : 'disabled'}>커피콩 넣기 (${beans})</button>
+          <button class="btn small" data-bean="all" ${st.w && beans > 1 ? '' : 'disabled'}>넣을 수 있는 만큼</button>
+        </div>
+        <p class="muted small">물 양동이 하나로 커피 ${CUPS_PER_BUCKET}잔. 커피콩 한 개에 한 잔씩, 한 잔에 30초 걸려요. 양동이는 대장간에서 사거나 작업대에서 철 주괴로 만들고, 물가에서 들고 누르면 물을 떠요.</p>
+        <p class="muted small">정수기 ${g.purifierCount()}/${purifierLimit(g.house.level)}대 (집 6·11·16…단계마다 1대 더)</p>`,
+    };
+  }
+
+  // 침대
+  pBed() {
+    const g = this.g;
+    const c = g.clock;
+    const others = g.roster().filter(p => !p.me);
+    this.bind = sh => {
+      sh.querySelector('[data-sleep]').addEventListener('click', () => { this.close(); g.goToBed(); });
+    };
+    return {
+      title: '잠자리',
+      body: `<p>지금 ${fmtClock(c)}. 잘까요?</p>
+        <p class="muted small">${others.length ? '함께 있는 사람이 모두 잠들면' : '잠들면'} 하루가 끝나요. 가판대 물건이 팔리고, 다음 날 아침 6시에 체력과 기력이 가득 찬 채로 일어나요.</p>
+        ${others.length ? `<p class="muted small">먼저 자면 다른 사람을 기다려요. 기다리다 일어날 수도 있어요.</p>` : ''}
+        <div class="row"><button class="btn gold" data-sleep>${iconImg('bed')} 자기</button><button class="btn ghost" data-close>아니요</button></div>`,
+    };
+  }
+
+  // 잠든 동안 화면 가운데 표시 (누가 아직 깨어 있는지)
+  sleepChanged() { this.sleepDrawn = 0; this.renderSleep(); }
+  renderSleep() {
+    const g = this.g;
+    const el = this.$('sleepov');
+    if (!el) return;
+    this.sleepDrawn = performance.now();
+    if (!g.sleeping) { el.hidden = true; el.innerHTML = ''; this.sleepSig = ''; return; }
+    const list = g.roster();
+    const asleep = list.filter(p => p.z).length;
+    const status = p => (p.z === 1 ? '<span class="muted">잠듦</span>' : p.z === 2 ? '<span class="no">쓰러짐</span>' : `<span class="ok">깨어 있음</span>${p.caff ? ` ${iconImg('coffee', 'sm')}` : ''}`);
+    const sig = JSON.stringify([g.sleeping, list, fmtClock(g.clock)]);
+    if (sig === this.sleepSig && !el.hidden) return;
+    this.sleepSig = sig;
+    const first = el.hidden;
+    el.hidden = false;
+    el.innerHTML = `<div class="sleep-card ${first ? 'in' : ''}">
+      <b>${g.sleeping === 'bed' ? 'Zzz… 잠자는 중' : '정신을 잃었어요…'}</b>
+      <p class="small">${g.sleeping === 'bed' ? '모두 잠들면 하루가 끝나요' : '모두 잠들면 다음 날 아침 집에서 깨어나요'} · ${fmtClock(g.clock)}</p>
+      ${list.length > 1 ? `<div class="sleep-list">${list.map(p => `<div><span>${esc(p.name)}</span>${status(p)}</div>`).join('')}</div><p class="muted small">잠든 사람 ${asleep}/${list.length}</p>` : ''}
+      ${g.sleeping === 'bed' ? '<button class="btn small ghost" data-wake>일어나기</button>' : ''}</div>`;
+    el.querySelector('[data-wake]')?.addEventListener('click', () => g.wakeUp());
+  }
+
+  // 하루 마무리 요약: 한 줄씩 나타나고, 누르면 한꺼번에 다 보인다
+  showDayEnd(sum) {
+    const el = this.$('dayend');
+    if (!el) return;
+    this.close();
+    const L = [];
+    const outcome = {
+      slept: `${iconImg('bed')} 푹 잤어요. 체력과 기력이 가득 찼어요`,
+      faint: `${iconImg('heart')} 밤늦게 쓰러졌어요… 체력 ${sum.hp}/${sum.st.hp}, 기력 ${sum.en}/${sum.st.en}로 시작해요`,
+      away: `${iconImg('bed')} 자리를 비운 사이 날이 밝았어요`,
+    }[sum.outcome];
+    L.push(`<li class="de-out">${outcome}</li>`);
+    L.push('<li class="de-h">가판대에서 팔린 물건</li>');
+    if (sum.sold.lines.length) {
+      for (const x of sum.sold.lines) L.push(`<li class="de-item">${icon(x.id)}<span class="grow">${esc(ITEMS[x.id].name)} ×${x.n}</span><b>${fmtN(x.gold)}G</b></li>`);
+      L.push(`<li class="de-sum"><span class="grow">판매 합계</span><b>+${fmtN(sum.sold.total)}G</b></li>`);
+    } else L.push('<li class="muted">가판대에 올린 물건이 없었어요</li>');
+    L.push(`<li class="de-sum"><span class="grow">오늘 번 돈</span><b class="${sum.earned < 0 ? 'no' : 'ok'}">${sum.earned < 0 ? '-' : '+'}${fmtN(Math.abs(sum.earned))}G</b></li>`);
+    L.push(`<li class="de-sum"><img class="pix sm" src="${uiIconUrl('coin')}" alt=""><span class="grow">가진 돈</span><b>${fmtN(sum.gold)}G</b></li>`);
+    L.push(`<li class="de-next">${iconImg('sun')} ${sum.next}일차 오전 6:00</li>`);
+    el.hidden = false;
+    el.innerHTML = `<div class="de-card">
+      <h2>${sum.day}일차 마무리</h2>
+      <ul class="de-lines">${L.join('')}</ul>
+      <p class="muted small de-hint">누르면 한 번에 다 보여요</p>
+      <button class="btn gold wide" data-denext hidden>${sum.next}일차 아침으로</button></div>`;
+    const lines = [...el.querySelectorAll('.de-lines li')];
+    const btn = el.querySelector('[data-denext]');
+    let i = 0;
+    const showAll = () => {
+      clearInterval(this.deTimer);
+      lines.forEach(li => li.classList.add('show'));
+      btn.hidden = false;
+      el.querySelector('.de-hint').hidden = true;
+      el.querySelector('.de-lines').scrollTop = 1e6;
+    };
+    clearInterval(this.deTimer);
+    this.deTimer = setInterval(() => {
+      if (i >= lines.length) return showAll();
+      lines[i++].classList.add('show');
+      el.querySelector('.de-lines').scrollTop = 1e6;
+      sfx(i === lines.length ? 'coin' : 'click');
+    }, 420);
+    const openedAt = performance.now();
+    el.onclick = e => {
+      if (performance.now() - openedAt < 400) return;
+      if (e.target.closest('[data-denext]')) { clearInterval(this.deTimer); el.hidden = true; el.innerHTML = ''; sfx('open'); return; }
+      showAll();
     };
   }
 
@@ -899,6 +1094,9 @@ export function helpHtml() {
     <p><b>이동</b> — 가고 싶은 곳을 누르면 걸어가요. 누른 채 끌면 그쪽으로 걸어요. 메뉴에서 조이스틱으로 바꿀 수 있어요.</p>
     <p><b>상호작용</b> — 나무·바위·밭·사람·건물을 누르면 다가가서 알아서 해요. 우리 집을 누르면 들어가요. 오른쪽 아래 큰 버튼은 바라보는 것과 상호작용해요.</p>
     <p><b>농사</b> — 괭이로 밭 갈기, 씨앗 심기, 물 주기, 수확. 물이 마르면 절반 속도로 자라요. 밭은 모두가 함께 써요.</p>
+    <p><b>하루</b> — 아침 6시에 시작해 밤 12시에 끝나요. 12시 전에 집 침대에서 자야 해요. 깨어 있다가 12시가 되면 쓰러져서 다음 날 체력 절반·기력 3분의 1로 시작해요. 함께 있는 사람이 모두 잠들면 바로 다음 날 아침이 돼요.</p>
+    <p><b>가판대</b> — 농장의 가판대에 물건을 올려 두면 하루가 끝날 때 팔리고, 하루 요약에서 판 물건과 돈을 보여 줘요. 마을 가게에서는 바로 팔 수 있어요.</p>
+    <p><b>커피</b> — 커피 씨앗을 심어 커피콩을 거두고, 집에 놓은 정수기에 물 양동이를 끼운 뒤 콩을 넣으면 30초에 한 잔씩 내려요. 마신 날은 새벽 2시까지 버틸 수 있어요(하루 한 잔). 양동이는 철 주괴로 작업대에서 만들고, 주괴는 용광로에서 만들어요.</p>
     <p><b>방치 창고</b> — 오른쪽 아래 바구니 버튼. 접속해 있든 아니든 캐릭터가 고른 일을 하며 수확물이 쌓여요(최대 8시간, 집 4단계부터 16시간). 밭 일꾼을 고용하면 물 주기와 수확도 알아서 해요.</p>
     <p><b>광업</b> — 농장 위쪽 광산. 깊이 갈수록 귀한 광석이 나와요. 5층마다 승강기가 있어요.</p>
     <p><b>낚시</b> — 물을 바라보고 던지고, 입질 때 누른 뒤 초록 칸에서 한 번 더 누르세요.</p>

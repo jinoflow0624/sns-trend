@@ -68,6 +68,11 @@ function draw(name, frame = 0) {
       P.r(5, 6, 3, 2, '#f08a2c'); P.r(8, 5, 3, 3, '#9c5fc0');
       break;
     case 'chair': return itemIcon('f_chair');
+    case 'coffee': return itemIcon('coffee');
+    case 'bucket': return itemIcon('water_bucket');
+    case 'purifier': return itemIcon('f_purifier');
+    case 'furnace': return itemIcon('f_furnace');
+    case 'stall': return itemIcon('turnip');
     case 'box': return drawBox();
     case 'bed':
       P.r(1, 7, 14, 6, '#e0605a'); P.r(1, 5, 5, 4, '#ffffff'); P.r(1, 13, 2, 2, '#8a5a32'); P.r(13, 13, 2, 2, '#8a5a32'); P.r(0, 4, 2, 11, '#8a5a32');

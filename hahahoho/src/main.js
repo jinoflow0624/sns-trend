@@ -8,7 +8,7 @@ import { openStore, firebaseAvailable, makeCode, makeId, normCode, explain, Fire
 import * as Slots from './net/slots.js';
 import { createPlayer } from './logic/player.js';
 import { unlock, startMusic, setSoundSettings } from './game/sound.js';
-import { clockOf } from './game/clock.js';
+import { legacyDay } from './game/clock.js';
 import { LocalStore } from './net/store.js';
 
 const $screen = document.getElementById('screen');
@@ -48,7 +48,8 @@ async function lookupWorld(code) {
     if (!meta) return { error: '그런 세계를 찾을 수 없어요. 코드를 확인해 주세요.' };
     const pubs = (await store.get('pub')) || {};
     const members = Object.values(pubs).map(p => p?.n).filter(Boolean);
-    return { code, name: meta.name, members, full: members.length >= MAX_PLAYERS, day: clockOf(Date.now(), meta.createdAt).day };
+    const day = (await store.get('day'))?.n || legacyDay(Date.now(), meta.createdAt).n;
+    return { code, name: meta.name, members, full: members.length >= MAX_PLAYERS, day };
   } catch (err) {
     return { error: explain(err) };
   } finally { store?.close(); }

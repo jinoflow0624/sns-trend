@@ -9,6 +9,7 @@
 import {
   ITEMS, JOBS, TOOLS, TOOL_UPGRADE, TOOL_TIERS, CROPS, MONSTERS, SHOPS, HOUSE_LEVELS, HOUSE_GROWTH,
   NPCS, RECIPES, IDLE_JOBS, MIN, HOUR_MS, REAL_HOUR, NPC_TASTE, TASTE_POINTS, PETS, HELPER_PLANS, REGROW_COST,
+  BEDTIME_H, COFFEE_H, purifierLimit,
 } from '../data.js';
 import * as Inv from '../logic/inventory.js';
 import * as P from '../logic/player.js';
@@ -19,7 +20,10 @@ import { sellPrice, buyPrice, dailyRequests } from '../logic/market.js';
 import { mulberry32, hashStr, hash2, weighted, randInt, rngFor } from '../logic/rng.js';
 import { getMap, isSolid, objectAt, warpAt, tileAt, T, FARM_SOIL, waypointInfo, FISH_TABLES, oreTable } from '../world/maps.js';
 import { findPath } from '../world/path.js';
-import { clockOf, nextDayAt } from './clock.js';
+import { clockAt, legacyDay } from './clock.js';
+import { shouldEndDay, mustPassOut, wakeStats, settleStall } from '../logic/day.js';
+import * as Brew from '../logic/purifier.js';
+import { greeting } from '../logic/npc.js';
 
 const SPEED = 4.2;          // 타일/초
 const PUB_MS = 140;         // 위치 전송 간격(움직일 때)
@@ -27,6 +31,9 @@ const SAVE_MS = 6000;       // 캐릭터 저장 간격
 // 지상의 나무·바위는 한 번 베거나 캐면 다시 자라지 않는다 (숲지기 두리에게 값을 치르면 되살아남)
 export const GONE = 9e15;
 const HELPER_TICK_MS = 15000;
+const DAY_TICK_MS = 1000;
+// 자원 칸 값: 1e9 보다 작으면 "그 날(일차)까지 없음", 크면 "그 시각(현실)까지 없음"
+const DAY_MARK = 1e9;
 const FORAGE = {
   forest: [['mushroom', 3], ['berry', 3], ['herb', 3], ['flower', 2]],
   default: [['flower', 3], ['herb', 1]],
@@ -71,6 +78,10 @@ export class Game {
     this.decor = null;       // 꾸미기 모드 { slot }
     this.unsubs = [];
     this.fade = 0;
+    this.dayState = null;    // 공용 { n, start }
+    this.sleeping = null;    // null | 'bed'(침대에서 잠) | 'faint'(밤늦게 쓰러짐)
+    this.stall = null;       // 내 가판대 { d, items }
+    this.nightWarned = {};
   }
 
   // ── 시작 · 종료 ────────────────────────────────────────────────────────────
@@ -83,8 +94,13 @@ export class Game {
     }
     this.meta = meta;
     this.epoch = meta.createdAt;
+    // 오늘(공용). 예전 세계는 처음 들어올 때 지금 시각을 이어받아 옮긴다.
+    const d0 = await S.txn('day', cur => (cur?.n ? undefined : legacyDay(Date.now(), meta.createdAt)));
+    this.dayState = d0.value;
     const sub = (path, fn) => this.unsubs.push(S.watch(path, fn));
     sub('meta', v => { if (v) this.meta = v; });
+    sub('day', v => { if (v?.n) { this.dayState = v; this.onDayState(); } });
+    sub(`stall/${this.pid}`, v => { this.stall = v || null; this.ui.refresh?.('stall'); });
     sub('house', v => {
       const prevLv = this.house.level;
       this.house = { level: 1, furniture: {}, fund: { gold: 0, items: {} }, contrib: {}, ...(v || {}) };
@@ -107,6 +123,8 @@ export class Game {
     if (stored && Date.now() - (this.me.lastSeen || 0) > 5 * MIN) this.ui.showIdle(stored);
     this.me.lastSeen = Date.now();
     this.me.hp = Math.max(1, Math.min(this.me.hp, P.maxHp(this.me)));
+    // 처음이면 오늘부터. 꺼 둔 사이 날이 바뀌었으면 가판대 정산부터 한다.
+    if (this.me.dayN == null) { this.me.dayN = this.day; this.me.dayGold0 = this.me.gold; }
 
     const mapId = this.me.map || 'farm';
     this.enterMap(getMap(mapId, this.mapCtx()) ? mapId : 'farm', this.me.x, this.me.y, true);
@@ -114,6 +132,16 @@ export class Game {
     S.presence(`pub/${this.pid}/on`, 1);
     this.touchTimer = setInterval(() => S.update('', { 'meta/lastActive': Date.now() }).catch(() => {}), 60000);
     this.touchTimer.unref?.(); // (Node 테스트용) 타이머 때문에 프로세스가 안 끝나지 않게
+    // 아무도 없는 사이 새벽 2시가 지났다면 그날은 이미 끝난 것으로 넘긴다
+    const n0 = this.day;
+    if (this.clock.hour >= COFFEE_H) await S.txn('day', cur => (cur?.n === n0 ? { n: n0 + 1, start: Date.now() } : undefined));
+    this.started = true;
+    if (this.me.dayN < this.day) await this.finishDay('away');
+    else if (this.clock.hour >= BEDTIME_H) {
+      // 한밤중에 들어오면 쓰러뜨리지 않고 집 침대에서 시작한다
+      this.enterMap('house', null, null, true);
+      this.goToBed();
+    }
     this.onHide = () => { if (document.visibilityState === 'hidden') this.saveNow(); };
     document.addEventListener('visibilitychange', this.onHide);
     addEventListener('pagehide', this.onHide);
@@ -130,7 +158,7 @@ export class Game {
   }
 
   // ── 시간 ───────────────────────────────────────────────────────────────────
-  get clock() { return clockOf(Date.now(), this.epoch || Date.now()); }
+  get clock() { return clockAt(Date.now(), this.dayState); }
   get day() { return this.clock.day; }
   mapCtx() { return { houseLv: this.house.level, seedKey: `${this.code}-d${this.day}` }; }
   stats() { return P.statsOf(this.me); }
@@ -238,6 +266,10 @@ export class Game {
       this.lastHelperTick = now;
       if (this.helperActive() && this.isLeader()) this.helperTick().catch(() => {});
     }
+    if (now - (this.lastDayTick || 0) > DAY_TICK_MS) {
+      this.lastDayTick = now;
+      this.dayTick().catch(() => {});
+    }
     if (this.dirty && now - this.lastSave > SAVE_MS) this.saveNow();
   }
 
@@ -251,7 +283,7 @@ export class Game {
     if (k.has('ArrowUp') || k.has('w')) vy -= 1;
     if (k.has('ArrowDown') || k.has('s')) vy += 1;
     if (this.joy.x || this.joy.y) { vx = this.joy.x; vy = this.joy.y; }
-    if (this.fishing || this.decor?.busy) { vx = 0; vy = 0; this.path = null; }
+    if (this.fishing || this.decor?.busy || this.sleeping) { vx = 0; vy = 0; this.path = null; }
     if (vx || vy) { this.path = null; this.pending = null; }
 
     if (!vx && !vy && this.path?.length) {
@@ -308,6 +340,7 @@ export class Game {
   // ── 터치 이동 ──────────────────────────────────────────────────────────────
   // 화면을 누른 월드 좌표. 물건이면 옆까지 걸어가서 상호작용.
   tapWorld(wx, wy) {
+    if (this.sleeping) return;
     if (this.decor) return this.decorTap(wx, wy);
     if (this.fishing) return this.action_();
     const tx = Math.floor(wx); const ty = Math.floor(wy);
@@ -435,6 +468,7 @@ export class Game {
 
   // 액션 버튼에 보여 줄 아이콘/글자 (아이콘은 ui 의 도트 아이콘 이름)
   contextHint() {
+    if (this.sleeping) return { icon: 'bed', label: this.sleeping === 'bed' ? '자는 중' : '기절' };
     if (this.fishing) return { icon: 'rod', label: this.fishing.state === 'bite' ? '지금!' : this.fishing.state === 'reel' ? '잡기!' : '거두기' };
     if (this.decor) return { icon: 'chair', label: '놓기' };
     const t = this.facingTarget();
@@ -447,8 +481,13 @@ export class Game {
       case 'npc': return { icon: 'talk', label: t.npc.shop ? '거래' : '대화' };
       case 'pet': return { icon: 'heart', label: '쓰다듬기' };
       case 'player': return { icon: 'hand', label: '인사' };
-      case 'furniture': return { icon: 'chair', label: '가구' };
-      case 'water': return { icon: 'rod', label: '낚시' };
+      case 'furniture': {
+        const it = ITEMS[t.f.i];
+        if (it?.purifier) return { icon: 'purifier', label: '정수기' };
+        if (it?.station) return { icon: 'furnace', label: it.name };
+        return { icon: 'chair', label: '가구' };
+      }
+      case 'water': return this.selectedItem()?.id === 'bucket' ? { icon: 'bucket', label: '물 뜨기' } : { icon: 'rod', label: '낚시' };
       case 'door': return { icon: 'house', label: '들어가기' };
       case 'plot': {
         const i = this.plotIndex(t.x, t.y);
@@ -466,7 +505,7 @@ export class Game {
         return ({
           tree: { icon: 'axe', label: '벌목' }, rock: { icon: 'pick', label: '채굴' }, boulder: { icon: 'pick', label: '채굴' }, crystal: { icon: 'pick', label: '채굴' },
           bush: { icon: 'hand', label: '흔들기' }, forage: { icon: 'basket', label: '줍기' }, waypoint: { icon: 'portal', label: '순간이동' },
-          station: { icon: 'craft', label: '제작' }, chest: { icon: 'box', label: o.kind === 'shipbox' ? '출하' : '열기' }, bed: { icon: 'bed', label: '자기' },
+          station: { icon: 'craft', label: '제작' }, chest: { icon: 'box', label: o.kind === 'shipbox' ? '가판대' : '열기' }, bed: { icon: 'bed', label: '자기' },
           board: { icon: 'board', label: '부탁' }, sign: { icon: 'board', label: '읽기' }, fountain: { icon: 'coin', label: '소원' },
         })[o.t] || { icon: 'hand', label: '살펴보기' };
       }
@@ -476,6 +515,7 @@ export class Game {
 
   // 액션 버튼
   action_() {
+    if (this.sleeping) return;
     if (this.fishing) return this.fishPress();
     if (this.decor) return;
     const t = this.facingTarget();
@@ -490,8 +530,16 @@ export class Game {
       case 'pet': return this.petCry(t.npc);
       case 'door': return this.enterDoor(t.o);
       case 'player': return this.wave(t.pid);
-      case 'furniture': return this.ui.toast(`${ITEMS[t.f.i]?.name || '가구'} — 꾸미기 모드에서 옮길 수 있어요`);
-      case 'water': this.face(t.cx, t.cy); return this.startFishing();
+      case 'furniture': {
+        const it = ITEMS[t.f.i];
+        if (it?.purifier) return this.ui.openPurifier?.(t.f.fid);
+        if (it?.station) return this.ui.openCraft(it.station);
+        return this.ui.toast(`${it?.name || '가구'} — 꾸미기 모드에서 옮길 수 있어요`);
+      }
+      case 'water':
+        this.face(t.cx, t.cy);
+        if (this.selectedItem()?.id === 'bucket') return this.fillBucket();
+        return this.startFishing();
       case 'plot': return this.plotAction(t.x, t.y);
       case 'object': return this.objectAction(t.o);
     }
@@ -623,14 +671,15 @@ export class Game {
   }
 
   // ── 자원 (나무 · 바위 · 덤불 · 채집물) ─────────────────────────────────────
-  nodeDead(o) { return (this.nodes[o.nid] || 0) > Date.now(); }
+  nodeDead(o) { return this.deadVal(this.nodes[o.nid]); }
+  deadVal(v) { v = v || 0; return v < DAY_MARK ? v >= this.day : v > Date.now(); }
   forageItem(o) {
     const table = FORAGE[this.map.id] || FORAGE.default;
     return weighted(mulberry32(hashStr(`${o.nid}:${this.day}`)), table);
   }
 
   async claimNode(o, until) {
-    const r = await this.store.txn(`nodes/${this.map.key}/${o.nid}`, cur => ((cur || 0) > Date.now() ? undefined : until));
+    const r = await this.store.txn(`nodes/${this.map.key}/${o.nid}`, cur => (this.deadVal(cur) ? undefined : until));
     return r.committed;
   }
 
@@ -700,7 +749,7 @@ export class Game {
         this.shakeObj = { o, t: 0.25 };
         this.leaves(o.x + 0.5, o.y + 0.3);
         if (hash2(o.x, o.y, 8) >= 0.25 || this.nodeDead(o)) return this.ui.toast('바스락…');
-        if (!(await this.claimNode(o, nextDayAt(now, this.epoch)))) return;
+        if (!(await this.claimNode(o, this.day))) return; // 오늘 하루만 비어 있다
         this.give('berry', 2);
         this.gainXp('farm', 2);
         return;
@@ -708,7 +757,7 @@ export class Game {
       case 'forage': {
         if (this.nodeDead(o)) return;
         const item = this.forageItem(o);
-        if (!(await this.claimNode(o, nextDayAt(now, this.epoch)))) return;
+        if (!(await this.claimNode(o, this.day))) return;
         this.action = { tool: 'hand', until: performance.now() + 250 };
         this.give(item, 1);
         this.gainXp('farm', 3);
@@ -726,10 +775,10 @@ export class Game {
       }
       case 'station': return this.ui.openCraft(o.kind);
       case 'chest':
-        if (o.kind === 'shipbox') return this.ui.openShop('market', true);
+        if (o.kind === 'shipbox') return this.ui.openStall?.();
         if (o.kind === 'treasure') return this.openTreasure(o);
         return this.ui.openChest();
-      case 'bed': return this.sleep();
+      case 'bed': return this.ui.askSleep ? this.ui.askSleep() : this.goToBed();
       case 'board': return this.ui.openBoard();
       case 'sign': return this.ui.toast(o.text || '낡은 표지판이에요');
       case 'fountain': {
@@ -763,16 +812,158 @@ export class Game {
     this.dirty = true;
   }
 
-  sleep() {
-    const now = Date.now();
-    if ((this.me.done.sleptAt || 0) > now - 10 * MIN) return this.ui.toast('아직 졸리지 않아요 (10분에 한 번)');
-    this.me.done.sleptAt = now;
-    const st = this.stats();
-    this.me.en = st.en;
-    this.me.hp = st.hp;
-    this.fade = 1.6;
+  // ── 하루의 끝 ──────────────────────────────────────────────────────────────
+  // 오늘 커피를 마셨나 (새벽 2시까지 버틸 수 있다)
+  hasCaffeine() { return this.me.caff === this.day; }
+
+  // 침대에 눕는다. 체력·기력은 모두가 잠들어 하루가 끝날 때 한꺼번에 찬다.
+  goToBed() {
+    if (this.sleeping) return;
+    const bed = this.map.objects.find(o => o.t === 'bed');
+    this.sleeping = 'bed';
+    this.path = null; this.pending = null; this.fishing = null; this.decor = null;
+    if (bed) { this.px = bed.x + bed.w / 2; this.py = bed.y + 1.2; }
+    this.dir = 'down';
+    this.fade = 0.8;
+    this.pubNow();
+    this.ui.sleepChanged?.();
+    this.dayTick().catch(() => {});
+  }
+  // 기다리다 다시 일어난다 (쓰러진 사람은 못 일어난다)
+  wakeUp() {
+    if (this.sleeping !== 'bed') return;
+    this.sleeping = null;
+    const bed = this.map.objects.find(o => o.t === 'bed');
+    if (bed) ({ x: this.px, y: this.py } = this.safeSpot(this.map, bed.x + bed.w + 0.5, bed.y + bed.h + 0.5));
+    this.pubNow();
+    this.ui.sleepChanged?.();
+  }
+  // 밤 12시(커피를 마셨으면 새벽 2시)가 지나도록 깨어 있으면 그 자리에서 쓰러진다
+  passOut() {
+    if (this.sleeping) return;
+    this.sleeping = 'faint';
+    this.path = null; this.pending = null; this.fishing = null; this.decor = null;
+    this.fade = 1.2;
+    this.pubNow();
+    this.ui.toast('너무 늦었어요… 그 자리에서 쓰러졌어요', 'bad');
+    this.ui.sleepChanged?.();
+  }
+
+  // 접속 중인 사람들의 잠 상태 (나 포함) → [{ name, z(0 깨어 있음 · 1 침대 · 2 쓰러짐), caff }]
+  roster() {
+    const out = [{ me: true, name: this.me.name, z: this.sleeping === 'bed' ? 1 : this.sleeping ? 2 : 0, caff: this.hasCaffeine() }];
+    for (const o of Object.values(this.players)) {
+      if (!o.online || !o.pub) continue;
+      out.push({ name: o.pub.n, z: o.pub.z || 0, caff: o.pub.cf === this.day });
+    }
+    return out;
+  }
+
+  // 1초마다: 밤 알림 · 쓰러지기 · 하루 끝내기
+  async dayTick() {
+    if (!this.started || !this.dayState || this.dayBusy) return;
+    const { hour } = this.clock;
+    const n = this.dayState.n;
+    const warn = (k, msg) => { if (this.nightWarned[k] !== n) { this.nightWarned[k] = n; this.ui.toast(msg); } };
+    if (!this.sleeping) {
+      if (hour >= BEDTIME_H - 1 && hour < BEDTIME_H && !this.hasCaffeine()) warn('late', '밤 11시예요. 12시 전에 집에 가서 자야 해요');
+      if (hour >= COFFEE_H - 1 && hour < COFFEE_H && this.hasCaffeine()) warn('coffee', '커피 기운이 떨어져 가요. 새벽 2시엔 쓰러져요');
+      if (mustPassOut(hour, this.hasCaffeine())) this.passOut();
+    }
+    const awake = this.roster().filter(p => !p.z);
+    if (!shouldEndDay(hour, awake)) return;
+    // 누가 먼저 넘겨도 한 번만 넘어간다
+    await this.store.txn('day', cur => (cur?.n === n ? { n: n + 1, start: Date.now() } : undefined));
+  }
+
+  // 공용 날짜가 바뀌면 각자 자기 하루를 마무리한다
+  onDayState() {
+    if (!this.started || this.dayBusy || this.me.dayN == null || this.me.dayN >= this.dayState.n) return;
+    const outcome = this.sleeping === 'bed' ? 'slept' : 'faint';
+    this.finishDay(outcome).catch(err => console.warn('day end', err));
+  }
+
+  // 하루 정산: 가판대 판매 · 체력/기력 · 집에서 아침 6시에 깨기 · 요약 창
+  async finishDay(outcome) {
+    if (this.dayBusy) return;
+    this.dayBusy = true;
+    try {
+      const prevDay = this.me.dayN;
+      const sold = await this.sellStall();
+      const st = this.stats();
+      const w = wakeStats(outcome, st);
+      this.me.hp = w.hp;
+      this.me.en = w.en;
+      const earned = this.me.gold - (this.me.dayGold0 ?? this.me.gold);
+      this.me.dayN = this.day;
+      this.me.dayGold0 = this.me.gold;
+      this.sleeping = null;
+      this.hits.clear();
+      this.enterMap('house', null, null, true);
+      const bed = this.map.objects.find(o => o.t === 'bed');
+      if (bed) ({ x: this.px, y: this.py } = this.safeSpot(this.map, bed.x + bed.w + 0.5, bed.y + bed.h + 0.5));
+      this.dir = 'down';
+      this.fade = 1.5;
+      this.dirty = true;
+      this.saveNow();
+      this.ui.sleepChanged?.();
+      this.ui.showDayEnd?.({ day: prevDay, next: this.day, outcome, sold, earned, gold: this.me.gold, hp: w.hp, en: w.en, st });
+      if (this.meta && (this.meta.dayN || 0) < this.day) this.store.update('meta', { dayN: this.day }).catch(() => {});
+    } finally {
+      this.dayBusy = false;
+    }
+  }
+
+  // ── 가판대 (각자 자기 칸) ──────────────────────────────────────────────────
+  // 올려 둔 물건은 하루가 끝날 때 올린 날의 시세로 팔려 올린 사람에게 돈이 들어온다
+  async stallPut(slot, n) {
+    const s = this.me.inv[slot];
+    if (!s) return { ok: false, msg: '빈 칸이에요' };
+    if (!SHOPS.market.buys.includes(ITEMS[s.id].type)) return { ok: false, msg: '가판대에서는 팔 수 없는 물건이에요' };
+    const id = s.id;
+    n = Math.min(n, s.n);
+    Inv.removeAt(this.me.inv, slot, n);
+    const day = this.day;
+    const r = await this.store.txn(`stall/${this.pid}`, cur => {
+      const items = { ...(cur?.items || {}) };
+      items[id] = (items[id] || 0) + n;
+      return { d: day, items };
+    });
+    if (!r.committed) { Inv.give(this.me, id, n); return { ok: false, msg: '올리지 못했어요' }; }
+    this.stall = r.value;
     this.dirty = true;
-    this.ui.toast('푹 잤어요. 기력과 체력이 가득 찼어요', 'good');
+    this.ui.sfx?.('plant');
+    return { ok: true, msg: `${ITEMS[id].name} ${n}개를 가판대에 올렸어요` };
+  }
+  async stallTake(id, n) {
+    let took = 0;
+    const r = await this.store.txn(`stall/${this.pid}`, cur => {
+      const have = cur?.items?.[id] || 0;
+      took = Math.min(have, n);
+      if (!took) return undefined;
+      const items = { ...cur.items, [id]: have - took };
+      if (!items[id]) delete items[id];
+      return Object.keys(items).length ? { ...cur, items } : null;
+    });
+    if (!r.committed || !took) return 0;
+    this.stall = r.value;
+    Inv.give(this.me, id, took);
+    this.dirty = true;
+    return took;
+  }
+  stallEstimate() {
+    const items = this.stall?.items || {};
+    return settleStall({ d: this.day, items }, { luk: this.stats().luk, bonus: this.shopBonus('market') });
+  }
+  async sellStall() {
+    let got = null;
+    const r = await this.store.txn(`stall/${this.pid}`, cur => { got = cur; return cur ? null : undefined; });
+    if (!r.committed || !got) return { lines: [], total: 0 };
+    const res = settleStall(got, { luk: this.stats().luk, bonus: this.shopBonus('market') });
+    this.me.gold += res.total;
+    this.stall = null;
+    this.dirty = true;
+    return res;
   }
 
   // ── 전투 ───────────────────────────────────────────────────────────────────
@@ -1025,8 +1216,8 @@ export class Game {
     const f = this.me.friends[npcId] || (this.me.friends[npcId] = { pts: 0, day: 0, gift: 0 });
     let first = false;
     if (f.day !== this.day) { f.day = this.day; f.pts += 10; first = true; this.dirty = true; }
-    const lines = NPCS[npcId]?.lines || ['…'];
-    const line = lines[(this.day + hashStr(npcId)) % lines.length];
+    // 말을 걸 때마다 인사가 달라진다 (가끔 이스터에그)
+    const line = greeting(npcId);
     return { line, hearts: Math.min(10, Math.floor(f.pts / 50)), first };
   }
   // 취향에 따라 친밀도가 달라진다 (아주 좋아함 · 좋아함 · 보통 · 싫어함)
@@ -1070,6 +1261,67 @@ export class Game {
     this.particles(n.x, n.y - 0.8, '#ff8ac0', 5, 1.2, 1.5, 0.8, 2);
     this.ui.sfx?.(pet.sound);
   }
+  // 양동이를 든 채 물가를 누르면 물을 뜬다
+  fillBucket() {
+    const slot = this.selected;
+    const s = this.me.inv[slot];
+    if (s?.id !== 'bucket') return;
+    Inv.removeAt(this.me.inv, slot, 1);
+    this.give('water_bucket', 1);
+    const w = this.me.inv.findIndex(x => x?.id === 'water_bucket');
+    if (!this.me.inv[slot] && w >= 0) this.select(w);
+    this.action = { tool: 'hand', until: performance.now() + 250 };
+    const [dx, dy] = DIR_V[this.dir];
+    this.splash(this.px + dx * 1.2, this.py + dy * 1.2, 8);
+    this.ui.sfx?.('can');
+    this.ui.toast('물 양동이를 채웠어요. 정수기에 끼우면 커피 10잔을 내릴 수 있어요', 'good');
+    this.dirty = true;
+  }
+
+  // ── 정수기 (집 가구) ──────────────────────────────────────────────────────
+  purifier(fid) { return this.house.furniture?.[fid] || null; }
+  async purifierTxn(fid, fn) {
+    let out = null;
+    const r = await this.store.txn(`house/furniture/${fid}`, cur => {
+      if (!cur || !ITEMS[cur.i]?.purifier) return undefined;
+      out = fn(cur, Date.now());
+      return out?.next || undefined;
+    });
+    return r.committed ? out : null;
+  }
+  async purifierLoad(fid) {
+    if (Inv.count(this.me.inv, 'water_bucket') < 1) return { ok: false, msg: '물 양동이가 없어요. 양동이를 들고 물가를 누르면 떠 와요' };
+    const f = this.purifier(fid);
+    if (Brew.brewState(f, Date.now()).w > 0) return { ok: false, msg: '아직 물이 남아 있어요' };
+    Inv.remove(this.me.inv, 'water_bucket', 1);
+    const res = await this.purifierTxn(fid, (cur, now) => ({ next: Brew.loadWater(cur, now) }));
+    if (!res?.next) { Inv.give(this.me, 'water_bucket', 1); return { ok: false, msg: '물을 채우지 못했어요' }; }
+    Inv.give(this.me, 'bucket', 1); // 빈 양동이는 돌려받는다
+    this.dirty = true;
+    this.ui.sfx?.('can');
+    return { ok: true, msg: '물 양동이를 끼웠어요. 커피 10잔을 내릴 수 있어요' };
+  }
+  async purifierBrew(fid, n) {
+    n = Math.min(n, Inv.count(this.me.inv, 'coffee_bean'));
+    if (n <= 0) return { ok: false, msg: '커피콩이 없어요' };
+    Inv.remove(this.me.inv, 'coffee_bean', n);
+    const res = await this.purifierTxn(fid, (cur, now) => Brew.addBeans(cur, n, now));
+    const used = res?.used || 0;
+    if (used < n) Inv.give(this.me, 'coffee_bean', n - used);
+    if (!used) return { ok: false, msg: '물이 없어요. 물 양동이를 먼저 끼워 주세요' };
+    this.dirty = true;
+    this.ui.sfx?.('plant');
+    return { ok: true, msg: `커피콩 ${used}개를 넣었어요. 한 잔에 30초씩 내려요` };
+  }
+  async purifierTake(fid) {
+    const res = await this.purifierTxn(fid, (cur, now) => Brew.takeCups(cur, now));
+    if (!res?.cups) return { ok: false, msg: '아직 다 내린 커피가 없어요' };
+    this.give('coffee', res.cups);
+    this.ui.sfx?.('harvest');
+    return { ok: true, msg: `커피 ${res.cups}잔을 꺼냈어요` };
+  }
+  purifierCount() { return Object.values(this.house.furniture || {}).filter(f => ITEMS[f.i]?.purifier).length; }
+
   enterDoor(o) {
     const w = this.map.warps.find(q => q.x === o.door.x && q.y === o.door.y);
     if (w) this.takeWarp(w);
@@ -1083,7 +1335,13 @@ export class Game {
     if (!s) return;
     const it = ITEMS[s.id];
     if (it.type === 'food') {
+      if (it.caffeine && this.hasCaffeine()) return this.ui.toast('오늘은 이미 커피를 마셨어요. 커피는 하루 한 잔이에요', 'bad');
       const r = P.eat(this.me, i);
+      if (r.ok && it.caffeine) {
+        this.me.caff = this.day;
+        this.pubNow();
+        r.msg = '커피 한 잔! 오늘은 새벽 2시까지 거뜬해요';
+      }
       this.ui.toast(r.msg, r.ok ? 'good' : 'bad');
       if (r.ok) this.sparkle(this.px, this.py - 1, '#ff8ac0', 6);
     } else if (it.type === 'cloth') {
@@ -1440,6 +1698,11 @@ export class Game {
       // 가구 집어 들기
       const f = this.furnitureAt(x, y);
       if (!f) return this.ui.toast('옮길 가구를 누르거나, 가방에서 가구를 고르세요');
+      if (ITEMS[f.i]?.purifier) {
+        const st = Brew.brewState(f, Date.now());
+        if (st.b || st.r) return this.ui.toast('커피를 내리는 중이에요. 다 내린 뒤 꺼내고 옮겨 주세요', 'bad');
+        if (st.w) this.ui.toast('정수기에 남아 있던 물은 쏟아졌어요');
+      }
       const r = await this.store.txn(`house/furniture/${f.fid}`, cur => (cur ? null : undefined));
       if (r.committed) { Inv.give(this.me, f.i, 1); this.dirty = true; this.ui.toast(`${ITEMS[f.i].name}을(를) 가방에 넣었어요`); this.ui.refresh?.('decor'); }
       return;
@@ -1447,6 +1710,9 @@ export class Game {
     const s = this.me.inv[d.slot];
     if (!s || ITEMS[s.id].type !== 'furniture') { d.slot = null; return this.ui.refresh?.('decor'); }
     const it = ITEMS[s.id];
+    if (it.purifier && this.purifierCount() >= purifierLimit(this.house.level)) {
+      return this.ui.toast(`정수기는 지금 ${purifierLimit(this.house.level)}개까지 놓을 수 있어요 (집 6·11·16…단계마다 1개 더)`, 'bad');
+    }
     const px = x - Math.floor((it.w - 1) / 2);
     const py = y - Math.floor((it.h - 1) / 2);
     if (!this.canPlace(s.id, px, py)) { d.ghost = { id: s.id, x: px, y: py, bad: true }; return this.ui.toast('여기엔 놓을 수 없어요'); }
@@ -1495,7 +1761,8 @@ export class Game {
       n: this.me.name, j: this.me.job, l: P.lookOf(this.me), m: this.map.id,
       x: Math.round(this.px * 100) / 100, y: Math.round(this.py * 100) / 100, d: this.dir,
       mv: this.moving ? 1 : 0, a: this.action && this.action.until > performance.now() ? this.action.tool : '', at: this.action ? this.me.tools[this.action.tool] || 0 : 0,
-      t: Date.now(), on: 1, lv: P.totalLevel(this.me), ...(this.pubExtra || {}),
+      t: Date.now(), on: 1, lv: P.totalLevel(this.me), z: this.sleeping === 'bed' ? 1 : this.sleeping ? 2 : 0, cf: this.me.caff || 0,
+      ...(this.pubExtra || {}),
     };
   }
   pubSoon() {

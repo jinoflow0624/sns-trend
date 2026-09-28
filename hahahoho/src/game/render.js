@@ -8,6 +8,7 @@ import * as Farm from '../logic/farm.js';
 import { lookOf } from '../logic/player.js';
 import { darkness } from './clock.js';
 import { hash2 } from '../logic/rng.js';
+import { brewState, brewProgress } from '../logic/purifier.js';
 
 const FONT = "'Galmuri11', 'Galmuri9', 'Apple SD Gothic Neo', sans-serif";
 
@@ -144,6 +145,7 @@ export class Renderer {
         const draw = () => ctx.drawImage(s.c, f.x * TS + s.ox, f.y * TS + s.oy);
         if (it.floor) draw(); else list.push({ y: f.y + it.h - 0.1, d: draw });
         if (it.light) lights.push([f.x + it.w / 2, f.y, 3.5, '#ffd88a']);
+        if (it.purifier) list.push({ y: 998, d: () => this.purifierBadge(f, now) });
       }
     }
 
@@ -172,7 +174,8 @@ export class Renderer {
       if (!o.online || o.map !== m.id || !o.pub) continue;
       const sheet = charSheet(o.pub.l || {});
       const fr = o.moving ? Math.floor(o.animT * 8) % 4 : 0;
-      list.push({ y: o.y, d: () => this.drawChar(sheet, o.pub.d || 'down', fr, o.x, o.y, o.pub.a ? { tool: o.pub.a, tier: o.pub.at || 2, k: (now % 380) / 380 } : null) });
+      if (o.pub.z) list.push({ y: o.y, d: () => this.drawSleeper(sheet, o.x, o.y, o.pub.z) });
+      else list.push({ y: o.y, d: () => this.drawChar(sheet, o.pub.d || 'down', fr, o.x, o.y, o.pub.a ? { tool: o.pub.a, tier: o.pub.at || 2, k: (now % 380) / 380 } : null) });
       list.push({ y: 999, d: () => {}, tag: { x: o.x, y: o.y, text: o.pub.n, color: '#9fe8ff', near: true, bubble: o.bubble && o.bubble.until > Date.now() ? o.bubble.text : null } });
     }
 
@@ -203,7 +206,8 @@ export class Renderer {
     const act = g.action && g.action.until > now ? g.action : null;
     const myFr = g.moving ? Math.floor(g.animT * 9) % 4 : 0;
     const blink = g.invuln > 0 && Math.floor(now / 70) % 2;
-    list.push({ y: g.py, d: () => { if (!blink) this.drawChar(meSheet, g.dir, myFr, g.px, g.py, act ? { tool: act.tool, tier: g.me.tools[act.tool], k: 1 - (act.until - now) / (act.dur || 320) } : null, false); } });
+    if (g.sleeping) list.push({ y: g.py, d: () => this.drawSleeper(meSheet, g.px, g.py, g.sleeping === 'bed' ? 1 : 2) });
+    else list.push({ y: g.py, d: () => { if (!blink) this.drawChar(meSheet, g.dir, myFr, g.px, g.py, act ? { tool: act.tool, tier: g.me.tools[act.tool], k: 1 - (act.until - now) / (act.dur || 320) } : null, false); } });
     if (g.myBubble && g.myBubble.until > Date.now()) list.push({ y: 999, d: () => {}, tag: { x: g.px, y: g.py, text: '', bubble: g.myBubble.text } });
 
     list.sort((a, b) => a.y - b.y);
@@ -272,6 +276,53 @@ export class Renderer {
       c.fillStyle = '#ffffff';
       c.font = `6px ${FONT}`;
       c.fillText('z', dx + 13, dy + 2 - (Math.floor(performance.now() / 500) % 3));
+    }
+  }
+
+  // 잠든 사람: z=1 침대에서 이불 밖으로 얼굴만, z=2 그 자리에 쓰러져 누움. 머리 위로 z 가 떠오른다.
+  drawSleeper(sheet, x, y, z) {
+    const c = this.ctx;
+    const img = sheet.down.walk[0];
+    const px = Math.round(x * TS); const py = Math.round(y * TS);
+    let zx; let zy;
+    if (z === 1) {
+      c.drawImage(img, 0, 0, 16, 11, px - 8, py - 18, 16, 11);
+      zx = px + 5; zy = py - 18;
+    } else {
+      this.shadow(x, y, 9);
+      c.save();
+      c.translate(px, py - 3);
+      c.rotate(-Math.PI / 2);
+      c.drawImage(img, -8, -12);
+      c.restore();
+      zx = px + 8; zy = py - 10;
+    }
+    const t = performance.now() / 700;
+    c.fillStyle = '#ffffff';
+    c.font = `6px ${FONT}`;
+    for (let i = 0; i < 2; i++) {
+      const k = (t + i * 0.5) % 1;
+      c.globalAlpha = 1 - k;
+      c.fillText('z', zx + k * 4 + i * 2, zy - k * 8);
+    }
+    c.globalAlpha = 1;
+  }
+
+  // 정수기 위: 내리는 중이면 진행 막대, 다 내렸으면 커피잔
+  purifierBadge(f, now) {
+    const c = this.ctx;
+    const ms = Date.now();
+    const st = brewState(f, ms);
+    const cx = Math.round((f.x + 0.5) * TS); const top = Math.round(f.y * TS) - 16;
+    if (st.r) {
+      const bob = Math.round(Math.sin(now / 300) * 1.5);
+      c.fillStyle = '#fbeecb'; c.fillRect(cx - 7, top - 12 + bob, 14, 12);
+      c.strokeStyle = '#5e3a1e'; c.lineWidth = 1; c.strokeRect(cx - 6.5, top - 11.5 + bob, 13, 11);
+      c.drawImage(itemIcon('coffee'), cx - 6, top - 12 + bob, 12, 12);
+    } else if (st.b) {
+      const p = brewProgress(f, ms);
+      c.fillStyle = '#2b1e1c'; c.fillRect(cx - 7, top - 3, 14, 4);
+      c.fillStyle = '#c89060'; c.fillRect(cx - 6, top - 2, Math.round(12 * p), 2);
     }
   }
 
