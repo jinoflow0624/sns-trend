@@ -200,7 +200,7 @@ function buildTown() {
 
   b.npcs.push({ id: 'mayor', route: [[13, 10], [23, 10], [23, 16.5], [14.5, 16.5]], speed: 1.2 });
   b.npcs.push({ id: 'minsu', route: [[10, 12.6], [26, 12.6], [26, 16.5], [10, 16.5]], speed: 1.8 });
-  b.npcs.push({ id: 'haon', x: 21.5, y: 14.6 }); // 분수대 옆 버스킹
+  b.npcs.push({ id: 'eunwoo', x: 21.5, y: 14.6 }); // 분수대 옆 버스킹
   b.npcs.push({ id: 'cat', pet: 'cat', route: [[12, 18.3], [24, 18.3], [24, 9.5], [12, 9.5]], speed: 1.1 });
 
   b.scatter('tree', 0.10, 21, grassy);
@@ -226,7 +226,7 @@ function buildLake() {
   b.obj({ t: 'waypoint', x: 6, y: 17, wp: 'lake', name: '호수 석상' });
   b.reserve(5, 16, 3, 3);
   b.obj({ t: 'crate', x: 9, y: 9 });
-  b.npcs.push({ id: 'arin', route: [[4.5, 19.5], [12.5, 19.5]], speed: 0.9 }); // 호숫가 춤 연습
+  b.npcs.push({ id: 'karina', route: [[4.5, 19.5], [12.5, 19.5]], speed: 0.9 }); // 호숫가 춤 연습
   b.npcs.push({ id: 'duck', pet: 'duck', route: [[18, 8], [25, 9], [26, 15], [19, 16]], speed: 0.8 });
   b.scatter('tree', 0.14, 31, grassy);
   b.scatter('flower', 0.12, 32, grassy);

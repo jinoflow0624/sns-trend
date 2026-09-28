@@ -4,16 +4,15 @@ NPC를 누르면 나오는 프로필과 "대화하기" 화면에 쓰는 사진�
 
 ## 넣는 방법
 
-1. 이 폴더에 사진을 넣습니다. 파일 이름은 NPC 아이디 (예: `arin.jpg`, `haon.webp`).
+1. 이 폴더에 사진을 넣습니다. 파일 이름은 NPC 아이디 (예: `karina.jpg`, `eunwoo.webp`).
 2. `portraits.json` 에 한 줄씩 적습니다.
 
 ```json
-{ "arin": "arin.jpg", "haon": "haon.webp" }
+{ "karina": "karina.jpg", "eunwoo": "eunwoo.webp" }
 ```
 
 - 세로 2:3 비율 (예: 800×1200), 얼굴이 위쪽 1/3쯤 오게, 상반신
 - jpg 또는 webp, 한 장에 300KB 이하 권장 (휴대폰 데이터 절약)
-- 실존 인물 사진·연예인 얼굴은 넣지 마세요 (초상권)
 - 올린 뒤에는 `version.json` 과 `src/version.js` 의 버전을 올려야 휴대폰에 새로고침 알림이 뜹니다
 
 ## NPC 아이디 · AI 이미지 프롬프트 예시
@@ -22,8 +21,8 @@ NPC를 누르면 나오는 프로필과 "대화하기" 화면에 쓰는 사진�
 
 | 아이디 | 이름 · 직업 | 프롬프트 예시 |
 |---|---|---|
-| `haon` | 서하온 · 아이돌 연습생 | handsome young Korean man in his early 20s, idol trainee, black two-block haircut, navy bomber jacket, busking with a microphone at a small town plaza fountain, warm evening light |
-| `arin` | 윤아린 · 댄서 | beautiful young Korean woman in her early 20s, dancer, long straight black hair, white crop top and dance pants, lakeside at golden hour, breeze in her hair |
+| `eunwoo` | 차은우 · 가수 겸 배우 | handsome young Korean man in his 20s, singer and actor, black two-block haircut, navy bomber jacket, busking with a microphone at a small town plaza fountain, warm evening light |
+| `karina` | 카리나 · 가수 · 댄서 | beautiful young Korean woman in her 20s, singer and dancer, long straight black hair, white crop top and dance pants, lakeside at golden hour, breeze in her hair |
 | `bomi` | 봄이 · 시장 상인 | cheerful young Korean woman, market vendor, auburn hair in a bun, pink apron, holding a basket of strawberries, cozy village market stall |
 | `silvi` | 실비 · 재봉사 | elegant young woman, tailor, long blonde hair, lavender blouse, measuring tape around neck, sewing studio with fabric rolls |
 | `rea` | 레아 · 모험가 | confident young woman, adventurer, red ponytail, green leather jacket, map and sword, ancient forest ruins background |
