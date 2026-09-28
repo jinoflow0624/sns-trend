@@ -14,6 +14,7 @@ import { fmtClock } from '../game/clock.js';
 import { count } from '../logic/inventory.js';
 import { sfx } from '../game/sound.js';
 import { APP_VERSION } from '../version.js';
+import { DATES, EMOTE_TEXT } from '../dates.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (id, cls = '') => `<img class="ico ${cls}" src="${itemUrl(id)}" alt="">`;
@@ -95,6 +96,32 @@ export class UI {
     sheet.addEventListener('click', e => { if (e.target.id === 'sheet') this.close(); });
     this.renderHotbar();
     this.applyControlClass();
+    // NPC 프로필 사진 (assets/portraits/portraits.json 에 있는 것만. 없으면 도트 초상화)
+    this.portraits = {};
+    fetch('assets/portraits/portraits.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {})).then(j => { this.portraits = j || {}; }).catch(() => {});
+  }
+  portraitUrl(id) { return this.portraits?.[id] ? `assets/portraits/${this.portraits[id]}` : null; }
+  // 초상화: 사진이 있으면 사진, 없으면 도트 캐릭터를 크게
+  portraitHtml(id, cls) {
+    const url = this.portraitUrl(id);
+    return url ? `<img class="${cls} photo" data-face="${esc(id)}" src="${esc(url)}" alt="">` : `<canvas class="${cls} pixel" data-face="${esc(id)}" width="64" height="96"></canvas>`;
+  }
+  drawFaces(root) {
+    // 사진을 못 불러오면 도트 초상화로
+    root.querySelectorAll('img.photo[data-face]').forEach(img => img.addEventListener('error', () => {
+      const c = document.createElement('canvas');
+      c.className = img.className.replace('photo', 'pixel');
+      c.width = 64; c.height = 96;
+      c.dataset.face = img.dataset.face;
+      img.replaceWith(c);
+      this.drawFaces(c.parentElement);
+    }, { once: true }));
+    root.querySelectorAll('canvas[data-face]').forEach(c => {
+      const x = c.getContext('2d');
+      x.imageSmoothingEnabled = false;
+      x.clearRect(0, 0, c.width, c.height);
+      x.drawImage(charSheet({ bottom: '#5a4a3a', ...NPCS[c.dataset.face].look }).down.walk[0], 0, 0, 64, 96);
+    });
   }
 
   applyControlClass() {
@@ -629,13 +656,7 @@ export class UI {
   }
 
   // NPC
-  npcFace(sh, n) {
-    const pc = sh.querySelector('#npcface');
-    if (!pc) return;
-    const x = pc.getContext('2d');
-    x.imageSmoothingEnabled = false;
-    x.drawImage(charSheet({ bottom: '#5a4a3a', ...NPCS[n.id].look }).down.walk[0], 0, -8, 64, 96);
-  }
+  npcFace(sh) { this.drawFaces(sh); }
   pNpc() {
     const g = this.g;
     const n = this.arg;
@@ -646,6 +667,7 @@ export class UI {
     const loved = Object.entries(known).filter(([, v]) => v === 'love').map(([id]) => ITEMS[id]?.name).filter(Boolean);
     this.bind = sh => {
       this.npcFace(sh, n);
+      sh.querySelector('[data-date]')?.addEventListener('click', () => this.openDate(n));
       sh.querySelector('[data-trade]')?.addEventListener('click', () => (shopKind === 'smithy' ? this.open('smithy') : this.openShop(shopKind)));
       sh.querySelector('[data-gift]')?.addEventListener('click', () => this.open('gift', n));
       sh.querySelector('[data-board]')?.addEventListener('click', () => this.open('board'));
@@ -653,10 +675,11 @@ export class UI {
     const hearts = '♥'.repeat(Math.min(5, t.hearts)) + '♡'.repeat(Math.max(0, 5 - t.hearts));
     return {
       title: esc(D.name),
-      body: `<div class="npc"><canvas id="npcface" width="64" height="72"></canvas>
-        <div><div class="muted small">${esc(D.role)} · <span class="hearts">${hearts}</span></div><p class="line">"${lineHtml(t.line)}"</p>${t.first ? '<p class="muted small">오늘 첫 대화라 친밀도가 올랐어요.</p>' : ''}</div></div>
+      body: `<div class="npc">${this.portraitHtml(n.id, 'npc-face')}
+        <div><div class="muted small">${esc(D.role)} · <span class="hearts">${hearts}</span></div>${DATES[n.id] ? `<div class="muted small">${esc(DATES[n.id].profile)}</div>` : ''}<p class="line">"${lineHtml(t.line)}"</p>${t.first ? '<p class="muted small">오늘 첫 대화라 친밀도가 올랐어요.</p>' : ''}</div></div>
         <p class="muted small">좋아할 것 같은 것: ${esc(TASTE_HINT[n.id] || '글쎄요')}${loved.length ? ` · 확실히 좋아하는 것: ${loved.map(esc).join(', ')}` : ''}</p>
         <div class="row">
+          ${DATES[n.id] ? `<button class="btn gold" data-date>${iconImg('heart', 'sm')} 대화하기</button>` : ''}
           ${shopKind ? `<button class="btn" data-trade>${shopKind === 'smithy' ? '도구 강화' : '거래하기'}</button>` : ''}
           ${n.id === 'mayor' ? '<button class="btn" data-board>오늘의 부탁</button>' : ''}
           <button class="btn ghost" data-gift>선물하기</button>
@@ -706,15 +729,16 @@ export class UI {
         this.render();
       }));
       sh.querySelector('[data-gift]')?.addEventListener('click', () => this.open('gift', n));
+      sh.querySelector('[data-date]')?.addEventListener('click', () => this.openDate(n));
     };
     return {
       title: '숲지기 두리',
       cls: 'wide',
-      body: `<div class="npc"><canvas id="npcface" width="64" height="72"></canvas><div><div class="muted small">${esc(NPCS.duri.role)}</div><p class="line">"${lineHtml(t.line)}"</p></div></div>
+      body: `<div class="npc">${this.portraitHtml('duri', 'npc-face')}<div><div class="muted small">${esc(NPCS.duri.role)}</div><p class="line">"${lineHtml(t.line)}"</p></div></div>
         <p class="small">베어 낸 나무와 캐낸 바위는 저절로 다시 나지 않아요. 두리에게 값을 치르면 그 지역의 나무와 바위를 전부 되살려 줘요. (광산 층은 매일 새로 생겨요)</p>
         ${list ? `<div class="list">${list.map(x => `<div class="li ${x.gone ? '' : 'dim'}"><b>${esc(x.name)}</b><span class="muted small">${x.gone ? `${x.gone}개 사라짐` : '그대로예요'}</span><span class="grow"></span>
           ${x.gone ? `<button class="btn small" data-regrow="${x.id}" ${g.me.gold >= x.cost ? '' : 'disabled'}>${fmtN(x.cost)}G 되살리기</button>` : ''}</div>`).join('')}</div>` : '<p class="muted center">살펴보는 중…</p>'}
-        <div class="row"><button class="btn ghost" data-gift>선물하기</button></div>`,
+        <div class="row"><button class="btn gold" data-date>${iconImg('heart', 'sm')} 대화하기</button><button class="btn ghost" data-gift>선물하기</button></div>`,
     };
   }
 
@@ -798,6 +822,113 @@ export class UI {
         ${this.grid('inv', g.me.inv.map((x, k) => ({ key: k, id: x?.id, n: x?.n })))}
         ${detail || '<p class="muted small">칸을 누르면 꺼내거나 넣을 수 있어요.</p>'}`,
     };
+  }
+
+  // ── 대화하기: 연애 시뮬레이션풍 전체 화면 ────────────────────────────────
+  openDate(n) {
+    const g = this.g;
+    const scene = g.dateScene(n.id);
+    if (!scene) return;
+    const D = DATES[n.id];
+    const N = NPCS[n.id];
+    const steps = scene.lines.map(t => ({ t }));
+    if (scene.ask) steps.push({ t: scene.ask, choices: true });
+    else steps[steps.length - 1].choices = true;
+    const el = document.createElement('div');
+    el.className = 'vn';
+    el.style.setProperty('--c1', D.theme[0]);
+    el.style.setProperty('--c2', D.theme[1]);
+    el.innerHTML = `<div class="vn-bg">${Array.from({ length: 14 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(i * 0.37) % 4}s;animation-duration:${4 + (i % 5)}s"></i>`).join('')}</div>
+      ${scene.event ? `<div class="vn-badge">${iconImg('heart', 'sm')} 특별한 이야기</div>` : ''}
+      <button class="vn-x" aria-label="닫기">×</button>
+      <div class="vn-stage"><div class="vn-portrait">${this.portraitHtml(n.id, 'vn-face')}</div><div class="vn-emote"></div></div>
+      <div class="vn-choices"></div>
+      <div class="vn-box">
+        <div class="vn-name"><b></b><span class="vn-role"></span><span class="vn-hearts"></span></div>
+        <p class="vn-text"></p><i class="vn-next">▼</i>
+      </div>`;
+    this.root.appendChild(el);
+    this.drawFaces(el);
+    const $ = q => el.querySelector(q);
+    const hearts = () => { const h = g.hearts(n.id); return `${'♥'.repeat(h)}<em>${'♡'.repeat(10 - h)}</em>`; };
+    let typing = null;
+    let i = -1;
+    let queue = steps;
+    let done = false;
+    const say = (who, text, cls = '') => {
+      $('.vn-name b').textContent = who === 'me' ? g.me.name : N.name;
+      $('.vn-role').textContent = who === 'me' ? '' : N.role;
+      $('.vn-hearts').innerHTML = who === 'me' ? '' : hearts();
+      el.classList.toggle('me-talk', who === 'me');
+      const p = $('.vn-text');
+      p.className = `vn-text ${cls}`;
+      p.textContent = '';
+      clearInterval(typing);
+      let k = 0;
+      const chars = [...text];
+      typing = setInterval(() => {
+        p.textContent += chars[k++] || '';
+        if (k % 3 === 0) sfx('click');
+        if (k >= chars.length) { clearInterval(typing); typing = null; }
+      }, 32);
+      $('.vn-next').hidden = true;
+      p.dataset.full = text;
+    };
+    const finishTyping = () => { clearInterval(typing); typing = null; $('.vn-text').textContent = $('.vn-text').dataset.full; };
+    const emote = e => {
+      const box = $('.vn-emote');
+      box.className = `vn-emote on ${e}`;
+      box.innerHTML = e === 'heart' ? iconImg('heart') : esc(EMOTE_TEXT[e] || '');
+      const pt = $('.vn-portrait');
+      pt.classList.remove('bounce', 'shake');
+      void pt.offsetWidth;
+      pt.classList.add(e === 'sad' || e === 'sweat' ? 'shake' : 'bounce');
+    };
+    const showChoices = () => {
+      const box = $('.vn-choices');
+      box.innerHTML = scene.choices.map(([t], k) => `<button class="vn-choice" data-c="${k}">${esc(t)}</button>`).join('')
+        + (scene.counts ? '' : '<p class="vn-note">오늘은 이미 충분히 이야기했어요 · 친밀도는 내일 다시 올라요</p>');
+      box.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const k = Number(b.dataset.c);
+        box.innerHTML = '';
+        const r = g.dateChoose(scene, k);
+        const after = [{ who: 'me', t: scene.choices[k][0] }, { t: r.reply, emote: r.emote }];
+        if (r.counted) after.push({ note: `${r.gain > 0 ? `친밀도 +${r.gain}` : r.gain < 0 ? `친밀도 ${r.gain}` : '친밀도 그대로'}${r.up ? ` · 하트가 ${r.hearts}개가 됐어요` : ''}`, gain: r.gain });
+        queue = after; i = -1; done = true;
+        next();
+      }));
+    };
+    const close = () => { clearInterval(typing); el.remove(); if (this.panel === 'npc' || this.panel === 'regrow') this.render(); };
+    const next = () => {
+      if (typing) return finishTyping();
+      if ($('.vn-choices').childElementCount) return;
+      i++;
+      if (i >= queue.length) { if (done) return close(); return; }
+      const st = queue[i];
+      if (st.note) {
+        $('.vn-name b').textContent = '';
+        $('.vn-role').textContent = '';
+        $('.vn-hearts').innerHTML = hearts();
+        el.classList.remove('me-talk');
+        const p = $('.vn-text');
+        p.className = `vn-text note ${st.gain > 0 ? 'up' : st.gain < 0 ? 'down' : ''}`;
+        p.dataset.full = st.note;
+        p.textContent = st.note;
+        $('.vn-next').hidden = false;
+        return;
+      }
+      say(st.who || 'npc', st.t);
+      if (st.emote) emote(st.emote);
+      const wait = setInterval(() => {
+        if (typing) return;
+        clearInterval(wait);
+        if (st.choices) showChoices(); else $('.vn-next').hidden = false;
+      }, 50);
+    };
+    el.addEventListener('click', e => { if (e.target.closest('.vn-x')) return close(); next(); });
+    sfx('open');
+    next();
   }
 
   // 가판대 (각자 자기 칸)

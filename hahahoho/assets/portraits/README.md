@@ -1,0 +1,35 @@
+# NPC 프로필 사진
+
+NPC를 누르면 나오는 프로필과 "대화하기" 화면에 쓰는 사진입니다. 사진이 없으면 게임 속 도트 초상화가 대신 나옵니다.
+
+## 넣는 방법
+
+1. 이 폴더에 사진을 넣습니다. 파일 이름은 NPC 아이디 (예: `arin.jpg`, `haon.webp`).
+2. `portraits.json` 에 한 줄씩 적습니다.
+
+```json
+{ "arin": "arin.jpg", "haon": "haon.webp" }
+```
+
+- 세로 2:3 비율 (예: 800×1200), 얼굴이 위쪽 1/3쯤 오게, 상반신
+- jpg 또는 webp, 한 장에 300KB 이하 권장 (휴대폰 데이터 절약)
+- 실존 인물 사진·연예인 얼굴은 넣지 마세요 (초상권)
+- 올린 뒤에는 `version.json` 과 `src/version.js` 의 버전을 올려야 휴대폰에 새로고침 알림이 뜹니다
+
+## NPC 아이디 · AI 이미지 프롬프트 예시
+
+공통으로 붙이면 좋은 말: `portrait, upper body, soft natural light, shallow depth of field, high detail, photorealistic, 2:3 vertical, looking at camera, gentle smile, fictional person`
+
+| 아이디 | 이름 · 직업 | 프롬프트 예시 |
+|---|---|---|
+| `haon` | 서하온 · 아이돌 연습생 | handsome young Korean man in his early 20s, idol trainee, black two-block haircut, navy bomber jacket, busking with a microphone at a small town plaza fountain, warm evening light |
+| `arin` | 윤아린 · 댄서 | beautiful young Korean woman in her early 20s, dancer, long straight black hair, white crop top and dance pants, lakeside at golden hour, breeze in her hair |
+| `bomi` | 봄이 · 시장 상인 | cheerful young Korean woman, market vendor, auburn hair in a bun, pink apron, holding a basket of strawberries, cozy village market stall |
+| `silvi` | 실비 · 재봉사 | elegant young woman, tailor, long blonde hair, lavender blouse, measuring tape around neck, sewing studio with fabric rolls |
+| `rea` | 레아 · 모험가 | confident young woman, adventurer, red ponytail, green leather jacket, map and sword, ancient forest ruins background |
+| `chulsu` | 철수 · 대장장이 | strong middle-aged Korean man, blacksmith, short black hair and beard, gray work apron, forge sparks in background |
+| `sunja` | 순자 할머니 · 식당 주인 | kind elderly Korean woman, restaurant owner, gray hair in a bun, red apron, steaming stew pot, warm kitchen |
+| `kang` | 강태공 · 낚시꾼 | weathered older Korean man, fisherman, cap, teal vest, fishing rod, calm lake at dawn |
+| `mayor` | 촌장님 · 마을 촌장 | dignified elderly man, village chief, white hair and beard, navy vest, town square with notice board |
+| `minsu` | 꼬마 민수 · 마을 아이 | cute young boy about 8 years old, yellow t-shirt, playing with a cat in a village square (아이는 귀엽고 건전하게) |
+| `duri` | 숲지기 두리 · 숲지기 | gentle middle-aged forest keeper, green cap and beard, green work clothes, planting a sapling in a sunlit forest |
