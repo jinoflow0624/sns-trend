@@ -96,7 +96,7 @@ img.spr { image-rendering: pixelated; image-rendering: crisp-edges; display: blo
 .splash { position: fixed; inset: 0; background: #000; display: grid; place-items: center; cursor: pointer; }
 .studio { display: grid; justify-items: center; gap: 10px; animation: studio 2.3s ease both; }
 .studio img { width: 80px; height: 80px; animation: bob 1s ease-in-out infinite; }
-.studio b { font-size: 22px; letter-spacing: .18em; color: var(--gold); }
+.studio b { font-size: clamp(16px, 5.4vw, 22px); letter-spacing: .14em; color: var(--gold); white-space: nowrap; }
 .studio span { font-size: 11px; letter-spacing: .5em; color: var(--muted); }
 @keyframes studio { 0% { opacity: 0; } 20%, 78% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes bob { 50% { transform: translateY(-5px); } }
