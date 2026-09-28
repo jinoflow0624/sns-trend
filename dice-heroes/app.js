@@ -942,6 +942,11 @@ async function playFx(list) {
         sfx.levelup();
         if (!(online ? p.token === online.token : !p.bot)) await toast('🆙', `${p.name} 레벨 ${f.level}!`, '특성 카드를 고르는 중…', 1300);
         break;
+      case 'retro':
+        sfx.quest();
+        floatText(`${E.perkInfo(f.perk).ko} 소급 +${f.amount}`, 'gold', 0);
+        await wait(500);
+        break;
       case 'midas': floatText('👑 황금손 조정 +1', 'gold', -30); break;
       case 'duel': sfx.quest(); await toast('🏆', '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
       case 'charge': if (f.why !== 'quest') floatText(E.chargeText(f), 'mint', -20); break;
@@ -972,7 +977,8 @@ function showLevelUp() {
         const k = E.perkInfo(id), have = E.perkCount(p, id);
         return `<button class="card r${k.rarity}" data-act="perk" data-id="${id}">
           <span class="rar">${E.RARITY[k.rarity].ko}</span><span class="c-ic">${k.icon}</span><b>${k.ko}</b><p>${k.desc}</p>
-          ${have && !k.instant ? `<em>보유 ${have} → ${have + 1}</em>` : ''}${k.instant ? '<em>즉시 받음</em>' : ''}</button>`;
+          ${have && !k.instant ? `<em>보유 ${have} → ${have + 1}</em>` : ''}${k.instant ? '<em>즉시 받음</em>' : ''}
+          ${E.perkRetro(p, id) ? `<em class="retro">지금 고르면 즉시 +${E.perkRetro(p, id)}점</em>` : ''}</button>`;
       }).join('')}
     </div>
   </div></div>`;

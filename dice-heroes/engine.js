@@ -81,11 +81,11 @@ export const CLASSES = [
   { id: 'rogue',   ko: '도적',     icon: '🗝️', color: '#3EE6B4',
     desc: '뒤집기 1회를 들고 시작한다' },
   { id: 'mage',    ko: '마법사',   icon: '🔮', color: '#B36BFF',
-    desc: '얻는 경험치 +35%' },
+    desc: '얻는 경험치 +30%' },
   { id: 'bard',    ko: '음유시인', icon: '🎻', color: '#4FB3FF',
     desc: '의뢰를 깬 턴에 기록하는 점수 +1, 의뢰 보상 조정 +1' },
   { id: 'gambler', ko: '도박사',   icon: '🎲', color: '#FFC83D',
-    desc: '요트 +12점' },
+    desc: '요트 +10점' },
 ];
 export const classInfo = id => CLASSES.find(c => c.id === id);
 
@@ -94,21 +94,21 @@ export const classInfo = id => CLASSES.find(c => c.id === id);
 export const PERKS = [
   { id: 'flip',     ko: '뒤집기 두루마리', icon: '🔄', rarity: 1, max: 9, desc: '주사위 1개를 반대 면(7-눈)으로 뒤집는 기술 2회 충전' },
   { id: 'nudge',    ko: '미세 조정',       icon: '🎯', rarity: 1, max: 9, desc: '주사위 1개를 ±1 바꾸는 기술 2회 충전' },
-  { id: 'basic',    ko: '기초 수련',       icon: '🥋', rarity: 1, max: 2, desc: '상단(에이스~식스) 점수 +2' },
-  { id: 'choice',   ko: '선택의 달인',     icon: '🍀', rarity: 1, max: 2, desc: '초이스 +8' },
+  { id: 'basic',    ko: '기초 수련',       icon: '🥋', rarity: 1, max: 2, desc: '상단(에이스~식스) 점수 +2 (기록한 칸에도 소급)' },
+  { id: 'choice',   ko: '선택의 달인',     icon: '🍀', rarity: 1, max: 2, desc: '초이스 +8 (기록한 칸에도 소급)' },
   { id: 'fame',     ko: '의뢰 전문가',     icon: '📜', rarity: 1, max: 2, desc: '의뢰 보상(뒤집기·조정)이 두 배' },
   { id: 'fast',     ko: '빠른 성장',       icon: '⚡', rarity: 1, max: 2, desc: '얻는 경험치 +25%' },
   { id: 'insure',   ko: '보험',            icon: '🛡️', rarity: 1, max: 1, desc: '0점을 기록하면 경험치 +20, 뒤집기 +1' },
-  { id: 'full',     ko: '풀하우스 장인',   icon: '🏠', rarity: 2, max: 2, desc: '풀하우스 +10' },
-  { id: 'straight', ko: '질주',            icon: '🏃', rarity: 2, max: 2, desc: '두 스트레이트 +8' },
-  { id: 'fourk',    ko: '사냥 본능',       icon: '🐺', rarity: 2, max: 2, desc: '포카인드 +10' },
+  { id: 'full',     ko: '풀하우스 장인',   icon: '🏠', rarity: 2, max: 2, desc: '풀하우스 +10 (기록한 칸에도 소급)' },
+  { id: 'straight', ko: '질주',            icon: '🏃', rarity: 2, max: 2, desc: '두 스트레이트 +6 (기록한 칸에도 소급)' },
+  { id: 'fourk',    ko: '사냥 본능',       icon: '🐺', rarity: 2, max: 2, desc: '포카인드 +10 (기록한 칸에도 소급)' },
   { id: 'reroll',   ko: '재굴림 +1',       icon: '♻️', rarity: 2, max: 2, desc: '매 턴 굴림 기회 +1' },
   { id: 'lucky',    ko: '행운의 부적',     icon: '🧿', rarity: 2, max: 1, desc: '매 굴림에서 나온 1은 한 번 더 굴린다' },
   { id: 'chain',    ko: '연쇄 의뢰',       icon: '⛓️', rarity: 2, max: 1, desc: '한 턴에 퀘스트를 2개까지 깬다' },
   { id: 'scholar',  ko: '현자의 눈',       icon: '👁️', rarity: 2, max: 1, desc: '이후 레벨업 때 카드 4장 중에 고른다' },
   { id: 'sixth',    ko: '여섯 번째 주사위', icon: '🌟', rarity: 3, max: 1, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
   { id: 'midas',    ko: '황금손',          icon: '👑', rarity: 3, max: 1, desc: '내 턴이 시작될 때마다 조정 +1' },
-  { id: 'yacht',    ko: '요트 신봉자',     icon: '⛵', rarity: 3, max: 1, desc: '요트 +40, 뒤집기 1회 충전' },
+  { id: 'yacht',    ko: '요트 신봉자',     icon: '⛵', rarity: 3, max: 1, desc: '요트 +20 (기록한 칸에도 소급), 뒤집기 1회 충전' },
   // 대체 보상 — 고를 만한 특성이 모자랄 때만 나온다 (보유 목록에 남지 않고 즉시 받는다)
   { id: 'toolkit',  ko: '모험가 공구함',   icon: '🧰', rarity: 1, max: 99, instant: true, filler: true, desc: '뒤집기 1회 + 조정 1회 충전' },
   { id: 'nudgeBag', ko: '조정 꾸러미',     icon: '🎒', rarity: 1, max: 99, instant: true, filler: true, desc: '조정 3회 충전' },
@@ -119,7 +119,13 @@ const PERK_CATS = {
   basic: ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'],
   choice: ['choice'], full: ['full'], straight: ['sstr', 'lstr'], fourk: ['four'], yacht: ['yacht'],
 };
-export const perkUseless = (p, id) => !!PERK_CATS[id] && PERK_CATS[id].every(c => p.scores[c] !== null);
+// 한 장당 칸마다 더하는 점수
+const PERK_AMT = { basic: 2, choice: 8, full: 10, straight: 6, fourk: 10, yacht: 20 };
+// 소급 적용이 있어서, 칸이 다 찼어도 점수를 낸 칸이 하나라도 있으면 쓸모가 있다.
+// 해당 칸을 모두 0점으로 버렸을 때만 효과가 없다.
+export const perkUseless = (p, id) => !!PERK_CATS[id] && PERK_CATS[id].every(c => p.scores[c] === 0);
+// 지금 고르면 이미 기록한 칸에 바로 더해질 점수 (카드에 표시)
+export const perkRetro = (p, id) => (PERK_CATS[id] || []).filter(c => p.scores[c] > 0).length * (PERK_AMT[id] || 0);
 export const perkInfo = id => PERKS.find(p => p.id === id);
 export const RARITY = { 1: { ko: '일반', w: 60 }, 2: { ko: '희귀', w: 30 }, 3: { ko: '전설', w: 10 } };
 
@@ -182,9 +188,9 @@ const EVENT_DECK = ['calm', 'festival', 'fog', 'wind', 'bounty', 'zen', 'jackpot
 // 의뢰 보상(뒤집기·조정)으로 더 좋은 족보를 만들어 피해를 키운다. 12라운드 안에 쓰러뜨리면 승리.
 // 난이도 d: 0 쉬움 / 1 보통 / 2 매우 어려움.  능력 수치는 [쉬움, 보통, 매우 어려움] 순서.
 export const DIFFS = [
-  { id: 0, ko: '쉬움',        hp: 170, color: '#3EE6B4' },
-  { id: 1, ko: '보통',        hp: 205, color: '#FFC83D' },
-  { id: 2, ko: '매우 어려움', hp: 235, color: '#E8435A' },
+  { id: 0, ko: '쉬움',        hp: 176, color: '#3EE6B4' },
+  { id: 1, ko: '보통',        hp: 213, color: '#FFC83D' },
+  { id: 2, ko: '매우 어려움', hp: 244, color: '#E8435A' },
 ];
 
 export const BOSSES = [
@@ -209,7 +215,7 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: [1.16, 1.03, 0.91],
+    id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: [1.22, 1.03, 0.87],
     skills: [
       { id: 'twist', icon: '🌀', ko: '운명 비틀기',
         desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 첫 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
@@ -326,9 +332,9 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
   if (s.mode === 'coop') {
     const id = bossInfo(opts.boss) ? opts.boss : 'dragon';
     const diff = Math.min(2, Math.max(0, opts.diff | 0));
-    // 인원 보정 (난이도별, 봇 시뮬레이션으로 맞춘 값): 쉬움은 인원이 많을수록 편해져서 1인당 체력을 조금 늘리고,
-    // 보통·매우 어려움은 보스 능력이 모두에게 걸려 인원이 많을수록 불리해서 1인당 체력을 줄인다
-    const party = [[1, 1.015, 1.025, 1.035], [1, 0.97, 0.94, 0.92], [1, 0.92, 0.88, 0.85]][diff][players.length - 1];
+    // 인원 보정 (난이도별, 봇 시뮬레이션으로 맞춘 값): 인원이 많을수록 레벨업·소급 보너스가 쌓여
+    // 파티가 강해지므로 1인당 체력을 조금씩 늘린다
+    const party = [[1, 1.045, 1.055, 1.065], [1, 0.99, 0.985, 0.98], [1, 0.96, 0.95, 0.94]][diff][players.length - 1];
     const hp = Math.round(DIFFS[diff].hp * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
   }
@@ -462,11 +468,11 @@ export function scoreParts(s, p, cat, d = s.dice) {
     }
     if (cat === 'choice') add('선택의 달인', 8 * perkCount(p, 'choice'));
     if (cat === 'full') add('풀하우스 장인', 10 * perkCount(p, 'full'));
-    if (cat === 'sstr' || cat === 'lstr') add('질주', 8 * perkCount(p, 'straight'));
+    if (cat === 'sstr' || cat === 'lstr') add('질주', PERK_AMT.straight * perkCount(p, 'straight'));
     if (cat === 'four') add('사냥 본능', 10 * perkCount(p, 'fourk'));
     if (cat === 'yacht') {
-      add('요트 신봉자', 40 * perkCount(p, 'yacht'));
-      add('도박사', p.cls === 'gambler' ? 12 : 0);
+      add('요트 신봉자', PERK_AMT.yacht * perkCount(p, 'yacht'));
+      add('도박사', p.cls === 'gambler' ? 10 : 0);
       add('요트 잭팟', ev === 'jackpot' ? 50 : 0);
     }
   }
@@ -499,7 +505,7 @@ export function claimableQuests(s, p = current(s), d = s.dice) {
 }
 
 export function xpMultiplier(s, p) {
-  let m = 1 + 0.25 * perkCount(p, 'fast') + (p.cls === 'mage' ? 0.35 : 0);
+  let m = 1 + 0.25 * perkCount(p, 'fast') + (p.cls === 'mage' ? 0.3 : 0);
   if (event(s) === 'festival') m *= 2;
   return m;
 }
@@ -656,6 +662,19 @@ export function pickPerk(s, perkId) {
     return;
   }
   p.perks[perkId] = perkCount(p, perkId) + 1;
+  // 칸 강화 특성은 이미 점수를 낸 칸에도 소급 적용 (0점으로 버린 칸은 제외)
+  if (PERK_CATS[perkId]) {
+    const before = cardTotal(p);
+    const cats = PERK_CATS[perkId].filter(c => p.scores[c] > 0);
+    cats.forEach(c => (p.scores[c] += PERK_AMT[perkId]));
+    const gained = cardTotal(p) - before;   // 상단 보너스를 새로 달성하면 그것도 포함
+    if (gained > 0) {
+      log(s, `${p.name} · 「${k.ko}」 소급 적용 +${gained}`);
+      fx(s, { type: 'retro', player: s.turn, perk: perkId, amount: gained, cats });
+      if (s.boss) dealDamage(s, s.turn, gained, 'retro');
+      if (s.ended) return;
+    }
+  }
   if (perkId === 'flip') p.flip += 2;
   if (perkId === 'nudge') p.nudge += 2;
   if (perkId === 'yacht') p.flip += 1;
