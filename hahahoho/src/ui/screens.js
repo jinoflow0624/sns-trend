@@ -6,6 +6,7 @@ import { hash2 } from '../logic/rng.js';
 import { listSlots, clearSlot, SLOT_COUNT } from '../net/slots.js';
 import { helpHtml, jobIcon } from './ui.js';
 import { sfx } from '../game/sound.js';
+import { APP_VERSION } from '../version.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ago = t => {
@@ -166,12 +167,14 @@ export class Screens {
         <button class="btn" data-a="join">친구 세계 참가</button>
         <div class="row"><button class="btn ghost" data-a="help">게임 방법</button><button class="btn ghost" data-a="settings">설정</button></div>
         <p class="muted small center">${this.h.firebase ? '온라인 서버에 연결돼 있어요' : '서버 설정이 없어 이 기기에만 저장돼요'}</p>
+        <p class="muted small center">버전 ${APP_VERSION} · <button class="linkbtn" data-a="refresh">최신 버전 받기</button></p>
       </div>`);
     const on = (a, fn) => w.querySelector(`[data-a="${a}"]`)?.addEventListener('click', () => { sfx('click'); fn(); });
     on('cont', () => this.h.onContinue(latest[1]));
     on('new', () => this.pickSlotForNew());
     on('slots', () => this.slots());
     on('join', () => this.joinCode());
+    on('refresh', () => this.h.onRefresh?.());
     on('help', () => this.help());
     on('settings', () => this.settings());
   }

@@ -206,3 +206,10 @@ test('시장: 시세는 날마다 다르고 같은 날엔 같다', () => {
   assert.equal(a.length, 3);
   assert.notDeepEqual(a, dailyRequests('ABCDE', 5));
 });
+
+test('앱 버전: version.json 과 src/version.js 가 같다 (새 버전 알림용)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { APP_VERSION } = await import('../src/version.js');
+  const json = JSON.parse(await readFile(new URL('../version.json', import.meta.url), 'utf8'));
+  assert.equal(json.v, APP_VERSION);
+});
