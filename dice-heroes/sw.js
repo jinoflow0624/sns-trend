@@ -6,7 +6,7 @@
 const CACHE = 'dh-cache';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
-  'scenes.js', 'tutorial.js', 'net.js', 'fireconfig.js', 'manifest.webmanifest',
+  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'fireconfig.js', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
   'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png',
 ];

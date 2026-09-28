@@ -625,3 +625,161 @@ img.t-boss { width: 44px; height: 44px; }
 .row .nm small.bonus-src { color: var(--mint); font-weight: 700; }
 
 .card em.retro { color: var(--gold); font-weight: 700; }
+
+/* ── v0.5: 한 화면 레이아웃 · 점수표 창 · 연출 ─────────────────────────────── */
+.classes { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.cls { font-size: 10px; }
+
+/* 게임 화면은 스크롤 없이 한 화면에 담는다. 남는 높이는 주사위 트레이가 가져간다. */
+.screen.game {
+  height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(4px + env(safe-area-inset-bottom, 0px));
+}
+.game > * { flex: none; }
+.game .hud { grid-template-columns: 40px auto 1fr 40px; gap: 6px; }
+.game .icon-btn { width: 40px; height: 40px; font-size: 16px; }
+.game .round-chip b { font-size: 17px; }
+.game .event-chip { padding: 0 6px; }
+.game .ev-ic { font-size: 18px; }
+
+.game .member { padding: 2px 5px; }
+.game .m-por img { width: 28px; height: 28px; }
+.game .m-info .pts { font-size: 14px; }
+
+.game .board { padding: 5px 6px 6px; }
+.game .board-head { margin-bottom: 5px; font-size: 12px; }
+.game .help-link { padding: 0 2px; }
+.game .quest { padding: 6px 4px 3px; }
+.game .q-ic { font-size: 16px; }
+.game .q-body b { font-size: 11px; }
+.game .q-body small { font-size: 9px; }
+.game .q-rw { font-size: 9px; margin-top: 2px; }
+
+.game .table { flex: 1 1 auto; min-height: 120px; display: flex; flex-direction: column; }
+.game .tray { flex: 1 1 auto; height: auto; min-height: 0; }
+
+.game .controls { grid-template-columns: 1.1fr 1fr 1fr 1.2fr; gap: 6px; }
+.game .controls .pbtn { min-height: 52px; padding: 2px 4px; }
+.game .roll { font-size: 14px; }
+.game .roll .left-n { font-size: 10px; }
+.game .tool { min-width: 0; font-size: 11px; }
+.sheet-btn { flex-direction: column; gap: 0; font-size: 11px; line-height: 1.15; border-image-source: var(--fr-dark); }
+.sheet-btn span { font-size: 16px; line-height: 1.1; }
+.sheet-btn b { position: absolute; top: -10px; right: -10px; background: var(--mint); color: #052E22; font-size: 11px; min-width: 20px; padding: 1px 4px; border: 2px solid var(--ink); text-shadow: none; }
+.sheet-btn.ready { border-image-source: var(--fr-mint); color: #052E22; text-shadow: none; animation: toolOn .8s ease-in-out infinite; }
+.sheet-btn.ready b { background: var(--gold); color: #3B2300; }
+.game .tip { min-height: 22px; font-size: 11px; line-height: 1.3; }
+.game .tip .pbtn.small { min-height: 30px; }
+
+/* 영웅 줄 */
+.hero-strip {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center;
+  padding: 4px 6px; background: #140F36; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 55%, #221B57);
+}
+.hs-por { position: relative; width: 36px; height: 36px; display: grid; place-items: center; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c) 45%, #221B57), #140F36 70%); }
+.hs-por img { width: 32px; height: 32px; }
+.hs-por .lv { position: absolute; right: -6px; bottom: -4px; font-size: 9px; font-weight: 700; line-height: 1; background: var(--ruby); color: #fff; padding: 2px 3px; border: 2px solid var(--ink); }
+.hs-main { min-width: 0; display: grid; gap: 2px; }
+.hs-name { display: flex; gap: 6px; align-items: baseline; min-width: 0; white-space: nowrap; overflow: hidden; }
+.hs-name b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+.hs-name span { font-size: 10px; color: var(--muted); }
+.hero-strip .xpbar { height: 14px; margin: 0; }
+.hero-strip .xpbar em { font-size: 9px; }
+.hs-perks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; max-width: 46vw; max-height: 44px; overflow: hidden; }
+.hs-perks .dim { font-size: 10px; }
+.perk-ic { position: relative; width: 22px; height: 22px; display: grid; place-items: center; font-size: 13px; background: #0E0A2C; border: 2px solid var(--rc); }
+.perk-ic b { position: absolute; right: -4px; bottom: -5px; font-size: 8px; line-height: 1; padding: 1px 2px; background: var(--gold); color: #3B2300; }
+
+/* 게임 기록: 맨 아래 한 줄, 작고 흐리게 (누르면 최근 기록) */
+.log-line { font-size: 9px; line-height: 1.4; color: var(--muted); opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; cursor: pointer; }
+
+/* 점수표 창: 의뢰 게시판 바로 아래에 뜨고 나머지는 어둡게 */
+.sheet-dim { position: fixed; inset: 0; z-index: 40; background: rgba(6, 4, 26, .66); animation: fade .15s; }
+.game.sheet-open .board { position: relative; z-index: 41; }
+.sheet-pop {
+  position: fixed; z-index: 42; left: 50%; top: var(--top, 30%); transform: translateX(-50%);
+  width: min(calc(100vw - 16px), 504px);
+  max-height: calc(100vh - var(--top, 30%) - 8px); max-height: calc(100dvh - var(--top, 30%) - 8px - env(safe-area-inset-bottom, 0px));
+  overflow: auto; overscroll-behavior: contain; filter: drop-shadow(0 6px 0 var(--ink));
+  animation: sheetIn .22s cubic-bezier(.2,1.3,.4,1);
+}
+@keyframes sheetIn { from { transform: translate(-50%, 24px); opacity: 0; } }
+.sheet-pop .sheet-head { flex-wrap: wrap; row-gap: 2px; }
+.sheet-pop .sheet-head h3 { font-size: 15px; }
+.sp-close { font-size: 11px; font-weight: 700; padding: 4px 8px; background: #2A2270; border: 2px solid var(--ink); color: #fff; }
+.sheet-pop .row { min-height: 36px; padding: 3px 7px; }
+.sheet-pop .bonus { padding: 4px; }
+.sheet-pop .totals { margin-top: 6px; padding-top: 6px; }
+.row.combo { box-shadow: inset 0 0 0 3px var(--mint), 0 0 12px rgba(62,230,180,.55); background: #173A48; animation: comboGlow 1s ease-in-out infinite; }
+.row.combo.best { box-shadow: inset 0 0 0 3px var(--gold), 0 0 14px rgba(255,200,61,.6); }
+@keyframes comboGlow { 50% { background: #1E4C5C; } }
+.combo-tag { position: absolute; top: -8px; left: -4px; font-size: 9px; font-weight: 700; background: var(--mint); color: #052E22; padding: 0 4px; border: 2px solid var(--ink); }
+.member.viewing { box-shadow: inset 0 0 0 2px var(--sky); }
+
+/* 보스 패널 (작게) · 분노하면 커지고 불탄다 */
+.game .boss-panel { padding: 5px 8px; gap: 8px; position: relative; z-index: 1; }
+.game .boss-art { width: 68px; height: 68px; transition: transform .4s cubic-bezier(.2,1.5,.4,1); }
+.game .boss-art img.boss { width: 68px; height: 68px; }
+.game .boss-name b { font-size: 13px; }
+.game .hp { height: 17px; }
+.game .skill-chip { font-size: 10px; }
+.boss-panel.rage .boss-art { transform: scale(1.32) translateY(-3px); z-index: 2; }
+.boss-panel.rage .boss-art img.boss { animation: rageShake .18s steps(2) infinite; filter: drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 2px #fff); }
+.boss-panel.rage .aura { inset: -6px; background: radial-gradient(circle, color-mix(in srgb, var(--c) 90%, #fff), color-mix(in srgb, var(--c) 40%, transparent) 45%, transparent 72%); animation: aura .5s ease-in-out infinite; }
+@keyframes rageShake { 50% { transform: translate(1px, -1px) scale(1.02); } }
+.boss-panel.rage { box-shadow: inset 0 0 0 2px var(--c), 0 0 18px color-mix(in srgb, var(--c) 70%, transparent); animation: rageBg2 .9s ease-in-out infinite; }
+@keyframes rageBg2 { 50% { background: radial-gradient(120% 140% at 0% 50%, color-mix(in srgb, var(--c) 55%, #120C30), #0E0A28 70%); } }
+.boss-panel.rage .rage-tag { background: var(--c); color: #fff; }
+
+/* 화면 전체 연출 캔버스 · 흔들림 */
+.fx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+.shaking { animation: shk .4s steps(8) both; }
+@keyframes shk {
+  12% { transform: translate(var(--sh), 0); } 25% { transform: translate(calc(var(--sh) * -1), 2px); }
+  37% { transform: translate(calc(var(--sh) * .7), -2px); } 50% { transform: translate(calc(var(--sh) * -.6), 1px); }
+  62% { transform: translate(calc(var(--sh) * .4), 0); } 75% { transform: translate(calc(var(--sh) * -.3), -1px); }
+  100% { transform: none; }
+}
+.float.heal { color: #8CF28C; }
+
+/* 보스 등장: 대각선으로 화면을 가르는 띠 + 이름 + 거대한 모습 */
+.overlay.boss-intro { background: #06041A; overflow: hidden; padding: 0; display: block; animation: none; }
+.bi-band {
+  position: absolute; left: -30%; width: 160%; top: calc(50% - 17vmin); height: 34vmin;
+  transform: rotate(-16deg);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, #06041A), var(--c) 45%, color-mix(in srgb, var(--c) 55%, #fff));
+  box-shadow: 0 0 0 5px #06041A, 0 0 0 9px #fff, 0 0 60px var(--c);
+  animation: biBand .38s cubic-bezier(.2,1.1,.3,1) .05s both; overflow: hidden;
+}
+.bi-band i { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 3px, transparent 3px 26px); animation: biLines .25s linear infinite; }
+.bi-band.thin { top: calc(50% + 21vmin); height: 3vmin; box-shadow: none; background: #fff; animation-delay: .16s; opacity: .8; }
+@keyframes biBand { from { transform: translateX(-110%) rotate(-16deg); } }
+@keyframes biLines { to { background-position: -26px 0; } }
+.bi-boss {
+  position: absolute; right: -8vw; top: 44%; width: min(70vmin, 460px); height: auto;
+  transform: translateY(-62%); filter: drop-shadow(0 0 0 #06041A) drop-shadow(8px 8px 0 #06041A) drop-shadow(0 0 24px var(--c));
+  animation: biBoss .5s cubic-bezier(.2,1.3,.4,1) .2s both, bossIdle 1.6s ease-in-out infinite .8s;
+}
+@keyframes biBoss { from { transform: translate(90vw, -62%); } }
+.bi-name {
+  position: absolute; left: 5vw; bottom: 13vh; display: grid; justify-items: start; line-height: 1;
+  transform: rotate(-16deg); transform-origin: left bottom; animation: biSlam .32s cubic-bezier(.2,1.6,.4,1) .42s both;
+}
+.bi-name small { font-size: clamp(16px, 5.5vw, 30px); font-weight: 700; color: #fff; letter-spacing: .12em; text-shadow: 3px 3px 0 #06041A; margin-left: .3em; }
+.bi-name b {
+  font-size: clamp(56px, 19vw, 132px); font-weight: 700; color: #fff; letter-spacing: -.02em; white-space: nowrap;
+  text-shadow: 4px 0 0 #06041A, -4px 0 0 #06041A, 0 4px 0 #06041A, 0 -4px 0 #06041A, 8px 10px 0 var(--c), 0 0 34px var(--c);
+}
+@keyframes biSlam { from { transform: rotate(-16deg) scale(3.2); opacity: 0; } }
+.bi-flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: biFlash .5s ease-out .42s; pointer-events: none; }
+@keyframes biFlash { 0% { opacity: .9; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fx-canvas { display: none; } }
+.game .roll span { white-space: nowrap; font-size: 13px; }
+.sheet-pop .row { min-height: 32px; padding: 2px 6px; }
+.sheet-pop .row .nm { font-size: 12px; white-space: nowrap; }
+.sheet-pop .row .nm small { font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.sheet-pop .row .v { font-size: 15px; }
+.sheet-pop .col { gap: 3px; }
+.sheet-pop .sheet { gap: 6px; }
+.boss-panel.rage .boss-skills { flex-wrap: nowrap; overflow: hidden; }

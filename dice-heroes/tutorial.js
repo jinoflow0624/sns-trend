@@ -28,7 +28,7 @@ export const STEPS = [
   { target: '[data-act=roll]', allow: ['roll'], text: '좋아! 잡은 건 그대로 두고 나머지만 다시 굴려.\n한 턴에 최대 세 번까지 굴릴 수 있어. 남은 횟수는 버튼에 적혀 있어.',
     done: s => s.rollsLeft === 1 },
   { target: '#quests', text: '6이 네 개! 위쪽 의뢰 게시판을 봐.\n조건을 맞춘 의뢰가 반짝이지? 점수를 적으면 같이 해결돼.\n어려운 의뢰일수록 뒤집기·조정을 많이 줘. 먼저 깬 사람 몫이야.', next: '알겠어' },
-  { target: '[data-cat=four]', allow: ['score'], only: { cat: 'four' }, text: '점수표에서 포카인드를 눌러 기록해.\n적은 점수만큼 경험치도 들어와!',
+  { target: '[data-cat=four]', allow: ['score'], only: { cat: 'four' }, text: '족보가 완성되면 점수표가 저절로 떠!\n포카인드를 눌러 기록해. 적은 점수만큼 경험치도 들어오고,\n주사위가 에너지로 뭉쳐 날아가.',
     done: s => s.players[0].scores.four !== null },
   { target: '.cards', allow: ['perk'], text: '레벨 업! 카드 중 하나를 골라.\n고른 특성은 게임 끝까지 영구히 적용돼. 테두리 색이 등급이야.',
     done: s => s.phase === 'roll' && s.round === 2,
@@ -41,7 +41,7 @@ export const STEPS = [
   { target: '[data-tool=nudge]', toolTarget: '#tray', allow: ['tool', 'nudge'], only: { tool: 'nudge', die: 4, d: 1 },
     text: '이번엔 조정! 조정을 누르면 주사위마다 −1 · +1 버튼이 떠.\n맨 오른쪽 1 위의 +1 을 눌러 2로 만들어.',
     done: s => s.dice[4] === 2 },
-  { target: '[data-cat=lstr]', allow: ['score'], only: { cat: 'lstr' }, text: '2·3·4·5·6, 라지 스트레이트 완성!\n30점을 적어.',
+  { target: '[data-cat=lstr]', allow: ['score'], only: { cat: 'lstr' }, text: '2·3·4·5·6, 라지 스트레이트 완성!\n점수표가 떴지? 30점을 적어.\n(📋 족보 완성 버튼으로 언제든 점수표를 열 수 있어)',
     done: s => s.players[0].scores.lstr !== null },
   { text: '이게 전부야!\n12라운드 동안 점수표를 채우고, 의뢰로 뒤집기·조정을 모으고,\n레벨업 카드로 나만의 영웅을 키워.\n최종 점수가 가장 높은 영웅이 승리!', next: '실전 시작', end: true },
 ];

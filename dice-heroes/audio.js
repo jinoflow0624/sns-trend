@@ -280,4 +280,55 @@ export const sfx = {
   turn() { seq(['E5', 'A5'], 0.09, { type: 'p25', vol: 0.12 }); },
   win() { seq(['C5', 'C5', 'C5', 'C5', 'G#4', 'A#4', 'C5', null, 'A#4', 'C5'], 0.12, { type: 'p25', vol: 0.16, dur: 0.14 }); },
   start() { seq(['C5', 'G5', 'C6', 'E6', 'G6'], 0.06, { type: 'p25', vol: 0.16 }); buzz(30); },
+  // 족보 완성 알림
+  combo() { seq(['E6', 'G6', 'C7'], 0.045, { type: 'p12', vol: 0.13 }); buzz(20); },
+  // 주사위가 에너지로 모이는 소리 (점점 높아진다)
+  charge(power = 1) {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'p12', f: 220, slide: 880 + power * 400, t, dur: 0.55, vol: 0.12 });
+    voice(sfxGain, { type: 'p25', f: 110, slide: 440 + power * 200, t: t + 0.05, dur: 0.5, vol: 0.07 });
+  },
+  whoosh() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.28, vol: 0.2, hp: 1800, lp: 9000 });
+    voice(sfxGain, { type: 'p50', f: 1400, slide: 300, t, dur: 0.25, vol: 0.06 });
+  },
+  boom(power = 1) {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 180, slide: 30, t, dur: 0.35 + power * 0.15, vol: 0.6 });
+    noise(sfxGain, { t, dur: 0.3 + power * 0.25, vol: 0.32, hp: 200, lp: 4000 });
+    if (power > 1) seq(['C6', 'G6', 'C7'], 0.05, { type: 'p25', vol: 0.12 });
+    buzz(40 + power * 30);
+  },
+  fire() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    for (let i = 0; i < 10; i++) noise(sfxGain, { t: t + i * 0.06 + Math.random() * 0.03, dur: 0.07, vol: 0.14, hp: 400, lp: 3000 });
+    voice(sfxGain, { type: 'p50', f: 300, slide: 80, t, dur: 0.6, vol: 0.08 });
+  },
+  twist() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'p12', f: 900, slide: 200, t, dur: 0.5, vol: 0.1, vib: 3 });
+    voice(sfxGain, { type: 'p25', f: 300, slide: 1200, t: t + 0.1, dur: 0.45, vol: 0.06 });
+  },
+  drum() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 120, slide: 35, t, dur: 0.22, vol: 0.7 });
+    noise(sfxGain, { t, dur: 0.12, vol: 0.18, hp: 100, lp: 1200 });
+    buzz(35);
+  },
+  // 보스 등장 — 칼로 베는 소리 + 낮은 굉음
+  slash() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.18, vol: 0.3, hp: 3000, lp: 12000 });
+    voice(sfxGain, { type: 'tri', f: 90, slide: 30, t: t + 0.05, dur: 0.9, vol: 0.6 });
+    voice(sfxGain, { type: 'p50', f: 110, slide: 55, t: t + 0.05, dur: 0.8, vol: 0.08 });
+    buzz(90);
+  },
 };

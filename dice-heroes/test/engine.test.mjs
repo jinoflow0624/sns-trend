@@ -292,5 +292,56 @@ test('보스 3종 × 난이도 3 봇 완주', () => {
   }
 });
 
+test('수도승: 남은 굴림 1회당 조정 +1', () => {
+  const s = E.createGame([{ name: 'M', cls: 'monk' }, { name: 'B', cls: 'mage' }], 21);
+  s.board = [];
+  s.events[0] = 'calm';
+  E.roll(s);
+  assert.equal(s.rollsLeft, 2);
+  s.dice = [1, 2, 3, 4, 6];                  // 경험치 16: 레벨업 없이 다음 사람 차례로
+  E.commitScore(s, 'choice');
+  assert.equal(s.players[0].nudge, 2);
+  E.drainFx(s);
+  E.roll(s); E.roll(s); E.roll(s);            // 다른 직업은 굴림을 다 써도 없음
+  E.commitScore(s, 'choice');
+  assert.equal(s.players[1].nudge, 0);
+});
+test('운명 비틀기는 두 번째 굴림 직후, fx에 바뀌기 전 눈', () => {
+  const s = coop('lich', 2, 1);              // 매우 어려움: 매 라운드
+  s.board = [];
+  E.drainFx(s);
+  E.roll(s);
+  assert.ok(!E.drainFx(s).some(f => f.skill === 'twist'));
+  const before = s.dice.slice();
+  E.roll(s);
+  const f = E.drainFx(s).find(x => x.skill === 'twist');
+  assert.ok(f && f.from && f.dice.length === 1);
+  const i = f.dice[0];
+  assert.equal(s.dice[i], 7 - f.from[i]);
+  assert.equal(f.from.length, before.length);
+});
+test('화염 숨결은 첫 굴림, 가장 높은 주사위가 1로 (fx.from 은 타기 전)', () => {
+  const s = coop('dragon', 2, 1);            // 매우 어려움: 2라운드마다
+  s.board = [];
+  s.round = 2; s.events[1] = 'calm';
+  E.drainFx(s);
+  E.roll(s);
+  const f = E.drainFx(s).find(x => x.skill === 'breath');
+  assert.ok(f && f.from);
+  const top = Math.max(...f.from);
+  f.dice.forEach(i => { assert.equal(s.dice[i], 1); assert.equal(f.from[i], top === f.from[i] ? top : f.from[i]); });
+  E.roll(s);
+  assert.ok(!E.drainFx(s).some(x => x.skill === 'breath'));
+});
+test('점수 fx 에 기록한 주사위가 남는다 (공격 연출용)', () => {
+  const s = E.createGame([{ name: 'A', cls: 'warrior' }, { name: 'B', cls: 'mage' }], 5);
+  s.board = [];
+  E.roll(s);
+  s.dice = [3, 3, 3, 2, 2];
+  E.commitScore(s, 'full');
+  const f = E.drainFx(s).find(x => x.type === 'score');
+  assert.deepEqual(f.dice, [3, 3, 3, 2, 2]);
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
