@@ -836,10 +836,9 @@ function sheet(p, idx, prev, best, canPick, combos = []) {
     const sub = r?.bonus?.length && r.pts > 0
       ? `<small class="bonus-src">${r.bonus.map(b => `${esc(b.ko)} +${b.amt}`).join(' · ')}</small>`
       : `<small>${CAT_HELP[c.id].rule}</small>`;
+    const tag = combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
     return `<button class="row ${cls}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
-      <span class="nm">${c.ko}${sub}</span><span class="v">${val}</span>
-      ${combo ? '<span class="combo-tag">완성!</span>' : ''}
-      ${c.id === best && r?.pts > 0 ? '<span class="best-tag">최고</span>' : ''}</button>`;
+      <span class="nm"><b>${c.ko}${tag}</b>${sub}</span><span class="v">${val}</span></button>`;
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
   const b = E.breakdown(p);
