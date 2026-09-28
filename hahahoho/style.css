@@ -237,7 +237,7 @@ h3 { margin: 14px 0 6px; font-size: 14px; color: var(--wood-d); }
 .npc { display: flex; gap: 12px; align-items: flex-start; }
 .npc .npc-face { width: 84px; height: 112px; flex: none; border: 2px solid var(--wood); border-radius: 10px; background: linear-gradient(#fff4dc, #f1dcaa); }
 .npc .npc-face.pixel { image-rendering: pixelated; padding: 4px 6px 0; }
-.npc .npc-face.photo { object-fit: cover; box-shadow: 0 2px 0 var(--wood-d); }
+.npc .npc-face.photo { height: auto; max-height: 160px; object-fit: contain; box-shadow: 0 2px 0 var(--wood-d); } /* 사진 원래 비율 그대로 */
 .npc .line { background: #fff; border: 2px solid var(--wood); border-radius: 10px; padding: 8px 10px; margin: 6px 0; font-size: 15px; }
 .hearts { color: #e0405a; letter-spacing: 1px; }
 .wp { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #9aa; color: #fff; }
@@ -347,10 +347,10 @@ body.hurt #game-root::after { content: ''; position: absolute; inset: 0; pointer
 .vn-x { position: absolute; top: calc(12px + var(--safe-t)); right: 12px; z-index: 3; width: 38px; height: 38px; border: 2px solid var(--wood-d); border-radius: 50%; background: rgba(255,255,255,.85); font-size: 20px; }
 .vn-badge { position: absolute; top: calc(16px + var(--safe-t)); left: 50%; transform: translateX(-50%); z-index: 3; background: #fff; border: 2px solid #e88aa8; color: #c0406a; border-radius: 99px; padding: 3px 12px; font-size: 13px; display: flex; align-items: center; gap: 4px; }
 .vn-stage { position: absolute; left: 0; right: 0; top: calc(60px + var(--safe-t)); bottom: 200px; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
-.vn-portrait { height: 100%; max-height: 520px; aspect-ratio: 2 / 3; display: flex; align-items: flex-end; justify-content: center; animation: breathe 3.2s ease-in-out infinite; filter: drop-shadow(0 8px 18px rgba(80,40,60,.25)); }
-.vn-portrait .vn-face { width: 100%; height: 100%; }
-.vn-portrait .vn-face.photo { object-fit: cover; border-radius: 20px 20px 0 0; border: 3px solid #fff; border-bottom: 0; -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
-.vn-portrait .vn-face.pixel { image-rendering: pixelated; object-fit: contain; }
+.vn-portrait { height: 100%; max-height: 520px; max-width: 94vw; display: flex; align-items: flex-end; justify-content: center; animation: breathe 3.2s ease-in-out infinite; filter: drop-shadow(0 8px 18px rgba(80,40,60,.25)); }
+.vn-portrait .vn-face { height: 100%; width: auto; max-width: 100%; } /* 사진 원래 비율 그대로 (틀에 맞춰 늘리지 않음) */
+.vn-portrait .vn-face.photo { object-fit: contain; border-radius: 20px 20px 0 0; border: 3px solid #fff; border-bottom: 0; -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
+.vn-portrait .vn-face.pixel { image-rendering: pixelated; object-fit: contain; aspect-ratio: 2 / 3; }
 .vn-portrait.bounce { animation: vbounce .45s ease-out, breathe 3.2s ease-in-out .45s infinite; }
 .vn-portrait.shake { animation: vshake .4s ease-in-out, breathe 3.2s ease-in-out .4s infinite; }
 @keyframes breathe { 50% { transform: translateY(-4px); } }
