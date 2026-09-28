@@ -10,12 +10,18 @@ import { createPlayer } from './logic/player.js';
 import { unlock, startMusic, setSoundSettings } from './game/sound.js';
 import { legacyDay } from './game/clock.js';
 import { LocalStore } from './net/store.js';
+import { watchUpdates, showUpdateBar, hardRefresh } from './update.js';
 
 const $screen = document.getElementById('screen');
 const $gameRoot = document.getElementById('game-root');
 const $canvas = document.getElementById('game');
 const $hud = document.getElementById('hud-root');
 
+// 새로고침할 때 붙인 ?v= 는 주소창에서 지운다
+{
+  const u = new URL(location.href);
+  if (u.searchParams.has('v')) { u.searchParams.delete('v'); history.replaceState(null, '', u.pathname + (u.search || '')); }
+}
 const settings = Slots.loadSettings();
 setSoundSettings(settings);
 const saveSettings = s => { Slots.saveSettings(s); setSoundSettings(s); };
@@ -123,7 +129,7 @@ async function startGame(slotIndex, store, code, pid, me) {
   $gameRoot.hidden = false;
   setUrlWorld(code);
   const renderer = new Renderer($canvas);
-  const ui = new UI($hud, { settings, saveSettings, onExit: () => exitGame(), inviteLink: () => inviteLink(code), onSettings: s => setSoundSettings(s) });
+  const ui = new UI($hud, { settings, saveSettings, onExit: () => exitGame(), inviteLink: () => inviteLink(code), onSettings: s => setSoundSettings(s), onRefresh: () => { game.saveNow(); hardRefresh(); } });
   const game = new Game({ store, code, pid, me, ui, settings, slotIndex });
   ui.attach(game);
   ui.renderer = renderer; // 알림 위치를 캐릭터 반대쪽에 두려고
@@ -213,5 +219,10 @@ let firebase = false;
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // 홈 화면에 추가했을 때 오프라인에서도 열리도록 (실패해도 게임에는 영향 없음)
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
 }
+
+// 새 버전이 올라오면 위에 알려 주고, 누르면 (게임 중이면 저장한 뒤) 새로 불러온다
+const saveBeforeRefresh = () => session?.game.saveNow();
+watchUpdates(v => showUpdateBar(v, saveBeforeRefresh));
+screens.h.onRefresh = () => hardRefresh();

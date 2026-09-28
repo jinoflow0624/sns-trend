@@ -13,6 +13,7 @@ import { WAYPOINTS, waypointInfo } from '../world/maps.js';
 import { fmtClock } from '../game/clock.js';
 import { count } from '../logic/inventory.js';
 import { sfx } from '../game/sound.js';
+import { APP_VERSION } from '../version.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (id, cls = '') => `<img class="ico ${cls}" src="${itemUrl(id)}" alt="">`;
@@ -29,7 +30,8 @@ const PANELS_WITH_BAG = new Set(['bag', 'stash', 'chest', 'craft', 'shop', 'smit
 const lineHtml = t => esc(t).replace('{heart}', iconImg('heart', 'sm'));
 
 export class UI {
-  constructor(root, { settings, saveSettings, onExit, inviteLink, onSettings }) {
+  constructor(root, { settings, saveSettings, onExit, inviteLink, onSettings, onRefresh }) {
+    this.onRefresh = onRefresh;
     this.root = root;
     this.settings = settings;
     this.saveSettings = saveSettings;
@@ -1068,6 +1070,7 @@ export class UI {
       }));
       sh.querySelector('[data-invite]')?.addEventListener('click', () => this.copyInvite());
       sh.querySelector('[data-exit]').addEventListener('click', () => { this.close(); this.onExit(); });
+      sh.querySelector('[data-refresh]')?.addEventListener('click', b => { b.currentTarget.disabled = true; b.currentTarget.textContent = '받는 중…'; this.onRefresh?.(); });
     };
     const seg = (k, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="${String(S[k]) === String(v) ? 'on' : ''}" data-set="${k}:${v}">${l}</button>`).join('')}</div>`;
     return {
@@ -1082,7 +1085,9 @@ export class UI {
         <div class="opt"><span>배경음</span>${seg('music', [[true, '켜기'], [false, '끄기']])}</div>
         <div class="opt"><span>진동</span>${seg('vibrate', [[true, '켜기'], [false, '끄기']])}</div>
         <button class="btn wide ghost" data-go="help">게임 방법</button>
-        <button class="btn wide" data-exit>저장하고 메인 화면으로</button>`,
+        <button class="btn wide" data-exit>저장하고 메인 화면으로</button>
+        <button class="btn wide ghost" data-refresh>저장하고 최신 버전 받기</button>
+        <p class="muted small center">버전 ${APP_VERSION}</p>`,
     };
   }
 

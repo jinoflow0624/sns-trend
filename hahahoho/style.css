@@ -329,3 +329,9 @@ body.hurt #game-root::after { content: ''; position: absolute; inset: 0; pointer
 .cups i.on { background: linear-gradient(transparent 20%, #6ac6f0 20%); }
 .prog.brew i { background: linear-gradient(90deg, #8a5a32, #c89060); }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── 새 버전 알림 ─────────────────────────────────────── */
+.update-bar { position: absolute; left: 50%; transform: translateX(-50%); top: calc(96px + var(--safe-t)); z-index: 40; display: flex; align-items: center; gap: 8px; background: var(--paper); border: 2px solid var(--wood-d); border-radius: 10px; box-shadow: 0 3px 0 var(--wood-d); padding: 6px 8px 6px 12px; font-size: 13px; width: max-content; max-width: 94vw; animation: barin .25s ease-out; }
+@keyframes barin { from { transform: translate(-50%, -8px); opacity: 0; } }
+.update-bar .x { border: 0; background: none; font-size: 18px; padding: 0 4px; color: var(--muted); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--blue); text-decoration: underline; font-size: inherit; }
