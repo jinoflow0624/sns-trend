@@ -623,3 +623,5 @@ img.t-boss { width: 44px; height: 44px; }
 .lv-count { color: var(--gold); }
 
 .row .nm small.bonus-src { color: var(--mint); font-weight: 700; }
+
+.card em.retro { color: var(--gold); font-weight: 700; }

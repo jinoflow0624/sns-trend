@@ -165,11 +165,11 @@ test('칸 점수 = 기본 점수 + 보너스 합 (보너스는 모두 이름이 
 });
 
 console.log('\n특성 카드 후보');
-test('이미 채운 칸의 특성은 후보에 나오지 않는다', () => {
+test('해당 칸을 모두 0점으로 버린 특성은 후보에 나오지 않는다', () => {
   for (let seed = 1; seed <= 40; seed++) {
     const s = game(2, seed);
     const p = s.players[0];
-    Object.assign(p.scores, { choice: 20, full: 0, sstr: 15, lstr: 30, four: 0, yacht: 50 });
+    Object.assign(p.scores, { choice: 0, full: 0, sstr: 0, lstr: 0, four: 0, yacht: 0 });
     s.board = [];
     E.roll(s);
     s.dice = [6, 6, 6, 5, 5];
@@ -203,6 +203,29 @@ test('의뢰 난이도가 높을수록 보상이 크다', () => {
   const tot = q => { const r = E.questReward(s, p, q); return r.flip * 2 + r.nudge; };
   assert.ok(tot('pairs') < tot('quad'));
   assert.ok(tot('quad') < tot('yacht'));
+});
+
+test('칸 강화 특성은 이미 점수를 낸 칸에 소급 적용 (0점 칸 제외)', () => {
+  const s = game(2, 5);
+  const p = s.players[0];
+  Object.assign(p.scores, { ones: 3, twos: 0, threes: 9, choice: 24 });
+  s.phase = 'levelup';
+  p.offers = [['basic', 'choice', 'flip']];
+  E.pickPerk(s, 'basic');
+  assert.deepEqual([p.scores.ones, p.scores.twos, p.scores.threes], [5, 0, 11]);
+  s.phase = 'levelup'; s.turn = 0;
+  p.offers = [['choice', 'flip', 'nudge']];
+  assert.equal(E.perkRetro(p, 'choice'), 8);
+  E.pickPerk(s, 'choice');
+  assert.equal(p.scores.choice, 32);
+});
+test('해당 칸을 모두 0점으로 버렸을 때만 후보에서 빠진다', () => {
+  const s = game();
+  const p = s.players[0];
+  p.scores.choice = 0;
+  assert.ok(E.perkUseless(p, 'choice'));
+  p.scores.choice = 20;
+  assert.ok(!E.perkUseless(p, 'choice'));
 });
 
 console.log('\n협동모드');
