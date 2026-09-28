@@ -200,7 +200,7 @@ function buildTown() {
 
   b.npcs.push({ id: 'mayor', route: [[13, 10], [23, 10], [23, 16.5], [14.5, 16.5]], speed: 1.2 });
   b.npcs.push({ id: 'minsu', route: [[10, 12.6], [26, 12.6], [26, 16.5], [10, 16.5]], speed: 1.8 });
-  b.npcs.push({ id: 'eunwoo', x: 21.5, y: 14.6 }); // 분수대 옆 버스킹
+  b.npcs.push({ id: 'juhyuk', x: 21.5, y: 14.6 }); // 분수대 옆 대본 연습
   b.npcs.push({ id: 'cat', pet: 'cat', route: [[12, 18.3], [24, 18.3], [24, 9.5], [12, 9.5]], speed: 1.1 });
 
   b.scatter('tree', 0.10, 21, grassy);

@@ -31,12 +31,12 @@ test('대본: 모든 NPC 에 대화하기가 있고, 장면 형식이 맞다', (
 });
 
 test('새 NPC 두 명: 취향 · 힌트 · 마을/호수 자리', () => {
-  for (const id of ['eunwoo', 'karina']) {
+  for (const id of ['juhyuk', 'karina']) {
     assert.ok(NPCS[id] && NPC_TASTE[id] && TASTE_HINT[id], id);
     for (const k of [...NPC_TASTE[id].love, ...NPC_TASTE[id].like, ...NPC_TASTE[id].dislike]) if (!k.startsWith('type:')) assert.ok(ITEMS[k], k);
   }
   const town = getMap('town', { houseLv: 1, seedKey: 'x' });
-  const h = town.npcs.find(n => n.id === 'eunwoo');
+  const h = town.npcs.find(n => n.id === 'juhyuk');
   assert.ok(h && !isSolid(town, h.x, h.y));
   const lake = getMap('lake', { houseLv: 1, seedKey: 'x' });
   const a = lake.npcs.find(n => n.id === 'karina');
@@ -64,15 +64,15 @@ test('장면: 하트가 차면 특별 이야기가 먼저, 한 번 보면 다시
 
 test('친밀도: 하루 한 번만 오르고, 같은 날 다시 말 걸면 다른 이야기', () => {
   const f = { pts: 0 };
-  const s1 = pickScene('eunwoo', f, 5);
+  const s1 = pickScene('juhyuk', f, 5);
   const r1 = choose(f, s1, 0, 5);
   assert.equal(r1.gain, s1.choices[0][1]);
-  const s2 = pickScene('eunwoo', f, 5, 1);
+  const s2 = pickScene('juhyuk', f, 5, 1);
   assert.notEqual(s2.key, s1.key);
   const r2 = choose(f, s2, 0, 5);
   assert.equal(r2.gain, 0, '같은 날은 오르지 않는다');
   assert.equal(r2.counted, false);
-  const r3 = choose(f, pickScene('eunwoo', f, 6), 0, 6);
+  const r3 = choose(f, pickScene('juhyuk', f, 6), 0, 6);
   assert.ok(r3.gain > 0, '다음 날엔 다시 오른다');
   // 나쁜 대답은 깎인다 (0 아래로는 안 내려감)
   const g = { pts: 2 };
