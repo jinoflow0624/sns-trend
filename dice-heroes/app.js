@@ -776,11 +776,26 @@ function autoSheet(myTurn, combos) {
   const out = S.rollsLeft === 0 && !ui.sheetLast;
   combos.forEach(c => ui.sheetSeen.add(c));
   if (out) ui.sheetLast = true;
-  if ((fresh.length || out) && !ui.sheet) {
+  // 새 족보가 완성되면 창을 띄우지 않고 가운데에 작게 알리기만 한다 (족보 완성 버튼이 깜박인다).
+  // 튜토리얼에서 기록을 안내하는 단계와 굴림을 다 쓴 때만 점수표를 바로 띄운다.
+  if (fresh.length && !tut) { sfx.combo(); notice(`완성 가능한 족보 ${combos.length}개`); }
+  if (((fresh.length && tut) || out) && !ui.sheet) {
     ui.sheet = true;
     ui.view = null;
     if (fresh.length) sfx.combo();
   }
+}
+
+// 화면 가운데(주사위 위)에 잠깐 뜨는 작은 알림
+function notice(text) {
+  document.querySelectorAll('.notice').forEach(n => n.remove());
+  const r = document.getElementById('tray')?.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'notice';
+  el.innerHTML = `${ico('sheet', 'xs')} ${esc(text)}`;
+  el.style.top = `${r ? r.top + r.height * 0.22 : innerHeight / 2}px`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
 }
 
 // 점수표 창은 의뢰 게시판 바로 아래에 붙인다
