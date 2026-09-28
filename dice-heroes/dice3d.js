@@ -118,6 +118,7 @@ function remap(faceIdx, v) {
 }
 
 const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeIn = t => t * t * t;
 
 export class DiceTray {
   constructor(host, { onPick, onHit } = {}) {
@@ -249,12 +250,16 @@ export class DiceTray {
       ring.rotation.z = Math.PI / 4;
       ring.position.y = 0.03;
       ring.visible = false;
-      this.scene.add(mesh, glow, ring);
-      this.dice.push({ mesh, glow, ring, faces: STD_FACES.slice(), held: false, value: 0, lift: 0 });
+      // 보스 스킬에 휩싸일 때 주사위를 감싸는 빛 (불길·저주)
+      const aura = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ color: 0xFF5A1F, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      aura.scale.setScalar(1.14);
+      aura.visible = false;
+      this.scene.add(mesh, glow, ring, aura);
+      this.dice.push({ mesh, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, value: 0, lift: 0, morph: null });
     }
     while (this.dice.length > n) {
       const d = this.dice.pop();
-      this.scene.remove(d.mesh, d.glow, d.ring);
+      this.scene.remove(d.mesh, d.glow, d.ring, d.aura);
     }
   }
 
@@ -270,6 +275,7 @@ export class DiceTray {
     this.ensure(n);
     this.dice.forEach((d, i) => {
       d.held = !!held[i];
+      if (d.morph) return;          // 보스 스킬 연출 중인 주사위는 연출이 끝나면 눈을 바꾼다
       // 눈이 그대로면 굴러서 멈춘 자세를 유지한다 (다시 그릴 때 튀지 않게)
       if (values[i] && d.value === values[i] && !d.blank) {
         d.mesh.position.x = this.slotX(i, n);
@@ -323,6 +329,27 @@ export class DiceTray {
     if (!hit) return;
     const i = this.dice.findIndex(d => d.mesh === hit.object);
     if (i >= 0) this.onPick(i);
+  }
+
+  // ── 연출 ────────────────────────────────────────────────────────────────
+  // 점수를 기록하면 주사위가 에너지로 빨려 들어간다 (작아져 사라짐 → restore 로 다시 나타남)
+  absorb(ms = 380) { this.shrink = { t0: performance.now(), ms, dir: -1 }; }
+  restore(ms = 220) { if (this.shrink) this.shrink = { t0: performance.now(), ms, dir: 1 }; }
+
+  // 보스 스킬로 주사위 눈이 바뀐다. kind: 'burn' (불타며 흔들림) | 'twist' (허공에서 뒤집힘)
+  morph(i, v, kind, ms = 900) {
+    const d = this.dice[i];
+    if (!d) return Promise.resolve();
+    return new Promise(resolve => {
+      d.morph = { t0: performance.now(), ms, kind, v, swapped: false, resolve, base: d.mesh.quaternion.clone() };
+      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : 0x9A5BFF);
+      d.auraI = 1;
+    });
+  }
+
+  // 전쟁의 북: 모든 주사위가 쿵 하고 튄다
+  quake() {
+    this.dice.forEach((d, i) => { d.lift = Math.max(d.lift, 0.9 + (i % 2) * 0.35); d.wobble = 1; });
   }
 
   // values: 엔진이 정한 굴림 결과, rolling: 이번에 굴리는 주사위 여부
@@ -418,6 +445,33 @@ export class DiceTray {
     });
   }
 
+  // 보스 스킬 연출 한 프레임
+  stepMorph(d, i, n, t) {
+    const m = d.morph;
+    const k = Math.min(1, (t - m.t0) / m.ms);
+    const x = this.slotX(i, n);
+    if (m.kind === 'burn') {
+      // 부들부들 떨다가 절반쯤에 눈이 타 버린다
+      d.mesh.position.x = x + Math.sin(t / 22) * 0.07 * (1 - k);
+      if (k > 0.55 && !m.swapped) { m.swapped = true; this.setFaces(d, remap(2, m.v)); d.mesh.quaternion.identity(); d.lift = 0.8; }
+    } else {
+      // 떠올라 한 바퀴 반 돌며 뒤집힌다
+      d.lift = Math.sin(k * Math.PI) * 1.6;
+      d.mesh.position.y = HALF + d.lift;
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0.35).normalize(), easeOut(k) * Math.PI * 3);
+      d.mesh.quaternion.copy(m.base).premultiply(q);
+      if (k > 0.5 && !m.swapped) { m.swapped = true; this.setFaces(d, remap(2, m.v)); m.base.identity(); }
+    }
+    if (k >= 1) {
+      d.mesh.position.x = x;
+      d.mesh.quaternion.identity();
+      this.setFaces(d, remap(2, m.v));
+      d.value = m.v;
+      d.morph = null;
+      m.resolve();
+    }
+  }
+
   loop() {
     if (!this.running) return;
     requestAnimationFrame(this.loop);
@@ -456,15 +510,36 @@ export class DiceTray {
     }
     // 잡은 주사위는 살짝 떠서 숨 쉬듯 빛난다
     const pulse = 0.75 + Math.sin(t / 260) * 0.25;
-    this.dice.forEach(d => {
+    let scale = 1;
+    if (this.shrink) {
+      const k = Math.min(1, (t - this.shrink.t0) / this.shrink.ms);
+      scale = this.shrink.dir < 0 ? 1 - easeIn(k) : easeOut(k) * (1 + Math.sin(k * Math.PI) * 0.25);
+      if (this.shrink.dir > 0 && k >= 1) { this.shrink = null; scale = 1; }
+    }
+    const n = this.dice.length;
+    this.dice.forEach((d, i) => {
       if (!this.anim) {
         const want = d.held ? 0.45 : 0;
         d.lift += (want - d.lift) * 0.2;
         d.mesh.position.y = HALF + d.lift;
       }
+      if (d.morph) this.stepMorph(d, i, n, t);
+      if (d.wobble && !this.anim) {
+        d.wobble = Math.max(0, d.wobble - 0.04);
+        d.mesh.position.x = this.slotX(i, n) + Math.sin(t / 30) * 0.1 * d.wobble;
+      }
+      d.mesh.scale.setScalar(Math.max(0.001, scale));
+      d.glow.visible = scale > 0.5 && !d.blank && (d.held || this.target);
+      d.ring.visible = scale > 0.5 && !d.blank && d.held;
       d.glow.position.x = d.ring.position.x = d.mesh.position.x;
       d.glow.position.z = d.ring.position.z = d.mesh.position.z;
       d.glow.material.opacity = pulse;
+      d.auraI = Math.max(0, d.auraI - (d.morph ? 0 : 0.03));
+      d.aura.visible = d.auraI > 0.01 && scale > 0.01;
+      d.aura.material.opacity = d.auraI * (0.45 + Math.sin(t / 50) * 0.15);
+      d.aura.position.copy(d.mesh.position);
+      d.aura.quaternion.copy(d.mesh.quaternion);
+      d.aura.scale.setScalar(1.14 * scale);
       d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank; });
     });
     this.renderer.render(this.scene, this.camera);

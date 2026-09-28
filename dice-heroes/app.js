@@ -9,6 +9,7 @@ import { titleScene, storyScene, STORY } from './scenes.js';
 import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
+import { FX, attackStyle, RAGE, shake } from './fx.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -40,7 +41,8 @@ let tray = null;            // 3D 주사위
 let tut = null;             // { step, shown } 튜토리얼 진행
 let unlocked = false;       // 첫 터치(소리 허용) 여부
 let online = null;          // { code, token, backend, room, unwatch, fxSeen, queue, beat }
-const ui = { view: null, tool: null, busy: false, fast: false };
+// sheet: 점수표 창을 띄웠는가 · dice: 연출 중 잠깐 대신 보여 줄 주사위 눈 (보스 스킬 전 / 점수 공격 전)
+const ui = { view: null, tool: null, busy: false, fast: false, sheet: false, sheetSeen: new Set(), sheetTurn: '', sheetLast: false, dice: null };
 const urlRoom = Net.normalizeCode(new URLSearchParams(location.search).get('room'));
 
 // ── 도우미 ───────────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ const CAT_HELP = {
 };
 
 function setStage(next) {
+  if (screen !== 'game') FX().rage(false);
   stage?.stop();
   stage = next;
 }
@@ -522,7 +525,7 @@ async function onRoom(room) {
   const g = room.game;
   if (!prev) {
     S = g;
-    Object.assign(ui, { view: null, tool: null, busy: false });
+    Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '' });
     screen = 'game';
     setStage(null);
     layer.innerHTML = '';
@@ -535,12 +538,14 @@ async function onRoom(room) {
   const rolledNow = prev && g.rolled && (prev.turn !== g.turn || prev.round !== g.round || g.rollsLeft < prev.rollsLeft);
   const newFx = room.fxLog.filter(f => f.id > online.fxSeen);
   online.fxSeen = room.fxId;
+  const fxList = newFx.flatMap(f => f.list);
   if (rolledNow) {
     const sameTurn = prev.turn === g.turn && prev.round === g.round && prev.rolled;
     const mask = g.dice.map((_, i) => !(sameTurn && prev.held[i]));
-    await rollAnimated(mask);
+    await rollAnimated(mask, fxList);
   }
   ui.busy = true;
+  ui.dice = pendingDice(fxList);
   render();
   for (const f of newFx) await playFx(f.list);
   ui.busy = false;
@@ -585,7 +590,7 @@ function onlineAct(fn, { any = false } = {}) {
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
 function startGame(state) {
   S = state;
-  Object.assign(ui, { view: null, tool: null, busy: false });
+  Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '' });
   screen = 'game';
   setStage(null);
   layer.innerHTML = '';
@@ -614,11 +619,13 @@ function myControl() {
 function render() {
   if (screen !== 'game' || !S) return;
   const cur = E.current(S);
-  const viewIdx = ui.view ?? S.turn;
-  const vp = S.players[viewIdx];
   const ev = E.eventInfo(E.event(S));
   const mine = myControl();
   const myTurn = mine && S.phase === 'roll' && !ui.busy;
+  const combos = myTurn && S.rolled ? readyCombos(cur) : [];
+  autoSheet(myTurn, combos);
+  const viewIdx = ui.view ?? S.turn;
+  const vp = S.players[viewIdx];
   const prev = S.rolled && !ui.busy ? E.preview(S) : null;
   const okQuests = S.rolled && !ui.busy ? E.claimableQuests(S) : [];
   const best = prev ? prev.filter(r => !r.taken).sort((a, b) => b.pts - a.pts)[0]?.id : null;
@@ -627,9 +634,10 @@ function render() {
   const canRoll = myTurn && S.rollsLeft > 0 && !(S.rolled && S.held.every(Boolean));
   const coop = S.mode === 'coop';
   const absent = online && !cur.bot && !mine && !alive(cur.token);
+  const last = S.log[S.log.length - 1];
 
   app.innerHTML = `
-  <div class="screen game${mine ? ' my-turn' : ' other-turn'}">
+  <div class="screen game${mine ? ' my-turn' : ' other-turn'}${ui.sheet ? ' sheet-open' : ''}">
     <header class="hud">
       <button class="icon-btn" data-act="pause" aria-label="메뉴">☰</button>
       <div class="round-chip"><small>ROUND</small><b>${S.round}<i>/${E.ROUNDS}</i></b></div>
@@ -641,7 +649,7 @@ function render() {
 
     <div class="party" style="--n:${S.players.length}">
       ${S.players.map((p, i) => `
-        <button class="member${i === S.turn ? ' turn' : ''}${i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">
+        <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">
           <div class="m-por">${portrait(p.cls)}<span class="lv">${p.level}</span></div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ' (나)' : ''}</span>
             <b class="pts">${coop ? `⚔${Math.round(S.boss.dmg[i] || 0)}` : E.finalScore(p)}</b></div>
@@ -677,43 +685,86 @@ function render() {
 
     <section class="controls">
       <button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
-        <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 횟수 ${S.rollsLeft}</small>
+        <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>
       <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 ? '' : 'disabled'}>
         <span>🔄</span>${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${cur.flip}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 ? '' : 'disabled'}>
         <span>🎯</span>${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${cur.nudge}</b></button>
+      <button class="pbtn sheet-btn${combos.length ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
+        <span>📋</span>족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
     </section>
-    <div class="tip">${absent ? `<span>${esc(cur.name)} 님이 접속 중이 아닙니다</span><button class="pbtn small" data-act="takeover">대신 진행</button>` : tip(cur, myTurn, okQuests)}</div>
+    <div class="tip">${absent ? `<span>${esc(cur.name)} 님이 접속 중이 아닙니다</span><button class="pbtn small" data-act="takeover">대신 진행</button>` : tip(cur, myTurn, okQuests, combos)}</div>
 
-    <section class="frame hero" style="--c:${E.classInfo(cur.cls).color}">
-      <div class="h-por">${portrait(cur.cls)}</div>
-      <div class="h-main">
-        <div class="h-name"><b>${esc(cur.name)}</b><span>${E.classInfo(cur.cls).ko}</span><span class="lvl">Lv.${cur.level}</span></div>
+    <section class="hero-strip" style="--c:${E.classInfo(cur.cls).color}">
+      <div class="hs-por">${portrait(cur.cls)}<span class="lv">${cur.level}</span></div>
+      <div class="hs-main">
+        <div class="hs-name"><b>${esc(cur.name)}</b><span>${E.classInfo(cur.cls).ko}</span></div>
         <div class="xpbar" style="--w:${xpPct}%"><i></i><em>${cur.level >= E.MAX_LEVEL ? 'MAX' : `EXP ${cur.xp} / ${need}`}</em></div>
-        <div class="perks">
-          ${Object.keys(cur.perks).length ? Object.entries(cur.perks).map(([id, n]) => {
-            const k = E.perkInfo(id);
-            return `<button class="perk-chip" style="--rc:${rarityColor(k.rarity)}" data-act="info-perk" data-id="${id}">${k.icon}${k.ko}${n > 1 ? `<b>×${n}</b>` : ''}</button>`;
-          }).join('') : '<span class="dim">레벨업하면 특성 카드를 고른다 · 칩을 누르면 효과 보기</span>'}
-        </div>
+      </div>
+      <div class="hs-perks">
+        ${Object.keys(cur.perks).length ? Object.entries(cur.perks).map(([id, n]) => {
+          const k = E.perkInfo(id);
+          return `<button class="perk-ic" style="--rc:${rarityColor(k.rarity)}" data-act="info-perk" data-id="${id}" aria-label="${k.ko}">${k.icon}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
+        }).join('') : '<span class="dim">특성 없음</span>'}
       </div>
     </section>
 
-    ${sheet(vp, viewIdx, prev, best, myTurn && viewIdx === S.turn)}
+    <footer class="log-line" data-act="log">${last ? `R${last.r} · ${esc(last.text)}` : '모험이 시작됐다.'}</footer>
+  </div>
+  ${ui.sheet ? `<div class="sheet-dim" data-act="sheet-close"></div>${sheet(vp, viewIdx, prev, best, myTurn && viewIdx === S.turn, combos)}` : ''}`;
 
-    <section class="frame log">
-      ${S.log.slice(-4).map(l => `<div>R${l.r} · ${esc(l.text)}</div>`).join('') || '<div>모험이 시작됐다.</div>'}
-    </section>
-  </div>`;
-
+  placeSheet();
+  const rage = coop && S.boss.diff === 2 && S.boss.hp * 2 < S.boss.maxHp && S.boss.hp > 0;
+  FX().rage(rage, () => document.getElementById('boss-art')?.getBoundingClientRect(), RAGE[S.boss?.id]);
   ensureTray().then(t => {
     t.attach(document.getElementById('tray'));
-    t.show(S.dice, S.rolled ? S.held : []);
+    t.show(ui.dice || S.dice, S.rolled ? S.held : []);
     t.setTarget(!!ui.tool && myTurn);
     requestAnimationFrame(() => diceOverlay(myTurn));
   });
   updateCoach();
+}
+
+// 지금 주사위로 완성된 족보 (아직 안 채운 칸만).
+// 에이스~식스는 그 눈이 3개 이상, 포카인드~요트는 조건을 만족하면. 초이스는 늘 가능하니 뺀다.
+function readyCombos(p) {
+  if (!S.rolled || S.dice.includes(0)) return [];
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  S.dice.forEach(v => counts[v]++);
+  return E.CATS.filter(c => {
+    if (p.scores[c.id] !== null || c.id === 'choice') return false;
+    if (c.up) return counts[c.up] >= 3;
+    return E.fiveSets(S.dice).some(d => E.baseScore(c.id, d) > 0);
+  }).map(c => c.id);
+}
+
+// 새 족보가 완성되거나 굴림을 다 쓰면 점수표를 저절로 띄운다 (한 번 닫으면 같은 족보로는 다시 안 뜬다)
+function autoSheet(myTurn, combos) {
+  const key = `${S.seed}:${S.round}:${S.turn}`;
+  if (ui.sheetTurn !== key) {
+    Object.assign(ui, { sheetTurn: key, sheetSeen: new Set(), sheetLast: false });
+    if (ui.sheet && ui.view === null) ui.sheet = false;
+  }
+  if (!myTurn || !S.rolled || ui.tool) return;
+  if (tut && !STEPS[tut.step]?.allow?.includes('score')) return;
+  const fresh = combos.filter(c => !ui.sheetSeen.has(c));
+  const out = S.rollsLeft === 0 && !ui.sheetLast;
+  combos.forEach(c => ui.sheetSeen.add(c));
+  if (out) ui.sheetLast = true;
+  if ((fresh.length || out) && !ui.sheet) {
+    ui.sheet = true;
+    ui.view = null;
+    if (fresh.length) sfx.combo();
+  }
+}
+
+// 점수표 창은 의뢰 게시판 바로 아래에 붙인다
+function placeSheet() {
+  const pop = document.getElementById('sheet-pop');
+  const board = document.getElementById('quests');
+  if (!pop || !board) return;
+  pop.style.setProperty('--top', `${Math.round(board.getBoundingClientRect().bottom + 6)}px`);
 }
 
 // 뒤집기: 각 주사위 위에 뒤집으면 나올 눈 / 조정: 각 주사위 위에 −1 · +1
@@ -756,7 +807,7 @@ function bossPanel() {
   </section>`;
 }
 
-function tip(cur, myTurn, okQuests) {
+function tip(cur, myTurn, okQuests, combos = []) {
   if (S.ended) return '';
   if (!myControl()) return `${esc(cur.name)}의 차례…${online && cur.bot ? ' (봇)' : ''}`;
   if (!myTurn) return '';
@@ -764,15 +815,17 @@ function tip(cur, myTurn, okQuests) {
   if (ui.tool === 'nudge') return '<b class="tool-txt">🎯 주사위 위의 −1 / +1 을 누르세요</b>';
   if (!S.rolled) return '굴리기를 눌러 턴을 시작하세요';
   if (okQuests.length) return `<b class="ok-txt">의뢰 「${okQuests.map(q => esc(E.questInfo(q).ko)).join('」「')}」 달성 가능!</b>`;
-  return S.rollsLeft ? '주사위를 눌러 잡고 다시 굴리거나, 점수표에 기록하세요' : '점수표에서 기록할 칸을 고르세요';
+  if (combos.length) return `<b class="ok-txt">족보 완성! 📋 버튼으로 점수를 기록하세요</b>`;
+  return S.rollsLeft ? '주사위를 눌러 잡고 다시 굴리거나, 📋 족보 완성에서 기록하세요' : '📋 족보 완성에서 기록할 칸을 고르세요';
 }
 
-function sheet(p, idx, prev, best, canPick) {
+function sheet(p, idx, prev, best, canPick, combos = []) {
   const pv = id => prev?.find(r => r.id === id);
   const row = c => {
     const done = p.scores[c.id] !== null;
     const r = canPick && !done ? pv(c.id) : null;
-    const cls = done ? 'done' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}` : '';
+    const combo = canPick && combos.includes(c.id);
+    const cls = done ? 'done' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}` : '';
     const val = done ? p.scores[c.id] : r ? `${r.pts}<small>+${r.xp}xp</small>` : '–';
     // 보너스가 붙으면 규칙 설명 대신 어디서 몇 점 붙었는지 보여 준다
     const sub = r?.bonus?.length && r.pts > 0
@@ -780,14 +833,18 @@ function sheet(p, idx, prev, best, canPick) {
       : `<small>${CAT_HELP[c.id].rule}</small>`;
     return `<button class="row ${cls}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
       <span class="nm">${c.ko}${sub}</span><span class="v">${val}</span>
+      ${combo ? '<span class="combo-tag">완성!</span>' : ''}
       ${c.id === best && r?.pts > 0 ? '<span class="best-tag">최고</span>' : ''}</button>`;
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
   const b = E.breakdown(p);
+  const title = canPick && combos.length ? '✨ 족보 완성!' : '점수표';
+  const close = canPick && S.rollsLeft > 0 ? `계속 굴리기 · ${S.rollsLeft}회` : '닫기';
   return `
-  <section class="frame sheet-wrap">
-    <div class="sheet-head"><h3>점수표</h3><span>${esc(p.name)}${idx !== S.turn ? ' · 보는 중' : ''}</span>
-      <button class="help-link" data-act="help-cats">족보 보기</button></div>
+  <section class="frame sheet-wrap sheet-pop" id="sheet-pop">
+    <div class="sheet-head"><h3>${title}</h3><span>${esc(p.name)}${idx !== S.turn ? ' · 보는 중' : ''}</span>
+      <button class="help-link" data-act="help-cats">족보 보기</button>
+      <button class="sp-close" data-act="sheet-close">${close} ✕</button></div>
     <div class="sheet">
       <div class="col">${E.CATS.slice(0, 6).map(row).join('')}
         <div class="bonus${got ? ' got' : ''}" style="--w:${Math.min(100, (up / need) * 100)}%">
@@ -882,12 +939,20 @@ async function banner(round, evId) {
   await Promise.race([wait(ui.fast ? 700 : 1500), new Promise(r => (skipBanner = r))]);
   layer.innerHTML = '';
 }
+// 보스 등장: 화면을 대각선으로 가르는 띠 위에 이름과 거대한 모습만
 async function bossBanner() {
-  const b = E.bossInfo(S.boss.id), d = E.DIFFS[S.boss.diff];
-  layer.innerHTML = `<div class="overlay boss-intro" data-act="skip-banner" style="--c:${b.color}"><div class="banner">
-    ${portrait(b.id, 'boss-big')}<div class="warn">WARNING</div><b>${b.ko}</b><span>${b.title} · ${d.ko}</span></div></div>`;
-  sfx.levelup();
-  await Promise.race([wait(2200), new Promise(r => (skipBanner = r))]);
+  const b = E.bossInfo(S.boss.id);
+  const cut = b.ko.lastIndexOf(' ');
+  layer.innerHTML = `<div class="overlay boss-intro" data-act="skip-banner" style="--c:${b.color}">
+    <div class="bi-band"><i></i></div>
+    <div class="bi-band thin"></div>
+    <img class="spr bi-boss" src="${spriteURL(b.id, 12)}" alt="">
+    <div class="bi-name"><small>${esc(b.ko.slice(0, cut))}</small><b>${esc(b.ko.slice(cut + 1))}</b></div>
+    <div class="bi-flash"></div>
+  </div>`;
+  sfx.slash();
+  setTimeout(() => { sfx.boom(2); shake(layer.firstElementChild, 2.5); }, 430);
+  await Promise.race([wait(2700), new Promise(r => (skipBanner = r))]);
   layer.innerHTML = '';
 }
 function hitBoss(amount, blocked) {
@@ -905,6 +970,88 @@ const BOSS_LINES = {
   bone: '뼈 방패! 보호막을 둘렀다',
 };
 
+// ?slowfx 로 열면 연출을 4배 느리게 (화면 점검용)
+const FX_SLOW = new URLSearchParams(location.search).has('slowfx') ? 0.25 : 1;
+
+// 연출이 끝날 때까지 화면에 대신 보여 줄 주사위 눈
+//   보스 스킬 → 스킬이 바꾸기 전 눈으로 굴러 멈춘 뒤 불타거나 뒤집힌다
+//   점수 기록 → 다음 턴으로 넘어가도 기록한 주사위가 에너지로 모일 때까지 남아 있다
+function pendingDice(list) {
+  const b = list.find(f => f.type === 'boss' && f.from);
+  if (b) return b.from.slice();
+  const sc = list.find(f => f.type === 'score' && f.dice);
+  return sc ? sc.dice.slice() : null;
+}
+
+// 점수 공격: 주사위가 에너지로 뭉쳐 보스(대전은 내 점수)에 꽂힌다
+// 화면을 새로 그린 직후엔 3D 캔버스가 아직 옛 자리에 있어 좌표가 틀린다 — 먼저 새 자리에 붙인다
+async function trayReady() {
+  const host = document.getElementById('tray');
+  if (!host) return null;
+  const t = await ensureTray();
+  t.attach(host);
+  return t;
+}
+
+async function attackFx(f) {
+  if (!(await trayReady())) { ui.dice = null; return; }
+  const fx = FX();
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW;
+  const style = attackStyle(f.pts, f.cat);
+  const from = (f.dice || S.dice).map((_, i) => tray.screenPos(i));
+  const target = () => {
+    const el = S.boss ? document.getElementById('boss-art') : document.querySelector(`.member[data-i="${f.player}"] .pts`);
+    const r = el?.getBoundingClientRect();
+    return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 80 };
+  };
+  await fx.energy(from, target, {
+    pal: style.pal, power: style.power,
+    onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); },
+    onLaunch: () => sfx.whoosh(),
+    onImpact: () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); },
+  });
+  ui.dice = null;
+  render();
+  tray.restore();
+}
+
+// 보스 스킬마다 주사위(또는 보스)에 맞는 연출
+async function skillFx(f) {
+  const fx = FX();
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW;
+  const t = await trayReady();
+  const center = el => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width } : null; };
+  const trayC = center(document.getElementById('tray'));
+  const bossC = center(document.getElementById('boss-art'));
+  const pts = t && f.dice ? f.dice.map(i => t.screenPos(i)) : [];
+  const ms = ui.fast ? 500 : 900;
+  if ((f.skill === 'breath' || f.skill === 'twist') && t && f.from) {
+    const burn = f.skill === 'breath';
+    burn ? sfx.fire() : sfx.twist();
+    await Promise.all([
+      burn ? fx.fire(pts, ms) : fx.vortex(pts, ms),
+      ...f.dice.map(i => t.morph(i, burn ? 1 : 7 - f.from[i], burn ? 'burn' : 'twist', ms)),
+    ]);
+    ui.dice = null;
+    render();
+    await wait(200);
+    return;
+  }
+  if (f.skill === 'drums' && trayC) {
+    for (let k = 0; k < 3; k++) {
+      sfx.drum();
+      t?.quake();
+      fx.quake(trayC.x, trayC.y, trayC.w);
+      shake(app.querySelector('.game'), 1.4);
+      await wait(ui.fast ? 180 : 320);
+    }
+    return;
+  }
+  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
+  if (f.skill === 'bone' && bossC) { sfx.twist(); await fx.shield(bossC); return; }
+  sfx.zero();
+}
+
 async function playFx(list) {
   for (const f of list) {
     const p = S.players[f.player];
@@ -915,12 +1062,17 @@ async function playFx(list) {
         break;
       case 'score':
         if (f.pts > 0) {
-          sfx.score();
           floatText(`${E.catInfo(f.cat).ko} +${f.pts}`, 'gold');
           if (f.bonus?.length) floatText(f.bonus.map(b => `${b.ko} +${b.amt}`).join(' · '), 'mint', 30);
+          await attackFx(f);
+          sfx.score();
+        } else {
+          sfx.zero();
+          floatText(`${E.catInfo(f.cat).ko} 0`, 'dim');
+          if (tray) FX().fizzle(S.dice.map((_, i) => tray.screenPos(i)));
+          ui.dice = null;
+          await wait(380);
         }
-        else { sfx.zero(); floatText(`${E.catInfo(f.cat).ko} 0`, 'dim'); }
-        await wait(380);
         break;
       case 'damage':
         sfx.clack(12); buzz(30);
@@ -929,8 +1081,9 @@ async function playFx(list) {
         break;
       case 'boss': {
         const b = E.bossInfo(S.boss.id);
-        sfx.zero();
-        await toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(b.id, 't-boss'));
+        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(b.id, 't-boss'));
+        await skillFx(f);
+        await note;
         break;
       }
       case 'quest':
@@ -949,7 +1102,10 @@ async function playFx(list) {
         break;
       case 'midas': floatText('👑 황금손 조정 +1', 'gold', -30); break;
       case 'duel': sfx.quest(); await toast('🏆', '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
-      case 'charge': if (f.why !== 'quest') floatText(E.chargeText(f), 'mint', -20); break;
+      case 'charge':
+        if (f.why === 'monk') { sfx.coin(); floatText(`📿 절제 · 조정 +${f.nudge}`, 'mint', -20); await wait(300); }
+        else if (f.why !== 'quest') floatText(E.chargeText(f), 'mint', -20);
+        break;
     }
   }
 }
@@ -991,6 +1147,7 @@ function showResults() {
   if (popupShown(key) && layer.querySelector('.results')) return;
   ui.popupKey = key;
   stopBgm();
+  FX().rage(false);
   sfx.win();
   setTimeout(() => playBgm('victory'), 1500);
   if (!online) store.del(KEYS.save);
@@ -1201,6 +1358,7 @@ async function step() {
   const fx = E.drainFx(S);
   if (!S.ended && !S.tutorial) store.set(KEYS.save, S);
   if (E.current(S).bot || S.ended) ui.view = null;
+  ui.dice = pendingDice(fx);
   render();
   await playFx(fx);
   ui.busy = false;
@@ -1214,13 +1372,15 @@ async function step() {
   else if (!S.rolled && S.players.length > 1 && S.phase === 'roll') sfx.turn();
 }
 
-async function rollAnimated(mask) {
+async function rollAnimated(mask, list = S.fx) {
   const t = await ensureTray();
   sfx.shake();
   buzz(15);
   ui.busy = true;
+  ui.sheet = false;
+  ui.dice = pendingDice(list);
   render();
-  await t.roll(S.dice, mask, ui.fast && E.current(S).bot ? 2.2 : 1);
+  await t.roll(ui.dice || S.dice, mask, ui.fast && E.current(S).bot ? 2.2 : 1);
   ui.busy = false;
 }
 
@@ -1270,7 +1430,20 @@ async function onGameAct(act, t) {
   if (!tutorialAllows(act, t)) { if (tut) sfx.back(); return; }
   if (act === 'fast') { ui.fast = !ui.fast; sfx.select(); return render(); }
   if (act === 'pause') { sfx.select(); return showSettings(true); }
-  if (act === 'view') { const i = Number(t.dataset.i); ui.view = i === S.turn ? null : i; sfx.tap(); return render(); }
+  if (act === 'view') {
+    const i = Number(t.dataset.i);
+    sfx.tap();
+    if (ui.sheet && (ui.view ?? S.turn) === i) { ui.sheet = false; ui.view = null; return render(); }
+    ui.view = i === S.turn ? null : i;
+    ui.sheet = true;
+    return render();
+  }
+  if (act === 'sheet') { sfx.select(); ui.sheet = !ui.sheet; ui.view = null; ui.tool = null; return render(); }
+  if (act === 'sheet-close') { sfx.back(); ui.sheet = false; ui.view = null; return render(); }
+  if (act === 'log') {
+    sfx.tap();
+    return popover(t, `<b>📜 최근 기록</b>${S.log.slice(-8).reverse().map(l => `<p>R${l.r} · ${esc(l.text)}</p>`).join('')}`);
+  }
   if (act === 'help-quest') { sfx.select(); return showQuestHelp(); }
   if (act === 'help-cats') { sfx.select(); return showCatHelp(); }
   if (act === 'info-perk') {
@@ -1312,6 +1485,7 @@ async function onGameAct(act, t) {
   }
   if (act === 'tool') {
     ui.tool = ui.tool === t.dataset.tool ? null : t.dataset.tool;
+    ui.sheet = false;
     sfx.select();
     render();
     if (tut) scrollToTarget();
@@ -1347,6 +1521,8 @@ async function onGameAct(act, t) {
   }
   if (act === 'score') {
     ui.tool = null;
+    ui.sheet = false;
+    ui.view = null;
     if (online) return onlineAct(g => E.commitScore(g, t.dataset.cat));
     if (tryAct(() => E.commitScore(S, t.dataset.cat))) step();
   }
