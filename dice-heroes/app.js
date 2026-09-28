@@ -530,7 +530,7 @@ async function onRoom(room) {
   const g = room.game;
   if (!prev) {
     S = g;
-    Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '' });
+    Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null });
     screen = 'game';
     setStage(null);
     layer.innerHTML = '';
@@ -551,6 +551,7 @@ async function onRoom(room) {
   }
   ui.busy = true;
   ui.dice = pendingDice(fxList);
+  holdHp(fxList);
   render();
   for (const f of newFx) await playFx(f.list);
   ui.busy = false;
@@ -595,7 +596,7 @@ function onlineAct(fn, { any = false } = {}) {
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
 function startGame(state) {
   S = state;
-  Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '' });
+  Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null });
   screen = 'game';
   setStage(null);
   layer.innerHTML = '';
@@ -720,6 +721,7 @@ function render() {
   ${ui.sheet ? `<div class="sheet-dim" data-act="sheet-close"></div>${sheet(vp, viewIdx, prev, best, myTurn && viewIdx === S.turn, combos)}` : ''}`;
 
   placeSheet();
+  trailHp();
   const rage = coop && S.boss.diff === 2 && S.boss.hp * 2 < S.boss.maxHp && S.boss.hp > 0;
   FX().rage(rage, () => document.getElementById('boss-art')?.getBoundingClientRect(), RAGE[S.boss?.id]);
   ensureTray().then(t => {
@@ -729,6 +731,23 @@ function render() {
     requestAnimationFrame(() => diceOverlay(myTurn));
   });
   updateCoach();
+}
+
+// 체력바 잔상: 깎인 만큼 하얀 띠가 남았다가 조금 늦게 따라 줄어든다
+function trailHp() {
+  const b = S?.boss;
+  if (!b) return;
+  const hp = ui.hpHold ?? b.hp;
+  if (ui.lagHp == null || hp > ui.lagHp) { ui.lagHp = hp; return; }
+  if (ui.lagHp === hp) return;
+  clearTimeout(trailHp.t);
+  trailHp.t = setTimeout(() => {
+    if (!S?.boss) return;
+    const now = ui.hpHold ?? S.boss.hp;
+    ui.lagHp = now;
+    const u = document.querySelector('.hp u');
+    if (u) u.style.width = `${(now / S.boss.maxHp) * 100}%`;
+  }, ui.fast ? 200 : 520);
 }
 
 // 지금 주사위로 완성된 족보 (아직 안 채운 칸만).
@@ -794,7 +813,8 @@ function diceOverlay(myTurn) {
 
 function bossPanel() {
   const b = S.boss, info = E.bossInfo(b.id), d = E.DIFFS[b.diff];
-  const hpPct = (b.hp / b.maxHp) * 100;
+  const hp = ui.hpHold ?? b.hp;
+  const hpPct = (hp / b.maxHp) * 100;
   const shPct = Math.min(100 - hpPct, (b.shield / b.maxHp) * 100);
   const rage = b.diff === 2 && b.hp * 2 < b.maxHp;
   return `
@@ -802,8 +822,8 @@ function bossPanel() {
     <div class="boss-art" id="boss-art">${portrait(b.id, 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
-      <div class="hp"><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
-        <em>HP ${b.hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
+      <div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
+        <em>HP ${hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
       <div class="boss-skills">
         ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}</button>`).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
@@ -959,11 +979,62 @@ async function bossBanner() {
   await Promise.race([wait(2700), new Promise(r => (skipBanner = r))]);
   layer.innerHTML = '';
 }
+// 명중: 잠깐 멈췄다가(히트스톱) 흔들리고, 피해 숫자가 0부터 올라가며 커진다
 function hitBoss(amount, blocked) {
   const art = document.getElementById('boss-art');
   if (!art) return;
-  art.classList.remove('hit'); void art.offsetWidth; art.classList.add('hit');
-  floatText(blocked && !amount ? `${blocked} 막힘` : `-${amount - (blocked || 0)}${blocked ? ` (${blocked} 막힘)` : ''}`, 'dmg', 10, 'boss-art', blocked ? 'bone' : '');
+  art.classList.remove('hit', 'hitstop'); void art.offsetWidth; art.classList.add('hitstop');
+  setTimeout(() => { art.classList.remove('hitstop'); art.classList.add('hit'); }, ui.fast ? 40 : 110);
+  bigNumber(amount - (blocked || 0), blocked, art);
+}
+
+function bigNumber(dealt, blocked, anchor) {
+  const r = anchor.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'dmgnum';
+  el.style.left = `${r.left + r.width / 2}px`;
+  el.style.top = `${r.top + r.height * 0.45}px`;
+  el.style.fontSize = `${Math.round(26 + Math.min(34, dealt * 0.55))}px`;
+  el.innerHTML = `<b>-0</b>${blocked ? `<small>${ico('bone', 'xs')} ${blocked} 막힘</small>` : ''}`;
+  document.body.appendChild(el);
+  const num = el.querySelector('b');
+  const t0 = performance.now(), dur = ui.fast ? 160 : 340;
+  const tick = t => {
+    const k = Math.min(1, (t - t0) / dur);
+    num.textContent = `-${Math.round(dealt * (1 - Math.pow(1 - k, 3)))}`;
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  setTimeout(() => el.remove(), 1400);
+}
+
+// 큰 점수 도장: 20점 이상 GREAT · 30점 이상 AMAZING · 요트 YACHT
+function stamp(pts, cat) {
+  const [text, lv] = cat === 'yacht' ? ['YACHT!!!', 3] : pts >= 30 ? ['AMAZING!', 2] : pts >= 20 ? ['GREAT!', 1] : [];
+  if (!text) return;
+  const r = document.getElementById('tray')?.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = `stamp s${lv}`;
+  el.textContent = text;
+  el.style.top = `${r ? r.top + r.height * 0.42 : innerHeight / 2}px`;
+  document.body.appendChild(el);
+  if (lv >= 2) sfx.legend();
+  setTimeout(() => el.remove(), 1300);
+}
+
+// 결과 화면 숫자가 0부터 올라간다
+function countUp(root) {
+  root.querySelectorAll('[data-n]').forEach((el, i) => {
+    const n = Number(el.dataset.n), pre = el.dataset.pre || '';
+    const t0 = performance.now() + 250 + i * 120, dur = 800;
+    const tick = t => {
+      const k = Math.max(0, Math.min(1, (t - t0) / dur));
+      el.textContent = pre + Math.round(n * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    el.textContent = pre + '0';
+    requestAnimationFrame(tick);
+  });
 }
 
 const BOSS_LINES = {
@@ -980,6 +1051,14 @@ const FX_SLOW = new URLSearchParams(location.search).has('slowfx') ? 0.25 : 1;
 // 연출이 끝날 때까지 화면에 대신 보여 줄 주사위 눈
 //   보스 스킬 → 스킬이 바꾸기 전 눈으로 굴러 멈춘 뒤 불타거나 뒤집힌다
 //   점수 기록 → 다음 턴으로 넘어가도 기록한 주사위가 에너지로 모일 때까지 남아 있다
+// 공격이 날아가는 동안은 보스 체력을 맞기 전 값으로 보여 준다 (명중하는 순간 깎인다)
+function holdHp(list) {
+  if (!S?.boss) { ui.hpHold = null; return; }
+  const dealt = list.filter(f => f.type === 'damage').reduce((a, f) => a + f.amount - (f.blocked || 0), 0);
+  const healed = list.filter(f => f.type === 'boss' && f.skill === 'plunder').reduce((a, f) => a + (f.amount || 0), 0);
+  ui.hpHold = dealt || healed ? Math.min(S.boss.maxHp, S.boss.hp + dealt - healed) : null;
+}
+
 function pendingDice(list) {
   const b = list.find(f => f.type === 'boss' && f.from);
   if (b) return b.from.slice();
@@ -1051,7 +1130,7 @@ async function skillFx(f) {
     }
     return;
   }
-  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
+  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
   if (f.skill === 'bone' && bossC) { sfx.twist(); await fx.shield(bossC); return; }
   sfx.zero();
 }
@@ -1067,6 +1146,7 @@ async function playFx(list) {
       case 'score':
         if (f.pts > 0) {
           floatText(`${E.catInfo(f.cat).ko} +${f.pts}`, 'gold');
+          stamp(f.pts, f.cat);
           if (f.bonus?.length) floatText(f.bonus.map(b => `${b.ko} +${b.amt}`).join(' · '), 'mint', 30);
           await attackFx(f);
           sfx.score();
@@ -1080,6 +1160,7 @@ async function playFx(list) {
         break;
       case 'damage':
         sfx.clack(12); buzz(30);
+        if (ui.hpHold != null) ui.hpHold = ui.hpHold - (f.amount - (f.blocked || 0)) <= S.boss.hp ? null : ui.hpHold - (f.amount - (f.blocked || 0));
         render(); hitBoss(f.amount, f.blocked);
         await wait(420);
         break;
@@ -1112,6 +1193,7 @@ async function playFx(list) {
         break;
     }
   }
+  ui.hpHold = null;
 }
 
 // 같은 팝업이 이미 떠 있으면 다시 그리지 않는다
@@ -1167,10 +1249,11 @@ function showResults() {
         <span class="medal m${k}">${medals[k]}</span>${portrait(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b>
           <span>점수표 ${b.card}${b.bonus ? '+35' : ''} · 레벨 +${b.level} · 의뢰 ${r.p.questsDone.length}</span></div>
-        <span class="tot">${r.total}</span></div>`;
+        <span class="tot" data-n="${r.total}">${r.total}</span></div>`;
     }).join('')}
     ${resultActions()}
   </div></div>`;
+  countUp(layer);
 }
 function showCoopResults() {
   const b = S.boss, info = E.bossInfo(b.id), grade = E.coopGrade(S);
@@ -1183,9 +1266,10 @@ function showCoopResults() {
     ${order.map((r, k) => `<div class="frame rank${k === 0 ? ' first' : ''}">
         <span class="medal m${k}">${k === 0 ? 'MVP' : k + 1}</span>${portrait(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b><span>점수표 ${E.cardTotal(r.p)} · 의뢰 ${r.p.questsDone.length}</span></div>
-        <span class="tot">${ico('sword')}${r.dmg}</span></div>`).join('')}
+        <span class="tot">${ico('sword')}<i data-n="${r.dmg}">${r.dmg}</i></span></div>`).join('')}
     ${resultActions()}
   </div></div>`;
+  countUp(layer);
 }
 function resultActions() {
   if (online) return `<div class="res-actions">
@@ -1363,6 +1447,7 @@ async function step() {
   if (!S.ended && !S.tutorial) store.set(KEYS.save, S);
   if (E.current(S).bot || S.ended) ui.view = null;
   ui.dice = pendingDice(fx);
+  holdHp(fx);
   render();
   await playFx(fx);
   ui.busy = false;

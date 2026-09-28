@@ -824,3 +824,51 @@ img.t-boss { width: 44px; height: 44px; }
 .row .tag { font-style: normal; font-size: 10px; font-weight: 700; line-height: 1; padding: 1px 3px; border: 1px solid var(--ink); }
 .row .tag.combo { background: var(--mint); color: #052E22; }
 .row .tag.best { background: var(--gold); color: #3B2300; }
+
+/* ── v0.6: 연출 강화 ─────────────────────────────────────────────────────── */
+/* 체력바 잔상 */
+.hp u { position: absolute; left: 0; top: 0; bottom: 0; background: #FFF4D2; transition: width .45s ease-in; }
+.hp i { z-index: 1; }
+.hp s { z-index: 1; }
+.hp em { z-index: 2; }
+/* 히트스톱: 하얗게 번쩍이며 살짝 커진 채 멈춘다 */
+.boss-art.hitstop img.boss { animation: none; filter: brightness(4) saturate(0) drop-shadow(0 0 6px #fff); transform: scale(1.12); }
+/* 피해 숫자 */
+.dmgnum {
+  position: fixed; z-index: 61; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center;
+  animation: dmgPop 1.35s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+.dmgnum b {
+  font-weight: 700; line-height: 1; color: #FFE27A; letter-spacing: -.02em;
+  text-shadow: 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 3px 0 var(--ink), 0 -3px 0 var(--ink), 0 6px 0 #8E2226, 0 0 18px rgba(255,90,40,.8);
+}
+.dmgnum small { font-size: 11px; font-weight: 700; color: #F2EEDD; text-shadow: 1px 1px 0 var(--ink); }
+@keyframes dmgPop {
+  0% { transform: translate(-50%, -50%) scale(.2); opacity: 0; }
+  12% { transform: translate(-50%, -60%) scale(1.35); opacity: 1; }
+  24% { transform: translate(-50%, -55%) scale(1); }
+  75% { transform: translate(-50%, -70%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -110%) scale(.9); opacity: 0; }
+}
+/* 큰 점수 도장 */
+.stamp {
+  position: fixed; z-index: 62; left: 50%; pointer-events: none; white-space: nowrap;
+  font-weight: 700; font-size: 44px; line-height: 1; color: #fff; letter-spacing: .02em;
+  text-shadow: 4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 4px 0 var(--ink), 0 -4px 0 var(--ink), 6px 8px 0 var(--c, #FF8A1A);
+  animation: stampIn 1.25s cubic-bezier(.2,1.6,.4,1) forwards;
+}
+.stamp.s1 { --c: #FF8A1A; }
+.stamp.s2 { --c: #7A4BFF; font-size: 50px; }
+.stamp.s3 { --c: #E8435A; font-size: 58px; animation: stampIn 1.25s cubic-bezier(.2,1.6,.4,1) forwards, rainbowText .3s linear infinite; }
+@keyframes stampIn {
+  0% { transform: translate(-50%, -50%) rotate(-8deg) scale(3); opacity: 0; }
+  14% { transform: translate(-50%, -50%) rotate(-8deg) scale(.95); opacity: 1; }
+  22% { transform: translate(-50%, -50%) rotate(-8deg) scale(1.05); }
+  80% { transform: translate(-50%, -50%) rotate(-8deg) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -80%) rotate(-8deg) scale(1.1); opacity: 0; }
+}
+@keyframes rainbowText { 0% { color: #FFE27A; } 33% { color: #3EE6B4; } 66% { color: #FF9AA8; } }
+/* 결과 등급 도장 */
+.grade { animation: gradeSlam .5s cubic-bezier(.2,1.6,.4,1) .9s both; }
+@keyframes gradeSlam { from { transform: scale(4) rotate(-20deg); opacity: 0; } }
+.tot i { font-style: normal; }
