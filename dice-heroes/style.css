@@ -872,3 +872,14 @@ img.t-boss { width: 44px; height: 44px; }
 .grade { animation: gradeSlam .5s cubic-bezier(.2,1.6,.4,1) .9s both; }
 @keyframes gradeSlam { from { transform: scale(4) rotate(-20deg); opacity: 0; } }
 .tot i { font-style: normal; }
+
+/* 족보 완성 알림 (작게, 가운데) + 버튼 깜박임 */
+.notice {
+  position: fixed; z-index: 58; left: 50%; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  display: flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 700;
+  color: #052E22; background: var(--mint); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink);
+  animation: noticeIn 1.7s ease forwards;
+}
+@keyframes noticeIn { 0% { opacity: 0; transform: translate(-50%, 8px); } 12%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+.sheet-btn.ready { animation: sheetBlink .7s steps(2, jump-none) infinite; }
+@keyframes sheetBlink { 50% { filter: brightness(1.45) drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 12px var(--mint)); } }
