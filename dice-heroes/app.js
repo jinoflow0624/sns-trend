@@ -10,6 +10,7 @@ import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz } from './
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, attackStyle, RAGE, shake } from './fx.js';
+import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -50,6 +51,10 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const br = s => esc(s).replace(/\n/g, '<br>');
 const portrait = (id, cl = '') => `<img class="spr ${cl}" src="${spriteURL(id, 4)}" alt="">`;
+const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
+const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
+const eventIco = (id, cls) => ico(EVENT_ICON[id], cls);
+const skillIco = (id, cls) => ico(SKILL_ICON[id], cls);
 const rarityColor = r => ({ 1: 'var(--common)', 2: 'var(--rare)', 3: 'var(--legend)' }[r]);
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 const miniDie = v => `<span class="md${v === 1 ? ' one' : ''}">${[...Array(9)].map((_, i) => `<i class="${PIPS[v].includes(i) ? 'on' : ''}"></i>`).join('')}</span>`;
@@ -182,8 +187,8 @@ function modePicker(o, editable) {
   return `
   <section class="frame mode-box">
     <div class="tabs">
-      <button class="tab${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus" ${dis}>⚔️ 대전<small>최고 점수 경쟁</small></button>
-      <button class="tab${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop" ${dis}>🛡️ 협동<small>다 함께 보스 토벌</small></button>
+      <button class="tab${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus" ${dis}>${ico('swords')} 대전<small>최고 점수 경쟁</small></button>
+      <button class="tab${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop" ${dis}>${ico('shield')} 협동<small>다 함께 보스 토벌</small></button>
     </div>
     ${o.mode === 'coop' ? `
     <div class="bosses">
@@ -196,7 +201,7 @@ function modePicker(o, editable) {
       ${E.DIFFS.map(d => `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}" ${dis}>${d.ko}</button>`).join('')}
     </div>
     <ul class="skills">
-      ${E.bossInfo(o.boss).skills.map(k => `<li><span>${k.icon}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
+      ${E.bossInfo(o.boss).skills.map(k => `<li><span>${skillIco(k.id)}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
     </ul>
     <p class="hint">점수를 적으면 그만큼 보스에게 피해. 의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요. 12라운드 안에 쓰러뜨리면 승리.</p>` :
     '<p class="hint">12라운드 동안 점수표를 채우고 의뢰·레벨업으로 성장해 최종 점수가 가장 높은 영웅이 승리.</p>'}
@@ -423,7 +428,7 @@ function showLobby() {
       ${!host ? '<p class="hint">모드와 보스는 방장이 정합니다.</p>' : ''}
       ${room.seats.map((s, i) => {
         const me = s.token === online.token;
-        const tag = s.bot ? '봇' : `${s.token === room.host ? '👑 방장 · ' : ''}${me ? '나' : alive(s.token) ? '접속 중' : '연결 끊김'}`;
+        const tag = s.bot ? '봇' : `${s.token === room.host ? `${ico('crown', 'xs')} 방장 · ` : ''}${me ? '나' : alive(s.token) ? '접속 중' : '연결 끊김'}`;
         return seatCard(s, i, { editable: me, removable: host && !me, humanToggle: false, tag });
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>＋ 봇 추가</button>` : ''}
@@ -435,7 +440,7 @@ function showLobby() {
 
 function lobbyTxn(fn) {
   return online.backend.txn(online.code, (room, fail) => { fn(room, fail); return room; })
-    .then(res => { if (!res.ok) toast('⚠️', '할 수 없어요', res.failure); });
+    .then(res => { if (!res.ok) toast(ico('warn'), '할 수 없어요', res.failure); });
 }
 
 function onLobbyAct(act, t) {
@@ -468,8 +473,8 @@ function onLobbyAct(act, t) {
   if (act === 'copy-link') {
     const el = document.getElementById('invite-link');
     const text = el.value;
-    const done = () => toast('🔗', '초대 링크를 복사했어요', '메신저로 친구에게 보내 주세요.', 1600);
-    navigator.clipboard?.writeText(text).then(done, () => { el.select(); toast('🔗', '링크를 선택했어요', '길게 눌러 복사해 주세요.', 1800); })
+    const done = () => toast(ico('link'), '초대 링크를 복사했어요', '메신저로 친구에게 보내 주세요.', 1600);
+    navigator.clipboard?.writeText(text).then(done, () => { el.select(); toast(ico('link'), '링크를 선택했어요', '길게 눌러 복사해 주세요.', 1800); })
       ?? (el.select(), done());
     return;
   }
@@ -507,7 +512,7 @@ function onNameInput(i, value) {
 async function onRoom(room) {
   if (!online) return;
   if (!room) {
-    toast('🚪', '방이 닫혔습니다', '처음 화면으로 돌아갑니다.');
+    toast(ico('door'), '방이 닫혔습니다', '처음 화면으로 돌아갑니다.');
     leaveRoom(); S = null;
     return showTitle();
   }
@@ -515,7 +520,7 @@ async function onRoom(room) {
   if (!room.started) {
     if (screen === 'game') { S = null; layer.innerHTML = ''; playBgm('title'); }
     if (!room.seats.some(s => s.token === online.token)) {
-      toast('🚪', '방에서 나왔습니다', '');
+      toast(ico('door'), '방에서 나왔습니다', '');
       leaveRoom(); return showTitle();
     }
     if (screen !== 'lobby' || !document.activeElement?.matches?.('input')) showLobby();
@@ -584,7 +589,7 @@ function onlineAct(fn, { any = false } = {}) {
       room.fxLog = [...(room.fxLog || []), { id: room.fxId, list }].slice(-8);
     }
     return room;
-  }).then(res => { if (!res.ok) toast('⚠️', '할 수 없어요', res.failure, 1500); return res.ok; });
+  }).then(res => { if (!res.ok) toast(ico('warn'), '할 수 없어요', res.failure, 1500); return res.ok; });
 }
 
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
@@ -641,8 +646,8 @@ function render() {
     <header class="hud">
       <button class="icon-btn" data-act="pause" aria-label="메뉴">☰</button>
       <div class="round-chip"><small>ROUND</small><b>${S.round}<i>/${E.ROUNDS}</i></b></div>
-      <button class="event-chip" data-act="info-event"><span class="ev-ic">${ev.icon}</span><div><b>${ev.ko}</b><small>${ev.desc}</small></div></button>
-      <button class="icon-btn${ui.fast ? ' on' : ''}" data-act="fast" aria-label="봇 빨리 감기">⏩</button>
+      <button class="event-chip" data-act="info-event"><span class="ev-ic">${eventIco(ev.id)}</span><div><b>${ev.ko}</b><small>${ev.desc}</small></div></button>
+      <button class="icon-btn${ui.fast ? ' on' : ''}" data-act="fast" aria-label="봇 빨리 감기">▶▶</button>
     </header>
 
     ${coop ? bossPanel() : ''}
@@ -652,14 +657,14 @@ function render() {
         <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">
           <div class="m-por">${portrait(p.cls)}<span class="lv">${p.level}</span></div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ' (나)' : ''}</span>
-            <b class="pts">${coop ? `⚔${Math.round(S.boss.dmg[i] || 0)}` : E.finalScore(p)}</b></div>
+            <b class="pts">${coop ? `${ico('sword', 'xs')}${Math.round(S.boss.dmg[i] || 0)}` : E.finalScore(p)}</b></div>
           ${online && !p.bot && !alive(p.token) ? '<span class="off">끊김</span>' : ''}
         </button>`).join('')}
     </div>
 
     <section class="board" id="quests">
       <div class="board-head">
-        <b>📜 의뢰 게시판</b>
+        <b>${ico('scroll')} 의뢰 게시판</b>
         <button class="help-link" data-act="help-quest">의뢰 보상이란?</button>
       </div>
       <div class="quests">
@@ -667,7 +672,7 @@ function render() {
           const q = E.questInfo(qid);
           return `<div class="quest${okQuests.includes(qid) ? ' ok' : ''}">
             <span class="pin"></span>
-            <span class="q-ic">${q.icon}</span>
+            <span class="q-ic">${questIco(qid)}</span>
             <div class="q-body"><b>${q.ko}</b><small>${q.desc}</small></div>
             <span class="q-rw"><em>${rewardIcons(E.questReward(S, cur, qid))}</em><i>+${q.xp}XP</i></span>
           </div>`;
@@ -688,11 +693,11 @@ function render() {
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>
       <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 ? '' : 'disabled'}>
-        <span>🔄</span>${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${cur.flip}</b></button>
+        ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${cur.flip}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 ? '' : 'disabled'}>
-        <span>🎯</span>${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${cur.nudge}</b></button>
+        ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${cur.nudge}</b></button>
       <button class="pbtn sheet-btn${combos.length ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
-        <span>📋</span>족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
+        ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
     </section>
     <div class="tip">${absent ? `<span>${esc(cur.name)} 님이 접속 중이 아닙니다</span><button class="pbtn small" data-act="takeover">대신 진행</button>` : tip(cur, myTurn, okQuests, combos)}</div>
 
@@ -705,7 +710,7 @@ function render() {
       <div class="hs-perks">
         ${Object.keys(cur.perks).length ? Object.entries(cur.perks).map(([id, n]) => {
           const k = E.perkInfo(id);
-          return `<button class="perk-ic" style="--rc:${rarityColor(k.rarity)}" data-act="info-perk" data-id="${id}" aria-label="${k.ko}">${k.icon}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
+          return `<button class="perk-ic" style="--rc:${rarityColor(k.rarity)}" data-act="info-perk" data-id="${id}" aria-label="${k.ko}">${perkIco(id)}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
         }).join('') : '<span class="dim">특성 없음</span>'}
       </div>
     </section>
@@ -798,9 +803,9 @@ function bossPanel() {
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
       <div class="hp"><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
-        <em>HP ${b.hp} / ${b.maxHp}${b.shield ? ` · 🛡${b.shield}` : ''}</em></div>
+        <em>HP ${b.hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
       <div class="boss-skills">
-        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip" data-act="info-skill" data-id="${k.id}">${k.icon}${k.ko}</button>`).join('')}
+        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}</button>`).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
       </div>
     </div>
@@ -811,12 +816,12 @@ function tip(cur, myTurn, okQuests, combos = []) {
   if (S.ended) return '';
   if (!myControl()) return `${esc(cur.name)}의 차례…${online && cur.bot ? ' (봇)' : ''}`;
   if (!myTurn) return '';
-  if (ui.tool === 'flip') return '<b class="tool-txt">🔄 뒤집을 주사위를 누르세요</b> · 주사위 위에 뒤집힌 눈이 보여요';
-  if (ui.tool === 'nudge') return '<b class="tool-txt">🎯 주사위 위의 −1 / +1 을 누르세요</b>';
+  if (ui.tool === 'flip') return `<b class="tool-txt">${ico('flip', 'xs')} 뒤집을 주사위를 누르세요</b> · 주사위 위에 뒤집힌 눈이 보여요`;
+  if (ui.tool === 'nudge') return `<b class="tool-txt">${ico('nudge', 'xs')} 주사위 위의 −1 / +1 을 누르세요</b>`;
   if (!S.rolled) return '굴리기를 눌러 턴을 시작하세요';
   if (okQuests.length) return `<b class="ok-txt">의뢰 「${okQuests.map(q => esc(E.questInfo(q).ko)).join('」「')}」 달성 가능!</b>`;
-  if (combos.length) return `<b class="ok-txt">족보 완성! 📋 버튼으로 점수를 기록하세요</b>`;
-  return S.rollsLeft ? '주사위를 눌러 잡고 다시 굴리거나, 📋 족보 완성에서 기록하세요' : '📋 족보 완성에서 기록할 칸을 고르세요';
+  if (combos.length) return `<b class="ok-txt">족보 완성! ${ico('sheet', 'xs')} 버튼으로 점수를 기록하세요</b>`;
+  return S.rollsLeft ? `주사위를 눌러 잡고 다시 굴리거나, ${ico('sheet', 'xs')} 족보 완성에서 기록하세요` : `${ico('sheet', 'xs')} 족보 완성에서 기록할 칸을 고르세요`;
 }
 
 function sheet(p, idx, prev, best, canPick, combos = []) {
@@ -838,7 +843,7 @@ function sheet(p, idx, prev, best, canPick, combos = []) {
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
   const b = E.breakdown(p);
-  const title = canPick && combos.length ? '✨ 족보 완성!' : '점수표';
+  const title = canPick && combos.length ? `${ico('sparkle')} 족보 완성!` : '점수표';
   const close = canPick && S.rollsLeft > 0 ? `계속 굴리기 · ${S.rollsLeft}회` : '닫기';
   return `
   <section class="frame sheet-wrap sheet-pop" id="sheet-pop">
@@ -879,20 +884,20 @@ function popover(anchor, html) {
 }
 function closePopover() { document.querySelectorAll('.popover').forEach(p => p.remove()); }
 
-// 의뢰 보상 아이콘: 🔄 뒤집기 · 🎯 조정
-const rewardIcons = r => [r.flip ? `🔄${r.flip}` : '', r.nudge ? `🎯${r.nudge}` : ''].filter(Boolean).join(' ');
+// 의뢰 보상 아이콘: 뒤집기 · 조정
+const rewardIcons = r => [r.flip ? `${ico('flip', 'xs')}${r.flip}` : '', r.nudge ? `${ico('nudge', 'xs')}${r.nudge}` : ''].filter(Boolean).join(' ');
 
 function showQuestHelp() {
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
-    <h2>📜 의뢰 보상</h2>
-    <p class="big-note">의뢰를 깨면 <b>🔄 뒤집기</b>와 <b>🎯 조정</b> 충전을 받아요.<br>다음 턴부터 주사위를 원하는 눈으로 바꿔 큰 족보를 노릴 수 있어요.</p>
+    <h2>${ico('scroll')} 의뢰 보상</h2>
+    <p class="big-note">의뢰를 깨면 <b>${ico('flip', 'xs')} 뒤집기</b>와 <b>${ico('nudge', 'xs')} 조정</b> 충전을 받아요.<br>다음 턴부터 주사위를 원하는 눈으로 바꿔 큰 족보를 노릴 수 있어요.</p>
     <ul class="list">
-      <li><b>쉬운 의뢰</b> 🎯 조정 1 (예: 두 쌍, 합계 25↑)</li>
-      <li><b>보통 의뢰</b> 🔄 뒤집기 1 (예: 모두 짝수, 풀하우스)</li>
-      <li><b>어려운 의뢰</b> 🔄 1 + 🎯 1 (예: 연속 5개, 같은 눈 4개)</li>
-      <li><b>전설 의뢰</b> 🔄 2 + 🎯 2 (요트)</li>
-      <li><b>🔄 뒤집기</b> 주사위를 반대 면으로 (1↔6, 2↔5, 3↔4)</li>
-      <li><b>🎯 조정</b> 주사위 눈을 ±1</li>
+      <li><b>쉬운 의뢰</b> ${ico('nudge', 'xs')} 조정 1 (예: 두 쌍, 합계 25↑)</li>
+      <li><b>보통 의뢰</b> ${ico('flip', 'xs')} 뒤집기 1 (예: 모두 짝수, 풀하우스)</li>
+      <li><b>어려운 의뢰</b> ${ico('flip', 'xs')} 1 + ${ico('nudge', 'xs')} 1 (예: 연속 5개, 같은 눈 4개)</li>
+      <li><b>전설 의뢰</b> ${ico('flip', 'xs')} 2 + ${ico('nudge', 'xs')} 2 (요트)</li>
+      <li><b>${ico('flip', 'xs')} 뒤집기</b> 주사위를 반대 면으로 (1↔6, 2↔5, 3↔4)</li>
+      <li><b>${ico('nudge', 'xs')} 조정</b> 주사위 눈을 ±1</li>
     </ul>
     <p class="hint">의뢰는 먼저 깬 사람 몫. 음유시인·의뢰 전문가·현상금 이벤트는 보상을 늘려 줘요.</p>
     <button class="pbtn gold" data-act="close">알겠어요</button>
@@ -910,12 +915,12 @@ function showCatHelp() {
 }
 
 // ── 연출 ─────────────────────────────────────────────────────────────────────
-function floatText(text, cls, offset = 0, anchor = 'tray') {
+function floatText(text, cls, offset = 0, anchor = 'tray', icon = '') {
   const el = document.createElement('div');
   el.className = `float ${cls}`;
   const r = document.getElementById(anchor)?.getBoundingClientRect();
   el.style.top = `${Math.max(90, (r ? r.top + r.height * 0.35 : innerHeight / 2) + offset)}px`;
-  el.textContent = text;
+  el.innerHTML = (icon ? ico(icon) : '') + esc(text);
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1500);
 }
@@ -934,7 +939,7 @@ let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
   layer.innerHTML = `<div class="overlay" data-act="skip-banner"><div class="banner">
-    <div class="rn">ROUND ${round}</div><div class="ev">${ev.icon}</div><b>${ev.ko}</b><span>${ev.desc}</span></div></div>`;
+    <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span></div></div>`;
   sfx.round();
   await Promise.race([wait(ui.fast ? 700 : 1500), new Promise(r => (skipBanner = r))]);
   layer.innerHTML = '';
@@ -959,7 +964,7 @@ function hitBoss(amount, blocked) {
   const art = document.getElementById('boss-art');
   if (!art) return;
   art.classList.remove('hit'); void art.offsetWidth; art.classList.add('hit');
-  floatText(blocked && !amount ? `🛡${blocked}` : `-${amount - (blocked || 0)}${blocked ? ` 🛡${blocked}` : ''}`, 'dmg', 10, 'boss-art');
+  floatText(blocked && !amount ? `${blocked} 막힘` : `-${amount - (blocked || 0)}${blocked ? ` (${blocked} 막힘)` : ''}`, 'dmg', 10, 'boss-art', blocked ? 'bone' : '');
 }
 
 const BOSS_LINES = {
@@ -1088,22 +1093,22 @@ async function playFx(list) {
       }
       case 'quest':
         sfx.quest();
-        await toast(E.questInfo(f.quest).icon, `의뢰 완료! 「${E.questInfo(f.quest).ko}」`, `${p.name} · ${E.chargeText(f.reward)} · 경험치 +${f.xp}`);
+        await toast(questIco(f.quest), `의뢰 완료! 「${E.questInfo(f.quest).ko}」`, `${p.name} · ${E.chargeText(f.reward)} · 경험치 +${f.xp}`);
         break;
       case 'xp': sfx.coin(); floatText(`+${f.amount} EXP`, 'mint', 38); await wait(320); break;
       case 'levelup':
         sfx.levelup();
-        if (!(online ? p.token === online.token : !p.bot)) await toast('🆙', `${p.name} 레벨 ${f.level}!`, '특성 카드를 고르는 중…', 1300);
+        if (!(online ? p.token === online.token : !p.bot)) await toast(ico('up'), `${p.name} 레벨 ${f.level}!`, '특성 카드를 고르는 중…', 1300);
         break;
       case 'retro':
         sfx.quest();
         floatText(`${E.perkInfo(f.perk).ko} 소급 +${f.amount}`, 'gold', 0);
         await wait(500);
         break;
-      case 'midas': floatText('👑 황금손 조정 +1', 'gold', -30); break;
-      case 'duel': sfx.quest(); await toast('🏆', '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
+      case 'midas': floatText('황금손 조정 +1', 'gold', -30, 'tray', 'crown'); break;
+      case 'duel': sfx.quest(); await toast(ico('trophy'), '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
       case 'charge':
-        if (f.why === 'monk') { sfx.coin(); floatText(`📿 절제 · 조정 +${f.nudge}`, 'mint', -20); await wait(300); }
+        if (f.why === 'monk') { sfx.coin(); floatText(`절제 · 조정 +${f.nudge}`, 'mint', -20, 'tray', 'beads'); await wait(300); }
         else if (f.why !== 'quest') floatText(E.chargeText(f), 'mint', -20);
         break;
     }
@@ -1132,7 +1137,7 @@ function showLevelUp() {
       ${offer.map(id => {
         const k = E.perkInfo(id), have = E.perkCount(p, id);
         return `<button class="card r${k.rarity}" data-act="perk" data-id="${id}">
-          <span class="rar">${E.RARITY[k.rarity].ko}</span><span class="c-ic">${k.icon}</span><b>${k.ko}</b><p>${k.desc}</p>
+          <span class="rar">${E.RARITY[k.rarity].ko}</span><span class="c-ic">${perkIco(id, 'lg')}</span><b>${k.ko}</b><p>${k.desc}</p>
           ${have && !k.instant ? `<em>보유 ${have} → ${have + 1}</em>` : ''}${k.instant ? '<em>즉시 받음</em>' : ''}
           ${E.perkRetro(p, id) ? `<em class="retro">지금 고르면 즉시 +${E.perkRetro(p, id)}점</em>` : ''}</button>`;
       }).join('')}
@@ -1179,7 +1184,7 @@ function showCoopResults() {
     ${order.map((r, k) => `<div class="frame rank${k === 0 ? ' first' : ''}">
         <span class="medal m${k}">${k === 0 ? 'MVP' : k + 1}</span>${portrait(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b><span>점수표 ${E.cardTotal(r.p)} · 의뢰 ${r.p.questsDone.length}</span></div>
-        <span class="tot">⚔${r.dmg}</span></div>`).join('')}
+        <span class="tot">${ico('sword')}${r.dmg}</span></div>`).join('')}
     ${resultActions()}
   </div></div>`;
 }
@@ -1337,7 +1342,7 @@ function endTutorial(skipped) {
   coachEl.innerHTML = '';
   S = null;
   store.del(KEYS.save);
-  toast('🎓', skipped ? '튜토리얼을 건너뛰었어요' : '튜토리얼 완료!',
+  toast(ico('cap'), skipped ? '튜토리얼을 건너뛰었어요' : '튜토리얼 완료!',
     skipped ? '메뉴 → 설정에서 언제든 다시 볼 수 있어요.' : '이제 파티를 꾸려 진짜 모험을 떠나 보자.', 2200);
   return showSetup();
 }
@@ -1404,7 +1409,7 @@ async function botStep() {
   if (act.type === 'perk') {
     const k = E.perkInfo(act.id);
     sfx.card();
-    toast(k.icon, `${E.current(S).name} · ${k.ko}`, k.desc, 1400);
+    toast(perkIco(k.id), `${E.current(S).name} · ${k.ko}`, k.desc, 1400);
   }
   E.applyBot(S, act);
   step();
@@ -1412,7 +1417,7 @@ async function botStep() {
 
 function tryAct(fn) {
   try { fn(); return true; }
-  catch (err) { toast('⚠️', '할 수 없어요', err.message, 1500); return false; }
+  catch (err) { toast(ico('warn'), '할 수 없어요', err.message, 1500); return false; }
 }
 
 // 한 기기에서는 바로 적용, 온라인에서는 방에 적용
@@ -1442,24 +1447,24 @@ async function onGameAct(act, t) {
   if (act === 'sheet-close') { sfx.back(); ui.sheet = false; ui.view = null; return render(); }
   if (act === 'log') {
     sfx.tap();
-    return popover(t, `<b>📜 최근 기록</b>${S.log.slice(-8).reverse().map(l => `<p>R${l.r} · ${esc(l.text)}</p>`).join('')}`);
+    return popover(t, `<b>${ico('scroll', 'xs')} 최근 기록</b>${S.log.slice(-8).reverse().map(l => `<p>R${l.r} · ${esc(l.text)}</p>`).join('')}`);
   }
   if (act === 'help-quest') { sfx.select(); return showQuestHelp(); }
   if (act === 'help-cats') { sfx.select(); return showCatHelp(); }
   if (act === 'info-perk') {
     const k = E.perkInfo(t.dataset.id);
     sfx.tap();
-    return popover(t, `<b style="color:${rarityColor(k.rarity)}">${k.icon} ${k.ko}</b> <small>${E.RARITY[k.rarity].ko}</small><p>${k.desc}</p>`);
+    return popover(t, `<b style="color:${rarityColor(k.rarity)}">${perkIco(k.id)} ${k.ko}</b> <small>${E.RARITY[k.rarity].ko}</small><p>${k.desc}</p>`);
   }
   if (act === 'info-skill') {
     const k = E.bossInfo(S.boss.id).skills.find(x => x.id === t.dataset.id);
     sfx.tap();
-    return popover(t, `<b>${k.icon} ${k.ko}</b><p>${esc(k.desc(S.boss.diff))}</p>`);
+    return popover(t, `<b>${skillIco(k.id)} ${k.ko}</b><p>${esc(k.desc(S.boss.diff))}</p>`);
   }
   if (act === 'info-event') {
     const ev = E.eventInfo(E.event(S));
     sfx.tap();
-    return popover(t, `<b>${ev.icon} 이번 라운드 · ${ev.ko}</b><p>${ev.desc}</p><small>라운드마다 모두에게 적용되는 이벤트가 바뀝니다.</small>`);
+    return popover(t, `<b>${eventIco(ev.id)} 이번 라운드 · ${ev.ko}</b><p>${ev.desc}</p><small>라운드마다 모두에게 적용되는 이벤트가 바뀝니다.</small>`);
   }
   if (act === 'takeover' && online) {
     sfx.select();

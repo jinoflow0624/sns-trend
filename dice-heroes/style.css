@@ -783,3 +783,25 @@ img.t-boss { width: 44px; height: 44px; }
 .sheet-pop .col { gap: 3px; }
 .sheet-pop .sheet { gap: 6px; }
 .boss-panel.rage .boss-skills { flex-wrap: nowrap; overflow: hidden; }
+
+/* ── 도트 아이콘 (icons.js) ─────────────────────────────────────────────── */
+.ico { width: 24px; height: 24px; display: inline-block; vertical-align: middle; image-rendering: pixelated; image-rendering: crisp-edges; flex: none; }
+.ico.xs { width: 12px; height: 12px; vertical-align: -1px; }
+.ico.lg { width: 48px; height: 48px; }
+.banner .ev .ico.lg { width: 96px; height: 96px; }
+.tool .ico, .sheet-btn .ico { width: 24px; height: 24px; margin-bottom: 1px; }
+.q-ic .ico { width: 24px; height: 24px; }
+.ev-ic .ico { width: 24px; height: 24px; }
+.t-ic .ico { width: 48px; height: 48px; }
+.skills li span .ico { width: 24px; height: 24px; }
+.skill-chip { display: inline-flex; align-items: center; gap: 2px; }
+.perk-ic { width: 28px; height: 28px; }
+.perk-ic .ico { width: 24px; height: 24px; }
+.c-ic .ico.lg { width: 48px; height: 48px; }
+.q-rw em { display: inline-flex; align-items: center; gap: 1px; }
+.m-info .pts .ico, .tot .ico { margin-right: 2px; }
+.float .ico { width: 24px; height: 24px; margin-right: 4px; vertical-align: -4px; }
+.board-head b { display: inline-flex; align-items: center; gap: 4px; }
+.tab .ico { width: 24px; height: 24px; }
+.tab { justify-items: center; }
+.skill-chip { white-space: nowrap; }

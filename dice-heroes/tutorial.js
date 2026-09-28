@@ -41,7 +41,7 @@ export const STEPS = [
   { target: '[data-tool=nudge]', toolTarget: '#tray', allow: ['tool', 'nudge'], only: { tool: 'nudge', die: 4, d: 1 },
     text: '이번엔 조정! 조정을 누르면 주사위마다 −1 · +1 버튼이 떠.\n맨 오른쪽 1 위의 +1 을 눌러 2로 만들어.',
     done: s => s.dice[4] === 2 },
-  { target: '[data-cat=lstr]', allow: ['score'], only: { cat: 'lstr' }, text: '2·3·4·5·6, 라지 스트레이트 완성!\n점수표가 떴지? 30점을 적어.\n(📋 족보 완성 버튼으로 언제든 점수표를 열 수 있어)',
+  { target: '[data-cat=lstr]', allow: ['score'], only: { cat: 'lstr' }, text: '2·3·4·5·6, 라지 스트레이트 완성!\n점수표가 떴지? 30점을 적어.\n(족보 완성 버튼으로 언제든 점수표를 열 수 있어)',
     done: s => s.players[0].scores.lstr !== null },
   { text: '이게 전부야!\n12라운드 동안 점수표를 채우고, 의뢰로 뒤집기·조정을 모으고,\n레벨업 카드로 나만의 영웅을 키워.\n최종 점수가 가장 높은 영웅이 승리!', next: '실전 시작', end: true },
 ];
