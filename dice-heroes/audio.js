@@ -2,7 +2,11 @@
 // 오디오 파일 없이 WebAudio 로 합성한다. 외부 음원을 쓰려면 BGM_FILES 에 경로만 넣으면
 // 해당 트랙은 파일 재생으로 바뀐다 (예: { title: 'assets/bgm/title.ogg' }).
 
+// 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich
+// 예) export const BGM_FILES = { boss_dragon: 'assets/bgm/boss_dragon.ogg' };
 export const BGM_FILES = {};
+// 협동모드 보스 곡: 보스별 파일이 있으면 그것, 없으면 칩튠 보스전 곡
+export const bossSong = id => (BGM_FILES[`boss_${id}`] ? `boss_${id}` : 'boss');
 
 const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
@@ -158,6 +162,35 @@ const SONGS = {
       'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K S K S S S S O',
       'K H H H S H H K', 'K H H H S H H H', 'K H H H S H H K', 'K H H H S H S S',
       'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K - S - S S S O',
+    ],
+  },
+  // 보스전 — D단조, 120BPM. 쉬지 않는 8분음표 베이스 위로 영웅적이면서 위협적인 주제.
+  // 진행 Dm - B♭ - C - A7, 8마디 주제 A + 한 옥타브 높은 B, 마지막 마디가 첫 마디로 이어진다.
+  boss: {
+    bpm: 120,
+    lead: [
+      'D5 . . A4 D5 . E5 .', 'F5 . E5 . D5 . C#5 .', 'D5 . . A#4 D5 . F5 .', 'E5 . . . C5 . G5 .',
+      'A5 . . G5 F5 . E5 .', 'F5 . D5 . A#4 . D5 .', 'E5 . G5 . C6 . A#5 .', 'A5 . . . C#5 . E5 .',
+      'D6 . A5 . F5 . D5 .', 'A#5 . F5 . D5 . A#4 .', 'C6 . G5 . E5 . C5 .', 'C#6 . A5 . E5 . C#5 .',
+      'D5 E5 F5 G5 A5 . F5 .', 'A#5 A5 G5 F5 E5 . D5 .', 'E5 F5 G5 A5 A#5 . G5 .', 'A5 . G5 . F5 . E5 .',
+    ],
+    harm: [
+      'D4 F4 A4 F4 D4 F4 A4 F4', 'D4 F4 A4 F4 C#4 E4 A4 E4', 'A#3 D4 F4 D4 A#3 D4 F4 D4', 'C4 E4 G4 E4 C4 E4 G4 E4',
+      'D4 F4 A4 F4 D4 F4 A4 F4', 'A#3 D4 F4 D4 A#3 D4 F4 D4', 'C4 E4 G4 E4 C4 E4 G4 E4', 'A3 C#4 E4 G4 A3 C#4 E4 G4',
+      'D5 . A4 . D5 . A4 .', 'D5 . A#4 . D5 . A#4 .', 'E5 . C5 . E5 . C5 .', 'E5 . C#5 . E5 . C#5 .',
+      'D4 F4 A4 F4 D4 F4 A4 F4', 'A#3 D4 F4 D4 A#3 D4 F4 D4', 'C4 E4 G4 E4 C4 E4 G4 E4', 'A3 C#4 E4 G4 A3 C#4 E4 G4',
+    ],
+    bass: [
+      'D2 D2 D3 D2 D2 D2 D3 D2', 'D2 D2 D3 D2 A1 A1 A2 A1', 'A#1 A#1 A#2 A#1 A#1 A#1 A#2 A#1', 'C2 C2 C3 C2 C2 C2 C3 C2',
+      'D2 D2 D3 D2 D2 D2 D3 D2', 'A#1 A#1 A#2 A#1 A#1 A#1 A#2 A#1', 'C2 C2 C3 C2 C2 C2 C3 C2', 'A1 A1 A2 A1 A1 A1 C#2 E2',
+      'D2 D2 D3 D2 D2 D2 D3 D2', 'A#1 A#1 A#2 A#1 A#1 A#1 A#2 A#1', 'C2 C2 C3 C2 C2 C2 C3 C2', 'A1 A1 A2 A1 A1 A1 A2 A1',
+      'D2 D2 D3 D2 D2 D2 D3 D2', 'A#1 A#1 A#2 A#1 A#1 A#1 A#2 A#1', 'C2 C2 C3 C2 C2 C2 C3 C2', 'A1 A1 A2 A1 C#2 C#2 E2 E2',
+    ],
+    drums: [
+      'K H S H K K S H', 'K H S H K K S H', 'K H S H K K S H', 'K H S H K K S S',
+      'K H S H K K S H', 'K H S H K K S H', 'K H S H K K S H', 'K S K S S S S O',
+      'K H S H K H S K', 'K H S H K H S K', 'K H S H K H S K', 'K H S H K S S S',
+      'K H S H K K S H', 'K H S H K K S H', 'K H S H K K S H', 'K - S - S S S O',
     ],
   },
   // 결과 — 여유로운 개선 행진, F장조
