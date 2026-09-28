@@ -105,7 +105,7 @@ function buildFarm() {
   b.warp(HOUSE_DOOR.x, HOUSE_DOOR.y, 1, 1, 'house', 0, 0, '집 안');
   b.reserve(3, 3, 9, 7);
   b.obj({ t: 'station', kind: 'bench', x: 12, y: 7, name: '목공 작업대' });
-  b.obj({ t: 'chest', kind: 'shipbox', x: 12, y: 5, name: '출하 상자' });
+  b.obj({ t: 'chest', kind: 'shipbox', x: 12, y: 5, name: '가판대' });
   b.reserve(11, 4, 3, 5);
 
   const s = FARM_SOIL;
@@ -137,7 +137,7 @@ export function buildHouse(level = 1) {
   const [rw, rh] = HOUSE_LEVELS[lv].room;
   const W = rw + 2;
   const H = rh + 3;
-  const b = new Builder('house', `우리 집 · ${HOUSE_LEVELS[lv].name}`, W, H, T.FLOOR, { indoor: true, level: lv });
+  const b = new Builder('house', `우리 집 · ${(HOUSE_LEVELS[level] || HOUSE_LEVELS[lv]).name}`, W, H, T.FLOOR, { indoor: true, level: lv });
   b.rect(0, 0, W, 3, T.WALL);
   b.rect(0, 0, 1, H, T.WALL);
   b.rect(W - 1, 0, 1, H, T.WALL);

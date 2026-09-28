@@ -295,3 +295,37 @@ body.hurt #game-root::after { content: ''; position: absolute; inset: 0; pointer
 .li .pix { width: 24px; height: 24px; }
 .toast.save { font-size: 11px; padding: 3px 10px; background: rgba(251,238,203,.9); box-shadow: none; opacity: .9; }
 #toasts.low { top: auto; bottom: calc(170px + var(--safe-b)); flex-direction: column-reverse; }
+
+/* ── 하루의 끝: 카페인 · 잠 · 하루 요약 · 가판대 · 정수기 ───────────────── */
+.clockbox .caff { animation: pop .4s ease-out; }
+.sleep-ov { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: flex; align-items: flex-start; justify-content: center; padding-top: calc(120px + var(--safe-t)); background: radial-gradient(ellipse at center, rgba(20,14,40,.25), rgba(20,14,40,.6)); }
+.sleep-ov[hidden] { display: none; }
+.sleep-card { pointer-events: auto; background: rgba(251,238,203,.96); border: 3px solid var(--wood-d); border-radius: 12px; box-shadow: 0 3px 0 var(--wood-d); padding: 12px 16px; min-width: 220px; max-width: 86vw; text-align: center; }
+.sleep-card.in { animation: pop .3s ease-out; }
+.sleep-card > b { font-size: 16px; }
+.sleep-card p { margin: 4px 0; }
+.sleep-list { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 2px; text-align: left; }
+.sleep-list div { display: flex; justify-content: space-between; gap: 12px; background: #fff8e6; border: 1px solid var(--paper3); border-radius: 6px; padding: 2px 8px; font-size: 13px; }
+.sleep-list .pix.sm { width: 14px; height: 14px; vertical-align: -2px; }
+.dayend { position: absolute; inset: 0; z-index: 30; pointer-events: auto; display: flex; align-items: center; justify-content: center; background: rgba(16,12,30,.82); animation: fadein .4s ease-out; padding: 16px; padding-bottom: calc(16px + var(--safe-b)); }
+.dayend[hidden] { display: none; }
+.de-card { width: 100%; max-width: 420px; max-height: 100%; display: flex; flex-direction: column; background: var(--paper); border: 3px solid var(--wood-d); border-radius: 14px; box-shadow: inset 0 0 0 3px var(--paper2), 0 4px 0 var(--wood-d); padding: 14px 16px 10px; }
+.de-card h2 { text-align: center; margin-bottom: 8px; }
+.de-lines { list-style: none; margin: 0; padding: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+.de-lines li { display: none; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 14px; }
+.de-lines li.show { display: flex; animation: lineup .28s ease-out; }
+.de-card [hidden] { display: none !important; }
+@keyframes lineup { from { opacity: 0; transform: translateY(8px); } }
+.de-lines .ico { width: 24px; height: 24px; }
+.de-lines .de-out { background: #fff8e6; border: 2px solid var(--paper3); }
+.de-lines .de-h { font-weight: bold; color: var(--wood-d); padding-bottom: 0; }
+.de-lines .de-item { background: #fffdf4; }
+.de-lines .de-sum { border-top: 2px dashed var(--paper3); }
+.de-lines .de-next { justify-content: center; color: var(--wood-d); }
+.de-hint { text-align: center; margin: 8px 0 0; }
+.stall-sum { text-align: right; margin: 6px 0 0; }
+.cups { display: flex; gap: 3px; margin: 3px 0 5px; }
+.cups i { width: 12px; height: 14px; border: 2px solid #6a8aa8; border-top: 0; border-radius: 0 0 3px 3px; background: transparent; }
+.cups i.on { background: linear-gradient(transparent 20%, #6ac6f0 20%); }
+.prog.brew i { background: linear-gradient(90deg, #8a5a32, #c89060); }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }

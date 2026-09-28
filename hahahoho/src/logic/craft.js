@@ -41,7 +41,7 @@ export function craft(p, recipe, rnd = Math.random) {
   if (recipe.station === 'stove' && perk.doubleCook && rnd() < perk.doubleCook) outN *= 2;
   const toStash = give(p, outId, outN);
   const ups = gainXp(p, skill, recipe.xp);
-  if (skill === 'cook') p.stats.cooked += outN; else p.stats.sewn += outN;
+  if (skill === 'cook') p.stats.cooked += outN; else if (skill === 'sew') p.stats.sewn += outN;
   return {
     ok: true,
     item: outId,

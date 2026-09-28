@@ -7,6 +7,11 @@ export const DAY_MS = 24 * 60 * 1000;
 export const HOUR_MS = DAY_MS / 24;
 export const MIN = 60 * 1000;
 export const REAL_HOUR = 60 * MIN; // 현실 1시간 (방치·일꾼 시간은 현실 시간 기준)
+// 하루는 오전 6시에 시작해 밤 12시에 끝난다. 그때까지 침대에서 자지 않으면 쓰러진다.
+// 커피를 마신 날은 새벽 2시(26시)까지 버틸 수 있다. 모두가 잠들면 그 자리에서 하루가 끝난다.
+export const DAY_START_H = 6;
+export const BEDTIME_H = 24;
+export const COFFEE_H = 26;
 
 // ── 능력치 ───────────────────────────────────────────────────────────────────
 export const STATS = {
@@ -108,6 +113,7 @@ export const ITEMS = Object.fromEntries([
   I('seed_cotton', '목화 씨앗', 'seed', 40, { kind: 'seed', c: '#f4f4f4' }, { crop: 'cotton' }),
   I('seed_strawberry', '딸기 씨앗', 'seed', 50, { kind: 'seed', c: '#ff5a78' }, { crop: 'strawberry' }),
   I('seed_pumpkin', '호박 씨앗', 'seed', 90, { kind: 'seed', c: '#f39c1f' }, { crop: 'pumpkin' }),
+  I('seed_coffee', '커피 씨앗', 'seed', 45, { kind: 'seed', c: '#6a3a1a' }, { crop: 'coffee' }),
   // 작물
   I('turnip', '순무', 'crop', 35, { kind: 'turnip', c: '#f1e7f6', c2: '#9c5fc0' }),
   I('potato', '감자', 'crop', 55, { kind: 'potato', c: '#c9a36b' }),
@@ -117,6 +123,7 @@ export const ITEMS = Object.fromEntries([
   I('cotton', '목화', 'crop', 80, { kind: 'cotton', c: '#ffffff' }),
   I('strawberry', '딸기', 'crop', 120, { kind: 'berry', c: '#ff3c5a' }),
   I('pumpkin', '호박', 'crop', 260, { kind: 'round', c: '#f08a1c', c2: '#5f8c2a', big: 1 }),
+  I('coffee_bean', '커피콩', 'crop', 40, { kind: 'bean', c: '#6a3a1a' }),
   // 채집
   I('wood', '나무', 'mat', 8, { kind: 'log', c: '#9a6a3c' }),
   I('stone', '돌', 'mat', 5, { kind: 'rock', c: '#9aa0a8' }),
@@ -154,6 +161,10 @@ export const ITEMS = Object.fromEntries([
   I('dye_red', '빨간 염료', 'mat', 60, { kind: 'dye', c: '#e0412f' }),
   I('dye_blue', '파란 염료', 'mat', 60, { kind: 'dye', c: '#3a7ae0' }),
   I('dye_yellow', '노란 염료', 'mat', 60, { kind: 'dye', c: '#ffd23c' }),
+  I('iron_bar', '철 주괴', 'mat', 220, { kind: 'bar', c: '#c8d0da' }),
+  // 양동이: 물가에서 든 채로 물을 누르면 물 양동이가 된다. 물 양동이 하나로 커피 10잔.
+  I('bucket', '양동이', 'mat', 240, { kind: 'bucket', c: '#9aa4b0' }, { stack: 20 }),
+  I('water_bucket', '물 양동이', 'mat', 250, { kind: 'bucket', c: '#9aa4b0', c2: '#5ab4f0' }, { stack: 20 }),
   // 음식 (en: 기력 회복, hp: 체력 회복, buff: 30분 버프)
   I('bread', '빵', 'food', 30, { kind: 'bread', c: '#d8a45a' }, { en: 30, hp: 5 }),
   I('herb_salve', '약초 연고', 'food', 60, { kind: 'jar', c: '#4cb24a' }, { hp: 50 }),
@@ -167,6 +178,8 @@ export const ITEMS = Object.fromEntries([
   I('spicy_stew', '얼큰 매운탕', 'food', 420, { kind: 'bowl', c: '#e0412f' }, { en: 110, hp: 110, buff: { dex: 2 } }),
   I('tomato_pasta', '토마토 파스타', 'food', 300, { kind: 'bowl', c: '#e05a3a' }, { en: 110, hp: 40, buff: { crf: 2 } }),
   I('sushi', '연어 초밥', 'food', 520, { kind: 'dish', c: '#ff8a64' }, { en: 120, hp: 80, buff: { dex: 3 } }),
+  // 커피: 마신 날은 새벽 2시까지 멀쩡하다 (하루 한 잔)
+  I('coffee', '커피', 'food', 110, { kind: 'coffee', c: '#5a3218' }, { en: 25, caffeine: true }),
   // 옷 (slot: hat / top)
   I('straw_hat', '밀짚모자', 'cloth', 300, { kind: 'hat', c: '#e8c65a' }, { slot: 'hat', bonus: { farm: 1, luk: 1 }, look: '#e8c65a' }),
   I('work_shirt', '작업복 셔츠', 'cloth', 360, { kind: 'shirt', c: '#4d7fbf' }, { slot: 'top', bonus: { dex: 1, en: 10 }, look: '#4d7fbf' }),
@@ -191,6 +204,9 @@ export const ITEMS = Object.fromEntries([
   I('f_clock', '괘종시계', 'furniture', 450, { kind: 'f_clock', c: '#8a5a32' }, { w: 1, h: 1 }),
   I('f_fireplace', '벽난로', 'furniture', 800, { kind: 'f_fireplace', c: '#a85a3a' }, { w: 2, h: 1, light: true }),
   I('f_piano', '작은 피아노', 'furniture', 1200, { kind: 'f_piano', c: '#2c2c34' }, { w: 2, h: 1 }),
+  // 쓰는 가구: 용광로(주괴 만들기) · 정수기(커피 내리기)
+  I('f_furnace', '용광로', 'furniture', 420, { kind: 'f_furnace', c: '#8a8a94' }, { w: 1, h: 1, light: true, station: 'furnace' }),
+  I('f_purifier', '정수기', 'furniture', 900, { kind: 'f_purifier', c: '#e8eef4' }, { w: 1, h: 1, purifier: true }),
 ].map(it => [it.id, it]));
 
 export const itemName = id => ITEMS[id]?.name || id;
@@ -206,11 +222,12 @@ export const CROPS = {
   cotton: { name: '목화', grow: 10, yield: [1, 2], xp: 12, color: '#ffffff', leaf: '#6a9a4a' },
   strawberry: { name: '딸기', grow: 14, yield: [2, 4], xp: 18, color: '#ff3c5a', leaf: '#3d9c3a' },
   pumpkin: { name: '호박', grow: 28, yield: [1, 1], xp: 40, color: '#f08a1c', leaf: '#5f8c2a' },
+  coffee: { name: '커피', grow: 12, yield: [2, 4], xp: 14, color: '#b0302a', leaf: '#2f7a3a', item: 'coffee_bean' },
 };
 export const WET_MS = 20 * MIN; // 물을 주면 20분 동안 촉촉함
 
 // ── 레시피 ───────────────────────────────────────────────────────────────────
-// station: stove(화덕) / sewing(재봉틀) / loom(물레·실 잣기)
+// station: stove(화덕) / sewing(재봉틀) / bench(작업대) / furnace(용광로)
 export const RECIPES = [
   // 요리
   { id: 'r_baked_potato', out: ['baked_potato', 1], in: [['potato', 1]], station: 'stove', lv: 1, xp: 8 },
@@ -252,9 +269,20 @@ export const RECIPES = [
   { id: 'r_f_bear', out: ['f_bear', 1], in: [['fur', 3], ['cloth', 1]], station: 'bench', lv: 1, xp: 10 },
   { id: 'r_f_tank', out: ['f_tank', 1], in: [['stone', 10], ['fish_carp', 1]], station: 'bench', lv: 1, xp: 12 },
   { id: 'r_f_fireplace', out: ['f_fireplace', 1], in: [['stone', 30], ['iron_ore', 4]], station: 'bench', lv: 1, xp: 20 },
+  { id: 'r_f_furnace', out: ['f_furnace', 1], in: [['stone', 25], ['coal', 5]], station: 'bench', lv: 1, xp: 12 },
+  { id: 'r_bucket', out: ['bucket', 1], in: [['iron_bar', 1]], station: 'bench', lv: 1, xp: 8 },
+  { id: 'r_f_purifier', out: ['f_purifier', 1], in: [['iron_bar', 2], ['stone', 10], ['copper_ore', 3]], station: 'bench', lv: 1, xp: 16 },
+  // 용광로 (집에 놓은 용광로를 누르면)
+  { id: 'r_iron_bar', out: ['iron_bar', 1], in: [['iron_ore', 3], ['coal', 1]], station: 'furnace', lv: 1, xp: 10 },
 ];
-export const STATION_NAME = { stove: '화덕 요리', sewing: '재봉틀', bench: '목공 작업대' };
-export const STATION_SKILL = { stove: 'cook', sewing: 'sew', bench: 'sew' };
+export const STATION_NAME = { stove: '화덕 요리', sewing: '재봉틀', bench: '목공 작업대', furnace: '용광로' };
+export const STATION_SKILL = { stove: 'cook', sewing: 'sew', bench: 'sew', furnace: 'mine' };
+
+// 정수기: 물 양동이 하나를 끼우면 커피 10잔. 커피콩을 넣으면 한 잔에 현실 30초씩 차례로 내린다.
+export const BREW_MS = 30 * 1000;
+export const CUPS_PER_BUCKET = 10;
+// 정수기는 기본 2개, 집 6·11·16…단계마다 하나씩 더 놓을 수 있다
+export const purifierLimit = houseLv => 2 + Math.floor(Math.max(0, (houseLv || 1) - 1) / 5);
 
 // ── 몬스터 ───────────────────────────────────────────────────────────────────
 // passive: 먼저 공격하지 않고 도망친다 (사냥감)
@@ -271,13 +299,13 @@ export const MONSTERS = {
 export const SHOPS = {
   market: {
     name: '봄이네 시장', npc: 'bomi',
-    sells: ['seed_turnip', 'seed_potato', 'seed_carrot', 'seed_wheat', 'seed_tomato', 'seed_cotton', 'seed_strawberry', 'seed_pumpkin', 'bread', 'bait', 'f_chair', 'f_plant', 'f_lamp', 'f_sofa', 'f_clock', 'f_piano'],
+    sells: ['seed_turnip', 'seed_potato', 'seed_carrot', 'seed_wheat', 'seed_tomato', 'seed_cotton', 'seed_strawberry', 'seed_pumpkin', 'seed_coffee', 'bread', 'bait', 'f_chair', 'f_plant', 'f_lamp', 'f_sofa', 'f_clock', 'f_piano', 'f_purifier'],
     buys: ['crop', 'forage', 'fish', 'ore', 'drop', 'food', 'mat', 'cloth', 'furniture'],
   },
   tailor: { name: '실비 의상실', npc: 'silvi', sells: ['cloth', 'dye_red', 'dye_blue', 'dye_yellow', 'wool'], buys: ['cloth', 'mat'] },
   diner: { name: '순자 할머니 식당', npc: 'sunja', sells: ['flour', 'mushroom', 'herb_salve', 'bread'], buys: ['food', 'crop'] },
   fisher: { name: '강태공 낚시점', npc: 'kang', sells: ['bait'], buys: ['fish'] },
-  smith: { name: '철수 대장간', npc: 'chulsu', sells: ['coal', 'copper_ore'], buys: ['ore', 'drop'] },
+  smith: { name: '철수 대장간', npc: 'chulsu', sells: ['coal', 'copper_ore', 'iron_bar', 'bucket'], buys: ['ore', 'drop', 'mat'] },
 };
 
 // ── 집 레벨 (모두가 함께 키운다) ─────────────────────────────────────────────
@@ -288,8 +316,19 @@ export const HOUSE_LEVELS = [
   { name: '2층 집', room: [13, 9], plots: 48, perks: '집 안 재봉틀 · 작업대 · 작물 +5% 속도', cost: { gold: 5000, items: [['wood', 120], ['stone', 80], ['copper_ore', 20], ['cloth', 5]] } },
   { name: '정원 딸린 집', room: [15, 10], plots: 60, perks: '방치 보상 한도 16시간 · 작물 +10% 속도', cost: { gold: 15000, items: [['wood', 200], ['iron_ore', 30], ['gem', 2], ['wool', 5]] } },
   { name: '하하호호 대저택', room: [17, 11], plots: 72, perks: '모든 방치 보상 +25% · 작물 +15% 속도', cost: { gold: 40000, items: [['wood', 300], ['gold_ore', 20], ['ruby', 2], ['golem_core', 1]] } },
+  // 6단계부터는 대저택을 계속 가꾼다. 6·11·16단계마다 정수기를 하나 더 놓을 수 있다.
+  ...Array.from({ length: 15 }, (_, i) => {
+    const lv = i + 6;
+    const k = i + 1;
+    const extra = (lv - 1) % 5 === 0;
+    return {
+      name: `하하호호 대저택 ${k}성`, room: [17, 11], plots: 72,
+      perks: `${extra ? '정수기 +1 · ' : ''}작물 +${15 + k}% 속도`,
+      cost: { gold: Math.round(50000 * 1.25 ** i / 1000) * 1000, items: [['wood', 200 + i * 40], ['iron_bar', 10 + i * 4], ['gold_ore', 10 + i * 3], ['gem', 2 + Math.floor(i / 2)]] },
+    };
+  }),
 ];
-export const HOUSE_GROWTH = [0, 0, 0, 0.05, 0.10, 0.15];
+export const HOUSE_GROWTH = HOUSE_LEVELS.map((_, lv) => (lv < 3 ? 0 : (lv <= 5 ? (lv - 2) * 5 : 15 + (lv - 5)) / 100));
 
 // ── 방치 활동 ────────────────────────────────────────────────────────────────
 // 접속하지 않은 동안 캐릭터가 계속하는 일. 시간당 기대 수확량(기본값).
@@ -306,23 +345,23 @@ export const IDLE_CAP_H = 8;
 export const NPCS = {
   bomi: {
     name: '봄이', role: '시장 상인', look: { skin: '#f6d2b0', hair: '#7a3a2a', top: '#f08aa0', hairStyle: 'bun' },
-    lines: ['어서 와요! 오늘 시세 좋아요~', '신선한 작물은 언제든 사요!', '호박은 비싸게 쳐 드릴게요.', '씨앗 필요하면 말만 해요!'],
+    lines: ['어서 와요! 오늘 시세 좋아요~', '신선한 작물은 언제든 사요!', '호박은 비싸게 쳐 드릴게요.', '씨앗 필요하면 말만 해요!', '가판대에 올린 건 밤 12시에 제가 싹 사 갈게요.', '커피 씨앗 들어왔어요! 밤샘엔 커피죠~', '오늘도 부지런하네요?'],
   },
   chulsu: {
     name: '철수', role: '대장장이', look: { skin: '#e0b088', hair: '#2c2c34', top: '#6a6a78', hairStyle: 'short', beard: true },
-    lines: ['쇠는 뜨거울 때 두드려야지.', '광석만 가져오면 도구를 튼튼하게 해 주마.', '금 곡괭이? 그건 네 실력에 달렸지.'],
+    lines: ['쇠는 뜨거울 때 두드려야지.', '광석만 가져오면 도구를 튼튼하게 해 주마.', '금 곡괭이? 그건 네 실력에 달렸지.', '철광석 세 개에 석탄 하나면 주괴 하나야. 용광로는 작업대에서 만들고.', '주괴 하나면 양동이 하나 뚝딱이지.'],
   },
   silvi: {
     name: '실비', role: '재봉사', look: { skin: '#f6d2b0', hair: '#e8c65a', top: '#b06fd0', hairStyle: 'long' },
-    lines: ['목화 두 송이면 천 한 장!', '옷이 날개라니까요~', '빨간 원피스는 행운을 불러와요.'],
+    lines: ['목화 두 송이면 천 한 장!', '옷이 날개라니까요~', '빨간 원피스는 행운을 불러와요.', '오늘 옷 예쁘다! 어디서 샀어요?', '바느질은 밤에 해야 잘 된다니까요.'],
   },
   sunja: {
     name: '순자 할머니', role: '식당 주인', look: { skin: '#f0c8a8', hair: '#d8d8d8', top: '#d0605a', hairStyle: 'bun' },
-    lines: ['배고프면 일을 못 해. 먹고 가!', '버섯 스튜는 우리 집 자랑이란다.', '호박 파이 굽는 법 알려줄까?'],
+    lines: ['배고프면 일을 못 해. 먹고 가!', '버섯 스튜는 우리 집 자랑이란다.', '호박 파이 굽는 법 알려줄까?', '밤 12시 전엔 꼭 들어가 자거라. 길에서 쓰러지면 큰일 나.', '커피는 하루 한 잔만 마시는 거야.'],
   },
   kang: {
     name: '강태공', role: '낚시꾼', look: { skin: '#d8a078', hair: '#5a4a3a', top: '#3a8c7a', hairStyle: 'cap' },
-    lines: ['물고기는 기다리는 자에게 온다네.', '황금 잉어를 봤다는 소문이 있어.', '미끼는 넉넉히 챙기게.'],
+    lines: ['물고기는 기다리는 자에게 온다네.', '황금 잉어를 봤다는 소문이 있어.', '미끼는 넉넉히 챙기게.', '양동이 들고 물가를 누르면 물을 뜰 수 있다네.'],
   },
   rea: {
     name: '레아', role: '모험가', look: { skin: '#e8b890', hair: '#c0584d', top: '#4a6a3a', hairStyle: 'pony' },
@@ -330,17 +369,27 @@ export const NPCS = {
   },
   mayor: {
     name: '촌장님', role: '마을 촌장', look: { skin: '#f0c8a8', hair: '#f4f4f4', top: '#3a5a8c', hairStyle: 'bald', beard: true },
-    lines: ['하하호호 마을에 온 걸 환영하네!', '게시판에 오늘의 부탁이 붙어 있다네.', '집을 크게 키우면 마을도 기뻐할 걸세.'],
+    lines: ['하하호호 마을에 온 걸 환영하네!', '게시판에 오늘의 부탁이 붙어 있다네.', '집을 크게 키우면 마을도 기뻐할 걸세.', '일찍 자고 일찍 일어나는 게 건강의 비결이지.'],
   },
   minsu: {
     name: '꼬마 민수', role: '마을 아이', look: { skin: '#f6d2b0', hair: '#3a2a1a', top: '#ffd23c', hairStyle: 'short', small: true },
-    lines: ['같이 놀자!', '분수대에 동전 던지면 소원이 이뤄진대.', '고양이 나비 못 봤어?'],
+    lines: ['같이 놀자!', '분수대에 동전 던지면 소원이 이뤄진대.', '고양이 나비 못 봤어?', '어른들은 왜 쓴 커피를 마셔?', '보리가 오늘 내 신발 물어 갔어!'],
   },
   duri: {
     name: '숲지기 두리', role: '자연 되살리기', look: { skin: '#e0b088', hair: '#6a8a3a', top: '#5a7a3a', hairStyle: 'cap', cap: '#4a6a2a', beard: true },
     lines: ['베어 낸 나무와 캐낸 바위는 저절로 돌아오지 않아.', '조금만 보태 주면 숲과 들을 되살려 주지.', '자연은 아껴 써야 오래 간다네.'],
   },
 };
+
+// 가끔 섞여 나오는 이스터에그 인사. {N} 은 지노·하영 기념일(2019-05-28 = 1일차) 날수, {heart} 는 하트 아이콘.
+export const NPC_SECRET_LINES = {
+  bomi: ['그 소문 알아? 지노가 하영한테 고백편지 썼대~!', '오늘은 지노랑 하영이 {N}일차 되는 날이래용'],
+  silvi: ['그 소문 알아? 지노가 하영한테 고백편지 썼대~!', '혜규이 최공 {heart}'],
+  minsu: ['오늘은 지노랑 하영이 {N}일차 되는 날이래용', '혜규이 최공 {heart}'],
+  sunja: ['오늘은 지노랑 하영이 {N}일차 되는 날이래용'],
+};
+export const SECRET_CHANCE = 0.2;
+export const COUPLE_START = [2019, 5, 28];
 
 // NPC 취향: love(아주 좋아함) · like(좋아함) · dislike(싫어함). 아이템 id 또는 'type:종류'
 export const NPC_TASTE = {

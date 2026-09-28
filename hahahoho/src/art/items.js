@@ -1,6 +1,6 @@
 // 아이템 아이콘 16×16. data.js 의 sprite { kind, c, c2 } 로 그린다.
 import { makeCanvas, pen, outline, shade, cached, dataUrl } from './base.js';
-import { ITEMS, TOOL_TIER_COLOR } from '../data.js';
+import { ITEMS, CROPS, TOOL_TIER_COLOR } from '../data.js';
 
 function draw(kind, c, c2) {
   const cv = makeCanvas(16, 16);
@@ -134,7 +134,26 @@ function draw(kind, c, c2) {
     case 'shirt':
       P.r(4, 4, 8, 10, c); P.r(1, 4, 3, 5, c); P.r(12, 4, 3, 5, c); P.r(6, 4, 4, 2, d); P.r(4, 13, 8, 1, d); P.r(1, 8, 3, 1, d); P.r(12, 8, 3, 1, d);
       break;
+    case 'bean':
+      for (const [x, y] of [[5, 9], [10, 8], [8, 12]]) { P.oval(x, y, 3, 2, c); P.line(x - 1, y, x + 1, y, d); P.p(x - 1, y - 1, l); }
+      P.r(7, 3, 2, 3, '#3d8c3a'); P.p(9, 3, '#5fbf4a');
+      break;
+    case 'coffee':
+      P.r(3, 6, 9, 8, '#f4f4f4'); P.r(3, 13, 9, 1, '#c8c8d0'); P.r(12, 8, 2, 4, '#f4f4f4'); P.p(13, 9, '#c8c8d0'); P.p(13, 10, '#c8c8d0');
+      P.r(4, 6, 7, 2, c); P.r(5, 6, 3, 1, l);
+      P.p(5, 2, '#ffffff'); P.p(6, 3, '#ffffff'); P.p(8, 1, '#ffffff'); P.p(9, 2, '#ffffff');
+      break;
+    case 'bar':
+      P.r(2, 8, 12, 5, c); P.r(4, 6, 8, 2, l); P.r(2, 12, 12, 1, d); P.r(5, 9, 5, 1, l);
+      break;
+    case 'bucket':
+      P.r(3, 5, 10, 9, c); P.r(4, 13, 8, 1, d); P.r(3, 5, 10, 1, l); P.r(3, 8, 10, 1, d);
+      P.line(3, 5, 5, 1, d); P.line(12, 5, 10, 1, d); P.r(5, 1, 6, 1, d);
+      if (c2) { P.r(4, 4, 8, 2, c2); P.p(5, 4, '#d8f4ff'); }
+      break;
     // 가구 아이콘
+    case 'f_furnace': P.r(2, 3, 12, 12, c); P.r(2, 3, 12, 2, l); P.r(5, 7, 6, 6, '#2b1e1c'); P.r(6, 10, 4, 3, '#ff8a3c'); P.r(7, 11, 2, 2, '#ffd23c'); P.r(10, 0, 3, 3, d); break;
+    case 'f_purifier': P.r(4, 1, 8, 5, '#8ad8ff'); P.r(4, 1, 8, 1, '#d8f4ff'); P.r(3, 6, 10, 9, c); P.r(3, 6, 10, 1, '#ffffff'); P.r(6, 9, 4, 1, '#6a6a74'); P.r(7, 10, 2, 1, '#6a6a74'); P.r(6, 12, 4, 2, '#5a3218'); break;
     case 'f_chair': P.r(4, 2, 8, 6, c); P.r(4, 8, 8, 2, l); P.r(4, 10, 2, 5, d); P.r(10, 10, 2, 5, d); break;
     case 'f_table': P.r(1, 5, 14, 3, l); P.r(1, 8, 14, 1, d); P.r(2, 9, 2, 6, d); P.r(12, 9, 2, 6, d); break;
     case 'f_plant': P.r(5, 10, 6, 5, '#c0604a'); P.oval(8, 6, 5, 4, c); P.p(6, 4, l); break;
@@ -174,13 +193,14 @@ function drawTool(tool, tier) {
 export const itemIcon = id => cached(`it:${id}`, () => {
   const it = ITEMS[id];
   if (!it) return draw('x', '#ff00ff');
-  if (it.type === 'seed' && ITEMS[it.crop]) {
+  const cropItem = ITEMS[CROPS[it.crop]?.item || it.crop];
+  if (it.type === 'seed' && cropItem) {
     // 씨앗 봉투: 봉투 위에 어떤 작물인지 작게 그려 준다
     const cv = makeCanvas(16, 16);
     const P = pen(cv.getContext('2d'));
     P.r(3, 4, 10, 11, '#d8b27a'); P.r(3, 4, 10, 1, '#b08a52'); P.r(4, 2, 8, 2, '#c09a62'); P.r(3, 14, 10, 1, '#b08a52');
     P.r(4, 6, 8, 7, '#f4ead4');
-    const crop = draw(ITEMS[it.crop].sprite.kind, ITEMS[it.crop].sprite.c, ITEMS[it.crop].sprite.c2);
+    const crop = draw(cropItem.sprite.kind, cropItem.sprite.c, cropItem.sprite.c2);
     cv.getContext('2d').drawImage(crop, 0, 0, 16, 16, 4, 5, 8, 8);
     return outline(cv);
   }

@@ -578,7 +578,7 @@ export function cropSprite(crop, stage) {
       const h = [0, 5, 9, 12, 13][stage];
       const col = stage >= 4 ? fr : stage === 3 ? mix(lf, fr, 0.5) : lf;
       for (const x of [4, 7, 10, 12]) { P.r(x, 18 - h, 1, h, col); if (stage >= 3) P.r(x - 1, 18 - h, 3, 3, col); }
-    } else if (crop === 'tomato' || crop === 'strawberry' || crop === 'cotton') {
+    } else if (crop === 'tomato' || crop === 'strawberry' || crop === 'cotton' || crop === 'coffee') {
       const h = [0, 4, 7, 10, 11][stage];
       if (crop === 'tomato' && stage >= 2) P.r(8, 18 - h - 3, 1, h + 3, '#a57a4a');
       P.oval(8, 18 - h / 2, 2 + stage, Math.max(1, h / 2), ld);
@@ -627,7 +627,8 @@ export const lockedSoil = () => cached('soil:locked', () => {
 // ── 가구 ─────────────────────────────────────────────────────────────────────
 export function furniture(id, frame = 0) {
   const it = ITEMS[id];
-  return cached(`fur:${id}:${id === 'f_fireplace' || id === 'f_tank' ? frame % 3 : 0}`, () => {
+  const anim = ['f_fireplace', 'f_tank', 'f_furnace', 'f_purifier'].includes(id);
+  return cached(`fur:${id}:${anim ? frame % 3 : 0}`, () => {
     const w = (it?.w || 1) * 16;
     const h = (it?.h || 1) * 16;
     const extra = it?.floor ? 0 : 12;
@@ -649,6 +650,8 @@ export function furniture(id, frame = 0) {
       case 'f_bear': P.oval(8, Y + 8, 6, 6, col); P.oval(8, Y - 1, 5, 5, col); P.oval(4, Y - 5, 2, 2, col); P.oval(12, Y - 5, 2, 2, col); P.p(6, Y - 1, '#2b1e1c'); P.p(10, Y - 1, '#2b1e1c'); P.r(7, Y + 1, 3, 2, lt); P.r(6, Y + 7, 4, 4, lt); P.r(6, Y + 3, 5, 1, '#e04a3a'); break;
       case 'f_clock': P.r(3, Y - 12, 10, 27, col); P.r(3, Y - 12, 10, 2, lt); P.oval(8, Y - 5, 4, 4, '#fffbe0'); P.line(8, Y - 5, 8, Y - 8, '#2b1e1c'); P.line(8, Y - 5, 10, Y - 5, '#2b1e1c'); P.r(7, Y + 2, 2, 6 + (frame % 2), '#ffd23c'); break;
       case 'f_fireplace': P.r(0, Y - 10, 32, 26, col); for (let y = Y - 8; y < Y + 15; y += 4) P.r(0, y, 32, 1, dk); P.r(-1, Y - 12, 34, 3, '#6a6a74'); P.r(8, Y + 1, 16, 15, '#1a1412'); P.r(10, Y + 10 - (frame % 2), 12, 6, '#ff6a2c'); P.r(12, Y + 12, 8, 4, ['#ffd23c', '#ffb13c', '#ff8a3c'][frame % 3]); break;
+      case 'f_furnace': P.r(1, Y - 6, 14, 20, col); P.r(1, Y - 6, 14, 3, lt); for (let y = Y - 2; y < Y + 14; y += 4) P.r(1, y, 14, 1, dk); P.r(4, Y + 3, 8, 8, '#1a1412'); P.r(5, Y + 7 - (frame % 2), 6, 4, '#ff6a2c'); P.r(6, Y + 9, 4, 2, ['#ffd23c', '#ffb13c', '#ff8a3c'][frame % 3]); P.r(10, Y - 12, 4, 6, dk); break;
+      case 'f_purifier': P.r(4, Y - 12, 8, 9, '#8ad8ff'); P.r(4, Y - 12, 8, 2, '#d8f4ff'); P.r(5, Y - 9 + (frame % 3), 1, 1, '#ffffff'); P.r(2, Y - 3, 12, 17, col); P.r(2, Y - 3, 12, 2, '#ffffff'); P.r(2, Y + 12, 12, 2, shade(col, -0.2)); P.r(5, Y + 2, 6, 5, '#4a4a54'); P.r(7, Y + 2, 2, 2, '#c8c8d0'); P.r(6, Y + 7, 4, 1, '#8a8a94'); P.r(12, Y, 1, 2, '#5ad06a'); break;
       case 'f_piano': P.r(1, Y - 10, 30, 20, col); P.r(3, Y - 8, 26, 4, '#4a4a54'); P.r(2, Y + 2, 28, 5, '#ffffff'); for (let x = 3; x < 30; x += 3) P.r(x, Y + 2, 1, 3, '#2b1e1c'); P.r(2, Y + 10, 3, 5, col); P.r(27, Y + 10, 3, 5, col); break;
       default: c.getContext('2d').drawImage(itemIcon(id), 0, Y);
     }

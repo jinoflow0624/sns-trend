@@ -13,7 +13,7 @@ test('데이터: 참조하는 아이템이 모두 존재한다', () => {
   const need = new Set();
   for (const j of Object.values(JOBS)) j.items.forEach(([id]) => need.add(id));
   for (const r of RECIPES) { need.add(r.out[0]); r.in.forEach(([id]) => need.add(id)); Object.values(r.alt || {}).flat().forEach(id => need.add(id)); }
-  for (const c of Object.keys(CROPS)) { need.add(c); need.add(`seed_${c}`); }
+  for (const [c, C] of Object.entries(CROPS)) { need.add(C.item || c); need.add(`seed_${c}`); }
   for (const j of Object.values(IDLE_JOBS)) j.table.forEach(([id]) => need.add(id));
   for (const s of Object.values(SHOPS)) s.sells.forEach(id => need.add(id));
   for (const m of Object.values(MONSTERS)) m.drops.forEach(([id]) => need.add(id));
