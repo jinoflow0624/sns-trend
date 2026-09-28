@@ -316,6 +316,7 @@ export class DiceTray {
   // 주사위가 화면에서 어디 있는지 (자동 점검용)
   screenPos(i) {
     const r = this.renderer.domElement.getBoundingClientRect();
+    if (!this.dice[i]) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };   // 주사위 수가 달라진 순간 (여섯 번째 주사위)
     const v = this.dice[i].mesh.position.clone().project(this.camera);
     return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
   }

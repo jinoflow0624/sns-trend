@@ -17,7 +17,7 @@ const layer = document.getElementById('layer');
 const coachEl = document.getElementById('coach');
 document.title = GAME.name;
 
-const KEYS = { save: 'diceheroes.game', setup: 'diceheroes.setup', opts: 'diceheroes.opts', seen: 'diceheroes.seen', name: 'diceheroes.name' };
+const KEYS = { save: 'diceheroes.game', setup: 'diceheroes.setup', opts: 'diceheroes.opts', seen: 'diceheroes.seen', name: 'diceheroes.name', lastRoom: 'diceheroes.lastRoom', profile: 'diceheroes.profile' };
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 불가 환경 */ } },
@@ -48,7 +48,9 @@ const urlRoom = Net.normalizeCode(new URLSearchParams(location.search).get('room
 
 // ── 도우미 ───────────────────────────────────────────────────────────────────
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const wait = ms => new Promise(r => setTimeout(r, ms));
+// 온라인에서 뒤에 새 상태가 밀려 있으면 연출을 빨리 넘긴다 (다른 사람 행동을 따라잡느라 내 차례가 늦어지지 않게)
+const rushing = () => !!online && online.latest !== undefined;
+const wait = ms => new Promise(r => setTimeout(r, rushing() ? ms * 0.25 : ms));
 const br = s => esc(s).replace(/\n/g, '<br>');
 const portrait = (id, cl = '') => `<img class="spr ${cl}" src="${spriteURL(id, 4)}" alt="">`;
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
@@ -103,6 +105,8 @@ function showTitle() {
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;
+  const last = store.get(KEYS.lastRoom);
+  const rejoinLeft = last ? Math.ceil((Net.DROP_MS - (Date.now() - last.t)) / 1000) : 0;
   app.innerHTML = `
   <div class="screen title-screen">
     <canvas class="scene" aria-hidden="true"></canvas>
@@ -114,10 +118,12 @@ function showTitle() {
       </div>
       ${unlocked ? `
       <nav class="menu">
-        ${canResume ? `<button class="pbtn gold" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
-        <button class="pbtn ${canResume ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
+        ${rejoinLeft > 0 ? `<button class="pbtn gold" data-act="rejoin" data-code="${esc(last.code)}">방으로 돌아가기 <small>${esc(last.code)} · ${rejoinLeft}초 안에</small></button>` : ''}
+        ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
+        <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
         <button class="pbtn" data-act="online">온라인 방 <small>친구 초대</small></button>
         <div class="menu-row">
+          <button class="pbtn small" data-act="dashboard">대시보드</button>
           <button class="pbtn small" data-act="tutorial">튜토리얼</button>
           <button class="pbtn small" data-act="settings">설정</button>
           <button class="pbtn small" data-act="credits">크레딧</button>
@@ -354,7 +360,10 @@ async function joinRoom(code) {
   if (!found) return showOnlineMenu(`방 ${code}을(를) 찾지 못했습니다. 코드를 확인해 주세요.`);
   const token = Net.myToken();
   const res = await backend.txn(code, (room, fail) => {
-    if (room.seats.some(s => s.token === token)) return room;          // 재접속
+    if (room.seats.some(s => s.token === token)) {                       // 재접속
+      if (room.game?.players.find(p => p.token === token)?.dropped) return fail('연결이 끊긴 지 1분이 지나 봇이 대신 진행하고 있어요.');
+      return room;
+    }
     if (room.started) return fail('이미 시작한 방입니다.');
     if (room.seats.length >= 4) return fail('방이 가득 찼습니다 (최대 4명).');
     const used = new Set(room.seats.map(s => s.cls));
@@ -368,14 +377,35 @@ async function joinRoom(code) {
 function enterRoom(backend, code) {
   leaveRoom(false);
   const token = Net.myToken();
-  online = { code, token, backend, room: null, fxSeen: -1, queue: Promise.resolve(), beat: null, unwatch: null, prev: null };
-  online.unwatch = backend.watch(code, room => {
-    online.queue = online.queue.then(() => onRoom(room)).catch(err => console.error(err));
-  });
-  const beat = () => backend.touch(code, token);
+  online = { code, token, backend, room: null, fxSeen: -1, latest: undefined, pumping: false, beat: null, unwatch: null, sig: '' };
+  // 방 상태가 여러 번 바뀌어도 밀린 중간 상태는 건너뛰고 가장 최신 상태만 처리한다
+  online.unwatch = backend.watch(code, room => { if (online?.code === code) { online.latest = room; pump(); } });
+  store.del(KEYS.lastRoom);
+  // 접속 신호를 보내고, 다른 사람 접속 상태(끊김 표시·봇 전환)를 확인한다. 상대가 아예 떠나면 방 상태가 더 오지 않으니 여기서 챙긴다
+  const beat = () => {
+    backend.touch(code, token);
+    if (screen !== 'game' || !S || ui.busy) return;
+    checkDrops();
+    const pres = presenceSig();
+    if (pres !== online.pres) { online.pres = pres; render(); }
+  };
   beat();
-  online.beat = setInterval(beat, Net.SEEN_MS);
+  online.beat = setInterval(beat, 5000);
   history.replaceState(null, '', Net.inviteLink(code));
+}
+
+async function pump() {
+  if (!online || online.pumping) return;
+  online.pumping = true;
+  try {
+    while (online && online.latest !== undefined) {
+      const room = online.latest;
+      online.latest = undefined;
+      await onRoom(room).catch(err => console.error(err));
+    }
+  } finally {
+    if (online) online.pumping = false;
+  }
 }
 
 function leaveRoom(goHome = true) {
@@ -383,6 +413,8 @@ function leaveRoom(goHome = true) {
     online.unwatch?.();
     clearInterval(online.beat);
     const { backend, code, token, room } = online;
+    // 진행 중인 게임에서 나가면 1분 안에 돌아올 수 있게 방 코드를 기억한다
+    if (room?.started && room.game && !room.game.ended) store.set(KEYS.lastRoom, { code, t: Date.now() });
     // 시작 전이면 자리에서 빠진다
     if (room && !room.started) {
       backend.txn(code, r => {
@@ -401,7 +433,8 @@ function leaveRoom(goHome = true) {
 }
 
 const isHost = () => online && online.room?.host === online.token;
-const alive = token => !!online?.room?.seen?.[token] && Date.now() - online.room.seen[token] < Net.ABSENT_MS;
+// 나는 늘 접속 중 (내 접속 신호는 내 화면으로 되돌아오지 않을 수 있다)
+const alive = token => token === online?.token || (!!online?.room?.seen?.[token] && Date.now() - online.room.seen[token] < Net.ABSENT_MS);
 
 function showLobby() {
   screen = 'lobby';
@@ -526,6 +559,16 @@ async function onRoom(room) {
     if (screen !== 'lobby' || !document.activeElement?.matches?.('input')) showLobby();
     return;
   }
+  // 접속 신호(seen)만 바뀐 경우: 게임 상태는 그대로이니 화면 전체를 다시 그리지 않는다
+  // (예전엔 8초마다 모든 화면을 다시 그려서 창이 다시 열리는 것처럼 깜박이고 버벅였다)
+  const sig = `${room.fxId}|${JSON.stringify(room.game)}`;
+  if (screen === 'game' && S && online.sig === sig) {
+    checkDrops();
+    const pres = presenceSig();
+    if (pres !== online.pres && !ui.busy) { online.pres = pres; render(); }
+    return;
+  }
+  online.sig = sig;
   const prev = S && screen === 'game' ? S : null;
   const g = room.game;
   if (!prev) {
@@ -555,12 +598,44 @@ async function onRoom(room) {
   render();
   for (const f of newFx) await playFx(f.list);
   ui.busy = false;
+  online.pres = presenceSig();
+  if (online.latest !== undefined) return;       // 더 새 상태가 기다리고 있으면 바로 그걸 처리
   render();
   if (S.ended) return showResults();
   const cur = E.current(S);
-  if (S.phase === 'levelup' && cur.token === online.token) showLevelUp();
+  const me = S.players.find(p => p.token === online.token);
+  if (me?.dropped && !online.warnedDrop) {
+    online.warnedDrop = true;
+    toast(ico('warn'), '연결이 끊겨 봇으로 바뀌었어요', '이번 판은 봇이 대신 진행합니다.', 2600);
+  }
+  if (S.phase === 'levelup' && cur.token === online.token && !cur.dropped) showLevelUp();
   else if (layer.querySelector('.lv-overlay')) layer.innerHTML = '';
+  turnAlert();
+  checkDrops();
   maybeRunBot();
+}
+
+// 접속 표시가 바뀌었는지 (10초 단위로 남은 시간 표시를 갱신)
+function presenceSig() {
+  if (!S || !online?.room) return '';
+  return S.players.map(p => (p.bot ? 'b' : alive(p.token) ? 'a' : Math.ceil(dropLeft(p.token) / 10000))).join(',');
+}
+// 봇으로 바뀌기까지 남은 시간(ms)
+const dropLeft = token => Math.max(0, Net.DROP_MS - (Date.now() - (online?.room?.seen?.[token] || 0)));
+
+// 1분 넘게 돌아오지 않은 사람: 협동·3~4인 대전은 봇으로, 1대1 대전은 기권패 (진행 담당 기기가 처리)
+function checkDrops() {
+  if (!online?.room?.started || !S || S.ended || online.dropping || runner() !== online.token) return;
+  const late = S.players.map((p, i) => ({ p, i })).filter(({ p }) => !p.bot && p.token !== online.token && dropLeft(p.token) <= 0);
+  if (!late.length) return;
+  online.dropping = true;
+  onlineAct(g => {
+    for (const { i } of late) {
+      if (g.players[i].bot || g.ended) continue;
+      if (g.mode === 'versus' && g.players.length === 2) E.forfeit(g, i);
+      else E.dropToBot(g, i);
+    }
+  }, { any: true, quiet: true }).finally(() => { if (online) online.dropping = false; });
 }
 
 // 봇 차례와 자리를 비운 사람 차례는 방장(방장이 없으면 남은 사람 중 첫 번째)이 진행한다
@@ -578,11 +653,13 @@ function maybeRunBot() {
 }
 
 // 내 행동을 방에 적용 (트랜잭션: 그 순간의 최신 상태에 적용된다)
-function onlineAct(fn, { any = false } = {}) {
+// 서버 응답을 기다리는 동안(ui.sending)은 같은 버튼을 또 눌러도 두 번 적용되지 않게 막는다
+function onlineAct(fn, { any = false, quiet = false } = {}) {
+  if (!any) ui.sending = true;
   return online.backend.txn(online.code, (room, fail) => {
     const g = room.game;
     if (!g || g.ended) return fail('게임이 끝났습니다.');
-    if (!any && E.current(g).token !== online.token) return fail('내 차례가 아닙니다.');
+    if (!any && (E.current(g).token !== online.token || E.current(g).dropped)) return fail('내 차례가 아닙니다.');
     try { fn(g); } catch (err) { return fail(err.message); }
     const list = E.drainFx(g);
     if (list.length) {
@@ -590,7 +667,15 @@ function onlineAct(fn, { any = false } = {}) {
       room.fxLog = [...(room.fxLog || []), { id: room.fxId, list }].slice(-8);
     }
     return room;
-  }).then(res => { if (!res.ok) toast(ico('warn'), '할 수 없어요', res.failure, 1500); return res.ok; });
+  }).then(res => {
+    if (!any) ui.sending = false;
+    if (!res.ok) {
+      if (!quiet) toast(ico('warn'), '할 수 없어요', res.failure, 1500);
+      // 미리 반영해 둔 화면(잡기 등)을 서버 상태로 되돌린다
+      if (online?.room?.game && screen === 'game' && !ui.busy) { S = online.room.game; render(); }
+    }
+    return res.ok;
+  });
 }
 
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
@@ -618,7 +703,7 @@ async function ensureTray() {
 function myControl() {
   if (!S || S.ended) return false;
   const cur = E.current(S);
-  if (online) return cur.token === online.token;
+  if (online) return cur.token === online.token && !cur.dropped;
   return !cur.bot;
 }
 
@@ -659,7 +744,7 @@ function render() {
           <div class="m-por">${portrait(p.cls)}<span class="lv">${p.level}</span></div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ' (나)' : ''}</span>
             <b class="pts">${coop ? `${ico('sword', 'xs')}${Math.round(S.boss.dmg[i] || 0)}` : E.finalScore(p)}</b></div>
-          ${online && !p.bot && !alive(p.token) ? '<span class="off">끊김</span>' : ''}
+          ${online && !p.bot && !alive(p.token) ? `<span class="off">끊김 ${Math.ceil(dropLeft(p.token) / 1000)}초</span>` : ''}
         </button>`).join('')}
     </div>
 
@@ -700,7 +785,7 @@ function render() {
       <button class="pbtn sheet-btn${combos.length ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
         ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
     </section>
-    <div class="tip">${absent ? `<span>${esc(cur.name)} 님이 접속 중이 아닙니다</span><button class="pbtn small" data-act="takeover">대신 진행</button>` : tip(cur, myTurn, okQuests, combos)}</div>
+    <div class="tip">${absent ? `<span>${esc(cur.name)} 님 연결 끊김 · 1분 안에 돌아오지 않으면 ${S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행'}</span>` : tip(cur, myTurn, okQuests, combos)}</div>
 
     <section class="hero-strip" style="--c:${E.classInfo(cur.cls).color}">
       <div class="hs-por">${portrait(cur.cls)}<span class="lv">${cur.level}</span></div>
@@ -718,7 +803,8 @@ function render() {
 
     <footer class="log-line" data-act="log">${last ? `R${last.r} · ${esc(last.text)}` : '모험이 시작됐다.'}</footer>
   </div>
-  ${ui.sheet ? `<div class="sheet-dim" data-act="sheet-close"></div>${sheet(vp, viewIdx, prev, best, myTurn && viewIdx === S.turn, combos)}` : ''}`;
+  ${ui.sheet ? `<div class="sheet-dim${ui.sheetShown ? '' : ' fresh'}" data-act="sheet-close"></div>${sheet(vp, viewIdx, prev, best, myTurn && viewIdx === S.turn, combos, !ui.sheetShown)}` : ''}`;
+  ui.sheetShown = ui.sheet;
 
   placeSheet();
   trailHp();
@@ -859,7 +945,7 @@ function tip(cur, myTurn, okQuests, combos = []) {
   return S.rollsLeft ? `주사위를 눌러 잡고 다시 굴리거나, ${ico('sheet', 'xs')} 족보 완성에서 기록하세요` : `${ico('sheet', 'xs')} 족보 완성에서 기록할 칸을 고르세요`;
 }
 
-function sheet(p, idx, prev, best, canPick, combos = []) {
+function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
   const pv = id => prev?.find(r => r.id === id);
   const row = c => {
     const done = p.scores[c.id] !== null;
@@ -880,7 +966,7 @@ function sheet(p, idx, prev, best, canPick, combos = []) {
   const title = canPick && combos.length ? `${ico('sparkle')} 족보 완성!` : '점수표';
   const close = canPick && S.rollsLeft > 0 ? `계속 굴리기 · ${S.rollsLeft}회` : '닫기';
   return `
-  <section class="frame sheet-wrap sheet-pop" id="sheet-pop">
+  <section class="frame sheet-wrap sheet-pop${fresh ? ' fresh' : ''}" id="sheet-pop">
     <div class="sheet-head"><h3>${title}</h3><span>${esc(p.name)}${idx !== S.turn ? ' · 보는 중' : ''}</span>
       <button class="help-link" data-act="help-cats">족보 보기</button>
       <button class="sp-close" data-act="sheet-close">${close} ✕</button></div>
@@ -959,8 +1045,15 @@ function floatText(text, cls, offset = 0, anchor = 'tray', icon = '') {
   setTimeout(() => el.remove(), 1500);
 }
 async function toast(icon, title, text, ms = 1900, img = '') {
+  // 같은 알림이 이미 떠 있으면 또 띄우지 않고, 다른 알림은 아래로 쌓는다
+  const same = [...document.querySelectorAll('.toast')].find(t => t.dataset.title === title && t.dataset.text === text);
+  if (same) return;
   const el = document.createElement('div');
   el.className = 'toast';
+  el.dataset.title = title;
+  el.dataset.text = text;
+  const n = document.querySelectorAll('.toast:not(.out)').length;
+  if (n) el.style.marginTop = `${Math.min(n, 3) * 64}px`;
   el.innerHTML = `${img || `<span class="t-ic">${icon}</span>`}<div><b>${esc(title)}</b><span>${esc(text)}</span></div>`;
   document.body.appendChild(el);
   el.addEventListener('click', () => el.remove());
@@ -1094,7 +1187,7 @@ async function trayReady() {
 async function attackFx(f) {
   if (!(await trayReady())) { ui.dice = null; return; }
   const fx = FX();
-  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW;
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1);
   const style = attackStyle(f.pts, f.cat);
   const from = (f.dice || S.dice).map((_, i) => tray.screenPos(i));
   const target = () => {
@@ -1116,7 +1209,7 @@ async function attackFx(f) {
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 async function skillFx(f) {
   const fx = FX();
-  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW;
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1);
   const t = await trayReady();
   const center = el => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width } : null; };
   const trayC = center(document.getElementById('tray'));
@@ -1150,8 +1243,16 @@ async function skillFx(f) {
   sfx.zero();
 }
 
+// 연출 중 오류가 나도 게임이 멈추지 않게 (연출은 건너뛰고 진행)
 async function playFx(list) {
   for (const f of list) {
+    try { await playOne(f); } catch (err) { console.error('[fx]', f.type, err); ui.dice = null; tray?.restore(); }
+  }
+  ui.hpHold = null;
+}
+
+async function playOne(f) {
+  {
     const p = S.players[f.player];
     switch (f.type) {
       case 'round':
@@ -1200,6 +1301,9 @@ async function playFx(list) {
         floatText(`${E.perkInfo(f.perk).ko} 소급 +${f.amount}`, 'gold', 0);
         await wait(500);
         break;
+      case 'dropped':
+        await toast(ico('door'), `${p.name} 연결 끊김`, '1분 안에 돌아오지 않아 봇이 대신 진행합니다.', 2200);
+        break;
       case 'midas': floatText('황금손 조정 +1', 'gold', -30, 'tray', 'crown'); break;
       case 'duel': sfx.quest(); await toast(ico('trophy'), '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
       case 'charge':
@@ -1209,6 +1313,35 @@ async function playFx(list) {
     }
   }
   ui.hpHold = null;
+}
+
+// 내 차례 알림: 차례가 넘어오면 가운데 배너 + 소리 + 진동 (다른 앱을 보고 있으면 탭 제목도 바꾼다)
+function turnAlert() {
+  if (!S || S.ended || tut || S.phase !== 'roll' || S.rolled) return;
+  const key = `${S.seed}:${S.round}:${S.turn}`;
+  if (ui.turnAlert === key) return;
+  ui.turnAlert = key;
+  if (!myControl()) return;
+  const cur = E.current(S);
+  const hotseat = !online && S.players.filter(p => !p.bot).length > 1;
+  const el = document.createElement('div');
+  el.className = 'turn-alert';
+  el.style.setProperty('--c', E.classInfo(cur.cls).color);
+  el.innerHTML = `${portrait(cur.cls, 'ta')}<b>${hotseat ? `${esc(cur.name)}의 차례!` : '내 차례!'}</b>`;
+  const r = document.getElementById('tray')?.getBoundingClientRect();
+  el.style.top = `${r ? r.top + r.height / 2 : innerHeight / 2}px`;
+  document.querySelectorAll('.turn-alert').forEach(x => x.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+  sfx.turn();
+  setTimeout(() => sfx.turn(), 180);
+  buzz(60);
+  if (document.hidden) {
+    const base = document.title;
+    document.title = '▶ 내 차례! · ' + GAME.name;
+    const back = () => { if (!document.hidden) { document.title = base; document.removeEventListener('visibilitychange', back); } };
+    document.addEventListener('visibilitychange', back);
+  }
 }
 
 // 같은 팝업이 이미 떠 있으면 다시 그리지 않는다
@@ -1249,19 +1382,21 @@ function showResults() {
   ui.popupKey = key;
   stopBgm();
   FX().rage(false);
+  recordProfile();
   sfx.win();
   setTimeout(() => playBgm('victory'), 1500);
   if (!online) store.del(KEYS.save);
   if (S.mode === 'coop') return showCoopResults();
   const rank = E.ranking(S);
   const medals = ['1ST', '2ND', '3RD', '4TH'];
+  const fo = S.forfeit != null ? S.players[S.forfeit] : null;
   layer.innerHTML = `<div class="overlay solid"><div class="results">
-    <h1>모험 종료</h1>
-    <div class="winner">${portrait(rank[0].p.cls, 'big')}<b>${esc(rank[0].p.name)} 승리!</b></div>
+    <h1>${fo ? '기권승' : '모험 종료'}</h1>
+    <div class="winner">${portrait(rank[0].p.cls, 'big')}<b>${esc(rank[0].p.name)} 승리!</b>${fo ? `<small class="hint">${esc(fo.name)} 님이 1분 넘게 돌아오지 않아 기권패</small>` : ''}</div>
     ${rank.map((r, k) => {
       const b = E.breakdown(r.p);
       return `<div class="frame rank${k === 0 ? ' first' : ''}">
-        <span class="medal m${k}">${medals[k]}</span>${portrait(r.p.cls)}
+        <span class="medal m${k}">${r.out ? '기권' : medals[k]}</span>${portrait(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b>
           <span>점수표 ${b.card}${b.bonus ? '+35' : ''} · 레벨 +${b.level} · 의뢰 ${r.p.questsDone.length}</span></div>
         <span class="tot" data-n="${r.total}">${r.total}</span></div>`;
@@ -1295,6 +1430,116 @@ function resultActions() {
     <button class="pbtn" data-act="home">메인 메뉴</button></div>`;
 }
 
+// ── 대시보드 (내 기록) ───────────────────────────────────────────────────────
+// 이 기기에 쌓이는 기록: 닉네임, 판 수·승리, 최고 점수, 직업별 플레이, 모은 특성(아티팩트), 보스 토벌 등급, 최근 기록
+const GRADE_RANK = { S: 4, A: 3, B: 2, F: 1 };
+function loadProfile() {
+  const p = store.get(KEYS.profile) || {};
+  return { games: 0, wins: 0, best: null, classes: {}, perks: {}, bosses: {}, recent: [], recorded: [], ...p };
+}
+function recordProfile() {
+  if (!S || S.tutorial) return;
+  const idx = online ? S.players.findIndex(p => p.token === online.token) : S.players.findIndex(p => !p.bot);
+  if (idx < 0) return;
+  const key = `${S.seed}:${online?.code || 'local'}`;
+  const prof = loadProfile();
+  if (prof.recorded.includes(key)) return;            // 같은 판을 두 번 기록하지 않는다
+  const me = S.players[idx];
+  const score = E.finalScore(me);
+  const coop = S.mode === 'coop';
+  const grade = coop ? E.coopGrade(S) : null;
+  const win = coop ? !!S.boss.won : E.ranking(S)[0].i === idx || E.ranking(S)[0].total === score && S.forfeit !== idx;
+  prof.recorded = [...prof.recorded, key].slice(-30);
+  prof.games++;
+  if (win) prof.wins++;
+  if (!prof.best || score > prof.best.score) prof.best = { score, cls: me.cls, mode: S.mode, date: Date.now() };
+  prof.classes[me.cls] = (prof.classes[me.cls] || 0) + 1;
+  for (const [id, n] of Object.entries(me.perks)) prof.perks[id] = (prof.perks[id] || 0) + n;
+  if (coop) {
+    const bk = `${S.boss.id}:${S.boss.diff}`;
+    const b = prof.bosses[bk] || { tries: 0, wins: 0, grade: null };
+    b.tries++;
+    if (S.boss.won) b.wins++;
+    if (!b.grade || GRADE_RANK[grade] > GRADE_RANK[b.grade]) b.grade = grade;
+    prof.bosses[bk] = b;
+  }
+  prof.recent = [{ date: Date.now(), mode: S.mode, cls: me.cls, score, win, boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null, grade, online: !!online },
+    ...prof.recent].slice(0, 10);
+  store.set(KEYS.profile, prof);
+}
+
+function showDashboard() {
+  screen = 'dashboard';
+  setStage(null);
+  layer.innerHTML = '';
+  const prof = loadProfile();
+  const mainCls = Object.entries(prof.classes).sort((a, b) => b[1] - a[1])[0]?.[0] || setup.find(p => !p.bot)?.cls || 'warrior';
+  const maxCls = Math.max(1, ...Object.values(prof.classes));
+  const perks = E.PERKS.filter(k => !k.filler);
+  const got = perks.filter(k => prof.perks[k.id]).length;
+  const date = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  app.innerHTML = `
+  <div class="screen page dash">
+    <header class="page-head">
+      <button class="icon-btn" data-act="home" aria-label="뒤로">◀</button>
+      <h2>대시보드</h2>
+    </header>
+    <div class="wrap">
+      <section class="frame dash-hero" style="--c:${E.classInfo(mainCls).color}">
+        <div class="portrait">${portrait(mainCls)}</div>
+        <div class="dash-id">
+          <label class="field">닉네임<input id="dash-name" value="${esc(myName)}" maxlength="10"></label>
+          <small>주 직업 <b style="color:${E.classInfo(mainCls).color}">${E.classInfo(mainCls).ko}</b></small>
+        </div>
+      </section>
+      <section class="dash-stats">
+        <div class="frame"><small>플레이</small><b>${prof.games}</b></div>
+        <div class="frame"><small>승리</small><b>${prof.wins}</b></div>
+        <div class="frame"><small>승률</small><b>${prof.games ? Math.round((prof.wins / prof.games) * 100) : 0}%</b></div>
+        <div class="frame gold"><small>최고 점수</small><b>${prof.best?.score ?? '-'}</b></div>
+      </section>
+      ${prof.best ? `<p class="hint">최고 점수 ${prof.best.score}점 · ${E.classInfo(prof.best.cls).ko} · ${prof.best.mode === 'coop' ? '협동' : '대전'} · ${date(prof.best.date)}</p>` : '<p class="hint">한 판을 끝내면 기록이 쌓여요.</p>'}
+
+      <section class="frame">
+        <h3 class="dash-h">직업</h3>
+        <div class="dash-cls">
+          ${E.CLASSES.map(c => `<div class="dc-row" style="--c:${c.color}">${portrait(c.id, 'mini')}<span>${c.ko}</span>
+            <div class="bar"><i style="width:${((prof.classes[c.id] || 0) / maxCls) * 100}%"></i></div><b>${prof.classes[c.id] || 0}</b></div>`).join('')}
+        </div>
+      </section>
+
+      <section class="frame">
+        <h3 class="dash-h">아티팩트 도감 <small>${got} / ${perks.length}</small></h3>
+        <div class="dash-perks">
+          ${perks.map(k => `<button class="dp${prof.perks[k.id] ? '' : ' none'}" style="--rc:${rarityColor(k.rarity)}" data-act="dash-perk" data-id="${k.id}">
+            ${perkIco(k.id)}${prof.perks[k.id] ? `<b>${prof.perks[k.id]}</b>` : ''}</button>`).join('')}
+        </div>
+      </section>
+
+      <section class="frame">
+        <h3 class="dash-h">보스 토벌 <small>최고 등급</small></h3>
+        <div class="dash-boss">
+          <span></span>${E.DIFFS.map(d => `<small style="color:${d.color}">${d.ko}</small>`).join('')}
+          ${E.BOSSES.map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
+            const r = prof.bosses[`${b.id}:${d.id}`];
+            return `<span class="db-cell${r?.grade ? ` g${r.grade}` : ''}">${r ? `<b>${r.grade}</b><small>${r.wins}/${r.tries}</small>` : '-'}</span>`;
+          }).join('')}`).join('')}
+        </div>
+      </section>
+
+      <section class="frame">
+        <h3 class="dash-h">최근 기록</h3>
+        ${prof.recent.length ? `<div class="dash-recent">${prof.recent.map(r => `<div class="dr-row">
+          <small>${date(r.date)}</small>${portrait(r.cls, 'mini')}
+          <span>${r.mode === 'coop' ? `협동 · ${E.bossInfo(r.boss)?.ko.split(' ').pop() || ''} ${E.DIFFS[r.diff]?.ko || ''}` : '대전'}${r.online ? ' · 온라인' : ''}</span>
+          <b>${r.score}점</b><em class="${r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? '승리' : '패배'}</em></div>`).join('')}</div>`
+        : '<p class="hint">아직 기록이 없어요.</p>'}
+      </section>
+      <button class="pbtn small" data-act="dash-reset">기록 초기화</button>
+    </div>
+  </div>`;
+}
+
 // ── 설정 · 크레딧 ────────────────────────────────────────────────────────────
 function showSettings(inGame = false) {
   const a = audioSettings();
@@ -1303,7 +1548,7 @@ function showSettings(inGame = false) {
     <label class="set-row">배경음악<input id="set-bgm" type="range" min="0" max="1" step="0.05" value="${a.bgm}"></label>
     <label class="set-row">효과음<input id="set-sfx" type="range" min="0" max="1" step="0.05" value="${a.sfx}"></label>
     <label class="set-row">진동<input id="set-vib" type="checkbox" ${a.vibrate ? 'checked' : ''}></label>
-    ${online ? `<p class="hint">온라인 방 ${online.code}</p>` : ''}
+    ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
         '<button class="pbtn" data-act="story">스토리 다시 보기</button><button class="pbtn" data-act="tutorial">튜토리얼 다시 보기</button><button class="pbtn gold" data-act="close">닫기</button>'}
@@ -1473,7 +1718,7 @@ async function step() {
   if (S.phase === 'levelup' && !cur.bot) showLevelUp();
   advanceTutorial();
   if (cur.bot) botStep();
-  else if (!S.rolled && S.players.length > 1 && S.phase === 'roll') sfx.turn();
+  else turnAlert();
 }
 
 async function rollAnimated(mask, list = S.fx) {
@@ -1565,11 +1810,8 @@ async function onGameAct(act, t) {
     sfx.tap();
     return popover(t, `<b>${eventIco(ev.id)} 이번 라운드 · ${ev.ko}</b><p>${ev.desc}</p><small>라운드마다 모두에게 적용되는 이벤트가 바뀝니다.</small>`);
   }
-  if (act === 'takeover' && online) {
-    sfx.select();
-    return onlineAct(g => E.applyBot(g, E.botAction(g, Math.random, 14)), { any: true });
-  }
   if (act === 'perk') {
+    if (ui.sending) return;
     const k = E.perkInfo(t.dataset.id);
     k.rarity === 3 ? sfx.legend() : sfx.start();
     layer.innerHTML = '';
@@ -1577,7 +1819,7 @@ async function onGameAct(act, t) {
     if (tryAct(() => E.pickPerk(S, t.dataset.id))) step();
     return;
   }
-  if (ui.busy || !myControl() || S.phase !== 'roll') return;
+  if (ui.busy || ui.sending || !myControl() || S.phase !== 'roll') return;
   if (act === 'roll') {
     ui.tool = null;
     const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
@@ -1647,6 +1889,8 @@ function onAct(act, t) {
   if (act === 'close' || act === 'close-bg') { sfx.back(); layer.innerHTML = ''; return; }
   if (act === 'settings') { sfx.select(); return showSettings(false); }
   if (act === 'credits') { sfx.select(); return showCredits(); }
+  if (act === 'dashboard') { sfx.select(); return showDashboard(); }
+  if (act === 'rejoin') { sfx.select(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'story') { sfx.select(); layer.innerHTML = ''; return showStory(() => showTitle()); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
   if (act === 'new') { sfx.select(); return showSetup(); }
@@ -1673,6 +1917,15 @@ function onAct(act, t) {
     S = null;
     return lobbyTxn(r => { r.started = false; r.game = null; r.fxLog = []; });
   }
+  if (act === 'dash-perk') {
+    const k = E.perkInfo(t.dataset.id), n = loadProfile().perks[k.id] || 0;
+    sfx.tap();
+    return popover(t, `<b style="color:${rarityColor(k.rarity)}">${perkIco(k.id)} ${k.ko}</b> <small>${E.RARITY[k.rarity].ko}</small><p>${k.desc}</p><small>${n ? `지금까지 ${n}번 얻음` : '아직 못 얻음'}</small>`);
+  }
+  if (act === 'dash-reset') {
+    if (t.dataset.sure) { store.del(KEYS.profile); sfx.back(); return showDashboard(); }
+    t.dataset.sure = '1'; t.textContent = '한 번 더 누르면 모든 기록을 지워요'; sfx.select(); return;
+  }
   if (screen === 'setup') return onSetupAct(act, t);
   if (screen === 'lobby' && online) return onLobbyAct(act, t);
   if (screen === 'game' && S) return onGameAct(act, t);
@@ -1689,6 +1942,12 @@ document.addEventListener('input', e => {
   if (id === 'set-bgm') setAudio({ bgm: Number(e.target.value) });
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') setAudio({ vibrate: e.target.checked });
+  if (id === 'dash-name') {
+    myName = e.target.value.trim().slice(0, 10) || '모험가';
+    store.set(KEYS.name, myName);
+    const h = setup.find(p => !p.bot);
+    if (h) { h.name = myName; store.set(KEYS.setup, setup); }
+  }
   const i = e.target.dataset?.name;
   if (i !== undefined) onNameInput(Number(i), e.target.value);
 });

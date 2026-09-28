@@ -343,5 +343,22 @@ test('점수 fx 에 기록한 주사위가 남는다 (공격 연출용)', () => 
   assert.deepEqual(f.dice, [3, 3, 3, 2, 2]);
 });
 
+test('연결 끊김: 봇 전환과 1대1 기권패', () => {
+  const s = E.createGame([{ name: 'A', cls: 'warrior' }, { name: 'B', cls: 'mage' }], 3);
+  E.dropToBot(s, 1);
+  assert.ok(s.players[1].bot && s.players[1].dropped);
+  let guard = 0;
+  while (!s.ended && guard++ < 5000) {
+    if (E.current(s).bot) E.applyBot(s, E.botAction(s, () => E.rand(s), 4));
+    else E.applyBot(s, E.botAction(s, () => E.rand(s), 4));
+  }
+  assert.ok(s.ended);
+  const t = E.createGame([{ name: 'A', cls: 'warrior' }, { name: 'B', cls: 'mage' }], 4);
+  E.roll(t); t.dice = [6, 6, 6, 6, 6]; E.commitScore(t, 'yacht');
+  E.forfeit(t, 0);
+  assert.ok(t.ended && t.forfeit === 0);
+  assert.equal(E.ranking(t)[0].i, 1);
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

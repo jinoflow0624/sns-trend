@@ -734,9 +734,30 @@ function endTurn(s) {
   startTurn(s);
 }
 
+// ── 온라인: 연결이 끊긴 사람 ─────────────────────────────────────────────────
+// 1분 넘게 돌아오지 않으면 봇이 그 자리를 이어받는다 (협동, 3~4인 대전)
+export function dropToBot(s, i) {
+  const p = s.players[i];
+  if (!p || p.bot || s.ended) return;
+  p.bot = true;
+  p.dropped = true;
+  log(s, `${p.name} 연결 끊김 — 봇이 대신 진행한다`);
+  fx(s, { type: 'dropped', player: i });
+}
+// 1대1 대전에서 상대가 1분 안에 돌아오지 않으면 기권패
+export function forfeit(s, loser) {
+  if (s.ended) return;
+  s.ended = true;
+  s.phase = 'over';
+  s.forfeit = loser;
+  log(s, `${s.players[loser].name} 연결 끊김 — 기권패`);
+  fx(s, { type: 'over', won: false, forfeit: loser });
+}
+
 export function ranking(s) {
-  return s.players.map((p, i) => ({ i, p, total: finalScore(p) }))
-    .sort((a, b) => b.total - a.total);
+  // 기권한 사람은 점수와 상관없이 꼴찌
+  return s.players.map((p, i) => ({ i, p, total: finalScore(p), out: s.forfeit === i }))
+    .sort((a, b) => a.out - b.out || b.total - a.total);
 }
 
 // UI가 효과를 한 번씩만 보여주도록 꺼내 간다
