@@ -64,6 +64,25 @@ export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp` : null);
 
+// 면 그림을 미리 받아 둔다 (꾸미기에서 고르면 바로 바뀌게). 받은 그림은 READY 에 남는다
+const IMGS = new Map();
+export const READY = new Map();
+export function loadImage(url) {
+  if (!IMGS.has(url)) {
+    IMGS.set(url, new Promise((res, rej) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => Promise.resolve(img.decode?.()).catch(() => {}).then(() => { READY.set(url, img); res(img); });
+      img.onerror = () => { IMGS.delete(url); rej(new Error('load ' + url)); };
+      img.src = url;
+    }));
+  }
+  return IMGS.get(url);
+}
+const dieImages = id => [1, 2, 3, 4, 5, 6].map(v => dieImage(id, v)).filter(Boolean);
+export const diceReady = id => dieImages(id).every(u => READY.has(u));
+export const preloadDice = id => Promise.all(dieImages(id).map(loadImage));
+
 function roundRect(g, x, y, w, h, r, begin = true) {
   if (begin) g.beginPath();
   g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
@@ -488,7 +507,12 @@ export function drawBoxFloor(c, id = 'classic') {
 }
 
 // 목록 미리보기 (작은 캔버스)
-export function diceThumb(id) {
+// 한 번 그린 목록 그림은 다시 쓴다 (고를 때마다 목록을 새로 그리므로)
+const THUMBS = new Map();
+const memo = (key, f) => THUMBS.get(key) ?? THUMBS.set(key, f()).get(key);
+export const diceThumb = id => memo('d:' + id, () => drawDiceThumb(id));
+export const trayThumb = id => memo('t:' + id, () => drawTrayThumb(id));
+function drawDiceThumb(id) {
   if (dieImage(id, 5)) return dieImage(id, 5);
   const big = drawDieFace(document.createElement('canvas'), 5, id);
   const c = document.createElement('canvas');
@@ -499,7 +523,7 @@ export function diceThumb(id) {
   g.drawImage(big, 4, 4, 88, 88);
   return c.toDataURL();
 }
-export function trayThumb(id) {
+function drawTrayThumb(id) {
   const st = trayStyle(id);
   const floor = drawTrayFloor(document.createElement('canvas'), id);
   const c = document.createElement('canvas');

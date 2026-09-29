@@ -13,7 +13,7 @@ import { FX, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
-import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, isUnlocked, diceThumb, trayThumb } from './skins.js';
+import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, isUnlocked, diceThumb, trayThumb, preloadDice } from './skins.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -29,6 +29,7 @@ const store = {
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
 const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
+preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
 let live = { notice: '', maintenance: false, min_version: '' };
@@ -1871,6 +1872,7 @@ async function showSkins(tab = 'dice') {
     return;
   }
   closeSkinPreview();
+  DICE_SKINS.forEach(k => preloadDice(k.id).catch(() => {}));   // 고르면 바로 바뀌게 그림 스킨을 미리 받아 둔다
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame skins" data-act="noop">
     <h2>꾸미기</h2>
     <div class="skin-preview"><button class="pbtn small skin-roll" data-act="skin-roll">굴려 보기</button></div>
@@ -2468,4 +2470,4 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
-if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; } };
+if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; } };
