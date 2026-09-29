@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -273,6 +273,14 @@ export class DiceTray {
     return (this.ramp = t);
   }
 
+  // 디자인 렌더로 만든 면 그림 (불러오면 다시 그린다)
+  imageTex(url) {
+    const t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }
+
   canvasTex(c) {
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
@@ -288,7 +296,8 @@ export class DiceTray {
       const p = dieMatParams(diceId);
       for (let v = 1; v <= 6; v++) {
         const old = this.faceMats[v];
-        const face = mode => this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, mode));
+        const url = dieImage(diceId, v);
+        const face = mode => (url && !mode ? this.imageTex(url) : this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, mode)));
         let m;
         if (p.toon) {
           m = new THREE.MeshToonMaterial({ map: face(''), gradientMap: this.toonRamp() });
@@ -298,12 +307,14 @@ export class DiceTray {
           if (p.emissive) m.emissive = new THREE.Color(p.emissive);
           if (p.glow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = face('glow'); m.emissiveIntensity = p.glow; }
           if (p.bump) { m.bumpMap = face('bump'); m.bumpScale = p.bump; }
+          if (p.selfGlow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = m.map; m.emissiveIntensity = p.selfGlow; }
+          m.userData.glowBase = m.emissiveIntensity;
         }
         if (p.cutout) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }        // 구멍 뚫린 금속 골조: 반대편 면이 비쳐 보인다
         if (p.clear) { m.transparent = true; m.depthWrite = false; m.side = THREE.DoubleSide; }   // 투명: 반대편 눈까지 비친다
         m.userData.baseTransparent = !!p.clear;
         this.faceMats[v] = m;
-        if (old) { old.map?.dispose(); old.emissiveMap?.dispose(); old.bumpMap?.dispose(); old.dispose(); }
+        if (old) { old.map?.dispose(); if (old.emissiveMap !== old.map) old.emissiveMap?.dispose(); old.bumpMap?.dispose(); old.dispose(); }
       }
       this.outlineOn = !!p.outline;
       this.coreOn = !!p.core;
@@ -773,7 +784,7 @@ export class DiceTray {
     // 배터리 절약: 움직이는 게 없으면 그리기를 쉰다 (빛나는 주사위만 있으면 초당 10번)
     const moving = this.anim || this.live || this.shrink || this.dice.some(d => d.morph || d.wobble || d.hop || d.auraI > 0.01 || Math.abs(this.liftWant(d) - d.lift) > 0.002);
     const glowing = this.twinkle || this.dice.some(d => d.glow.visible);
-    if (this.twinkle) for (let v = 1; v <= 6; v++) this.faceMats[v].emissiveIntensity = 0.75 + Math.sin(t / 380 + v * 1.7) * 0.3;   // 별빛이 반짝인다
+    if (this.twinkle) for (let v = 1; v <= 6; v++) { const m = this.faceMats[v]; m.emissiveIntensity = (m.userData.glowBase || 0.5) * (0.85 + Math.sin(t / 380 + v * 1.7) * 0.35); }   // 별빛이 반짝인다
     if (!moving && !this.dirty) {
       if (!glowing || t - (this.lastDraw || 0) < 100) return;
     }
