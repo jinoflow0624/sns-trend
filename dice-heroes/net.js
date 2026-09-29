@@ -80,6 +80,14 @@ class LocalBackend {
     setTimeout(() => this.emit(code), 0);
     return () => this.watchers.delete(code);
   }
+  async emote(code, token, e) {
+    const room = this.read(code);
+    if (!room) return;
+    room.emote = { ...(room.emote || {}), [token]: { e, t: Date.now() } };
+    this.write(code, room);
+    this.emit(code);
+  }
+  watchConnection(cb) { cb(true); return () => {}; }
 }
 
 // ── Firebase 백엔드 ──────────────────────────────────────────────────────────
@@ -129,11 +137,20 @@ class FirebaseBackend {
     await this.fb.set(this.ref(code, `/seen/${token}`), Date.now()).catch(() => {});
   }
   watch(code, cb) {
-    let state = null, seen = {};
-    const fire = () => state && cb({ ...state, seen });
+    let state = null, seen = {}, emote = {};
+    const fire = () => state && cb({ ...state, seen, emote });
     const u1 = this.fb.onValue(this.ref(code, '/state'), snap => { state = snap.exists() ? JSON.parse(snap.val()) : null; if (!state) cb(null); else fire(); });
     const u2 = this.fb.onValue(this.ref(code, '/seen'), snap => { seen = snap.val() || {}; fire(); });
-    return () => { u1(); u2(); };
+    const u3 = this.fb.onValue(this.ref(code, '/emote'), snap => { emote = snap.val() || {}; fire(); });
+    return () => { u1(); u2(); u3(); };
+  }
+  // 이모티콘 반응: rooms/DH-코드/emote/토큰 = { e: 번호, t: 시각 }
+  async emote(code, token, e) {
+    await this.fb.set(this.ref(code, `/emote/${token}`), { e, t: Date.now() }).catch(() => {});
+  }
+  // 서버 연결 상태 (끊기면 false → 화면에 '다시 연결하는 중')
+  watchConnection(cb) {
+    return this.fb.onValue(this.fb.ref(this.db, '.info/connected'), snap => cb(!!snap.val()));
   }
 }
 

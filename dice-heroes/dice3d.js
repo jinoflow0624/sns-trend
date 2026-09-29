@@ -121,18 +121,20 @@ const easeOut = t => 1 - Math.pow(1 - t, 3);
 const easeIn = t => t * t * t;
 
 export class DiceTray {
-  constructor(host, { onPick, onHit } = {}) {
+  constructor(host, { onPick, onHit, onLong, lowGfx = false } = {}) {
     this.host = host;
     this.onPick = onPick || (() => {});
     this.onHit = onHit || (() => {});
+    this.onLong = onLong || (() => {});      // 주사위를 꾹 누름 (정보 보기)
     this.dice = [];
     this.anim = null;
     this.target = false;
     this.clock = new THREE.Clock();
 
     const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    renderer.shadowMap.enabled = true;
+    // 저사양 모드: 해상도 1배 · 그림자 끔 (배터리·발열)
+    renderer.setPixelRatio(lowGfx ? 1 : Math.min(2, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled = !lowGfx;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -194,7 +196,24 @@ export class DiceTray {
     this.glowBlue = new THREE.MeshBasicMaterial({ map: glowTexture('#4FB3FF'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
 
     this.raycaster = new THREE.Raycaster();
-    renderer.domElement.addEventListener('pointerdown', e => this.pick(e));
+    // 짧게 누르면 잡기, 0.45초 이상 꾹 누르면 정보
+    renderer.domElement.addEventListener('pointerdown', e => {
+      const i = this.hitIndex(e);
+      if (i < 0 || this.anim) return;
+      this.press = { i, long: false, timer: setTimeout(() => { if (this.press?.i === i) { this.press.long = true; this.onLong(i, e); } }, 450) };
+    });
+    const end = pick => () => {
+      const p = this.press;
+      this.press = null;
+      if (!p) return;
+      clearTimeout(p.timer);
+      if (pick && !p.long && !this.anim) this.onPick(p.i);
+    };
+    renderer.domElement.addEventListener('pointerup', end(true));
+    renderer.domElement.addEventListener('pointerleave', end(false));
+    renderer.domElement.addEventListener('pointercancel', end(false));
+    renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+    this.dirty = true;
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(host);
     this.resize();
@@ -229,6 +248,7 @@ export class DiceTray {
     this.camera.position.set(0, dist * 0.93, dist * 0.37);
     this.camera.lookAt(0, 0, 0.35);
     this.camera.updateProjectionMatrix();
+    this.dirty = true;
   }
 
   slotX(i, n) {
@@ -271,6 +291,7 @@ export class DiceTray {
   // 굴리지 않고 정렬된 상태로 보여준다 (새 턴, 이어하기, 화면 갱신)
   show(values, held = []) {
     if (this.anim) return;
+    this.dirty = true;
     const n = values.length;
     this.ensure(n);
     this.dice.forEach((d, i) => {
@@ -295,11 +316,13 @@ export class DiceTray {
   }
 
   setHeld(held) {
+    this.dirty = true;
     this.dice.forEach((d, i) => (d.held = !!held[i]));
     this.refreshGlow();
   }
 
   setTarget(on) {
+    this.dirty = true;
     this.target = on;
     this.refreshGlow();
   }
@@ -321,15 +344,12 @@ export class DiceTray {
     return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
   }
 
-  pick(e) {
-    if (this.anim) return;
+  hitIndex(e) {
     const r = this.renderer.domElement.getBoundingClientRect();
     const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(p, this.camera);
     const hit = this.raycaster.intersectObjects(this.dice.map(d => d.mesh))[0];
-    if (!hit) return;
-    const i = this.dice.findIndex(d => d.mesh === hit.object);
-    if (i >= 0) this.onPick(i);
+    return hit ? this.dice.findIndex(d => d.mesh === hit.object) : -1;
   }
 
   // ── 연출 ────────────────────────────────────────────────────────────────
@@ -350,6 +370,7 @@ export class DiceTray {
 
   // 전쟁의 북: 모든 주사위가 쿵 하고 튄다
   quake() {
+    this.dirty = true;
     this.dice.forEach((d, i) => { d.lift = Math.max(d.lift, 0.9 + (i % 2) * 0.35); d.wobble = 1; });
   }
 
@@ -501,7 +522,16 @@ export class DiceTray {
   loop() {
     if (!this.running) return;
     requestAnimationFrame(this.loop);
+    if (document.hidden) return;              // 다른 앱을 보는 동안은 그리지 않는다
     const t = performance.now();
+    // 배터리 절약: 움직이는 게 없으면 그리기를 쉰다 (빛나는 주사위만 있으면 초당 10번)
+    const moving = this.anim || this.shrink || this.dice.some(d => d.morph || d.wobble || d.auraI > 0.01 || Math.abs((d.held ? 0.45 : 0) - d.lift) > 0.002);
+    const glowing = this.dice.some(d => d.glow.visible);
+    if (!moving && !this.dirty) {
+      if (!glowing || t - (this.lastDraw || 0) < 100) return;
+    }
+    this.dirty = false;
+    this.lastDraw = t;
     const a = this.anim;
     if (a && a.phase === 'fly') {
       const f = Math.min(a.frames.length - 1, Math.floor(((t - a.t0) / 1000) * FPS * a.speed));

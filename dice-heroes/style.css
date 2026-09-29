@@ -949,3 +949,73 @@ img.t-boss { width: 44px; height: 44px; }
 .dr-row em { font-style: normal; font-weight: 700; text-align: center; }
 .dr-row em.win { color: var(--mint); } .dr-row em.lose { color: var(--ruby); }
 .winner small.hint { display: block; }
+
+/* ── v0.9: 사용성 ─────────────────────────────────────────────────────── */
+/* 0점 확인 */
+.row.armed { box-shadow: inset 0 0 0 3px var(--ruby) !important; background: #3A1428 !important; animation: none; }
+.row .nm small.zero-warn { color: #FF9AA8; font-weight: 700; }
+/* 설정 */
+.set-row .seg button { padding: 4px 10px; font-size: 12px; }
+.set-row small { font-size: 10px; color: var(--muted); margin-left: 4px; }
+.modal { max-height: calc(100dvh - 32px); overflow: auto; }
+/* 연결 끊김 */
+.conn {
+  position: fixed; z-index: 90; left: 50%; top: calc(6px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  color: #fff; background: #8E2226; border: 2px solid var(--ink); animation: blink 1.2s steps(2, jump-none) infinite;
+}
+/* 이모티콘 반응 */
+.emote-btn {
+  position: absolute; z-index: 2; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700; padding: 4px 8px; background: rgba(6,4,26,.72); border: 2px solid var(--gold); color: #fff;
+}
+.emote-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+.emote-list .pbtn { min-height: 34px; font-size: 12px; padding: 2px 4px; }
+.emote-bubble {
+  position: fixed; z-index: 64; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  padding: 3px 10px; font-size: 13px; font-weight: 700; color: var(--parch-ink); background: #FFF4D2; border: 2px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink); animation: bubble 2.6s ease forwards;
+}
+.emote-bubble::before { content: ''; position: absolute; left: 50%; top: -7px; margin-left: -5px; border: 5px solid transparent; border-bottom-color: var(--ink); border-top: 0; }
+@keyframes bubble { 0% { opacity: 0; transform: translate(-50%, 6px) scale(.6); } 10%, 85% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; } }
+/* 대시보드 백업 */
+.dash-backup { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* 2D 주사위 (WebGL을 쓸 수 없는 기기) */
+.tray2d { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 3%; padding: 0 4%;
+  background: radial-gradient(circle at 50% 45%, #2E8F6E, #0E4A3A 75%); }
+.tray2d.quake { animation: shk .35s steps(6); --sh: 5px; }
+.tray2d.absorb .d2 { transform: scale(0); transition: transform .35s ease-in; }
+.d2 { position: relative; flex: none; width: clamp(40px, 13vw, 60px); height: clamp(40px, 13vw, 60px); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px;
+  background: #FFF8EC; border: 3px solid var(--ink); border-radius: 18%; box-shadow: 0 5px 0 var(--ink); transition: transform .15s; }
+.d2 i { width: clamp(6px, 2.2vw, 10px); height: clamp(6px, 2.2vw, 10px); place-self: center; border-radius: 50%; background: #2A1E48; visibility: hidden; }
+.d2 i.on { visibility: visible; }
+.d2.one i.on { background: var(--ruby); }
+.d2.held { transform: translateY(-10%); box-shadow: 0 0 0 3px var(--gold), 0 0 16px var(--gold), 0 8px 0 var(--ink); }
+.d2.blank { opacity: .45; }
+.d2.target { box-shadow: 0 0 0 3px var(--sky), 0 5px 0 var(--ink); }
+.d2.rolling { animation: d2roll .11s steps(2) infinite; }
+.d2.burn { animation: d2burn .5s steps(4) infinite; }
+.d2.twist { animation: d2twist .6s ease; }
+@keyframes d2roll { 50% { transform: translateY(-14%) rotate(14deg); } }
+@keyframes d2burn { 50% { background: #FF8A1A; } }
+@keyframes d2twist { to { transform: rotate(540deg) translateY(-20%); } }
+
+/* 글자 크게: 작은 글씨를 한두 단계 키운다 */
+html.big-text .q-body b, html.big-text .row .nm, html.big-text .tip, html.big-text .hs-name b,
+html.big-text .popover, html.big-text .toast span, html.big-text .hint, html.big-text .event-chip b { font-size: 14px; }
+html.big-text .q-body small, html.big-text .row .nm small, html.big-text .q-rw, html.big-text .m-info .name,
+html.big-text .event-chip small, html.big-text .skill-chip, html.big-text .log-line, html.big-text .hs-name span { font-size: 12px; }
+html.big-text .row .v { font-size: 18px; }
+html.big-text .sheet-pop .row { min-height: 38px; }
+
+/* 색약 보조: 색으로만 구분하던 것에 모양·글자를 더한다 */
+html.color-assist .quest.ok { border-style: solid; border-width: 3px; outline: 2px dashed #052E22; outline-offset: -6px; }
+html.color-assist .perk-ic::after, html.color-assist .dp::after, html.color-assist .card .rar::after {
+  content: attr(data-r); position: absolute; left: -4px; top: -6px; font-size: 9px; font-weight: 700; line-height: 1;
+  padding: 1px 2px; background: var(--rc, #fff); color: var(--ink); border: 1px solid var(--ink);
+}
+html.color-assist .card .rar::after { content: none; }
+html.color-assist .row.can:not(.combo) .v::after { content: ' ●'; font-size: 10px; }
+html.color-assist .row.combo .v::after { content: ' ★'; font-size: 10px; }
+html.color-assist .d2.held::after, html.color-assist .member.turn::after { content: '▶'; position: absolute; left: -2px; top: -10px; font-size: 10px; color: var(--gold); }
