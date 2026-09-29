@@ -355,14 +355,15 @@ export class DiceTray {
 
   // values: 엔진이 정한 굴림 결과, rolling: 이번에 굴리는 주사위 여부
   roll(values, rolling, speed = 1) {
+    speed *= 1.2;                  // 굴러가는 모습 1.2배속
     const n = values.length;
     this.ensure(n);
     const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -32, 0) });
     world.allowSleep = true;
     const dieMat = new CANNON.Material('die');
     const floorMat = new CANNON.Material('floor');
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 0.28, restitution: 0.42 }));
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.2, restitution: 0.5 }));
+    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 0.28, restitution: 0.28 }));
+    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.2, restitution: 0.3 }));
 
     const floor = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
     floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -370,6 +371,7 @@ export class DiceTray {
     const walls = [
       [[0, 0, -TRAY_D / 2], [0, 0, 0]], [[0, 0, TRAY_D / 2], [0, Math.PI, 0]],
       [[-TRAY_W / 2, 0, 0], [0, Math.PI / 2, 0]], [[TRAY_W / 2, 0, 0], [0, -Math.PI / 2, 0]],
+      [[0, 4.2, 0], [Math.PI / 2, 0, 0]],   // 천장: 세게 튄 주사위가 화면 밖으로 날아가지 않게
     ];
     for (const [p, r] of walls) {
       const b = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
@@ -390,13 +392,13 @@ export class DiceTray {
         world.addBody(b);
         return;
       }
-      const b = new CANNON.Body({ mass: 1, material: dieMat, shape, sleepSpeedLimit: 0.15, sleepTimeLimit: 0.25 });
-      b.linearDamping = 0.08;
-      b.angularDamping = 0.12;
-      b.position.set(TRAY_W / 2 - 0.9 - Math.random() * 0.8, 2.4 + i * 0.55 + Math.random(), -1.9 + Math.random() * 2.2);
+      const b = new CANNON.Body({ mass: 1, material: dieMat, shape, sleepSpeedLimit: 0.15, sleepTimeLimit: 0.1 });
+      b.linearDamping = 0.3;
+      b.angularDamping = 0.5;
+      b.position.set(TRAY_W / 2 - 0.9 - Math.random() * 0.8, 1.5 + i * 0.35 + Math.random() * 0.5, -1.9 + Math.random() * 2.2);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
       b.quaternion.set(q.x, q.y, q.z, q.w);
-      b.velocity.set(-11 - Math.random() * 6, 1 + Math.random() * 2, (Math.random() - 0.3) * 5);
+      b.velocity.set(-11 - Math.random() * 5, 1 + Math.random() * 2, (Math.random() - 0.3) * 5);
       b.angularVelocity.set((Math.random() - 0.5) * 36, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 36);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
@@ -407,14 +409,15 @@ export class DiceTray {
     });
 
     const frames = [];
-    const MAX = FPS * 4;
+    // 오래 걸리지 않게: 2.2초(물리 시간)에서 끊고, 거의 멈추면(미세한 흔들림은 정렬 연출이 흡수) 바로 끝낸다
+    const MAX = FPS * 2.2;
     let still = 0;
     for (let f = 0; f < MAX; f++) {
       world.step(1 / FPS);
       frames.push(bodies.map(({ b }) => [b.position.x, b.position.y, b.position.z, b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w]));
-      const moving = bodies.some(({ b }) => b.velocity.length() > 0.08 || b.angularVelocity.length() > 0.12);
+      const moving = bodies.some(({ b }) => b.velocity.length() > 0.35 || b.angularVelocity.length() > 0.7);
       still = moving ? 0 : still + 1;
-      if (still > 8 && f > 30) break;
+      if (still > 5 && f > 30) break;
     }
 
     // 멈춘 자세에서 위를 향한 면에 엔진 결과를 입힌다
@@ -488,14 +491,14 @@ export class DiceTray {
       while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) this.onHit(a.hits[a.hitIdx++].v);
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
-        a.t1 = t + 120;
+        a.t1 = t + 50;
         a.settle.forEach(s => {
           const m = this.dice[s.i].mesh;
           s.from = { p: m.position.clone(), q: m.quaternion.clone() };
         });
       }
     } else if (a && a.phase === 'settle') {
-      const k = easeOut(Math.min(1, Math.max(0, (t - a.t1) / 380)));
+      const k = easeOut(Math.min(1, Math.max(0, (t - a.t1) / 260)));
       const n = this.dice.length;
       a.settle.forEach(s => {
         const m = this.dice[s.i].mesh;
