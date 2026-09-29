@@ -290,6 +290,21 @@ export const sfx = {
     const t = ctx.currentTime;
     for (let i = 0; i < 7; i++) noise(sfxGain, { t: t + i * 0.035 + Math.random() * 0.01, dur: 0.03, vol: 0.12, hp: 2500, lp: 9000 });
   },
+  // 굴리기 버튼: 손에 쥔 주사위를 흔드는 '착' 소리 + 짧은 진동
+  rollPress() {
+    buzz(35);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'p25', f: 880, slide: 1320, t, dur: 0.06, vol: 0.12 });
+    for (let i = 0; i < 4; i++) noise(sfxGain, { t: t + 0.02 + i * 0.045, dur: 0.035, vol: 0.16, hp: 1800, lp: 7000 });
+  },
+  // 고정한 주사위가 나무 주사위 함에 '톡' 들어가는 소리
+  box() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 420, slide: 260, t, dur: 0.07, vol: 0.18 });
+    noise(sfxGain, { t, dur: 0.03, vol: 0.08, hp: 600, lp: 3000 });
+  },
   // 주사위가 바닥·벽·서로에 부딪히는 소리 (충격량에 따라)
   clack(v = 5) {
     if (!unlock()) return;

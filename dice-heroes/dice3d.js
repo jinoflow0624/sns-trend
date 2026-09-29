@@ -16,6 +16,8 @@ const ROW_Z = 0.9;                // 정렬 줄 위치
 // 주사위 함: 트레이 아래(화면 아래쪽)의 나무 상자. 고정한 주사위는 굴릴 때 여기로 옮겨 가서
 // 다른 주사위가 굴러가는 길을 막지 않는다. 뒤집기·눈금 조정 같은 효과도 이 안에서 그대로 받는다.
 const RAIL_T = 0.5;
+const HOP_MS = 380;               // 트레이 ↔ 함 이동 시간
+const WALL_BOUNCE = 0.4, WALL_FRICTION = 0.8;    // 벽 탄력: 벽에서 튕겨 나오는 속도 +21% (시뮬레이션 600판: 입사 대비 0.44 → 0.54)
 const BOX_D = 1.9;                           // 함 안쪽 깊이
 const BOX_Z = TRAY_D / 2 + RAIL_T + BOX_D / 2; // 함 안 주사위 줄 위치
 const BOX_T = 0.35, BOX_H = 0.42;            // 함 벽 두께·높이
@@ -158,8 +160,10 @@ const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 
 const easeIn = t => t * t * t;
 
 export class DiceTray {
-  constructor(host, { onPick, onHit, onLong, lowGfx = false } = {}) {
+  constructor(host, { onPick, onHit, onLong, onThrow, onBox, lowGfx = false } = {}) {
     this.host = host;
+    this.onThrow = onThrow || (() => {});   // 주사위가 손을 떠나는 순간 (흔드는 소리)
+    this.onBox = onBox || (() => {});       // 고정한 주사위가 함에 들어가는 순간
     this.onPick = onPick || (() => {});
     this.onHit = onHit || (() => {});
     this.onLong = onLong || (() => {});      // 주사위를 꾹 누름 (정보 보기)
@@ -462,7 +466,10 @@ export class DiceTray {
     world.allowSleep = true;
     const dieMat = new CANNON.Material('die');
     const floorMat = new CANNON.Material('floor');
+    const wallMat = new CANNON.Material('wall');
     world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 1.5, restitution: 0.25 }));
+    // 벽은 탄력 있게: 부딪히면 튕겨 나오는 속도가 바닥 기준보다 약 20% 크다 (WALL_BOUNCE 로 조절)
+    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, wallMat, { friction: WALL_FRICTION, restitution: WALL_BOUNCE }));
     // 주사위끼리는 미끄럽고 덜 튀게: 스치면 비껴가서 각자 제 갈 길을 간다
     world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.03, restitution: 0.08 }));
 
@@ -475,13 +482,14 @@ export class DiceTray {
       [[0, 6.0, 0], [Math.PI / 2, 0, 0]],   // 천장: 세게 튄 주사위가 화면 밖으로 날아가지 않게
     ];
     for (const [p, r] of walls) {
-      const b = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
+      const b = new CANNON.Body({ mass: 0, material: wallMat, shape: new CANNON.Plane() });
       b.position.set(...p);
       b.quaternion.setFromEuler(...r);
       world.addBody(b);
     }
 
     const bodies = [];
+    let boxing = false;   // 고정한 주사위를 함으로 옮기는 중이면, 다 옮긴 다음에 던진다
     // 던질 자리: 앞줄·뒷줄 두 줄로 나누고, 줄 안에서는 왼쪽에서 출발한 주사위가 더 멀리 가게 한다
     // → 날아가는 길이 엇갈리거나 앞지르지 않아 주사위끼리 덜 부딪히고 넓게 흩어진다 (서로 부딪힌 쌍 7.6 → 4.6 / 판)
     const nRoll = rolling.filter(Boolean).length;
@@ -501,7 +509,7 @@ export class DiceTray {
     this.dice.forEach((d, i) => {
       if (!rolling[i]) {
         // 고정한 주사위는 주사위 함으로 옮긴다 → 트레이가 비어 굴리는 주사위를 막지 않는다
-        if (!d.blank) this.hop(d, true);
+        if (!d.blank && !d.boxed) { this.hop(d, true, HOP_MS); boxing = true; }
         return;
       }
       d.boxed = false;
@@ -580,7 +588,10 @@ export class DiceTray {
     });
 
     return new Promise(resolve => {
-      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now(), hitIdx: 0, resolve, phase: 'fly', ids: new Set(bodies.map(b => b.i)) };
+      const wait = boxing ? HOP_MS + 40 : 0;
+      if (boxing) setTimeout(() => this.onBox(), HOP_MS - 40);
+      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
+      if (!wait) this.onThrow();
     });
   }
 
@@ -628,6 +639,7 @@ export class DiceTray {
     this.dirty = false;
     this.lastDraw = t;
     const a = this.anim;
+    if (a && a.phase === 'wait' && t >= a.t0) { a.phase = 'fly'; this.onThrow(); }
     if (a && a.phase === 'fly') {
       const f = Math.min(a.frames.length - 1, Math.floor(((t - a.t0) / 1000) * FPS * a.speed));
       a.bodies.forEach(({ i }, k) => {

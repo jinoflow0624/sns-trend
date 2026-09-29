@@ -12,7 +12,8 @@ export function webglOK() {
 }
 
 export class DiceTray2D {
-  constructor(host, { onPick, onLong } = {}) {
+  constructor(host, { onPick, onLong, onThrow } = {}) {
+    this.onThrow = onThrow || (() => {});
     this.onPick = onPick || (() => {});
     this.onLong = onLong || (() => {});
     this.el = document.createElement('div');
@@ -67,6 +68,7 @@ export class DiceTray2D {
   // 굴리는 주사위의 눈을 빠르게 바꾸다가 결과에서 멈춘다
   async roll(values, rolling, speed = 1) {
     this.anim = true;
+    this.onThrow();
     this.held = values.map(() => false);
     const steps = Math.round(9 / speed);
     for (let k = 0; k < steps; k++) {
