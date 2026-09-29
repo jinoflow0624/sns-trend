@@ -362,7 +362,7 @@ export class DiceTray {
     world.allowSleep = true;
     const dieMat = new CANNON.Material('die');
     const floorMat = new CANNON.Material('floor');
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 0.65, restitution: 0.4 }));
+    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 1.5, restitution: 0.25 }));
     world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.2, restitution: 0.4 }));
 
     const floor = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
@@ -371,7 +371,7 @@ export class DiceTray {
     const walls = [
       [[0, 0, -TRAY_D / 2], [0, 0, 0]], [[0, 0, TRAY_D / 2], [0, Math.PI, 0]],
       [[-TRAY_W / 2, 0, 0], [0, Math.PI / 2, 0]], [[TRAY_W / 2, 0, 0], [0, -Math.PI / 2, 0]],
-      [[0, 5.2, 0], [Math.PI / 2, 0, 0]],   // 천장: 세게 튄 주사위가 화면 밖으로 날아가지 않게
+      [[0, 6.0, 0], [Math.PI / 2, 0, 0]],   // 천장: 세게 튄 주사위가 화면 밖으로 날아가지 않게
     ];
     for (const [p, r] of walls) {
       const b = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
@@ -402,13 +402,14 @@ export class DiceTray {
       // 오른쪽 위에서 한 줌 던지되, 주사위마다 트레이 가운데 기준으로 고르게 흩어진 목표 지점을 향해 알맞은 힘으로
       // (예전엔 모두 같은 방향으로 세게 던져 왼쪽 벽에 몰렸다: 평균 x -1.9, 왼쪽 벽 25%)
       const sx = TRAY_W / 2 - 1.0 - Math.random() * 0.9, sz = -1.6 + Math.random() * 3.2;
-      b.position.set(sx, 2.0 + i * 0.35 + Math.random() * 0.4, sz);
+      b.position.set(sx, 3.2 + i * 0.35 + Math.random() * 0.4, sz);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
       b.quaternion.set(q.x, q.y, q.z, q.w);
-      const tx = lanes[k % lanes.length] + (Math.random() - 0.5) * 1.2, tz = (Math.random() - 0.5) * 3.6;
+      const tx = lanes[k % lanes.length] + (Math.random() - 0.5) * 1.2 + 0.65, tz = (Math.random() - 0.5) * 3.6;   // +0.65: 세게 던지면 조금 더 미끄러져 가는 만큼
       k++;
-      const AIM = 2.1;   // 목표까지 거리 × 이 값 = 던지는 속도 (마찰로 목표 근처에서 멈추도록 시뮬레이션으로 맞춤)
-      b.velocity.set((tx - sx) * AIM * (0.9 + Math.random() * 0.2), 1 + Math.random() * 2, (tz - sz) * AIM * (0.9 + Math.random() * 0.2));
+      // 세게 던진다: 옆으로 2배 속도 + 펠트에 내리꽂는 힘. 세게 내리꽂을수록 첫 착지 마찰이 커서 목표 근처에서 멈춘다
+      const AIM = 4.2;   // 목표까지 거리 × 이 값 = 옆으로 던지는 속도 (시뮬레이션으로 맞춤)
+      b.velocity.set((tx - sx) * AIM * (0.9 + Math.random() * 0.2), -24 - Math.random() * 3, (tz - sz) * AIM * (0.9 + Math.random() * 0.2));
       b.angularVelocity.set((Math.random() - 0.5) * 65, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 65);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
