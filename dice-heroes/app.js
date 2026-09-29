@@ -13,6 +13,7 @@ import { FX, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
+import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, isUnlocked, diceThumb, trayThumb } from './skins.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -27,7 +28,7 @@ const store = {
 };
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
-const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, shake: false, ...(store.get(KEYS.prefs) || {}) };
+const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
 let live = { notice: '', maintenance: false, min_version: '' };
@@ -137,6 +138,7 @@ function showTitle() {
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
         <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
         <button class="pbtn" data-act="online">온라인 방 <small>친구 초대</small></button>
+        <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
         <div class="menu-row">
           <button class="pbtn small" data-act="dashboard">대시보드</button>
           <button class="pbtn small" data-act="tutorial">튜토리얼</button>
@@ -167,9 +169,9 @@ function showLiveBar() {
 // 폰의 가속도 센서로 '흔드는 동작'을 알아채서 굴리기 버튼을 누른 것처럼 처리한다.
 // 짧은 시간 안에 세게 두 번 흔들면 굴림 (걷거나 폰을 내려놓는 정도로는 안 굴러가게).
 const SHAKE_OK = typeof window.DeviceMotionEvent !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-const motion = { on: false, peaks: [], last: 0, grav: null };
+const motion = { on: false, peaks: [], last: 0, grav: null, rolling: false, timer: null };
 function onMotion(e) {
-  let a = e.acceleration;
+  const a = e.acceleration;
   let x = a?.x, y = a?.y, z = a?.z;
   if (x == null) {                       // 중력 제외 값이 없는 기기: 느린 평균(중력)을 빼서 쓴다
     const g = e.accelerationIncludingGravity;
@@ -180,16 +182,47 @@ function onMotion(e) {
   }
   const mag = Math.hypot(x, y, z);
   const now = performance.now();
+  // 흔드는 중: 흔드는 만큼 트레이 안에서 주사위가 계속 굴러다닌다
+  if (motion.rolling) {
+    if (mag > 7) { motion.lastStrong = now; tray?.kick?.(x, y, z); }
+    return;
+  }
   if (mag < 13 || now - motion.last < 1200) return;
   motion.peaks = motion.peaks.filter(t => now - t < 600);
   if (motion.peaks.length && now - motion.peaks[motion.peaks.length - 1] < 90) return;   // 같은 흔들림의 연속 값은 한 번으로
   motion.peaks.push(now);
   if (motion.peaks.length < 2) return;
   motion.peaks = [];
-  const btn = document.querySelector('[data-act=roll]:not([disabled])');
-  if (screen !== 'game' || !btn || layer.querySelector('.overlay')) return;
+  startShakeRoll(x, y, z);
+}
+const rollReady = () => screen === 'game' && !layer.querySelector('.overlay') && document.querySelector('[data-act=roll]:not([disabled])');
+// 흔들기 시작: 주사위를 트레이 안에 풀어 놓고, 흔들기를 멈추면(0.45초 동안 약한 움직임뿐) 그 자리에서 굴림을 확정한다
+function startShakeRoll(x, y, z) {
+  const btn = rollReady();
+  if (!btn) return;
+  const now = performance.now();
   motion.last = now;
-  onAct('roll', btn);
+  if (!tray?.startShake) return onAct('roll', btn);        // 2D 화면: 바로 굴린다
+  const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
+  if (!tray.startShake(mask)) return;
+  sfx.rollPress();
+  tray.kick(x, y, z);
+  Object.assign(motion, { rolling: true, lastStrong: now, t0: now });
+  motion.timer = setInterval(() => {
+    const n = performance.now();
+    if (n - motion.lastStrong > 450 || n - motion.t0 > 6000) endShake();
+  }, 60);
+}
+function stopShakeWatch() {
+  clearInterval(motion.timer);
+  motion.timer = null;
+}
+function endShake() {
+  stopShakeWatch();
+  const btn = rollReady();
+  if (btn && myControl() && !ui.busy) { onAct('roll', btn); motion.rolling = false; }
+  else { motion.rolling = false; tray?.cancelShake?.(); render(); }
+  motion.last = performance.now();
 }
 function listenShake(on) {
   if (on === motion.on) return;
@@ -210,7 +243,7 @@ async function setShake(on, input) {
   prefs.shake = on;
   store.set(KEYS.prefs, prefs);
   listenShake(on);
-  if (on) toast(ico('die5'), '흔들어 굴리기 켜짐', '내 차례에 폰을 두 번 흔들면 주사위를 굴려요.', 2000);
+  if (on) toast(ico('die5'), '흔들어 굴리기 켜짐', '내 차례에 폰을 흔들면 주사위가 굴러다니고, 멈추면 결과가 나와요.', 2400);
 }
 if (SHAKE_OK && prefs.shake) listenShake(true);
 
@@ -837,6 +870,8 @@ async function makeTray() {
     onBox: () => sfx.box(),
     onLong: i => dieInfo(i),
     lowGfx: !!prefs.lowGfx,
+    diceSkin: diceSkin(prefs.diceSkin).id,
+    traySkin: traySkin(prefs.traySkin).id,
   };
   const { webglOK, DiceTray2D } = await import('./dice2d.js');
   if (webglOK()) {
@@ -1786,6 +1821,72 @@ function showDashboard() {
   </div>`;
 }
 
+// ── 꾸미기 (주사위 · 트레이 스킨) ─────────────────────────────────────────────
+// 위쪽에 실제 3D 트레이 미리보기, 아래에 스킨 목록. 고르면 바로 미리보기와 게임 트레이에 입혀진다.
+let skinPreview = null;
+function closeSkinPreview() {
+  skinPreview?.destroy?.();
+  skinPreview = null;
+}
+async function showSkins(tab = 'dice') {
+  const list = tab === 'dice' ? DICE_SKINS : TRAY_SKINS;
+  const cur = tab === 'dice' ? diceSkin(prefs.diceSkin).id : traySkin(prefs.traySkin).id;
+  const thumb = tab === 'dice' ? diceThumb : trayThumb;
+  const reuse = skinPreview && layer.querySelector('.skin-preview');
+  const cards = list.map(k => {
+    const open = isUnlocked(k.id);
+    return `<button class="skin-card${k.id === cur ? ' on' : ''}${open ? '' : ' locked'}" data-act="skin-pick" data-kind="${tab}" data-id="${k.id}">
+      <img src="${thumb(k.id)}" alt="">
+      <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
+      ${k.tier === 'special' ? '<span class="skin-tag">스페셜</span>' : ''}
+      ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
+    </button>`;
+  }).join('');
+  if (reuse) {
+    layer.querySelector('.skin-grid').innerHTML = cards;
+    layer.querySelectorAll('.skin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    return;
+  }
+  closeSkinPreview();
+  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame skins" data-act="noop">
+    <h2>꾸미기</h2>
+    <div class="skin-preview"><button class="pbtn small skin-roll" data-act="skin-roll">굴려 보기</button></div>
+    <div class="seg skin-tabs" role="tablist">
+      <button data-act="skin-tab" data-tab="dice" class="${tab === 'dice' ? 'on' : ''}">주사위</button>
+      <button data-act="skin-tab" data-tab="tray" class="${tab === 'tray' ? 'on' : ''}">트레이</button>
+    </div>
+    <div class="skin-grid">${cards}</div>
+    <p class="hint">스페셜 스킨은 지금은 모두 무료로 쓸 수 있어요.</p>
+    <button class="pbtn gold" data-act="close">닫기</button>
+  </div></div>`;
+  const host = layer.querySelector('.skin-preview');
+  try {
+    const { webglOK } = await import('./dice2d.js');
+    if (!webglOK()) { host.classList.add('flat'); return; }
+    const { DiceTray } = await import('./dice3d.js');
+    if (!host.isConnected) return;
+    skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: v => sfx.clack(v) });
+    skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
+  } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
+}
+function pickSkin(kind, id) {
+  if (!isUnlocked(id)) return toast(ico('warn'), '아직 잠겨 있어요', '', 1400);
+  sfx.select();
+  if (kind === 'dice') prefs.diceSkin = id; else prefs.traySkin = id;
+  store.set(KEYS.prefs, prefs);
+  const d = diceSkin(prefs.diceSkin).id, t = traySkin(prefs.traySkin).id;
+  skinPreview?.setSkin(d, t);
+  tray?.setSkin?.(d, t);
+  showSkins(kind);
+}
+async function rollPreview() {
+  if (!skinPreview || skinPreview.anim) return;
+  sfx.rollPress();
+  const vals = [1, 2, 3, 4, 5].map(() => 1 + Math.floor(Math.random() * 6));
+  vals[4] = 4;
+  await skinPreview.roll(vals, [true, true, true, true, false]);
+}
+
 // ── 설정 · 크레딧 ────────────────────────────────────────────────────────────
 function showSettings(inGame = false) {
   const a = audioSettings();
@@ -2086,7 +2187,8 @@ async function onGameAct(act, t) {
   }
   if (ui.busy || ui.sending || !myControl() || S.phase !== 'roll') return;
   if (act === 'roll') {
-    sfx.rollPress();                      // 짧은 진동 + 흔드는 소리
+    if (!motion.rolling) sfx.rollPress();  // 짧은 진동 + 흔드는 소리 (흔들어 굴리기는 시작할 때 이미 냈다)
+    stopShakeWatch();
     ui.tool = null;
     ui.zeroArm = null;
     const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
@@ -2157,7 +2259,11 @@ function onAct(act, t) {
   if (act === 'story-skip') return endStory();
   if (act === 'story-next') return storyNext();
   if (act === 'noop') return;
-  if (act === 'close' || act === 'close-bg') { sfx.back(); layer.innerHTML = ''; return; }
+  if (act === 'close' || act === 'close-bg') { sfx.back(); closeSkinPreview(); layer.innerHTML = ''; return; }
+  if (act === 'skins') { sfx.select(); return showSkins('dice'); }
+  if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
+  if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
+  if (act === 'skin-roll') return rollPreview();
   if (act === 'settings') { sfx.select(); return showSettings(false); }
   if (act === 'wipe') {
     sfx.select();
@@ -2285,7 +2391,7 @@ document.addEventListener('input', e => {
   const id = e.target.id;
   if (id === 'set-bgm') setAudio({ bgm: Number(e.target.value) });
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
-  if (id === 'set-vib') setAudio({ vibrate: e.target.checked });
+  if (id === 'set-vib') { setAudio({ vibrate: e.target.checked }); buzz(80); }   // 켜면 바로 한 번 떨어서 확인
   if (id === 'set-shake') setShake(e.target.checked, e.target);
   if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {

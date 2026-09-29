@@ -23,8 +23,30 @@ export function setAudio(patch) {
   if (bgmGain) bgmGain.gain.value = settings.bgm * BGM_LEVEL;
   if (sfxGain) sfxGain.gain.value = settings.sfx * SFX_LEVEL;
 }
+// 진동. 안드로이드는 Vibration API, 아이폰(사파리 18+)은 진동 API가 없어서
+// 숨긴 스위치(<input switch>)를 눌러 시스템 햅틱을 낸다 (터치로 부른 경우에만 동작).
+// 15ms 같은 짧은 진동은 기기 모터가 미처 돌지 못해 거의 느껴지지 않아 최소 40ms 로 낸다.
+let hapticEl = null;
+function iosHaptic() {
+  if (!hapticEl) {
+    hapticEl = document.createElement('label');
+    hapticEl.setAttribute('aria-hidden', 'true');
+    hapticEl.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    input.tabIndex = -1;
+    hapticEl.appendChild(input);
+    document.body.appendChild(hapticEl);
+  }
+  hapticEl.click();
+}
 export function buzz(ms = 20) {
-  if (settings.vibrate && navigator.vibrate) try { navigator.vibrate(ms); } catch { /* 무시 */ }
+  if (!settings.vibrate) return;
+  try {
+    if (typeof navigator.vibrate === 'function') navigator.vibrate(Math.max(40, ms));
+    else iosHaptic();
+  } catch { /* 무시 */ }
 }
 
 let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;

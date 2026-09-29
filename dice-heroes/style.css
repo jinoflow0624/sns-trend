@@ -987,10 +987,10 @@ img.t-boss { width: 44px; height: 44px; }
 .tray2d.quake { animation: shk .35s steps(6); --sh: 5px; }
 .tray2d.absorb .d2 { transform: scale(0); transition: transform .35s ease-in; }
 .d2 { position: relative; flex: none; width: clamp(40px, 13vw, 60px); height: clamp(40px, 13vw, 60px); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px;
-  background: #FFF8EC; border: 3px solid var(--ink); border-radius: 18%; box-shadow: 0 5px 0 var(--ink); transition: transform .15s; }
-.d2 i { width: clamp(6px, 2.2vw, 10px); height: clamp(6px, 2.2vw, 10px); place-self: center; border-radius: 50%; background: #2A1E48; visibility: hidden; }
+  background: var(--d2-bg, #FFF8EC); border: 3px solid var(--ink); border-radius: 18%; box-shadow: 0 5px 0 var(--ink); transition: transform .15s; }
+.d2 i { width: clamp(6px, 2.2vw, 10px); height: clamp(6px, 2.2vw, 10px); place-self: center; border-radius: 50%; background: var(--d2-pip, #2A1E48); visibility: hidden; }
 .d2 i.on { visibility: visible; }
-.d2.one i.on { background: var(--ruby); }
+.d2.one i.on { background: var(--d2-one, var(--ruby)); }
 .d2.held { transform: translateY(-10%); box-shadow: 0 0 0 3px var(--gold), 0 0 16px var(--gold), 0 8px 0 var(--ink); }
 .d2.blank { opacity: .45; }
 .d2.target { box-shadow: 0 0 0 3px var(--sky), 0 5px 0 var(--ink); }
@@ -1027,3 +1027,21 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .set-links { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; }
 .set-links a, .linkish { color: #CFC6FF; text-decoration: underline; background: none; border: 0; padding: 4px 0; font: inherit; cursor: pointer; }
 .pbtn.danger { border-image-source: var(--fr-red); }
+
+/* ── v0.11 꾸미기 (주사위 · 트레이 스킨) ── */
+.modal.skins { width: min(94vw, 460px); max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.skin-preview { position: relative; height: clamp(230px, 34vh, 300px); flex: none; border: 3px solid var(--ink); background: #0B0824; overflow: hidden; }
+.skin-preview canvas { display: block; }
+.skin-preview.flat::after { content: '3D 미리보기를 쓸 수 없는 기기예요'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--muted); }
+.skin-roll { position: absolute; right: 6px; top: 6px; z-index: 2; }
+.skin-tabs { align-self: center; }
+.skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.skin-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; text-align: center;
+  background: #221B57; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }
+.skin-card img { width: 72px; height: 56px; object-fit: contain; image-rendering: auto; }
+.skin-card b { font-size: 13px; }
+.skin-card small { font-size: 10px; color: var(--muted); line-height: 1.3; }
+.skin-card.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255, 200, 61, .5), 0 4px 0 var(--ink); }
+.skin-card.locked img { filter: grayscale(1) brightness(.6); }
+.skin-tag { position: absolute; left: 4px; top: 4px; font-size: 9px; padding: 1px 4px; background: linear-gradient(90deg, #B36BFF, #FF5AC8); color: #fff; }
+.skin-on { position: absolute; right: 4px; top: 4px; font-size: 9px; padding: 1px 4px; background: var(--gold); color: #3B2300; }

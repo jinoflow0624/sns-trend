@@ -8,6 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
+import { drawDieFace, dieMatParams, dieGlows, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -32,65 +33,6 @@ const FACE_NORMALS = [
   new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
   new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1),
 ];
-const PIP_POS = {
-  1: [[.5, .5]], 2: [[.27, .27], [.73, .73]], 3: [[.27, .27], [.5, .5], [.73, .73]],
-  4: [[.27, .27], [.73, .27], [.27, .73], [.73, .73]],
-  5: [[.27, .27], [.73, .27], [.5, .5], [.27, .73], [.73, .73]],
-  6: [[.27, .25], [.73, .25], [.27, .5], [.73, .5], [.27, .75], [.73, .75]],
-};
-
-function faceTexture(v) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(100, 90, 20, 128, 128, 190);
-  grad.addColorStop(0, '#FFFDF6');
-  grad.addColorStop(1, '#EDE3CF');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
-  for (const [x, y] of PIP_POS[v]) {
-    const r = v === 1 ? 40 : 25;
-    const px = x * 256, py = y * 256;
-    const pg = g.createRadialGradient(px - r * .3, py - r * .3, r * .1, px, py, r);
-    if (v === 1) { pg.addColorStop(0, '#FF6B6B'); pg.addColorStop(1, '#B0122B'); }
-    else { pg.addColorStop(0, '#4A3A6B'); pg.addColorStop(1, '#16102A'); }
-    g.fillStyle = pg;
-    g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2;
-    g.beginPath(); g.arc(px, py + 1.5, r, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
-}
-
-function feltTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 512;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(256, 220, 40, 256, 256, 380);
-  grad.addColorStop(0, '#2E8F6E');
-  grad.addColorStop(1, '#0E4A3A');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 512, 512);
-  const img = g.getImageData(0, 0, 512, 512);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const n = (Math.random() - 0.5) * 18;
-    img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
-  }
-  g.putImageData(img, 0, 0);
-  // 가장자리 금박 문양선
-  g.strokeStyle = 'rgba(255, 215, 120, .28)';
-  g.lineWidth = 4;
-  g.strokeRect(22, 22, 468, 468);
-  g.lineWidth = 1.5;
-  g.strokeRect(34, 34, 444, 444);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 function glowTexture(color) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
@@ -126,41 +68,43 @@ function remap(faceIdx, v) {
   return faces.map(x => map[x] ?? x);
 }
 
-// 주사위 함 바닥 나뭇결
-function woodTexture() {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#7A4520';
-  g.fillRect(0, 0, 512, 128);
-  // 널빤지 네 장 + 결무늬
-  for (let b = 0; b < 4; b++) {
-    const y0 = b * 32;
-    g.fillStyle = b % 2 ? 'rgba(0,0,0,.08)' : 'rgba(255,220,170,.05)';
-    g.fillRect(0, y0, 512, 32);
-    for (let k = 0; k < 7; k++) {
-      g.strokeStyle = `rgba(${40 + k * 6}, 20, 5, ${0.18 + Math.random() * 0.15})`;
-      g.lineWidth = 1 + Math.random();
-      g.beginPath();
-      const yy = y0 + 3 + Math.random() * 26;
-      g.moveTo(0, yy);
-      for (let x = 0; x <= 512; x += 32) g.lineTo(x, yy + Math.sin(x / 60 + b * 2 + k) * 2.2);
-      g.stroke();
-    }
-    g.fillStyle = 'rgba(30, 12, 2, .55)';
-    g.fillRect(0, y0 + 31, 512, 1.5);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 const easeOut = t => 1 - Math.pow(1 - t, 3);
 const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeIn = t => t * t * t;
 
+// 트레이 물리 세계 (바닥·벽·천장). 굴림 녹화와 흔드는 동안의 실시간 물리가 같이 쓴다
+function makeWorld(ceiling = 6.0) {
+  const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -32, 0) });
+  world.allowSleep = true;
+  const dieMat = new CANNON.Material('die');
+  const floorMat = new CANNON.Material('floor');
+  const wallMat = new CANNON.Material('wall');
+  world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 1.5, restitution: 0.25 }));
+  // 벽은 탄력 있게: 부딪히면 튕겨 나오는 속도가 바닥 기준보다 약 20% 크다 (WALL_BOUNCE 로 조절)
+  world.addContactMaterial(new CANNON.ContactMaterial(dieMat, wallMat, { friction: WALL_FRICTION, restitution: WALL_BOUNCE }));
+  // 주사위끼리는 미끄럽고 덜 튀게: 스치면 비껴가서 각자 제 갈 길을 간다
+  world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.03, restitution: 0.08 }));
+
+  const floor = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
+  floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  world.addBody(floor);
+  const walls = [
+    [[0, 0, -TRAY_D / 2], [0, 0, 0]], [[0, 0, TRAY_D / 2], [0, Math.PI, 0]],
+    [[-TRAY_W / 2, 0, 0], [0, Math.PI / 2, 0]], [[TRAY_W / 2, 0, 0], [0, -Math.PI / 2, 0]],
+    [[0, ceiling, 0], [Math.PI / 2, 0, 0]],   // 천장: 세게 튄 주사위가 화면 밖으로 날아가지 않게
+  ];
+  for (const [p, r] of walls) {
+    const b = new CANNON.Body({ mass: 0, material: wallMat, shape: new CANNON.Plane() });
+    b.position.set(...p);
+    b.quaternion.setFromEuler(...r);
+    world.addBody(b);
+  }
+
+  return { world, dieMat };
+}
+
 export class DiceTray {
-  constructor(host, { onPick, onHit, onLong, onThrow, onBox, lowGfx = false } = {}) {
+  constructor(host, { onPick, onHit, onLong, onThrow, onBox, lowGfx = false, diceSkin = 'classic', traySkin = 'classic' } = {}) {
     this.host = host;
     this.onThrow = onThrow || (() => {});   // 주사위가 손을 떠나는 순간 (흔드는 소리)
     this.onBox = onBox || (() => {});       // 고정한 주사위가 함에 들어가는 순간
@@ -199,17 +143,17 @@ export class DiceTray {
     scene.add(rim);
 
     // 펠트 바닥
-    const floor = new THREE.Mesh(
+    const floor = this.floorMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(TRAY_W, TRAY_D),
-      new THREE.MeshStandardMaterial({ map: feltTexture(), roughness: 0.95 }),
+      new THREE.MeshStandardMaterial({ roughness: 0.95 }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
     // 나무 테두리
-    const wood = new THREE.MeshStandardMaterial({ color: 0x6B3A1A, roughness: 0.55, metalness: 0.1 });
-    const trim = new THREE.MeshStandardMaterial({ color: 0xE0A93A, roughness: 0.3, metalness: 0.8 });
+    const wood = this.woodMat = new THREE.MeshStandardMaterial({ color: 0x6B3A1A, roughness: 0.55, metalness: 0.1 });
+    const trim = this.trimMat = new THREE.MeshStandardMaterial({ color: 0xE0A93A, roughness: 0.3, metalness: 0.8 });
     const T = RAIL_T, H = 0.7;
     const rails = [
       [TRAY_W + 2 * T, TRAY_D / 2 + T / 2, 0], [TRAY_W + 2 * T, -(TRAY_D / 2 + T / 2), 0],
@@ -228,9 +172,9 @@ export class DiceTray {
     }
 
     // 주사위 함 (트레이 앞 난간에 붙은 낮은 나무 상자)
-    const boxFloor = new THREE.Mesh(
+    const boxFloor = this.boxFloor = new THREE.Mesh(
       new THREE.PlaneGeometry(TRAY_W + 2 * T, BOX_D),
-      new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: 0.8 }),
+      new THREE.MeshStandardMaterial({ roughness: 0.8 }),
     );
     boxFloor.rotation.x = -Math.PI / 2;
     boxFloor.position.set(0, 0.001, BOX_Z);
@@ -251,9 +195,7 @@ export class DiceTray {
     }
 
     this.faceMats = {};
-    for (let v = 1; v <= 6; v++) {
-      this.faceMats[v] = new THREE.MeshStandardMaterial({ map: faceTexture(v), roughness: 0.32, metalness: 0.02 });
-    }
+    this.setSkin(diceSkin, traySkin);
     this.geo = new RoundedBoxGeometry(SIZE, SIZE, SIZE, 4, 0.17);
     this.glowGold = new THREE.MeshBasicMaterial({ map: glowTexture('#FFC83D'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     this.ringMat = new THREE.MeshBasicMaterial({ color: 0xFFC83D });
@@ -263,7 +205,7 @@ export class DiceTray {
     // 짧게 누르면 잡기, 0.45초 이상 꾹 누르면 정보
     renderer.domElement.addEventListener('pointerdown', e => {
       const i = this.hitIndex(e);
-      if (i < 0 || this.anim) return;
+      if (i < 0 || this.anim || this.live) return;
       this.press = { i, long: false, timer: setTimeout(() => { if (this.press?.i === i) { this.press.long = true; this.onLong(i, e); } }, 450) };
     });
     const end = pick => () => {
@@ -284,6 +226,90 @@ export class DiceTray {
     this.loop = this.loop.bind(this);
     this.running = true;
     requestAnimationFrame(this.loop);
+  }
+
+  // ── 꾸미기 ──────────────────────────────────────────────────────────────
+  // 반짝이는 스킨(보석·금속·얼음)이 비춰 보일 주변 풍경. 기본 스킨에는 쓰지 않는다(예전 모습 그대로)
+  envMap() {
+    if (this.env) return this.env;
+    const sc = new THREE.Scene();
+    const geo = new THREE.SphereGeometry(10, 32, 16);
+    const pos = geo.attributes.position, col = [];
+    const top = new THREE.Color(0xFFF4E0), bottom = new THREE.Color(0x2A1850), c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) { c.lerpColors(bottom, top, (pos.getY(i) / 10 + 1) / 2); col.push(c.r, c.g, c.b); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    sc.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+    for (const [x, y, z, w, h, k] of [[-5, 6, 3, 5, 2, 5], [6, 4, -4, 3, 3, 3], [0, 8, -6, 8, 1, 4], [-7, 1, -3, 1, 4, 2]]) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k * 0.95), side: THREE.DoubleSide }));
+      m.position.set(x, y, z); m.lookAt(0, 0, 0);
+      sc.add(m);
+    }
+    const pm = new THREE.PMREMGenerator(this.renderer);
+    this.env = pm.fromScene(sc, 0.02).texture;
+    pm.dispose();
+    return this.env;
+  }
+
+  canvasTex(c) {
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }
+
+  // 주사위·트레이 스킨을 바꾼다 (스킨 이름은 skins.js)
+  setSkin(diceId = 'classic', trayId = 'classic') {
+    this.dirty = true;
+    if (diceId !== this.diceSkin) {
+      this.diceSkin = diceId;
+      const p = dieMatParams(diceId);
+      for (let v = 1; v <= 6; v++) {
+        const old = this.faceMats[v];
+        const m = new THREE.MeshStandardMaterial({ map: this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId)), roughness: p.roughness, metalness: p.metalness });
+        if (p.env) { m.envMap = this.envMap(); m.envMapIntensity = p.env; }
+        if (p.emissive) m.emissive = new THREE.Color(p.emissive);
+        if (dieGlows(diceId)) {
+          m.emissive = new THREE.Color(0xFFFFFF);
+          m.emissiveMap = this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, true));
+          m.emissiveIntensity = p.glow || 0.8;
+        }
+        this.faceMats[v] = m;
+        if (old) { old.map?.dispose(); old.emissiveMap?.dispose(); old.dispose(); }
+      }
+      this.dice?.forEach(d => this.setFaces(d, d.faces));
+    }
+    if (trayId !== this.traySkin) {
+      this.traySkin = trayId;
+      const st = trayStyle(trayId);
+      const fm = this.floorMesh.material;
+      fm.map?.dispose(); fm.emissiveMap?.dispose();
+      fm.map = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
+      if (trayGlows(trayId)) {
+        fm.emissive = new THREE.Color(0xFFFFFF);
+        fm.emissiveMap = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
+        fm.emissiveIntensity = st.glow;
+      } else { fm.emissive = new THREE.Color(0); fm.emissiveMap = null; }
+      fm.needsUpdate = true;
+      this.woodMat.color.set(st.rail);
+      this.trimMat.color.set(st.trim);
+      this.trimMat.emissive = new THREE.Color(st.trimGlow ? st.trim : 0);
+      this.trimMat.emissiveIntensity = st.trimGlow ? 0.9 : 1;
+      this.trimMat.envMap = st.trimEnv ? this.envMap() : null;
+      this.trimMat.needsUpdate = true;
+      const bm = this.boxFloor.material;
+      bm.map?.dispose();
+      bm.map = this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
+      bm.needsUpdate = true;
+    }
+  }
+
+  // 미리보기 창을 닫을 때 (WebGL 자원을 돌려준다)
+  destroy() {
+    this.running = false;
+    this.resizeObs.disconnect();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss?.();
+    this.renderer.domElement.remove();
   }
 
   // 컨테이너를 옮겨 붙일 때 (화면을 다시 그려도 캔버스는 재사용)
@@ -361,11 +387,14 @@ export class DiceTray {
     this.ensure(n);
     this.dice.forEach((d, i) => {
       d.held = !!held[i];
+      if (this.live?.ids.has(i)) return;   // 흔드는 중인 주사위는 물리가 움직인다
       if (d.boxed && (!d.held || !values[i])) {
         // 고정을 풀었거나 새 차례: 함에서 트레이로 돌아온다
         if (values[i] && d.value === values[i]) this.hop(d, false);
         else { d.boxed = false; d.hop = null; }
       }
+      // 고정하면 바로 주사위 함으로 (다른 기기에서 고정한 것도)
+      if (d.held && !d.boxed && values[i] && d.value === values[i] && !d.blank && !this.live) this.hop(d, true);
       if (d.morph) return;          // 보스 스킬 연출 중인 주사위는 연출이 끝나면 눈을 바꾼다
       // 눈이 그대로면 굴러서 멈춘 자세를 유지한다 (다시 그릴 때 튀지 않게)
       if (values[i] && d.value === values[i] && !d.blank) {
@@ -376,6 +405,8 @@ export class DiceTray {
       if (values[i] && d.value && d.value !== values[i] && !d.blank) d.lift = 1.4;  // 뒤집기·조정: 톡 튀었다 떨어진다
       const v = values[i] || ((i % 6) + 1);
       d.value = values[i];
+      d.boxed = !!(d.held && values[i]);   // 처음부터 고정된 주사위(이어하기·다시 그리기)는 함 안에 둔다
+      d.hop = null;
       this.setFaces(d, remap(2, v));
       d.mesh.quaternion.identity();
       d.mesh.position.set(this.slotX(i, n), HALF, this.homeZ(d));
@@ -390,6 +421,7 @@ export class DiceTray {
     this.dice.forEach((d, i) => {
       d.held = !!held[i];
       if (d.boxed && !d.held) this.hop(d, false);   // 함 안의 주사위를 풀면 트레이로 폴짝
+      else if (d.held && !d.boxed && !d.blank && !this.live) this.hop(d, true);   // 고정하면 바로 함으로
     });
     this.refreshGlow();
   }
@@ -462,31 +494,7 @@ export class DiceTray {
     speed *= 1.2;                  // 굴러가는 모습 1.2배속
     const n = values.length;
     this.ensure(n);
-    const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -32, 0) });
-    world.allowSleep = true;
-    const dieMat = new CANNON.Material('die');
-    const floorMat = new CANNON.Material('floor');
-    const wallMat = new CANNON.Material('wall');
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 1.5, restitution: 0.25 }));
-    // 벽은 탄력 있게: 부딪히면 튕겨 나오는 속도가 바닥 기준보다 약 20% 크다 (WALL_BOUNCE 로 조절)
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, wallMat, { friction: WALL_FRICTION, restitution: WALL_BOUNCE }));
-    // 주사위끼리는 미끄럽고 덜 튀게: 스치면 비껴가서 각자 제 갈 길을 간다
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.03, restitution: 0.08 }));
-
-    const floor = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
-    floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-    world.addBody(floor);
-    const walls = [
-      [[0, 0, -TRAY_D / 2], [0, 0, 0]], [[0, 0, TRAY_D / 2], [0, Math.PI, 0]],
-      [[-TRAY_W / 2, 0, 0], [0, Math.PI / 2, 0]], [[TRAY_W / 2, 0, 0], [0, -Math.PI / 2, 0]],
-      [[0, 6.0, 0], [Math.PI / 2, 0, 0]],   // 천장: 세게 튄 주사위가 화면 밖으로 날아가지 않게
-    ];
-    for (const [p, r] of walls) {
-      const b = new CANNON.Body({ mass: 0, material: wallMat, shape: new CANNON.Plane() });
-      b.position.set(...p);
-      b.quaternion.setFromEuler(...r);
-      world.addBody(b);
-    }
+    const { world, dieMat } = makeWorld();
 
     const bodies = [];
     let boxing = false;   // 고정한 주사위를 함으로 옮기는 중이면, 다 옮긴 다음에 던진다
@@ -515,11 +523,27 @@ export class DiceTray {
       d.boxed = false;
       d.hop = null;
       const b = new CANNON.Body({ mass: 1, material: dieMat, shape, sleepSpeedLimit: 0.15, sleepTimeLimit: 0.1 });
+      const live = this.live?.bodies.find(x => x.i === i)?.b;
       // 바닥을 움켜쥐고(마찰 큼) 모서리로 넘어가며 데굴데굴 구르게: 회전은 오래 유지, 던지는 힘·회전은 크게
       b.linearDamping = 0.08;
       b.angularDamping = 0.06;
       // 오른쪽 위에서 한 줌 던지되, 주사위마다 트레이 가운데 기준으로 고르게 흩어진 목표 지점을 향해 알맞은 힘으로
       // (예전엔 모두 같은 방향으로 세게 던져 왼쪽 벽에 몰렸다: 평균 x -1.9, 왼쪽 벽 25%)
+      if (live) {
+        // 흔드는 중이던 주사위: 지금 자세·속도 그대로 이어서, 마지막으로 한 번 더 툭 튀겨 굴린다
+        b.linearDamping = 0.08; b.angularDamping = 0.06;
+        b.position.copy(live.position);
+        b.quaternion.copy(live.quaternion);
+        b.velocity.set(live.velocity.x + (Math.random() - 0.5) * 8, Math.max(live.velocity.y, 4 + Math.random() * 4), live.velocity.z + (Math.random() - 0.5) * 6);
+        b.angularVelocity.set(live.angularVelocity.x + (Math.random() - 0.5) * 20, live.angularVelocity.y + (Math.random() - 0.5) * 20, live.angularVelocity.z + (Math.random() - 0.5) * 20);
+        b.addEventListener('collide', e => {
+          const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
+          if (v > 2.2) hits.push({ f: frames.length, v });
+        });
+        world.addBody(b);
+        bodies.push({ i, b });
+        return;
+      }
       const cell = cells[k % cells.length];
       const sx = cell.sx + (Math.random() - 0.5) * 0.3, sz = cell.z + (Math.random() - 0.5) * 0.3;
       b.position.set(sx, 3.3 + Math.random() * 0.6, sz);
@@ -588,11 +612,83 @@ export class DiceTray {
     });
 
     return new Promise(resolve => {
-      const wait = boxing ? HOP_MS + 40 : 0;
-      if (boxing) setTimeout(() => this.onBox(), HOP_MS - 40);
+      const now = performance.now();
+      const hopLeft = Math.max(0, ...this.dice.map(d => (d.hop && d.boxed ? d.hop.t0 + d.hop.ms - now : 0)));
+      const wait = boxing ? HOP_MS + 40 : hopLeft ? hopLeft + 40 : 0;
+      this.live = null;
+      if (boxing || hopLeft) setTimeout(() => this.onBox(), Math.max(0, wait - 80));
       this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
       if (!wait) this.onThrow();
     });
+  }
+
+  // ── 흔들어 굴리기: 흔드는 동안 트레이 안에서 실시간으로 굴러다닌다 ──
+  // 흔들기를 멈추면 앱이 roll() 을 부르고, roll() 은 지금 자세·속도에서 이어서 멈출 때까지 굴린다
+  startShake(rolling) {
+    if (this.anim || this.live) return false;
+    const { world, dieMat } = makeWorld(3.4);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튄다
+    const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
+    const bodies = [];
+    let lastHit = 0;
+    this.dice.forEach((d, i) => {
+      if (!rolling[i]) { if (!d.blank && !d.boxed) this.hop(d, true); return; }
+      d.boxed = false; d.hop = null; d.lift = 0;
+      const b = new CANNON.Body({ mass: 1, material: dieMat, shape });
+      b.linearDamping = 0.1; b.angularDamping = 0.08;
+      b.position.set(d.mesh.position.x, Math.max(HALF, d.mesh.position.y), Math.max(-TRAY_D / 2 + HALF, Math.min(TRAY_D / 2 - HALF, d.mesh.position.z)));
+      b.quaternion.set(...d.mesh.quaternion.toArray());
+      b.addEventListener('collide', e => {
+        const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
+        const t = performance.now();
+        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v); }
+      });
+      world.addBody(b);
+      bodies.push({ i, b });
+    });
+    this.live = { world, bodies, ids: new Set(bodies.map(x => x.i)), last: performance.now(), pend: null };
+    this.kick(0, 0, 14);
+    return true;
+  }
+
+  // 폰 흔들림(가속도, 폰 기준 x·y·z) → 주사위를 그 방향으로 튀긴다. 폰을 세워 든 기준: 화면 오른쪽 = x, 화면 위쪽 = 트레이 안쪽
+  kick(ax, ay, az) {
+    if (!this.live) return;
+    const p = this.live.pend ||= { x: 0, y: 0, z: 0 };
+    if (Math.hypot(ax, ay, az) > Math.hypot(p.x, p.y, p.z)) Object.assign(p, { x: ax, y: ay, z: az });
+  }
+
+  applyKick() {
+    const L = this.live, p = L.pend;
+    L.pend = null;
+    const K = 0.55, cap = 18;
+    for (const { b } of L.bodies) {
+      b.wakeUp();
+      b.velocity.x = Math.max(-cap, Math.min(cap, b.velocity.x + p.x * K + (Math.random() - 0.5) * 5));
+      b.velocity.z = Math.max(-cap, Math.min(cap, b.velocity.z - p.y * K + (Math.random() - 0.5) * 5));
+      b.velocity.y = Math.min(9, Math.max(b.velocity.y, 0) + 3 + Math.abs(p.z) * 0.2 + Math.random() * 2.5);
+      b.angularVelocity.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30);
+    }
+  }
+
+  // 흔들다가 굴리지 않고 그만둘 때: 주사위를 정렬 줄로 되돌린다
+  cancelShake() {
+    if (!this.live) return;
+    for (const { i } of this.live.bodies) this.dice[i].value = -1;   // 다음 show() 가 반듯하게 다시 놓는다
+    this.live = null;
+    this.dirty = true;
+  }
+
+  stepLive(t) {
+    const L = this.live;
+    const dt = Math.min(1 / 30, (t - L.last) / 1000);
+    L.last = t;
+    if (L.pend && t - (L.kickT || 0) > 110) { L.kickT = t; this.applyKick(); }
+    L.world.step(1 / 60, dt, 3);
+    for (const { i, b } of L.bodies) {
+      const m = this.dice[i].mesh;
+      m.position.set(b.position.x, b.position.y, b.position.z);
+      m.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
+    }
   }
 
   // 보스 스킬 연출 한 프레임
@@ -631,13 +727,14 @@ export class DiceTray {
     if (document.hidden) return;              // 다른 앱을 보는 동안은 그리지 않는다
     const t = performance.now();
     // 배터리 절약: 움직이는 게 없으면 그리기를 쉰다 (빛나는 주사위만 있으면 초당 10번)
-    const moving = this.anim || this.shrink || this.dice.some(d => d.morph || d.wobble || d.hop || d.auraI > 0.01 || Math.abs(this.liftWant(d) - d.lift) > 0.002);
+    const moving = this.anim || this.live || this.shrink || this.dice.some(d => d.morph || d.wobble || d.hop || d.auraI > 0.01 || Math.abs(this.liftWant(d) - d.lift) > 0.002);
     const glowing = this.dice.some(d => d.glow.visible);
     if (!moving && !this.dirty) {
       if (!glowing || t - (this.lastDraw || 0) < 100) return;
     }
     this.dirty = false;
     this.lastDraw = t;
+    if (this.live) this.stepLive(t);
     const a = this.anim;
     if (a && a.phase === 'wait' && t >= a.t0) { a.phase = 'fly'; this.onThrow(); }
     if (a && a.phase === 'fly') {
@@ -686,7 +783,7 @@ export class DiceTray {
     }
     const n = this.dice.length;
     this.dice.forEach((d, i) => {
-      if (!this.anim?.ids.has(i)) {        // 굴러가는 중이 아닌 주사위 (고정한 주사위는 굴리는 동안 함으로 옮겨 간다)
+      if (!this.anim?.ids.has(i) && !this.live?.ids.has(i)) {        // 굴러가는 중이 아닌 주사위 (고정한 주사위는 굴리는 동안 함으로 옮겨 간다)
         d.lift += (this.liftWant(d) - d.lift) * 0.2;
         let hopY = 0;
         if (d.hop) {
