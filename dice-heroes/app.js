@@ -17,13 +17,22 @@ const layer = document.getElementById('layer');
 const coachEl = document.getElementById('coach');
 document.title = GAME.name;
 
-const KEYS = { save: 'diceheroes.game', setup: 'diceheroes.setup', opts: 'diceheroes.opts', seen: 'diceheroes.seen', name: 'diceheroes.name', lastRoom: 'diceheroes.lastRoom', profile: 'diceheroes.profile' };
+const KEYS = { save: 'diceheroes.game', setup: 'diceheroes.setup', opts: 'diceheroes.opts', seen: 'diceheroes.seen', name: 'diceheroes.name', lastRoom: 'diceheroes.lastRoom', profile: 'diceheroes.profile', prefs: 'diceheroes.prefs' };
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 불가 환경 */ } },
   del(k) { try { localStorage.removeItem(k); } catch { /* 무시 */ } },
 };
 const seen = store.get(KEYS.seen) || {};
+// 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
+const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, ...(store.get(KEYS.prefs) || {}) };
+const FX_RATE = { normal: 1, fast: 1.8, min: 3 };
+const fxRate = () => FX_RATE[prefs.fx] || 1;
+function applyPrefs() {
+  document.documentElement.classList.toggle('big-text', !!prefs.bigText);
+  document.documentElement.classList.toggle('color-assist', !!prefs.colorAssist);
+}
+applyPrefs();
 const markSeen = k => { seen[k] = true; store.set(KEYS.seen, seen); };
 
 const BOT_NAMES = ['고블린 봇', '슬라임 봇', '해골 봇', '미믹 봇'];
@@ -50,7 +59,7 @@ const urlRoom = Net.normalizeCode(new URLSearchParams(location.search).get('room
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // 온라인에서 뒤에 새 상태가 밀려 있으면 연출을 빨리 넘긴다 (다른 사람 행동을 따라잡느라 내 차례가 늦어지지 않게)
 const rushing = () => !!online && online.latest !== undefined;
-const wait = ms => new Promise(r => setTimeout(r, rushing() ? ms * 0.25 : ms));
+const wait = ms => new Promise(r => setTimeout(r, (rushing() ? ms * 0.25 : ms) / fxRate()));
 const br = s => esc(s).replace(/\n/g, '<br>');
 const portrait = (id, cl = '') => `<img class="spr ${cl}" src="${spriteURL(id, 4)}" alt="">`;
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
@@ -381,6 +390,8 @@ function enterRoom(backend, code) {
   // 방 상태가 여러 번 바뀌어도 밀린 중간 상태는 건너뛰고 가장 최신 상태만 처리한다
   online.unwatch = backend.watch(code, room => { if (online?.code === code) { online.latest = room; pump(); } });
   store.del(KEYS.lastRoom);
+  online.emoteSeen = {};
+  online.unconn = backend.watchConnection?.(ok => connBanner(!ok));
   // 접속 신호를 보내고, 다른 사람 접속 상태(끊김 표시·봇 전환)를 확인한다. 상대가 아예 떠나면 방 상태가 더 오지 않으니 여기서 챙긴다
   const beat = () => {
     backend.touch(code, token);
@@ -411,6 +422,8 @@ async function pump() {
 function leaveRoom(goHome = true) {
   if (online) {
     online.unwatch?.();
+    online.unconn?.();
+    connBanner(false);
     clearInterval(online.beat);
     const { backend, code, token, room } = online;
     // 진행 중인 게임에서 나가면 1분 안에 돌아올 수 있게 방 코드를 기억한다
@@ -550,6 +563,7 @@ async function onRoom(room) {
     return showTitle();
   }
   online.room = room;
+  showEmotes(room);
   if (!room.started) {
     if (screen === 'game') { S = null; layer.innerHTML = ''; playBgm('title'); }
     if (!room.seats.some(s => s.token === online.token)) {
@@ -638,6 +652,42 @@ function checkDrops() {
   }, { any: true, quiet: true }).finally(() => { if (online) online.dropping = false; });
 }
 
+// 서버 연결이 끊기면 화면 위에 작게 '다시 연결하는 중' (다시 붙으면 사라진다)
+function connBanner(show) {
+  let el = document.getElementById('conn');
+  if (!show) { el?.remove(); return; }
+  if (el) return;
+  el = document.createElement('div');
+  el.id = 'conn';
+  el.className = 'conn';
+  el.innerHTML = `${ico('warn', 'xs')} 연결이 끊겼어요 · 다시 연결하는 중…`;
+  document.body.appendChild(el);
+}
+
+// 이모티콘 반응 (정해진 문구만 — 채팅이 아니라 욕설 걱정이 없다)
+const EMOTES = ['나이스!', '좋아요', '아깝다…', 'ㅋㅋㅋ', '빨리요~', 'GG'];
+function showEmotes(room) {
+  if (!online || !room.emote) return;
+  for (const [token, v] of Object.entries(room.emote)) {
+    const last = online.emoteSeen[token];
+    online.emoteSeen[token] = v.t;
+    if (last === undefined && Date.now() - v.t > 4000) continue;    // 들어오기 전의 오래된 반응
+    if (last !== undefined && v.t <= last) continue;
+    const who = room.seats?.findIndex(s => s.token === token);
+    const el = document.querySelector(`.member[data-i="${who}"]`);
+    if (!el || !EMOTES[v.e]) continue;
+    const r = el.getBoundingClientRect();
+    const b = document.createElement('div');
+    b.className = 'emote-bubble';
+    b.textContent = EMOTES[v.e];
+    b.style.left = `${r.left + r.width / 2}px`;
+    b.style.top = `${r.bottom + 4}px`;
+    document.body.appendChild(b);
+    if (token !== online.token) sfx.tap();
+    setTimeout(() => b.remove(), 2600);
+  }
+}
+
 // 봇 차례와 자리를 비운 사람 차례는 방장(방장이 없으면 남은 사람 중 첫 번째)이 진행한다
 function runner() {
   const room = online.room;
@@ -689,13 +739,29 @@ function startGame(state) {
   step();
 }
 
-async function ensureTray() {
-  if (tray) return tray;
-  const { DiceTray } = await import('./dice3d.js');
-  tray = new DiceTray(document.getElementById('tray'), {
+// 트레이는 한 번에 하나만 만든다 (import 를 기다리는 사이 다시 불리면 캔버스가 두 개 겹쳤다)
+let trayMaking = null;
+function ensureTray() {
+  if (tray) return Promise.resolve(tray);
+  return (trayMaking ||= makeTray().finally(() => { trayMaking = null; }));
+}
+async function makeTray() {
+  const opts = {
     onPick: i => onAct('die', { dataset: { i: String(i) } }),
     onHit: v => sfx.clack(v),
-  });
+    onLong: i => dieInfo(i),
+    lowGfx: !!prefs.lowGfx,
+  };
+  const { webglOK, DiceTray2D } = await import('./dice2d.js');
+  if (webglOK()) {
+    try {
+      const { DiceTray } = await import('./dice3d.js');
+      tray = new DiceTray(document.getElementById('tray'), opts);
+      return tray;
+    } catch (err) { console.error('[3d]', err); }
+  }
+  // 3D를 쓸 수 없는 기기: 2D 주사위로 대신한다
+  tray = new DiceTray2D(document.getElementById('tray'), opts);
   return tray;
 }
 
@@ -772,6 +838,7 @@ function render() {
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
       <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div></div>
+      ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
     <section class="controls">
@@ -796,7 +863,7 @@ function render() {
       <div class="hs-perks">
         ${Object.keys(cur.perks).length ? Object.entries(cur.perks).map(([id, n]) => {
           const k = E.perkInfo(id);
-          return `<button class="perk-ic" style="--rc:${rarityColor(k.rarity)}" data-act="info-perk" data-id="${id}" aria-label="${k.ko}">${perkIco(id)}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
+          return `<button class="perk-ic" style="--rc:${rarityColor(k.rarity)}" data-r="${E.RARITY[k.rarity].ko[0]}" data-act="info-perk" data-id="${id}" aria-label="${k.ko}">${perkIco(id)}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
         }).join('') : '<span class="dim">특성 없음</span>'}
       </div>
     </section>
@@ -808,9 +875,11 @@ function render() {
 
   placeSheet();
   trailHp();
+  if (myTurn) setTimeout(termTips, 600);
   const rage = coop && S.boss.diff === 2 && S.boss.hp * 2 < S.boss.maxHp && S.boss.hp > 0;
   FX().rage(rage, () => document.getElementById('boss-art')?.getBoundingClientRect(), RAGE[S.boss?.id]);
   ensureTray().then(t => {
+    if (t !== tray) return;              // 그사이 트레이를 새로 만들었으면 옛 것은 붙이지 않는다
     t.attach(document.getElementById('tray'));
     t.show(ui.dice || S.dice, S.rolled ? S.held : []);
     t.setTarget(!!ui.tool && myTurn);
@@ -892,6 +961,22 @@ function placeSheet() {
   pop.style.setProperty('--top', `${Math.round(board.getBoundingClientRect().bottom + 6)}px`);
 }
 
+// 주사위를 꾹 누르면: 지금 눈, 뒤집으면·조정하면 나올 눈, 이 눈이 쓰이는 칸
+function dieInfo(i) {
+  if (!S?.rolled || !S.dice[i]) return;
+  const v = S.dice[i], p = E.current(S);
+  const cats = E.CATS.filter(c => p.scores[c.id] === null && (c.up === v || (!c.up && c.id !== 'choice' && E.fiveSets(S.dice).some(d => E.baseScore(c.id, d) > 0)))).map(c => c.ko);
+  const pos = tray.screenPos(i);
+  const a = document.createElement('span');
+  a.style.cssText = `position:fixed;left:${pos.x - 20}px;top:${pos.y - 20}px;width:40px;height:40px;pointer-events:none`;
+  document.body.appendChild(a);
+  sfx.tap(); buzz(15);
+  popover(a, `<b>주사위 ${miniDie(v)} ${v}</b>${S.held[i] ? ' <small>(잡음)</small>' : ''}
+    <p>뒤집으면 ${7 - v} · 조정하면 ${[v - 1, v + 1].filter(x => x >= 1 && x <= 6).join(' 또는 ')}</p>
+    <p>${cats.length ? `지금 쓸 수 있는 칸: ${cats.join(', ')}` : '이 눈만으로 채울 칸이 없어요'}</p>`, { afterRelease: true });
+  a.remove();
+}
+
 // 뒤집기: 각 주사위 위에 뒤집으면 나올 눈 / 조정: 각 주사위 위에 −1 · +1
 function diceOverlay(myTurn) {
   const ovl = document.getElementById('dice-ovl');
@@ -956,11 +1041,12 @@ function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
     const cls = done ? 'done' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}` : '';
     const val = done ? p.scores[c.id] : r ? `${r.pts}<small>+${r.xp}xp</small>` : '–';
     // 보너스가 붙으면 규칙 설명 대신 어디서 몇 점 붙었는지 보여 준다
-    const sub = r?.bonus?.length && r.pts > 0
+    const armed = r && ui.zeroArm === c.id;
+    const sub = armed ? '<small class="zero-warn">한 번 더 누르면 0점 기록</small>' : r?.bonus?.length && r.pts > 0
       ? `<small class="bonus-src">${r.bonus.map(b => `${esc(b.ko)} +${b.amt}`).join(' · ')}</small>`
       : `<small>${CAT_HELP[c.id].rule}</small>`;
     const tag = combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
-    return `<button class="row ${cls}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
+    return `<button class="row ${cls}${armed ? ' armed' : ''}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
       <span class="nm"><b>${c.ko}${tag}</b>${sub}</span><span class="v">${val}</span></button>`;
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
@@ -989,7 +1075,8 @@ function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
 }
 
 // ── 작은 팝업 (특성·보스 능력·이벤트·의뢰 보상·족보 설명) ─────────────────────────
-function popover(anchor, html) {
+// afterRelease: 꾹 누르기로 연 경우, 손을 뗄 때의 클릭으로 바로 닫히지 않게
+function popover(anchor, html, { afterRelease = false } = {}) {
   closePopover();
   const el = document.createElement('div');
   el.className = 'popover';
@@ -1002,7 +1089,9 @@ function popover(anchor, html) {
   const below = r.bottom + 8 + el.offsetHeight < innerHeight;
   el.style.top = `${below ? r.bottom + 8 : r.top - el.offsetHeight - 8}px`;
   el.classList.add(below ? 'below' : 'above');
-  setTimeout(() => document.addEventListener('click', closePopover, { once: true }), 0);
+  const arm = () => setTimeout(() => document.addEventListener('click', closePopover, { once: true }), 0);
+  if (afterRelease) document.addEventListener('pointerup', arm, { once: true });
+  else arm();
 }
 function closePopover() { document.querySelectorAll('.popover').forEach(p => p.remove()); }
 
@@ -1125,7 +1214,7 @@ async function bossDeath() {
   const info = E.bossInfo(S.boss.id);
   const r = art.getBoundingClientRect();
   const fx = FX();
-  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW;
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * fxRate();
   art.classList.remove('hit', 'hitstop');
   art.classList.add('dying');
   sfx.slash();
@@ -1222,8 +1311,17 @@ async function trayReady() {
 
 async function attackFx(f) {
   if (!(await trayReady())) { ui.dice = null; return; }
+  if (prefs.fx === 'min') {                 // 연출 최소: 구체는 건너뛰고 명중만
+    const el = S.boss ? document.getElementById('boss-art') : document.querySelector(`.member[data-i="${f.player}"] .pts`);
+    const r = el?.getBoundingClientRect();
+    if (r) FX().impact(r.left + r.width / 2, r.top + r.height / 2, attackStyle(f.pts, f.cat).pal, 1);
+    sfx.boom(1);
+    ui.dice = null;
+    render();
+    return;
+  }
   const fx = FX();
-  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1);
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
   const style = attackStyle(f.pts, f.cat);
   const from = (f.dice || S.dice).map((_, i) => tray.screenPos(i));
   const target = () => {
@@ -1245,7 +1343,7 @@ async function attackFx(f) {
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 async function skillFx(f) {
   const fx = FX();
-  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1);
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
   const t = await trayReady();
   const center = el => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width } : null; };
   const trayC = center(document.getElementById('tray'));
@@ -1292,7 +1390,7 @@ async function playOne(f) {
     const p = S.players[f.player];
     switch (f.type) {
       case 'round':
-        if (S.boss && f.round === 1) await bossBanner();
+        if (S.boss && f.round === 1 && prefs.fx !== 'min') await bossBanner();
         if (!S.tutorial || f.round > 1) await banner(f.round, f.event);
         break;
       case 'score':
@@ -1350,6 +1448,24 @@ async function playOne(f) {
     }
   }
   ui.hpHold = null;
+}
+
+// 처음 나오는 용어는 한 번씩 짧게 설명한다 (튜토리얼을 건너뛴 사람을 위해)
+const TERM_TIPS = [
+  ['flip', p => p.flip > 0, 'flip', '뒤집기를 얻었어요', '주사위 하나를 반대 면으로 바꿔요 (1↔6, 2↔5, 3↔4). 굴린 뒤 뒤집기 버튼 → 주사위.'],
+  ['nudge', p => p.nudge > 0, 'nudge', '조정을 얻었어요', '주사위 하나를 1만큼 올리거나 내려요. 굴린 뒤 조정 버튼 → 주사위 위 +1/−1.'],
+  ['perk', p => Object.keys(p.perks).length > 0, 'star', '특성 카드', '고른 특성은 게임 끝까지 적용돼요. 아래 영웅 줄의 아이콘을 누르면 효과를 볼 수 있어요.'],
+  ['hold', p => S.rolled && S.rollsLeft > 0, 'sheet', '주사위 잡기', '주사위를 눌러 잡고 다시 굴려요. 꾹 누르면 그 주사위 정보를 볼 수 있어요.'],
+];
+function termTips() {
+  if (tut || !S || S.ended || !myControl() || ui.busy) return;
+  const p = E.current(S);
+  for (const [key, cond, icon, title, text] of TERM_TIPS) {
+    if (seen[`tip-${key}`] || !cond(p)) continue;
+    markSeen(`tip-${key}`);
+    toast(ico(icon), title, text, 3600);
+    return;
+  }
 }
 
 // 내 차례 알림: 차례가 넘어오면 가운데 배너 + 소리 + 진동 (다른 앱을 보고 있으면 탭 제목도 바꾼다)
@@ -1548,7 +1664,7 @@ function showDashboard() {
       <section class="frame">
         <h3 class="dash-h">아티팩트 도감 <small>${got} / ${perks.length}</small></h3>
         <div class="dash-perks">
-          ${perks.map(k => `<button class="dp${prof.perks[k.id] ? '' : ' none'}" style="--rc:${rarityColor(k.rarity)}" data-act="dash-perk" data-id="${k.id}">
+          ${perks.map(k => `<button class="dp${prof.perks[k.id] ? '' : ' none'}" style="--rc:${rarityColor(k.rarity)}" data-r="${E.RARITY[k.rarity].ko[0]}" data-act="dash-perk" data-id="${k.id}">
             ${perkIco(k.id)}${prof.perks[k.id] ? `<b>${prof.perks[k.id]}</b>` : ''}</button>`).join('')}
         </div>
       </section>
@@ -1572,6 +1688,11 @@ function showDashboard() {
           <b>${r.score}점</b><em class="${r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? '승리' : '패배'}</em></div>`).join('')}</div>`
         : '<p class="hint">아직 기록이 없어요.</p>'}
       </section>
+      <div class="dash-backup">
+        <button class="pbtn small" data-act="dash-export">백업 코드 복사</button>
+        <button class="pbtn small" data-act="dash-import">백업 코드로 복원</button>
+      </div>
+      <p class="hint">기록은 이 기기에만 저장돼요. 기기를 바꾸거나 앱을 지우기 전에 백업 코드를 보관하세요.</p>
       <button class="pbtn small" data-act="dash-reset">기록 초기화</button>
     </div>
   </div>`;
@@ -1585,6 +1706,12 @@ function showSettings(inGame = false) {
     <label class="set-row">배경음악<input id="set-bgm" type="range" min="0" max="1" step="0.05" value="${a.bgm}"></label>
     <label class="set-row">효과음<input id="set-sfx" type="range" min="0" max="1" step="0.05" value="${a.sfx}"></label>
     <label class="set-row">진동<input id="set-vib" type="checkbox" ${a.vibrate ? 'checked' : ''}></label>
+    <div class="set-row">연출 속도<div class="seg" role="group" aria-label="연출 속도">
+      ${[['normal', '보통'], ['fast', '빠르게'], ['min', '최소']].map(([v, k]) => `<button data-act="pref-fx" data-v="${v}" class="${prefs.fx === v ? 'on' : ''}">${k}</button>`).join('')}
+    </div></div>
+    <label class="set-row">글자 크게<input id="set-big" type="checkbox" ${prefs.bigText ? 'checked' : ''}></label>
+    <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
+    <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
@@ -1766,7 +1893,7 @@ async function rollAnimated(mask, list = S.fx) {
   ui.sheet = false;
   ui.dice = pendingDice(list);
   render();
-  await t.roll(ui.dice || S.dice, mask, ui.fast && E.current(S).bot ? 2.2 : 1);
+  await t.roll(ui.dice || S.dice, mask, (ui.fast && E.current(S).bot ? 2.2 : 1) * (prefs.fx === 'min' ? 1.6 : prefs.fx === 'fast' ? 1.3 : 1));
   ui.busy = false;
 }
 
@@ -1824,8 +1951,19 @@ async function onGameAct(act, t) {
     ui.sheet = true;
     return render();
   }
+  if (act === 'emote-menu') {
+    sfx.tap();
+    return popover(t, `<b>반응 보내기</b><div class="emote-list">${EMOTES.map((e, i) => `<button class="pbtn small" data-act="emote" data-e="${i}">${e}</button>`).join('')}</div>`);
+  }
+  if (act === 'emote' && online) {
+    closePopover();
+    const now = Date.now();
+    if (now - (ui.lastEmote || 0) < 1500) return;      // 도배 방지
+    ui.lastEmote = now;
+    return online.backend.emote?.(online.code, online.token, Number(t.dataset.e));
+  }
   if (act === 'sheet') { sfx.select(); ui.sheet = !ui.sheet; ui.view = null; ui.tool = null; return render(); }
-  if (act === 'sheet-close') { sfx.back(); ui.sheet = false; ui.view = null; return render(); }
+  if (act === 'sheet-close') { sfx.back(); ui.sheet = false; ui.view = null; ui.zeroArm = null; return render(); }
   if (act === 'log') {
     sfx.tap();
     return popover(t, `<b>${ico('scroll', 'xs')} 최근 기록</b>${S.log.slice(-8).reverse().map(l => `<p>R${l.r} · ${esc(l.text)}</p>`).join('')}`);
@@ -1859,6 +1997,7 @@ async function onGameAct(act, t) {
   if (ui.busy || ui.sending || !myControl() || S.phase !== 'roll') return;
   if (act === 'roll') {
     ui.tool = null;
+    ui.zeroArm = null;
     const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
     if (online) return onlineAct(g => E.roll(g));
     if (!tryAct(() => E.roll(S))) return;
@@ -1903,6 +2042,10 @@ async function onGameAct(act, t) {
     return;
   }
   if (act === 'score') {
+    // 0점 칸은 한 번 더 눌러야 기록 (실수로 요트 칸을 버리지 않게)
+    const row = E.preview(S).find(r => r.id === t.dataset.cat);
+    if (row && row.pts === 0 && ui.zeroArm !== t.dataset.cat) { ui.zeroArm = t.dataset.cat; sfx.back(); buzz(25); return render(); }
+    ui.zeroArm = null;
     ui.tool = null;
     ui.sheet = false;
     ui.view = null;
@@ -1927,6 +2070,30 @@ function onAct(act, t) {
   if (act === 'settings') { sfx.select(); return showSettings(false); }
   if (act === 'credits') { sfx.select(); return showCredits(); }
   if (act === 'dashboard') { sfx.select(); return showDashboard(); }
+  if (act === 'pref-fx') {
+    prefs.fx = t.dataset.v; store.set(KEYS.prefs, prefs); sfx.select();
+    t.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === t));
+    return;
+  }
+  if (act === 'dash-export') {
+    const code = btoa(unescape(encodeURIComponent(JSON.stringify({ v: 1, name: myName, profile: loadProfile() }))));
+    const done = () => toast(ico('scroll'), '백업 코드를 복사했어요', '메모장 등에 붙여 넣어 보관하세요.', 1800);
+    navigator.clipboard?.writeText(code).then(done, () => prompt('아래 백업 코드를 복사해 보관하세요', code)) ?? prompt('아래 백업 코드를 복사해 보관하세요', code);
+    return;
+  }
+  if (act === 'dash-import') {
+    const code = prompt('백업 코드를 붙여 넣으세요 (지금 기록은 백업 기록으로 바뀝니다)');
+    if (!code) return;
+    try {
+      const data = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+      if (data.v !== 1 || !data.profile) throw new Error('bad');
+      store.set(KEYS.profile, data.profile);
+      if (data.name) { myName = data.name; store.set(KEYS.name, myName); }
+      sfx.quest();
+      toast(ico('up'), '기록을 복원했어요', '', 1500);
+      return showDashboard();
+    } catch { return toast(ico('warn'), '백업 코드가 올바르지 않아요', '처음부터 끝까지 빠짐없이 붙여 넣었는지 확인해 주세요.', 2200); }
+  }
   if (act === 'rejoin') { sfx.select(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'story') { sfx.select(); layer.innerHTML = ''; return showStory(() => showTitle()); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
@@ -1968,17 +2135,58 @@ function onAct(act, t) {
   if (screen === 'game' && S) return onGameAct(act, t);
 }
 
+// ── 뒤로가기 (Android 뒤로 버튼 · 브라우저 뒤로) ─────────────────────────────
+// 앱 안에서 처리할 수 있는 동안은 방문 기록에 한 칸을 걸어 두고, 뒤로가기를 가로채 알맞게 처리한다.
+// 타이틀에서 아무것도 열려 있지 않을 때만 그대로 둬서 앱이 닫히게 한다.
+function armBack() { if (!history.state?.dhBack) history.pushState({ ...(history.state || {}), dhBack: 1 }, ''); }
+function handleBack() {
+  if (document.querySelector('.popover')) { closePopover(); return true; }
+  if (layer.querySelector('[data-act=skip-banner]')) { skipBanner(); return true; }
+  if (layer.querySelector('.results')) { onAct('home', {}); return true; }
+  if (layer.querySelector('.lv-overlay')) return true;                 // 카드를 골라야 넘어간다
+  if (layer.firstElementChild) { sfx.back(); layer.innerHTML = ''; return true; }
+  if (tut) return true;
+  if (screen === 'game') {
+    if (ui.sheet) { ui.sheet = false; ui.view = null; render(); return true; }
+    if (ui.tool) { ui.tool = null; render(); return true; }
+    sfx.select(); showSettings(true); return true;                     // 게임 중엔 일시정지 메뉴
+  }
+  if (screen === 'lobby') { onAct('room-leave', {}); return true; }
+  if (screen === 'story') { endStory(); return true; }
+  if (['setup', 'online', 'dashboard'].includes(screen)) { sfx.back(); showTitle(); return true; }
+  return false;
+}
+addEventListener('popstate', () => {
+  if (handleBack()) armBack();
+  else if (screen === 'title' && history.state?.dhBack) history.back();
+});
+
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
   if (!t) return;
   if (unlocked) unlock();
   onAct(t.dataset.act, t);
+  if (screen !== 'title' || layer.firstElementChild) armBack();
 });
 document.addEventListener('input', e => {
   const id = e.target.id;
   if (id === 'set-bgm') setAudio({ bgm: Number(e.target.value) });
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') setAudio({ vibrate: e.target.checked });
+  if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
+    if (id === 'set-big') prefs.bigText = e.target.checked;
+    if (id === 'set-ca') prefs.colorAssist = e.target.checked;
+    if (id === 'set-low') {
+      prefs.lowGfx = e.target.checked;
+      // 3D 트레이를 새 설정으로 다시 만든다
+      if (tray) { tray.running = false; tray.renderer?.domElement.remove(); tray.renderer?.dispose?.(); tray.el?.remove(); tray = null; }
+      document.querySelectorAll('#tray canvas, #tray .tray2d').forEach(el => el.remove());
+      if (screen === 'game') render();
+    }
+    store.set(KEYS.prefs, prefs);
+    applyPrefs();
+    if (screen === 'game' && id !== 'set-low') render();
+  }
   if (id === 'dash-name') {
     myName = e.target.value.trim().slice(0, 10) || '모험가';
     store.set(KEYS.name, myName);
