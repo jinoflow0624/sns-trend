@@ -183,9 +183,10 @@ function onMotion(e) {
   }
   const mag = Math.hypot(x, y, z);
   const now = performance.now();
-  // 흔드는 중: 흔드는 만큼 트레이 안에서 주사위가 계속 굴러다닌다
+  // 흔드는 중: 트레이가 주사위 통처럼 폰 움직임을 그대로 따라간다 (주사위는 관성으로 벽에 부딪힌다)
   if (motion.rolling) {
-    if (mag > 7) { motion.lastStrong = now; tray?.kick?.(x, y, z); }
+    tray?.kick?.(x, y, z);
+    if (mag > 7) motion.lastStrong = now;
     return;
   }
   if (mag < 13 || now - motion.last < 1200) return;

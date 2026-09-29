@@ -466,11 +466,13 @@ export const sfx = {
     if (!unlock()) return;
     const t = ctx.currentTime, k = Math.min(1, v / 14), r = Math.random();
     switch (style) {
-      case 'bell': {        // 오픈하츠: 고급 방울 — 맑은 고음 + 비화성 배음이 길게 울린다
-        const f = 1900 + r * 1300;
-        ping(sfxGain, { f, t, dur: 0.55, vol: 0.05 + k * 0.08 });
-        ping(sfxGain, { f: f * 2.76, t, dur: 0.3, vol: 0.02 + k * 0.03 });
-        ping(sfxGain, { f: f * 5.4, t, dur: 0.12, vol: 0.01 + k * 0.015 });
+      case 'bell': {        // 오픈하츠: 묵직한 금속 방울 — 낮은 몸통 '둥' + 중음 금속 울림 + 비화성 배음
+        const f = 620 + r * 260;
+        ping(sfxGain, { f: 150 + r * 30, slide: 95, t, dur: 0.16, vol: 0.1 + k * 0.14, type: 'triangle' });
+        ping(sfxGain, { f, t, dur: 0.7, vol: 0.05 + k * 0.08 });
+        ping(sfxGain, { f: f * 2.76, t, dur: 0.38, vol: 0.02 + k * 0.035 });
+        ping(sfxGain, { f: f * 5.4, t, dur: 0.1, vol: 0.006 + k * 0.01 });
+        noise(sfxGain, { t, dur: 0.02, vol: 0.04 + k * 0.07, hp: 700, lp: 4000 });
         break;
       }
       case 'coin': {        // 황금: 금화가 부딪히는 짤랑
@@ -483,9 +485,12 @@ export const sfx = {
       case 'soft':          // 미니멀: 톡 — 짧고 둥근 소리
         ping(sfxGain, { f: 520 + r * 120, slide: 300, t, dur: 0.07, vol: 0.12 + k * 0.14, type: 'triangle' });
         break;
-      case 'twinkle': {     // 우주: 반짝반짝 — 높은 음이 두세 개 흩뿌려진다
-        const notes = [1568, 1760, 2093, 2349, 2637, 3136];
-        for (let i = 0; i < 2 + (k > 0.5 ? 1 : 0); i++) ping(sfxGain, { f: notes[Math.floor(Math.random() * notes.length)], t: t + i * 0.055, dur: 0.35, vol: 0.03 + k * 0.05 });
+      case 'twinkle': {     // 우주: 반짝 — 약하게 스치면 조용히, 세게 부딪힐 때만 두 음. 너무 자주 울리지 않게
+        if (t - (this.twT || 0) < 0.09) break;
+        this.twT = t;
+        const notes = [1568, 1760, 2093, 2349, 2637];
+        const n = k > 0.6 ? 2 : 1;
+        for (let i = 0; i < n; i++) ping(sfxGain, { f: notes[Math.floor(Math.random() * notes.length)], t: t + i * 0.07, dur: 0.24, vol: 0.015 + k * 0.03 });
         break;
       }
       case 'glass': {       // 투명: 유리알이 부딪히는 챙

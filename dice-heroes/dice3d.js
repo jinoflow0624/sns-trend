@@ -399,6 +399,7 @@ export class DiceTray {
     const dist = Math.max(needW, needD);
     const cz = (SCENE_Z0 + SCENE_Z1) / 2 + 0.25;   // 트레이 + 주사위 함 가운데 (가까운 함 쪽이 원근으로 더 아래로 내려가는 만큼)
     this.camera.position.set(0, dist * 0.93, cz - 0.35 + dist * 0.37);
+    this.camBase = this.camera.position.clone();
     this.camera.lookAt(0, 0, cz);
     this.camera.updateProjectionMatrix();
     this.dirty = true;
@@ -607,8 +608,15 @@ export class DiceTray {
         b.linearDamping = 0.08; b.angularDamping = 0.06;
         b.position.copy(live.position);
         b.quaternion.copy(live.quaternion);
-        b.velocity.set(live.velocity.x + (Math.random() - 0.5) * 8, Math.max(live.velocity.y, 4 + Math.random() * 4), live.velocity.z + (Math.random() - 0.5) * 6);
-        b.angularVelocity.set(live.angularVelocity.x + (Math.random() - 0.5) * 20, live.angularVelocity.y + (Math.random() - 0.5) * 20, live.angularVelocity.z + (Math.random() - 0.5) * 20);
+        // 흔들기를 멈추면 더 던지지 않는다: 지금 속도 그대로 굴러가다 멈춘다.
+        // 거의 서 있던 주사위만 제자리에서 한 번 톡 넘어가게 (윗면이 바뀌는 순간이 굴러가는 중에 묻히도록)
+        b.velocity.copy(live.velocity);
+        b.angularVelocity.copy(live.angularVelocity);
+        if (live.velocity.length() < 2.5 && live.angularVelocity.length() < 6) {
+          b.velocity.y = 3.2 + Math.random() * 1.2;
+          const ax = Math.random() * Math.PI * 2;
+          b.angularVelocity.set(Math.cos(ax) * 13, (Math.random() - 0.5) * 4, Math.sin(ax) * 13);
+        }
         b.addEventListener('collide', e => {
           const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
           if (v > 2.2) hits.push({ f: frames.length, v, i });
@@ -662,9 +670,24 @@ export class DiceTray {
 
     // 멈춘 자세에서 위를 향한 면에 엔진 결과를 입힌다
     const last = frames[frames.length - 1];
+    const liveIds = new Set(this.live ? this.live.bodies.map(x => x.i) : []), swaps = [];
+    const fastest = k => {
+      let best = 0, bf = 0;
+      const n = Math.max(2, Math.floor(frames.length * 0.6));
+      for (let f = 1; f < n; f++) {
+        const a = frames[f - 1][k], b = frames[f][k];
+        const dot = Math.abs(a[3] * b[3] + a[4] * b[4] + a[5] * b[5] + a[6] * b[6]);
+        const turn = 1 - dot + Math.hypot(b[0] - a[0], b[2] - a[2]) * 0.002;
+        if (turn > best) { best = turn; bf = f; }
+      }
+      return bf;
+    };
     bodies.forEach(({ i }, k) => {
       const q = new THREE.Quaternion(last[k][3], last[k][4], last[k][5], last[k][6]);
-      this.setFaces(this.dice[i], remap(topFace(q), values[i]));
+      const faces = remap(topFace(q), values[i]);
+      // 흔들다 이어서 굴린 주사위: 처음부터 보이던 주사위라 윗면을 곧바로 바꾸면 눈이 확 바뀌어 보인다 → 가장 빨리 도는 순간에 바꾼다
+      if (liveIds.has(i)) swaps.push({ i, faces, f: fastest(k) });
+      else this.setFaces(this.dice[i], faces);
       this.dice[i].value = values[i];
       this.dice[i].blank = false;
       this.dice[i].held = false;
@@ -690,13 +713,14 @@ export class DiceTray {
       const wait = boxing ? HOP_MS + 40 : hopLeft ? hopLeft + 40 : 0;
       this.live = null;
       if (boxing || hopLeft) setTimeout(() => this.onBox(), Math.max(0, wait - 80));
-      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
+      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, swaps, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
       if (!wait) this.onThrow();
     });
   }
 
-  // ── 흔들어 굴리기: 흔드는 동안 트레이 안에서 실시간으로 굴러다닌다 ──
-  // 흔들기를 멈추면 앱이 roll() 을 부르고, roll() 은 지금 자세·속도에서 이어서 멈출 때까지 굴린다
+  // ── 흔들어 굴리기: 트레이가 요트 주사위 통처럼 흔들린다 ──
+  // 폰이 움직이는 반대쪽으로 주사위가 쏠려 벽에 부딪힌다(관성). 흔드는 만큼 화면(통)도 함께 덜컹인다.
+  // 흔들기를 멈추면 앱이 roll() 을 부르고, roll() 은 지금 자세·속도 그대로 이어서 멈출 때까지 굴린다
   startShake(rolling) {
     if (this.anim || this.live) return false;
     const { world, dieMat } = makeWorld(3.4);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튄다
@@ -707,40 +731,33 @@ export class DiceTray {
       if (!rolling[i]) { if (!d.blank && !d.boxed) this.hop(d, true); return; }
       d.boxed = false; d.hop = null; d.lift = 0;
       const b = new CANNON.Body({ mass: 1, material: dieMat, shape });
-      b.linearDamping = 0.1; b.angularDamping = 0.08;
+      b.allowSleep = false;
+      b.linearDamping = 0.12; b.angularDamping = 0.1;
       b.position.set(d.mesh.position.x, Math.max(HALF, d.mesh.position.y), Math.max(-TRAY_D / 2 + HALF, Math.min(TRAY_D / 2 - HALF, d.mesh.position.z)));
       b.quaternion.set(...d.mesh.quaternion.toArray());
+      // 처음 흔드는 순간 통 안에서 한 번 붕 떠오른다
+      b.velocity.set((Math.random() - 0.5) * 4, 5 + Math.random() * 3, (Math.random() - 0.5) * 4);
+      b.angularVelocity.set((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
         const t = performance.now();
         if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); }
+        // 벽에 부딪히면 모서리로 넘어가며 데굴데굴 (미끄러지기만 하지 않게)
+        if (v > 3 && e.body.mass === 0) b.angularVelocity.set(b.angularVelocity.x + (Math.random() - 0.5) * v * 2.2, b.angularVelocity.y + (Math.random() - 0.5) * v * 1.2, b.angularVelocity.z + (Math.random() - 0.5) * v * 2.2);
       });
       world.addBody(b);
       bodies.push({ i, b });
     });
-    this.live = { world, bodies, ids: new Set(bodies.map(x => x.i)), last: performance.now(), pend: null };
-    this.kick(0, 0, 14);
+    this.live = { world, bodies, ids: new Set(bodies.map(x => x.i)), last: performance.now(), acc: { x: 0, y: 0, z: 0 }, accT: 0, jolt: { x: 0, y: 0, vx: 0, vy: 0 } };
     return true;
   }
 
-  // 폰 흔들림(가속도, 폰 기준 x·y·z) → 주사위를 그 방향으로 튀긴다. 폰을 세워 든 기준: 화면 오른쪽 = x, 화면 위쪽 = 트레이 안쪽
+  // 폰 가속도(중력 제외, 폰 기준 x·y·z m/s²). 폰을 세워 든 기준: 화면 오른쪽 = x, 화면 위쪽 = 트레이 안쪽, 화면 밖 = 위
   kick(ax, ay, az) {
     if (!this.live) return;
-    const p = this.live.pend ||= { x: 0, y: 0, z: 0 };
-    if (Math.hypot(ax, ay, az) > Math.hypot(p.x, p.y, p.z)) Object.assign(p, { x: ax, y: ay, z: az });
-  }
-
-  applyKick() {
-    const L = this.live, p = L.pend;
-    L.pend = null;
-    const K = 0.55, cap = 18;
-    for (const { b } of L.bodies) {
-      b.wakeUp();
-      b.velocity.x = Math.max(-cap, Math.min(cap, b.velocity.x + p.x * K + (Math.random() - 0.5) * 5));
-      b.velocity.z = Math.max(-cap, Math.min(cap, b.velocity.z - p.y * K + (Math.random() - 0.5) * 5));
-      b.velocity.y = Math.min(9, Math.max(b.velocity.y, 0) + 3 + Math.abs(p.z) * 0.2 + Math.random() * 2.5);
-      b.angularVelocity.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30);
-    }
+    const c = v => Math.max(-30, Math.min(30, v || 0));
+    this.live.acc = { x: c(ax), y: c(ay), z: c(az) };
+    this.live.accT = performance.now();
   }
 
   // 흔들다가 굴리지 않고 그만둘 때: 주사위를 정렬 줄로 되돌린다
@@ -748,6 +765,7 @@ export class DiceTray {
     if (!this.live) return;
     for (const { i } of this.live.bodies) this.dice[i].value = -1;   // 다음 show() 가 반듯하게 다시 놓는다
     this.live = null;
+    this.camera.position.copy(this.camBase || this.camera.position);
     this.dirty = true;
   }
 
@@ -755,13 +773,29 @@ export class DiceTray {
     const L = this.live;
     const dt = Math.min(1 / 30, (t - L.last) / 1000);
     L.last = t;
-    if (L.pend && t - (L.kickT || 0) > 110) { L.kickT = t; this.applyKick(); }
+    // 센서 값이 끊기면(흔들기를 멈춤) 힘이 금방 사라진다
+    const fade = t - L.accT < 90 ? 1 : Math.max(0, 1 - (t - L.accT - 90) / 120);
+    const a = L.acc, K = 2.1 * fade;
+    const cap = 15;
+    for (const { b } of L.bodies) {
+      // 관성: 폰(통)이 가는 반대쪽으로 주사위가 쏠린다
+      b.velocity.x = Math.max(-cap, Math.min(cap, b.velocity.x - a.x * K * dt * 10));
+      b.velocity.z = Math.max(-cap, Math.min(cap, b.velocity.z + a.y * K * dt * 10));
+      // 통을 위로 들어 올리면 바닥에 눌리고, 내리면 떠오른다 (떠오르는 쪽만 조금)
+      if (a.z < -4 && b.position.y < HALF + 0.3) b.velocity.y = Math.min(8, b.velocity.y - a.z * K * dt * 6);
+    }
     L.world.step(1 / 60, dt, 3);
     for (const { i, b } of L.bodies) {
       const m = this.dice[i].mesh;
       m.position.set(b.position.x, b.position.y, b.position.z);
       m.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
     }
+    // 통(화면)이 폰 움직임을 따라 덜컹인다: 용수철로 따라가다 제자리로
+    const j = L.jolt, S = 0.012 * fade;
+    j.vx += ((a.x * S) - j.x) * 0.5 - j.vx * 0.35;
+    j.vy += ((-a.y * S) - j.y) * 0.5 - j.vy * 0.35;
+    j.x += j.vx; j.y += j.vy;
+    j.x = Math.max(-0.25, Math.min(0.25, j.x)); j.y = Math.max(-0.25, Math.min(0.25, j.y));
   }
 
   // 보스 스킬 연출 한 프레임
@@ -823,6 +857,7 @@ export class DiceTray {
           this.dice[i].mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(sp.axis, Math.PI * 2 * sp.turns * w));
         }
       });
+      for (const sw of a.swaps) if (!sw.done && (f >= sw.f || f >= a.frames.length - 1)) { sw.done = true; this.setFaces(this.dice[sw.i], sw.faces); }
       while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); }
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
@@ -887,6 +922,9 @@ export class DiceTray {
       d.aura.scale.setScalar(1.14 * scale);
       d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank || !!m.userData.baseTransparent; });
     });
+    const jo = this.live?.jolt;
+    if (jo) this.camera.position.set(this.camBase.x + jo.x, this.camBase.y, this.camBase.z - jo.y);
+    else if (this.camBase) this.camera.position.copy(this.camBase);
     this.renderer.render(this.scene, this.camera);
   }
 }
