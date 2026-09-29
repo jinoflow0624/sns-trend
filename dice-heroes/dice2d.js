@@ -1,6 +1,7 @@
 // 2D 주사위 트레이 — 3D(WebGL)를 쓸 수 없는 기기용 대체 화면.
 // dice3d.js 의 DiceTray 와 같은 방식으로 부른다 (attach · show · setHeld · setTarget · roll · morph · screenPos …).
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+import { die2dColors } from './skins.js';
 const face = v => [...Array(9)].map((_, i) => `<i class="${v && PIPS[v].includes(i) ? 'on' : ''}"></i>`).join('');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -12,7 +13,7 @@ export function webglOK() {
 }
 
 export class DiceTray2D {
-  constructor(host, { onPick, onLong, onThrow } = {}) {
+  constructor(host, { onPick, onLong, onThrow, diceSkin = 'classic' } = {}) {
     this.onThrow = onThrow || (() => {});
     this.onPick = onPick || (() => {});
     this.onLong = onLong || (() => {});
@@ -35,7 +36,16 @@ export class DiceTray2D {
     });
     this.el.addEventListener('pointerleave', () => { if (this.press) clearTimeout(this.press.timer); this.press = null; });
     this.attach(host);
+    this.setSkin(diceSkin);
   }
+
+  setSkin(diceId = 'classic') {
+    const c = die2dColors(diceId);
+    this.el.style.setProperty('--d2-bg', c.bg);
+    this.el.style.setProperty('--d2-pip', c.pip);
+    this.el.style.setProperty('--d2-one', c.one);
+  }
+  destroy() { this.el.remove(); }
 
   attach(host) {
     if (this.host === host) return;

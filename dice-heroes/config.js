@@ -3,6 +3,6 @@ export const GAME = {
   name: '다이스 히어로즈',
   en: 'DICE HEROES',
   studio: 'HAHAHOHO COMPANY',
-  version: '0.10.3',
+  version: '0.11.0',
   year: 2026,
 };
