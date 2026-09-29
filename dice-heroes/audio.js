@@ -8,8 +8,8 @@ export const BGM_FILES = {
   title:       'assets/bgm/title.ogg',         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
   adventure:   'assets/bgm/versus.ogg',        // 대전 · 32마디 루프, 133BPM (Suno)
   boss_dragon: 'assets/bgm/boss_dragon.ogg',   // 32마디 루프, 120BPM (Suno)
-  boss_orc:    'assets/bgm/boss_orc.ogg',      // 32마디 루프, 120BPM (Suno)
-  boss_lich:   'assets/bgm/boss_lich.ogg',     // 32마디 루프, 120BPM (Suno)
+  boss_orc:    'assets/bgm/boss_orc.ogg',      // 28마디 루프, 120BPM (Suno)
+  boss_lich:   'assets/bgm/boss_lich.ogg',     // 28마디 루프, 120BPM (Suno)
 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? `boss_${id}` : 'boss');
