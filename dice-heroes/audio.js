@@ -5,8 +5,8 @@
 // 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich
 // 예) export const BGM_FILES = { boss_dragon: 'assets/bgm/boss_dragon.ogg' };
 export const BGM_FILES = {};
-// 협동모드 보스 곡: 보스별 파일이 있으면 그것, 없으면 칩튠 보스전 곡
-export const bossSong = id => (BGM_FILES[`boss_${id}`] ? `boss_${id}` : 'boss');
+// 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
+export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? `boss_${id}` : 'boss');
 
 const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
@@ -211,6 +211,91 @@ const SONGS = {
     drums: [
       'K - H - S - H -', 'K - H - S - H -', 'K - H - S - H -', 'K - H - S S S S',
       'K - H - S - H -', 'K - H - S - H -', 'K - H - S - H -', 'K - - - O - - -',
+    ],
+  },
+  // 보스전 — 협동모드에서 보스마다 한 곡. 16마디 루프, 마지막 마디가 딸림화음으로 첫 마디에 이어진다.
+  // 화염룡 이그니스 — A단조, 당당한 영웅 선율과 화성단음계 내림 질주
+  boss_dragon: {
+    bpm: 120,
+    lead: [
+      'A4 . E5 . A5 . B5 C6', 'B5 . A5 . F5 . . .', 'G4 . D5 . G5 . A5 B5', 'G#5 . . . E5 . . .',
+      'A4 . E5 . A5 . B5 C6', 'D6 . C6 . A5 . F5 .', 'B5 . D6 . G5 . B5 .', 'G#5 . A5 B5 G#5 . E5 .',
+      'F5 . . E5 D5 . F5 .', 'E5 . . . C5 . A4 .', 'A5 . . G5 F5 . A5 .', 'G#5 . . . B5 . . .',
+      'D6 . C6 . A5 . F5 .', 'E6 . C6 . A5 . E5 .', 'F5 . A5 . C6 . A5 .', 'B5 A5 G#5 F5 E5 D5 C5 B4',
+    ],
+    harm: [
+      'A4 C5 E5 C5 A4 C5 E5 C5', 'A4 C5 F5 C5 A4 C5 F5 C5', 'G4 B4 D5 B4 G4 B4 D5 B4', 'G#4 B4 D5 B4 G#4 B4 E5 B4',
+      'A4 C5 E5 C5 A4 C5 E5 C5', 'A4 C5 F5 C5 A4 C5 F5 C5', 'G4 B4 D5 B4 G4 B4 D5 B4', 'G#4 B4 D5 B4 G#4 B4 E5 B4',
+      'A4 D5 F5 D5 A4 D5 F5 D5', 'A4 C5 E5 C5 A4 C5 E5 C5', 'A4 C5 F5 C5 A4 C5 F5 C5', 'G#4 B4 E5 B4 G#4 B4 E5 B4',
+      'A4 D5 F5 D5 A4 D5 F5 D5', 'A4 C5 E5 C5 A4 C5 E5 C5', 'A4 C5 F5 C5 A4 C5 F5 C5', 'G#4 B4 D5 B4 G#4 B4 D5 B4',
+    ],
+    bass: [
+      'A2 A3 A2 A3 A2 A3 A2 A3', 'F2 F3 F2 F3 F2 F3 F2 F3', 'G2 G3 G2 G3 G2 G3 G2 G3', 'E2 E3 E2 E3 E2 E3 G#2 B2',
+      'A2 A3 A2 A3 A2 A3 A2 A3', 'F2 F3 F2 F3 F2 F3 F2 F3', 'G2 G3 G2 G3 G2 G3 G2 G3', 'E2 E3 E2 E3 E2 E3 G#2 B2',
+      'D3 D4 D3 D4 D3 D4 D3 D4', 'A2 A3 A2 A3 A2 A3 A2 A3', 'F2 F3 F2 F3 F2 F3 F2 F3', 'E2 E3 E2 E3 E2 E3 E2 E3',
+      'D3 D4 D3 D4 D3 D4 D3 D4', 'A2 A3 A2 A3 A2 A3 A2 A3', 'F2 F3 F2 F3 F2 F3 F2 F3', 'E2 E3 E2 E3 E2 E3 G#2 B2',
+    ],
+    drums: [
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K H S H K S S S',
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K H S H S S S O',
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K H S H K S S S',
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K S K S S S S O',
+    ],
+  },
+  // 오크 대장 그로크 — E단조, 빠르고 급박한 행진. 같은 음을 두드리는 리프와 쉬지 않는 베이스
+  boss_orc: {
+    bpm: 144,
+    lead: [
+      'E5 E5 - E5 G5 . F#5 E5', 'B4 . . B4 D5 . E5 .', 'E5 E5 - E5 G5 . A5 G5', 'F#5 . . D5 A5 . F#5 .',
+      'E5 E5 - E5 G5 . F#5 E5', 'B4 . . B4 D5 . E5 .', 'G5 G5 - G5 E5 . C6 .', 'B5 . A5 . F#5 . D#5 .',
+      'G5 . E5 G5 C6 . B5 A5', 'A5 . F#5 A5 D6 . C6 A5', 'B5 B5 - B5 G5 . E5 .', 'B5 B5 - B5 C6 . B5 .',
+      'C6 C6 - C6 G5 . E5 .', 'D6 D6 - D6 A5 . F#5 .', 'D#6 D#6 - D#6 B5 . F#5 .', 'D#5 E5 F#5 G5 A5 . B5 .',
+    ],
+    harm: [
+      'E4 G4 B4 G4 E4 G4 B4 G4', 'E4 G4 B4 G4 E4 G4 B4 G4', 'E4 G4 C5 G4 E4 G4 C5 G4', 'D4 F#4 A4 F#4 D4 F#4 A4 F#4',
+      'E4 G4 B4 G4 E4 G4 B4 G4', 'E4 G4 B4 G4 E4 G4 B4 G4', 'E4 G4 C5 G4 E4 G4 C5 G4', 'D#4 F#4 A4 F#4 D#4 F#4 B4 F#4',
+      'E4 G4 C5 G4 E4 G4 C5 G4', 'D4 F#4 A4 F#4 D4 F#4 A4 F#4', 'E4 G4 B4 G4 E4 G4 B4 G4', 'E4 G4 B4 G4 E4 G4 B4 G4',
+      'E4 G4 C5 G4 E4 G4 C5 G4', 'D4 F#4 A4 F#4 D4 F#4 A4 F#4', 'D#4 F#4 A4 F#4 D#4 F#4 B4 F#4', 'D#4 F#4 A4 F#4 D#4 F#4 B4 F#4',
+    ],
+    bass: [
+      'E2 E2 E3 E2 E2 E2 E3 E2', 'E2 E2 E3 E2 E2 E2 E3 E2', 'C3 C3 C4 C3 C3 C3 C4 C3', 'D3 D3 D4 D3 D3 D3 D4 D3',
+      'E2 E2 E3 E2 E2 E2 E3 E2', 'E2 E2 E3 E2 E2 E2 E3 E2', 'C3 C3 C4 C3 C3 C3 C4 C3', 'B2 B2 B3 B2 B2 B2 A2 F#2',
+      'C3 C3 C4 C3 C3 C3 C4 C3', 'D3 D3 D4 D3 D3 D3 D4 D3', 'E2 E2 E3 E2 E2 E2 E3 E2', 'E2 E2 E3 E2 E2 E2 E3 E2',
+      'C3 C3 C4 C3 C3 C3 C4 C3', 'D3 D3 D4 D3 D3 D3 D4 D3', 'B2 B2 B3 B2 B2 B2 B3 B2', 'B2 B2 B3 B2 A2 G2 F#2 D#2',
+    ],
+    drums: [
+      'K H S K K H S H', 'K H S K K H S H', 'K H S K K H S H', 'K H S K K S S S',
+      'K H S K K H S H', 'K H S K K H S H', 'K H S K K H S H', 'K S K S K S S S',
+      'K H S K K H S H', 'K H S K K H S H', 'K H S K K H S H', 'K H S K K S S S',
+      'K H S K K H S H', 'K H S K K H S H', 'K H S K K H S H', 'S S S S S S S S',
+    ],
+  },
+  // 악마 군주 (리치 왕 자리) — D단조, 반음으로 스며드는 수상한 선율과 아르페지오 질주
+  boss_lich: {
+    bpm: 120,
+    lead: [
+      'D5 . . F5 A5 . G#5 A5', 'D6 . . . A5 . F5 .', 'G5 . A5 A#5 A5 . G5 D5', 'C#5 . . E5 G5 . F5 E5',
+      'D5 . . F5 A5 . G#5 A5', 'F6 . E6 . D6 . A#5 .', 'G5 A#5 D6 G6 D6 A#5 G5 A#5', 'A5 C#6 E6 G6 E6 C#6 A5 G5',
+      'A#5 . A5 . G5 . D5 .', 'F5 . E5 . D5 . A4 .', 'A#4 . D5 . F5 . A5 .', 'G#5 . A5 . . . E5 .',
+      'D6 . C#6 . D6 . A#5 .', 'A5 . G#5 . A5 . F5 .', 'F5 E5 F5 A#5 D6 . A#5 .', 'A5 G5 E5 C#5 A4 . C#5 E5',
+    ],
+    harm: [
+      'D4 F4 A4 F4 D4 F4 A4 F4', 'D4 F4 A#4 F4 D4 F4 A#4 F4', 'D4 G4 A#4 G4 D4 G4 A#4 G4', 'C#4 E4 G4 E4 C#4 E4 A4 E4',
+      'D4 F4 A4 F4 D4 F4 A4 F4', 'D4 F4 A#4 F4 D4 F4 A#4 F4', 'D4 G4 A#4 G4 D4 G4 A#4 G4', 'C#4 E4 G4 E4 C#4 E4 A4 E4',
+      'D4 G4 A#4 G4 D4 G4 A#4 G4', 'D4 F4 A4 F4 D4 F4 A4 F4', 'D4 F4 A#4 F4 D4 F4 A#4 F4', 'C#4 E4 A4 E4 C#4 E4 A4 E4',
+      'D4 G4 A#4 G4 D4 G4 A#4 G4', 'D4 F4 A4 F4 D4 F4 A4 F4', 'D4 F4 A#4 F4 D4 F4 A#4 F4', 'C#4 E4 G4 E4 C#4 E4 A4 E4',
+    ],
+    bass: [
+      'D2 D3 D2 D3 D2 D3 D2 D3', 'A#1 A#2 A#1 A#2 A#1 A#2 A#1 A#2', 'G2 G3 G2 G3 G2 G3 G2 G3', 'A2 A3 A2 A3 A2 A3 C#3 E3',
+      'D2 D3 D2 D3 D2 D3 D2 D3', 'A#1 A#2 A#1 A#2 A#1 A#2 A#1 A#2', 'G2 G3 G2 G3 G2 G3 G2 G3', 'A2 A3 A2 A3 A2 A3 C#3 E3',
+      'G2 G3 G2 G3 G2 G3 G2 G3', 'D2 D3 D2 D3 D2 D3 D2 D3', 'A#1 A#2 A#1 A#2 A#1 A#2 A#1 A#2', 'A2 A3 A2 A3 A2 A3 A2 A3',
+      'G2 G3 G2 G3 G2 G3 G2 G3', 'D2 D3 D2 D3 D2 D3 D2 D3', 'A#1 A#2 A#1 A#2 A#1 A#2 A#1 A#2', 'A2 A3 A2 A3 A2 G2 F2 E2',
+    ],
+    drums: [
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K H S H K S S O',
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K H S H S S S O',
+      'K - S - K - S -', 'K - S - K K S -', 'K - S - K - S -', 'K - S - K S S O',
+      'K H S H K H S H', 'K H S H K K S H', 'K H S H K H S H', 'K S K S S S S O',
     ],
   },
 };
