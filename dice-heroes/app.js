@@ -27,7 +27,7 @@ const store = {
 };
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
-const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, ...(store.get(KEYS.prefs) || {}) };
+const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, shake: false, ...(store.get(KEYS.prefs) || {}) };
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
 let live = { notice: '', maintenance: false, min_version: '' };
@@ -162,6 +162,57 @@ function showLiveBar() {
   if (live.notice) lines.push(esc(live.notice));
   el.innerHTML = lines.map(l => `<p class="live-note">${l}</p>`).join('');
 }
+
+// ── 흔들어 굴리기 (선택) ─────────────────────────────────────────────────────
+// 폰의 가속도 센서로 '흔드는 동작'을 알아채서 굴리기 버튼을 누른 것처럼 처리한다.
+// 짧은 시간 안에 세게 두 번 흔들면 굴림 (걷거나 폰을 내려놓는 정도로는 안 굴러가게).
+const SHAKE_OK = typeof window.DeviceMotionEvent !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+const motion = { on: false, peaks: [], last: 0, grav: null };
+function onMotion(e) {
+  let a = e.acceleration;
+  let x = a?.x, y = a?.y, z = a?.z;
+  if (x == null) {                       // 중력 제외 값이 없는 기기: 느린 평균(중력)을 빼서 쓴다
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
+    motion.grav ||= { x: g.x, y: g.y, z: g.z };
+    for (const k of ['x', 'y', 'z']) motion.grav[k] += (g[k] - motion.grav[k]) * 0.1;
+    x = g.x - motion.grav.x; y = g.y - motion.grav.y; z = g.z - motion.grav.z;
+  }
+  const mag = Math.hypot(x, y, z);
+  const now = performance.now();
+  if (mag < 13 || now - motion.last < 1200) return;
+  motion.peaks = motion.peaks.filter(t => now - t < 600);
+  if (motion.peaks.length && now - motion.peaks[motion.peaks.length - 1] < 90) return;   // 같은 흔들림의 연속 값은 한 번으로
+  motion.peaks.push(now);
+  if (motion.peaks.length < 2) return;
+  motion.peaks = [];
+  const btn = document.querySelector('[data-act=roll]:not([disabled])');
+  if (screen !== 'game' || !btn || layer.querySelector('.overlay')) return;
+  motion.last = now;
+  onAct('roll', btn);
+}
+function listenShake(on) {
+  if (on === motion.on) return;
+  motion.on = on;
+  if (on) addEventListener('devicemotion', onMotion);
+  else removeEventListener('devicemotion', onMotion);
+}
+async function setShake(on, input) {
+  if (on && typeof DeviceMotionEvent.requestPermission === 'function') {
+    // 아이폰: 동작 센서 권한을 물어본다 (터치한 순간에만 물어볼 수 있다)
+    let ok = false;
+    try { ok = (await DeviceMotionEvent.requestPermission()) === 'granted'; } catch { /* 거부 */ }
+    if (!ok) {
+      if (input) input.checked = false;
+      return toast(ico('warn'), '동작 센서를 쓸 수 없어요', '설정 → Safari → 동작 및 방향 접근을 켜 주세요.', 2400);
+    }
+  }
+  prefs.shake = on;
+  store.set(KEYS.prefs, prefs);
+  listenShake(on);
+  if (on) toast(ico('die5'), '흔들어 굴리기 켜짐', '내 차례에 폰을 두 번 흔들면 주사위를 굴려요.', 2000);
+}
+if (SHAKE_OK && prefs.shake) listenShake(true);
 
 // ── 스토리 ───────────────────────────────────────────────────────────────────
 let story = { i: 0, shown: 0, timer: null, then: null };
@@ -782,6 +833,8 @@ async function makeTray() {
   const opts = {
     onPick: i => onAct('die', { dataset: { i: String(i) } }),
     onHit: v => sfx.clack(v),
+    onThrow: () => sfx.shake(),
+    onBox: () => sfx.box(),
     onLong: i => dieInfo(i),
     lowGfx: !!prefs.lowGfx,
   };
@@ -1746,6 +1799,7 @@ function showSettings(inGame = false) {
     <label class="set-row">글자 크게<input id="set-big" type="checkbox" ${prefs.bigText ? 'checked' : ''}></label>
     <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
+    ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
@@ -1924,8 +1978,6 @@ async function step() {
 
 async function rollAnimated(mask, list = S.fx) {
   const t = await ensureTray();
-  sfx.shake();
-  buzz(15);
   ui.busy = true;
   ui.sheet = false;
   ui.dice = pendingDice(list);
@@ -2033,6 +2085,7 @@ async function onGameAct(act, t) {
   }
   if (ui.busy || ui.sending || !myControl() || S.phase !== 'roll') return;
   if (act === 'roll') {
+    sfx.rollPress();                      // 짧은 진동 + 흔드는 소리
     ui.tool = null;
     ui.zeroArm = null;
     const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
@@ -2232,6 +2285,7 @@ document.addEventListener('input', e => {
   if (id === 'set-bgm') setAudio({ bgm: Number(e.target.value) });
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') setAudio({ vibrate: e.target.checked });
+  if (id === 'set-shake') setShake(e.target.checked, e.target);
   if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
     if (id === 'set-big') prefs.bigText = e.target.checked;
