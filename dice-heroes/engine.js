@@ -195,6 +195,14 @@ export const DIFFS = [
   { id: 2, ko: '매우 어려움', hp: 244, color: '#E8435A' },
 ];
 
+// 체력 추가 배율 [보스][난이도][인원-1] — v0.8에서 모든 난이도 승률을 절반으로 낮추며 봇 시뮬레이션으로 맞춘 값.
+// (sim/coop.mjs 가 바꿔 가며 잰다)
+export const HP_TUNE = {
+  dragon: [[1.194, 1.143, 1.118, 1.093], [1.07, 1.089, 1.071, 1.052], [1.05, 1.05, 1.058, 1.066]],
+  orc:    [[1.22, 1.161, 1.119, 1.078], [1.167, 1.147, 1.103, 1.059], [1.102, 1.135, 1.11, 1.085]],
+  lich:   [[1.191, 1.177, 1.15, 1.123], [1.091, 1.114, 1.094, 1.074], [1.048, 1.115, 1.078, 1.04]],
+};
+
 export const BOSSES = [
   {
     id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
@@ -342,7 +350,7 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
     // 파티가 강해지므로 1인당 체력을 조금씩 늘린다
     const party = [[1, 1.045, 1.055, 1.065], [1, 0.99, 0.985, 0.98], [1, 0.96, 0.95, 0.94]][diff][players.length - 1]
       * (bossInfo(id).partyAdj?.[diff][players.length - 1] ?? 1);
-    const hp = Math.round(DIFFS[diff].hp * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
+    const hp = Math.round(DIFFS[diff].hp * HP_TUNE[id][diff][players.length - 1] * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
   }
   s.deck = shuffle(s, QUESTS.map(q => q.id));

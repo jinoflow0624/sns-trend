@@ -573,7 +573,7 @@ async function onRoom(room) {
   const g = room.game;
   if (!prev) {
     S = g;
-    Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null });
+    Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
     screen = 'game';
     setStage(null);
     layer.innerHTML = '';
@@ -681,7 +681,7 @@ function onlineAct(fn, { any = false, quiet = false } = {}) {
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
 function startGame(state) {
   S = state;
-  Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null });
+  Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
   setStage(null);
   layer.innerHTML = '';
@@ -917,9 +917,11 @@ function bossPanel() {
   const hp = ui.hpHold ?? b.hp;
   const hpPct = (hp / b.maxHp) * 100;
   const shPct = Math.min(100 - hpPct, (b.shield / b.maxHp) * 100);
-  const rage = b.diff === 2 && b.hp * 2 < b.maxHp;
+  const shown = ui.hpHold ?? b.hp;
+  // 분노는 살아 있을 때만 (체력 0에서 분노 흔들림이 계속돼 발작처럼 보였다)
+  const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0;
   return `
-  <section class="boss-panel${rage ? ' rage' : ''}${b.hp <= 0 ? ' dead' : ''}" style="--c:${info.color}">
+  <section class="boss-panel${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
     <div class="boss-art" id="boss-art">${portrait(b.id, 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
@@ -1116,6 +1118,40 @@ function bigNumber(dealt, blocked, anchor) {
   setTimeout(() => el.remove(), 1400);
 }
 
+// 보스 소멸: 마지막 공격을 맞은 뒤 하얗게 깜박이다 도트 조각으로 부서져 흩어진다
+async function bossDeath() {
+  const art = document.getElementById('boss-art');
+  if (!art) { ui.bossGone = true; return; }
+  const info = E.bossInfo(S.boss.id);
+  const r = art.getBoundingClientRect();
+  const fx = FX();
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW;
+  art.classList.remove('hit', 'hitstop');
+  art.classList.add('dying');
+  sfx.slash();
+  const pal = ['#FFFFFF', info.color, '#FFE27A', '#06041A'];
+  // 몸이 위에서부터 조각나 떠오른다
+  for (let k = 0; k < 10; k++) {
+    setTimeout(() => {
+      for (let i = 0; i < 14; i++) {
+        fx.spawn({
+          x: r.left + Math.random() * r.width, y: r.top + r.height * (0.2 + k * 0.07) + Math.random() * 10,
+          vx: (Math.random() - 0.5) * 60, vy: -40 - Math.random() * 120, life: 0.7 + Math.random() * 0.6,
+          size: 3 + Math.random() * 4, color: pal[i % pal.length], drag: 1, grav: -30,
+        });
+      }
+    }, (k * 70) / fx.speed);
+  }
+  await wait(750 / fx.speed);
+  sfx.boom(3);
+  fx.impact(r.left + r.width / 2, r.top + r.height / 2, [pal[0], pal[1], pal[2], pal[1]], 3);
+  shake(app.querySelector('.game'), 3);
+  await wait(500 / fx.speed);
+  ui.bossGone = true;
+  render();
+  await wait(400);
+}
+
 // 큰 점수 도장: 20점 이상 GREAT · 30점 이상 AMAZING · 요트 YACHT
 function stamp(pts, cat) {
   const [text, lv] = cat === 'yacht' ? ['YACHT!!!', 3] : pts >= 30 ? ['AMAZING!', 2] : pts >= 20 ? ['GREAT!', 1] : [];
@@ -1278,6 +1314,7 @@ async function playOne(f) {
         sfx.clack(12); buzz(30);
         if (ui.hpHold != null) ui.hpHold = ui.hpHold - (f.amount - (f.blocked || 0)) <= S.boss.hp ? null : ui.hpHold - (f.amount - (f.blocked || 0));
         render(); hitBoss(f.amount, f.blocked);
+        if (S.boss.hp <= 0 && ui.hpHold == null && !ui.bossGone) { await wait(260); await bossDeath(); }
         await wait(420);
         break;
       case 'boss': {
