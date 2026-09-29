@@ -457,6 +457,7 @@ export class DiceTray {
   show(values, held = []) {
     if (this.anim) return;
     this.dirty = true;
+    this.shown = [values.slice(), held.slice()];
     const n = values.length;
     this.ensure(n);
     this.dice.forEach((d, i) => {
@@ -748,7 +749,7 @@ export class DiceTray {
       world.addBody(b);
       bodies.push({ i, b });
     });
-    this.live = { world, bodies, ids: new Set(bodies.map(x => x.i)), last: performance.now(), acc: { x: 0, y: 0, z: 0 }, accT: 0, jolt: { x: 0, y: 0, vx: 0, vy: 0 } };
+    this.live = { world, bodies, ids: new Set(bodies.map(x => x.i)), last: performance.now(), t0: performance.now(), acc: { x: 0, y: 0, z: 0 }, accT: 0, jolt: { x: 0, y: 0, vx: 0, vy: 0 } };
     return true;
   }
 
@@ -771,6 +772,8 @@ export class DiceTray {
 
   stepLive(t) {
     const L = this.live;
+    // 안전장치: 흔들기가 끝났는데 굴림이 오지 않고 8초가 지나면(연결 지연 등) 주사위를 제자리로
+    if (t - Math.max(L.accT, L.t0) > 8000) { this.cancelShake(); if (this.shown) this.show(...this.shown); return; }
     const dt = Math.min(1 / 30, (t - L.last) / 1000);
     L.last = t;
     // 센서 값이 끊기면(흔들기를 멈춤) 힘이 금방 사라진다
