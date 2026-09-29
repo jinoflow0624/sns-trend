@@ -213,7 +213,7 @@ let firebase = false;
       if (r.error) screens.joinCode(code, r.error);
       else screens.joinInfo(r);
     };
-    $screen.querySelector('#ts')?.addEventListener('pointerdown', () => setTimeout(go, 0), { once: true });
+    $screen.querySelector('#ts')?.addEventListener('click', () => setTimeout(go, 0), { once: true });
   } else screens.intro();
 })();
 

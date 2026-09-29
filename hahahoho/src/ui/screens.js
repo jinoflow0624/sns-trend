@@ -134,7 +134,8 @@ export class Screens {
       </div>`;
     this.scene?.stop();
     this.scene = new TitleScene(this.root.querySelector('.title-bg'));
-    this.root.querySelector('#ts').addEventListener('pointerdown', () => { this.h.onUnlock?.(); sfx('open'); this.menu(); }, { once: true });
+    // 누르던 손가락을 뗀 뒤(click)에 메뉴로 — pointerdown 에 바꾸면 같은 터치의 click 이 새로 뜬 버튼(게임 방법)을 눌러 버린다
+    this.root.querySelector('#ts').addEventListener('click', () => { this.h.onUnlock?.(); sfx('open'); this.menu(); }, { once: true });
   }
 
   frame(inner, cls = '') {
@@ -146,6 +147,12 @@ export class Screens {
       this.root.querySelector('.title-screen').insertAdjacentHTML('beforeend', '<div class="menu-wrap" id="mw"></div>');
       this.root.querySelector('.tap')?.remove();
       this.root.querySelector('.ver')?.remove();
+    }
+    // 화면이 바뀐 직후 따라오는 유령 클릭은 무시
+    this.shownAt = performance.now();
+    if (!this.ghostGuard) {
+      this.ghostGuard = true;
+      this.root.addEventListener('click', e => { if (performance.now() - this.shownAt < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
     }
     const logo = this.root.querySelector('.logo');
     if (logo) logo.classList.add('small');
