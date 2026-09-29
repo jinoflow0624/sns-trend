@@ -12,19 +12,22 @@ export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? 
 
 const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
+// 채널 음량: 슬라이더가 같은 값이면 효과음이 배경음악보다 또렷하게(약 6dB) 크게 들리도록 맞춘 비율.
+// 효과음이 날 때는 배경음악을 잠깐 DUCK 만큼 낮춰(더킹) 효과음이 묻히지 않게 한다.
+const BGM_LEVEL = 0.3, SFX_LEVEL = 2.2, DUCK = 0.6;
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* 저장 불가 */ }
 export const audioSettings = () => ({ ...settings });
 export function setAudio(patch) {
   Object.assign(settings, patch);
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* 무시 */ }
-  if (bgmGain) bgmGain.gain.value = settings.bgm * 0.5;
-  if (sfxGain) sfxGain.gain.value = settings.sfx * 0.6;
+  if (bgmGain) bgmGain.gain.value = settings.bgm * BGM_LEVEL;
+  if (sfxGain) sfxGain.gain.value = settings.sfx * SFX_LEVEL;
 }
 export function buzz(ms = 20) {
   if (settings.vibrate && navigator.vibrate) try { navigator.vibrate(ms); } catch { /* 무시 */ }
 }
 
-let ctx = null, master = null, bgmGain = null, sfxGain = null, noiseBuf = null;
+let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
 const waves = {};
 
 // 브라우저는 사용자 조작 전 소리를 막는다 — 첫 터치 때 연다
@@ -37,8 +40,9 @@ export function unlock() {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     master.connect(comp).connect(ctx.destination);
-    bgmGain = ctx.createGain(); bgmGain.gain.value = settings.bgm * 0.5; bgmGain.connect(master);
-    sfxGain = ctx.createGain(); sfxGain.gain.value = settings.sfx * 0.6; sfxGain.connect(master);
+    duckGain = ctx.createGain(); duckGain.connect(master);
+    bgmGain = ctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(duckGain);
+    sfxGain = ctx.createGain(); sfxGain.gain.value = settings.sfx * SFX_LEVEL; sfxGain.connect(master);
     waves.p12 = pulseWave(0.125);
     waves.p25 = pulseWave(0.25);
     waves.p50 = pulseWave(0.5);
@@ -48,6 +52,16 @@ export function unlock() {
   }
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
+}
+
+// 효과음이 울리는 동안 배경음악을 살짝 내렸다가 끝나면 부드럽게 되돌린다
+let duckUntil = 0;
+function duck(t, dur) {
+  duckUntil = Math.max(duckUntil, t + dur);
+  const g = duckGain.gain;
+  g.cancelScheduledValues(t);
+  g.setTargetAtTime(DUCK, t, 0.015);
+  g.setTargetAtTime(1, duckUntil + 0.05, 0.15);
 }
 
 // 듀티비 있는 펄스파 (푸리에 급수)
@@ -84,6 +98,7 @@ function voice(dest, { type = 'p25', f, t, dur, vol = 0.2, slide = null, vib = 0
   g.gain.linearRampToValueAtTime(0.0001, t + dur);
   o.connect(g).connect(dest);
   o.start(t); o.stop(t + dur + 0.02);
+  if (dest === sfxGain) duck(t, dur);
 }
 
 function noise(dest, { t, dur, vol = 0.2, hp = 800, lp = 12000 }) {
@@ -96,6 +111,7 @@ function noise(dest, { t, dur, vol = 0.2, hp = 800, lp = 12000 }) {
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(hpf).connect(lpf).connect(g).connect(dest);
   s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  if (dest === sfxGain) duck(t, dur);
 }
 
 function drum(dest, kind, t) {
@@ -435,8 +451,8 @@ export const sfx = {
   boom(power = 1) {
     if (!unlock()) return;
     const t = ctx.currentTime;
-    voice(sfxGain, { type: 'tri', f: 180, slide: 30, t, dur: 0.35 + power * 0.15, vol: 0.6 });
-    noise(sfxGain, { t, dur: 0.3 + power * 0.25, vol: 0.32, hp: 200, lp: 4000 });
+    voice(sfxGain, { type: 'tri', f: 180, slide: 30, t, dur: 0.35 + power * 0.15, vol: 0.22 });
+    noise(sfxGain, { t, dur: 0.3 + power * 0.25, vol: 0.12, hp: 200, lp: 4000 });
     if (power > 1) seq(['C6', 'G6', 'C7'], 0.05, { type: 'p25', vol: 0.12 });
     buzz(40 + power * 30);
   },
@@ -455,17 +471,17 @@ export const sfx = {
   drum() {
     if (!unlock()) return;
     const t = ctx.currentTime;
-    voice(sfxGain, { type: 'tri', f: 120, slide: 35, t, dur: 0.22, vol: 0.7 });
-    noise(sfxGain, { t, dur: 0.12, vol: 0.18, hp: 100, lp: 1200 });
+    voice(sfxGain, { type: 'tri', f: 120, slide: 35, t, dur: 0.22, vol: 0.25 });
+    noise(sfxGain, { t, dur: 0.12, vol: 0.07, hp: 100, lp: 1200 });
     buzz(35);
   },
   // 보스 등장 — 칼로 베는 소리 + 낮은 굉음
   slash() {
     if (!unlock()) return;
     const t = ctx.currentTime;
-    noise(sfxGain, { t, dur: 0.18, vol: 0.3, hp: 3000, lp: 12000 });
-    voice(sfxGain, { type: 'tri', f: 90, slide: 30, t: t + 0.05, dur: 0.9, vol: 0.6 });
-    voice(sfxGain, { type: 'p50', f: 110, slide: 55, t: t + 0.05, dur: 0.8, vol: 0.08 });
+    noise(sfxGain, { t, dur: 0.18, vol: 0.11, hp: 3000, lp: 12000 });
+    voice(sfxGain, { type: 'tri', f: 90, slide: 30, t: t + 0.05, dur: 0.9, vol: 0.22 });
+    voice(sfxGain, { type: 'p50', f: 110, slide: 55, t: t + 0.05, dur: 0.8, vol: 0.03 });
     buzz(90);
   },
 };
