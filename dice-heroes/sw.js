@@ -6,7 +6,7 @@
 const CACHE = 'dh-cache';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
-  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'fireconfig.js', 'manifest.webmanifest',
+  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'fireconfig.js', 'fire.js', 'live.js', 'env.js', 'privacy.html', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
   'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
@@ -29,8 +29,9 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;   // Firebase 등 외부 요청은 건드리지 않는다
   e.respondWith((async () => {
     try {
-      // 페이지 이동 요청(navigate)에 옵션을 붙이면 오류가 나서 주소로 새 요청을 만든다
-      const res = await fetch(new Request(req.url, { cache: 'no-store', credentials: 'same-origin' }));
+      // 페이지 이동 요청(navigate)에 옵션을 붙이면 오류가 나서 주소로 새 요청을 만든다.
+      // no-cache: 매번 서버에 '바뀌었나' 묻고, 안 바뀌었으면 304(본문 없음)로 받아 전송량을 아낀다
+      const res = await fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }));
       if (res.ok) {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});

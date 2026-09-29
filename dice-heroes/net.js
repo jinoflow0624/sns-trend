@@ -7,12 +7,19 @@
 // 백엔드 두 가지:
 //   firebase — 실제 서비스. 아콰이어 온라인과 같은 Firebase 프로젝트, 경로 rooms/DH-코드
 //   local    — 같은 브라우저의 탭끼리 (BroadcastChannel). 인터넷 없이 흐름을 시험할 때 ?net=local
+//
+// 배포판(env.js 'prod')은 전용 Firebase 에 익명 로그인하고, 보안 규칙(dice-heroes-prod/database.rules.json)이
+// 방 구성원만 게임 상태를 바꿀 수 있게 막는다. 그래서 방을 만들 때 meta(방장·시작 여부)와 members(구성원)를
+// 함께 쓰고, 들어갈 때 먼저 members 에 자기 이름을 올린다. 식별 토큰은 로그인 번호(uid)다.
+import { PROD, fireApp, signIn, myUid } from './fire.js';
+
 
 const PREFIX = 'DH-';
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const SEEN_MS = 8000;       // 살아 있다고 알리는 주기
 export const ABSENT_MS = 20000;    // 이만큼 소식이 없으면 '연결 끊김'으로 보인다
 export const DROP_MS = 60000;      // 이만큼 돌아오지 않으면 봇으로 바뀐다 (1대1 대전은 기권패)
+const STALE_MS = 6 * 3600 * 1000;  // 배포판: 이만큼 쓰지 않은 방은 지운다
 
 export function makeCode(len = 5) {
   const buf = new Uint32Array(len);
@@ -23,6 +30,7 @@ export const normalizeCode = raw => (raw || '').toUpperCase().replace(/[^A-Z0-9]
 
 // 기기마다 한 번 만드는 식별 토큰 (재접속해도 같은 자리)
 export function myToken() {
+  if (myUid()) return myUid();
   try {
     let t = localStorage.getItem('diceheroes.token');
     if (!t) { t = makeCode(12); localStorage.setItem('diceheroes.token', t); }
@@ -92,12 +100,47 @@ class LocalBackend {
 
 // ── Firebase 백엔드 ──────────────────────────────────────────────────────────
 class FirebaseBackend {
-  constructor(fb, db) { this.kind = 'firebase'; this.fb = fb; this.db = db; }
+  constructor(fb, db) { this.kind = 'firebase'; this.fb = fb; this.db = db; this.started = {}; }
   ref(code, sub = '') { return this.fb.ref(this.db, `rooms/${PREFIX}${code}${sub}`); }
   async exists(code) { return (await this.fb.get(this.ref(code, '/state'))).exists(); }
   async create(code, room) {
     const { seen, ...rest } = room;
-    await this.fb.set(this.ref(code), { state: JSON.stringify(rest), lastActive: Date.now(), seen: seen || {} });
+    const now = Date.now();
+    await this.fb.set(this.ref(code), {
+      state: JSON.stringify(rest), lastActive: now, seen: seen || {},
+      meta: { host: room.host, started: !!room.started, createdAt: now },
+      members: { [room.host]: true },
+    });
+    this.started[code] = !!room.started;
+    if (PROD) {
+      this.fb.set(this.fb.ref(this.db, `roomIndex/${PREFIX}${code}`), now).catch(() => {});
+      this.sweep().catch(() => {});
+    }
+  }
+  // 들어가기 전에 구성원 명단에 올린다 (배포판 규칙: 시작한 방엔 새로 못 들어가고, 원래 구성원만 다시 들어간다)
+  async join(code, token) {
+    try { await this.fb.set(this.ref(code, `/members/${token}`), true); return { ok: true }; }
+    catch (err) {
+      if (explain(err).reason === 'permission') return { ok: false, failure: '이미 시작한 방입니다.' };
+      return { ok: false, failure: explain(err).text };
+    }
+  }
+  // 오래 쓰지 않은 방(6시간)을 정리한다 — 방을 만들 때마다 몇 개씩. 무료 요금제 저장 용량을 아끼려는 것
+  async sweep() {
+    const { fb, db } = this;
+    const cut = Date.now() - STALE_MS;
+    const snap = await fb.get(fb.query(fb.ref(db, 'roomIndex'), fb.orderByValue(), fb.endAt(cut), fb.limitToFirst(5)));
+    const jobs = [];
+    snap.forEach(child => {
+      const key = child.key;
+      jobs.push((async () => {
+        const last = (await fb.get(fb.ref(db, `rooms/${key}/lastActive`))).val();
+        if (last && last > cut) return fb.set(fb.ref(db, `roomIndex/${key}`), last);   // 아직 쓰는 방: 색인만 고친다
+        if (last) await fb.remove(fb.ref(db, `rooms/${key}`));
+        await fb.remove(fb.ref(db, `roomIndex/${key}`));
+      })().catch(() => {}));
+    });
+    await Promise.all(jobs);
   }
   // RTDB 트랜잭션은 로컬 캐시가 비어 있으면 null 로 먼저 실행된다 — 그땐 서버 값을 읽고 다시 시도
   async txn(code, mutate) {
@@ -123,7 +166,7 @@ class FirebaseBackend {
           if (failure || next === undefined) return;
           return JSON.stringify(next);
         }, { applyLocally: true });
-        if (res.committed) { this.fb.set(this.ref(code, '/lastActive'), Date.now()).catch(() => {}); return { ok: true }; }
+        if (res.committed) { this.afterCommit(code, res.snapshot.val()); return { ok: true }; }
         if (failure) return { ok: false, failure };
         if (!sawNull) return { ok: true };   // 바꿀 것이 없었음
         await new Promise(r => setTimeout(r, 150 * (i + 1)));
@@ -132,6 +175,19 @@ class FirebaseBackend {
     } finally {
       unsub?.();
     }
+  }
+  // 적용한 뒤: 마지막 활동 시각을 남기고, 시작 여부가 바뀌었으면 meta 에도 적는다 (규칙이 이것으로 새 참가를 막는다)
+  afterCommit(code, str) {
+    const now = Date.now();
+    const up = { [`rooms/${PREFIX}${code}/lastActive`]: now };
+    if (PROD) up[`roomIndex/${PREFIX}${code}`] = now;
+    let started = null;
+    try { started = !!JSON.parse(str).started; } catch {}
+    if (started !== null && started !== this.started[code]) {
+      up[`rooms/${PREFIX}${code}/meta/started`] = started;
+      this.started[code] = started;
+    }
+    this.fb.update(this.fb.ref(this.db), up).catch(() => {});
   }
   async touch(code, token) {
     await this.fb.set(this.ref(code, `/seen/${token}`), Date.now()).catch(() => {});
@@ -162,7 +218,7 @@ export function explain(err) {
   const msg = String(err?.message || err || '');
   const code = String(err?.code || '');
   if (/permission|PERMISSION_DENIED/i.test(msg + code)) {
-    return { reason: 'permission', text: '서버가 접근을 거부했습니다. Firebase 데이터베이스 규칙에 rooms 경로가 열려 있는지 확인해 주세요.' };
+    return { reason: 'permission', text: PROD ? '서버가 요청을 거부했습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.' : '서버가 접근을 거부했습니다. Firebase 데이터베이스 규칙에 rooms 경로가 열려 있는지 확인해 주세요.' };
   }
   if (/timeout/i.test(msg)) {
     return { reason: 'timeout', text: '서버 응답이 늦습니다. 네트워크 상태를 확인하고 다시 눌러 주세요.' };
@@ -187,16 +243,14 @@ export async function getBackend() {
   }
   try {
     fbInit ||= (async () => {
-      const { firebaseConfig } = await import('./fireconfig.js');
-      const fb = await import('./vendor/firebase.js');
-      const app = fb.initializeApp(firebaseConfig, 'diceheroes');
+      const { fb, app, emu } = await fireApp();
       const db = fb.getDatabase(app);
       // 로컬 에뮬레이터로 점검할 때: ?fbemu=127.0.0.1:9100
-      const emu = new URLSearchParams(location.search).get('fbemu');
       if (emu) { const [h, p] = emu.split(':'); fb.connectDatabaseEmulator(db, h, Number(p)); }
       return { fb, db };
     })().catch(err => { fbInit = null; throw err; });
     const { fb, db } = await fbInit;
+    await signIn();   // 배포판만 (테스트판은 바로 넘어간다)
     // 연결 확인: 읽기 권한과 연결을 한 번에 본다. 모바일 첫 연결은 느릴 수 있어 넉넉히 기다린다.
     await Promise.race([
       fb.get(fb.ref(db, 'rooms/DH-PING/state')),

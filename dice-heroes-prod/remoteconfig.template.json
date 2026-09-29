@@ -1,0 +1,19 @@
+{
+  "parameters": {
+    "notice": {
+      "defaultValue": { "useInAppDefault": true },
+      "description": "타이틀 화면 공지 한 줄 (비우면 안 보임)",
+      "valueType": "STRING"
+    },
+    "maintenance": {
+      "defaultValue": { "value": "false" },
+      "description": "true 면 온라인 방을 잠시 닫는다 (서버 점검)",
+      "valueType": "BOOLEAN"
+    },
+    "min_version": {
+      "defaultValue": { "useInAppDefault": true },
+      "description": "이보다 낮은 버전이면 업데이트 안내 (예: 1.0.0)",
+      "valueType": "STRING"
+    }
+  }
+}

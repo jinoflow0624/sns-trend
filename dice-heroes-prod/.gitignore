@@ -1,0 +1,6 @@
+dist/
+node_modules/
+twa/app/
+twa/*.keystore
+twa/*.jks
+*.log

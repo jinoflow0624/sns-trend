@@ -11,6 +11,8 @@ import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
+import { PROD, deleteAccount } from './fire.js';
+import { liveConfig, older, setAnalytics, track } from './live.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -25,7 +27,11 @@ const store = {
 };
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
-const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, ...(store.get(KEYS.prefs) || {}) };
+const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, ...(store.get(KEYS.prefs) || {}) };
+if (prefs.analytics) setAnalytics(true);
+// 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
+let live = { notice: '', maintenance: false, min_version: '' };
+liveConfig().then(v => { live = v; if (screen === 'title') showLiveBar(); });
 const FX_RATE = { normal: 1, fast: 1.8, min: 3 };
 const fxRate = () => FX_RATE[prefs.fx] || 1;
 function applyPrefs() {
@@ -138,11 +144,23 @@ function showTitle() {
           <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
       </nav>` : `<button class="touch" data-act="touch">화면을 터치하세요</button>`}
+      <div id="live-bar"></div>
       <footer class="ver">v${GAME.version} · © ${GAME.year} ${esc(GAME.studio)}</footer>
     </div>
   </div>`;
+  showLiveBar();
   setStage(titleScene(app.querySelector('.scene')));
   if (unlocked) playBgm('title');
+}
+
+function showLiveBar() {
+  const el = document.getElementById('live-bar');
+  if (!el) return;
+  const lines = [];
+  if (live.min_version && older(GAME.version, live.min_version)) lines.push(`${ico('warn', 'xs')} 새 버전이 나왔어요. 스토어에서 업데이트해 주세요.`);
+  if (live.maintenance) lines.push(`${ico('warn', 'xs')} 서버 점검 중이라 온라인 방을 잠시 쉬어요.`);
+  if (live.notice) lines.push(esc(live.notice));
+  el.innerHTML = lines.map(l => `<p class="live-note">${l}</p>`).join('');
 }
 
 // ── 스토리 ───────────────────────────────────────────────────────────────────
@@ -368,6 +386,10 @@ async function joinRoom(code) {
   catch (err) { const w = Net.explain(err); return showOnlineMenu(w.text, String(err?.code || err?.message || '').slice(0, 120)); }
   if (!found) return showOnlineMenu(`방 ${code}을(를) 찾지 못했습니다. 코드를 확인해 주세요.`);
   const token = Net.myToken();
+  if (backend.join) {                                                     // 구성원 명단에 먼저 올린다 (배포판 보안 규칙)
+    const j = await backend.join(code, token);
+    if (!j.ok) return showOnlineMenu(j.failure);
+  }
   const res = await backend.txn(code, (room, fail) => {
     if (room.seats.some(s => s.token === token)) {                       // 재접속
       if (room.game?.players.find(p => p.token === token)?.dropped) return fail('연결이 끊긴 지 1분이 지나 봇이 대신 진행하고 있어요.');
@@ -396,6 +418,7 @@ function enterRoom(backend, code) {
   const beat = () => {
     backend.touch(code, token);
     if (screen !== 'game' || !S || ui.busy) return;
+    if (!online.settled && !online.pumping && online.latest === undefined) return settle();
     checkDrops();
     const pres = presenceSig();
     if (pres !== online.pres) { online.pres = pres; render(); }
@@ -577,12 +600,15 @@ async function onRoom(room) {
   // (예전엔 8초마다 모든 화면을 다시 그려서 창이 다시 열리는 것처럼 깜박이고 버벅였다)
   const sig = `${room.fxId}|${JSON.stringify(room.game)}`;
   if (screen === 'game' && S && online.sig === sig) {
+    // 연출 도중 접속 신호만 먼저 와서 마무리(화면 갱신·차례 알림)를 건너뛰었으면 지금 한다
+    if (!online.settled && !ui.busy) return settle();
     checkDrops();
     const pres = presenceSig();
     if (pres !== online.pres && !ui.busy) { online.pres = pres; render(); }
     return;
   }
   online.sig = sig;
+  online.settled = false;
   const prev = S && screen === 'game' ? S : null;
   const g = room.game;
   if (!prev) {
@@ -614,6 +640,12 @@ async function onRoom(room) {
   ui.busy = false;
   online.pres = presenceSig();
   if (online.latest !== undefined) return;       // 더 새 상태가 기다리고 있으면 바로 그걸 처리
+  settle();
+}
+
+// 연출이 끝난 뒤 한 번: 화면을 다시 그리고 결과 · 레벨업 · 차례 알림 · 봇 진행을 챙긴다
+function settle() {
+  online.settled = true;
   render();
   if (S.ended) return showResults();
   const cur = E.current(S);
@@ -736,6 +768,7 @@ function startGame(state) {
   setStage(null);
   layer.innerHTML = '';
   playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
+  if (!S.tutorial && (S.round || 1) <= 1) track('game_start', { mode: S.mode, online: online ? 1 : 0, players: S.players.length });
   step();
 }
 
@@ -1603,6 +1636,7 @@ function recordProfile() {
   const grade = coop ? E.coopGrade(S) : null;
   const win = coop ? !!S.boss.won : E.ranking(S)[0].i === idx || E.ranking(S)[0].total === score && S.forfeit !== idx;
   prof.recorded = [...prof.recorded, key].slice(-30);
+  track('game_end', { mode: S.mode, online: online ? 1 : 0, win: win ? 1 : 0, cls: me.cls, ...(coop ? { boss: S.boss.id, diff: S.boss.diff } : {}) });
   prof.games++;
   if (win) prof.wins++;
   if (!prof.best || score > prof.best.score) prof.best = { score, cls: me.cls, mode: S.mode, date: Date.now() };
@@ -1712,6 +1746,8 @@ function showSettings(inGame = false) {
     <label class="set-row">글자 크게<input id="set-big" type="checkbox" ${prefs.bigText ? 'checked' : ''}></label>
     <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
+    ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
+    ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
@@ -1846,6 +1882,7 @@ function endTutorial(skipped) {
   tut = null;
   layer.innerHTML = '';
   markSeen('tutorial');
+  track('tutorial_complete');
   coachEl.innerHTML = '';
   S = null;
   store.del(KEYS.save);
@@ -2068,6 +2105,24 @@ function onAct(act, t) {
   if (act === 'noop') return;
   if (act === 'close' || act === 'close-bg') { sfx.back(); layer.innerHTML = ''; return; }
   if (act === 'settings') { sfx.select(); return showSettings(false); }
+  if (act === 'wipe') {
+    sfx.select();
+    layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
+      <h2>내 데이터 지우기</h2>
+      <p class="hint">이 기기에 저장된 진행 상황 · 대시보드 기록 · 설정${PROD ? '과 서버의 익명 로그인 기록' : ''}을 모두 지웁니다. 되돌릴 수 없어요.</p>
+      <div class="modal-actions"><button class="pbtn" data-act="settings">취소</button><button class="pbtn danger" data-act="wipe-yes">모두 지우기</button></div>
+    </div></div>`;
+    return;
+  }
+  if (act === 'wipe-yes') {
+    leaveRoom(false);
+    setAnalytics(false);
+    deleteAccount().catch(err => console.warn('[wipe]', err)).finally(() => {
+      try { Object.keys(localStorage).filter(k => k.startsWith('diceheroes') || k.startsWith('dh.')).forEach(k => localStorage.removeItem(k)); } catch {}
+      location.reload();
+    });
+    return;
+  }
   if (act === 'credits') { sfx.select(); return showCredits(); }
   if (act === 'dashboard') { sfx.select(); return showDashboard(); }
   if (act === 'pref-fx') {
@@ -2098,7 +2153,11 @@ function onAct(act, t) {
   if (act === 'story') { sfx.select(); layer.innerHTML = ''; return showStory(() => showTitle()); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
   if (act === 'new') { sfx.select(); return showSetup(); }
-  if (act === 'online') { sfx.select(); return showOnlineMenu(); }
+  if (act === 'online') {
+    sfx.select();
+    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 혼자 하기는 그대로 할 수 있어요.', 2200);
+    return showOnlineMenu();
+  }
   if (act === 'room-create') { sfx.select(); return createRoom(); }
   if (act === 'room-join') { sfx.select(); return joinRoom(document.getElementById('join-code')?.value); }
   if (act === 'resume') {
@@ -2173,6 +2232,7 @@ document.addEventListener('input', e => {
   if (id === 'set-bgm') setAudio({ bgm: Number(e.target.value) });
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') setAudio({ vibrate: e.target.checked });
+  if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
     if (id === 'set-big') prefs.bigText = e.target.checked;
     if (id === 'set-ca') prefs.colorAssist = e.target.checked;
@@ -2224,4 +2284,4 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
-if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; } };
+if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; } };
