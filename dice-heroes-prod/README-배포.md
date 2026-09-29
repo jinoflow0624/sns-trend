@@ -4,7 +4,7 @@
 
 | | 테스트판 | 배포판 |
 |---|---|---|
-| 주소 | GitHub Pages `…/sns-trend/dice-heroes/` | Firebase Hosting `https://<프로젝트>.web.app` |
+| 주소 | GitHub Pages `…/sns-trend/dice-heroes/` | Firebase Hosting `https://diceheroes-4fbbb.web.app` |
 | Firebase | 아콰이어와 같이 쓰는 프로젝트 (`acquire-950a0`) | **다이스 히어로즈 전용 프로젝트** |
 | 로그인 | 없음 (기기 토큰) | 익명 로그인 (가입 없이 기기마다 고유 번호) |
 | DB 보안 규칙 | 열려 있음 (시험용) | `database.rules.json` — 방 구성원만 게임 상태를 바꾼다 |
@@ -39,7 +39,7 @@ dice-heroes-prod/
    → 나오는 `firebaseConfig` 값을 `fireconfig.prod.js` 에 붙여 넣기 (`measurementId` 포함)
 5. `.firebaserc` 의 `YOUR-FIREBASE-PROJECT-ID` 를 프로젝트 ID 로 바꾸기
 6. (선택, 권장) **App Check** → 웹 앱 → reCAPTCHA v3 등록
-   - https://www.google.com/recaptcha/admin 에서 v3 사이트 만들기 (도메인: `<프로젝트>.web.app`, `<프로젝트>.firebaseapp.com`)
+   - https://www.google.com/recaptcha/admin 에서 v3 사이트 만들기 (도메인: `diceheroes-4fbbb.web.app`, `diceheroes-4fbbb.firebaseapp.com`)
    - 사이트 키 → `fireconfig.prod.js` 의 `APP_CHECK_KEY`, 비밀 키 → Firebase App Check 화면에 입력
    - 며칠 지표를 본 뒤 Realtime Database 에 대해 **적용(Enforce)** 을 누른다
 
@@ -88,7 +88,7 @@ firebase emulators:start --only auth,database --project demo-diceheroes
 3. `twa/twa-manifest.json` 의 `YOUR-FIREBASE-PROJECT-ID` 를 실제 주소로 바꾼 뒤
    ```bash
    cd dice-heroes-prod/twa
-   bubblewrap init --manifest https://<프로젝트>.web.app/manifest.webmanifest   # 기존 twa-manifest.json 값 확인
+   bubblewrap init --manifest https://diceheroes-4fbbb.web.app/manifest.webmanifest   # 기존 twa-manifest.json 값 확인
    bubblewrap build        # 서명 키(android.keystore)를 새로 만든다 — 비밀번호 꼭 보관! 저장소에 올리지 말 것
    ```
    → `app-release-bundle.aab` 생성
@@ -98,7 +98,7 @@ firebase emulators:start --only auth,database --project demo-diceheroes
    (그래야 앱 위쪽에 주소창이 안 보이고 전체 화면으로 열림)
 6. 스토어 등록 정보: 앱 이름 · 짧은/긴 설명 · 아이콘 512 · 그래픽 이미지 1024×500 · 스크린샷 4장 이상
 7. **앱 콘텐츠** 설문
-   - 개인정보처리방침 URL: `https://<프로젝트>.web.app/privacy.html` (문의 이메일 채워 넣기)
+   - 개인정보처리방침 URL: `https://diceheroes-4fbbb.web.app/privacy.html` (문의 이메일 채워 넣기)
    - 데이터 보안: “기기 또는 기타 ID(익명 ID) — 앱 기능용, 암호화 전송, 삭제 요청 가능(앱 안 ‘내 데이터 지우기’)”,
      Analytics 동의 시 “앱 활동 — 분석용”
    - 콘텐츠 등급(IARC) 설문 · 타겟 연령(13세 이상 권장) · 광고 없음
