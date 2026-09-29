@@ -935,7 +935,7 @@ function render() {
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${cur.flip}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 ? '' : 'disabled'}>
         ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${cur.nudge}</b></button>
-      <button class="pbtn sheet-btn${combos.length ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
+      <button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
         ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
     </section>
     <div class="tip">${absent ? `<span>${esc(cur.name)} 님 연결 끊김 · 1분 안에 돌아오지 않으면 ${S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행'}</span>` : tip(cur, myTurn, okQuests, combos)}</div>
@@ -1017,10 +1017,11 @@ function autoSheet(myTurn, combos) {
   const out = S.rollsLeft === 0 && !ui.sheetLast;
   combos.forEach(c => ui.sheetSeen.add(c));
   if (out) ui.sheetLast = true;
-  // 새 족보가 완성되면 창을 띄우지 않고 가운데에 작게 알리기만 한다 (족보 완성 버튼이 깜박인다).
-  // 튜토리얼에서 기록을 안내하는 단계와 굴림을 다 쓴 때만 점수표를 바로 띄운다.
-  if (fresh.length && !tut) { sfx.combo(); notice(`완성 가능한 족보 ${combos.length}개`); }
-  if (((fresh.length && tut) || out) && !ui.sheet) {
+  // 점수표는 사용자가 '족보 완성' 버튼으로 직접 연다. 새 족보가 완성되거나 굴림을 다 쓰면
+  // 가운데에 작게 알리기만 한다 (족보 완성 버튼이 깜박인다). 튜토리얼의 기록 안내 단계에서만 바로 띄운다.
+  if (!tut && fresh.length) { sfx.combo(); notice(`완성 가능한 족보 ${combos.length}개`); }
+  else if (!tut && out) notice('굴림을 다 썼어요 · 족보 완성에서 기록');
+  if (fresh.length && tut && !ui.sheet) {
     ui.sheet = true;
     ui.view = null;
     if (fresh.length) sfx.combo();
