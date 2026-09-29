@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -275,7 +275,10 @@ export class DiceTray {
 
   // 디자인 렌더로 만든 면 그림 (불러오면 다시 그린다)
   imageTex(url) {
-    const t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
+    const img = READY.get(url);
+    let t;
+    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; }
+    else t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
@@ -293,6 +296,18 @@ export class DiceTray {
     this.dirty = true;
     if (diceId !== this.diceSkin) {
       this.diceSkin = diceId;
+      // 그림 스킨은 그림을 다 받은 뒤에 한 번에 바꾼다 (그 사이엔 지금 주사위 그대로 — 빈 면이 번쩍이지 않게)
+      if (this.faceMats[1] && !diceReady(diceId)) {
+        const go = () => { if (this.diceSkin === diceId && this.running) this.applyDice(diceId); };
+        preloadDice(diceId).then(go, go);
+      } else this.applyDice(diceId);
+    }
+    this.applyTray(trayId);
+  }
+
+  applyDice(diceId) {
+    this.dirty = true;
+    {
       const p = dieMatParams(diceId);
       for (let v = 1; v <= 6; v++) {
         const old = this.faceMats[v];
@@ -322,6 +337,9 @@ export class DiceTray {
       this.dice?.forEach(d => { d.outline.visible = this.outlineOn; d.core.visible = this.coreOn; d.mesh.castShadow = !p.clear; });
       this.dice?.forEach(d => this.setFaces(d, d.faces));
     }
+  }
+
+  applyTray(trayId) {
     if (trayId !== this.traySkin) {
       this.traySkin = trayId;
       const st = trayStyle(trayId);

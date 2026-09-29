@@ -1,6 +1,6 @@
 # 주사위 스킨 면 텍스처 만들기 — 디자인 렌더(tools/dice-src/*.webp)에서 눈(또는 숫자)을 지운 바탕을 만들고,
 # 그 렌더에서 오려 낸 눈(또는 새로 새긴 숫자)을 1~6 배치로 다시 얹는다.
-#   python3 tools/make_dice_textures.py   →  assets/dice/<스킨>/<1~6>.webp (512×512)
+#   python3 tools/make_dice_textures.py   →  assets/dice/<스킨>/<1~6>.webp (256×256)
 # 필요: pip install numpy opencv-python-headless pillow
 import os
 import cv2
@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'dice-src')
 OUT = os.path.join(HERE, '..', 'assets', 'dice')
-SIZE = 512
+SIZE = 256
 
 # skins.js 와 같은 눈 배치 (면 비율)
 PIP_POS = {

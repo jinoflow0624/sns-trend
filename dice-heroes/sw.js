@@ -28,6 +28,19 @@ self.addEventListener('activate', e => e.waitUntil(
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;   // Firebase 등 외부 요청은 건드리지 않는다
+  // 그림·음악(assets/)은 캐시에 있으면 바로 쓰고, 뒤에서 조용히 새로 받아 둔다 (스킨을 고르면 바로 보이게)
+  if (new URL(req.url).pathname.includes('/assets/')) {
+    e.respondWith((async () => {
+      const hit = await caches.match(req, { ignoreSearch: true });
+      const fresh = fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); }
+        return res;
+      });
+      if (hit) { e.waitUntil(fresh.catch(() => {})); return hit; }
+      return fresh.catch(() => Response.error());
+    })());
+    return;
+  }
   e.respondWith((async () => {
     try {
       // 페이지 이동 요청(navigate)에 옵션을 붙이면 오류가 나서 주소로 새 요청을 만든다.
