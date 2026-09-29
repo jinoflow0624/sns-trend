@@ -421,6 +421,17 @@ export class DiceTray {
       if (still > 5 && f > 30) break;
     }
 
+    // 공중 회전 더하기: 주사위가 떠 있는 동안에만 정확히 한 바퀴(360°)를 더 돌린다.
+    // 한 바퀴라 착지 자세는 물리 결과 그대로 — 나오는 눈은 바뀌지 않는다. 약 절반의 주사위에만 줘서 제각각 돌게.
+    const AIR = HALF + 0.6;   // 이보다 높으면 공중 (모서리가 바닥을 뚫지 않는 높이)
+    const spins = bodies.map((_, k) => {
+      const cum = [];
+      let n = 0;
+      for (const fr of frames) { if (fr[k][1] > AIR) n++; cum.push(n); }
+      const axis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+      return { cum, total: n, axis, turns: n > 3 && Math.random() < 0.55 ? 1 : 0 };
+    });
+
     // 멈춘 자세에서 위를 향한 면에 엔진 결과를 입힌다
     const last = frames[frames.length - 1];
     bodies.forEach(({ i }, k) => {
@@ -446,7 +457,7 @@ export class DiceTray {
     });
 
     return new Promise(resolve => {
-      this.anim = { frames, bodies, hits, settle, speed, t0: performance.now(), hitIdx: 0, resolve, phase: 'fly' };
+      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now(), hitIdx: 0, resolve, phase: 'fly' };
     });
   }
 
@@ -488,6 +499,11 @@ export class DiceTray {
         const s = a.frames[f][k];
         this.dice[i].mesh.position.set(s[0], s[1], s[2]);
         this.dice[i].mesh.quaternion.set(s[3], s[4], s[5], s[6]);
+        const sp = a.spins[k];
+        if (sp.turns) {
+          const w = sp.cum[f] / sp.total;
+          this.dice[i].mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(sp.axis, Math.PI * 2 * sp.turns * w));
+        }
       });
       while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) this.onHit(a.hits[a.hitIdx++].v);
       if (f >= a.frames.length - 1) {
