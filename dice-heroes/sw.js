@@ -9,6 +9,7 @@ const FILES = [
   'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'fireconfig.js', 'fire.js', 'live.js', 'env.js', 'privacy.html', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
   'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png',
+  'assets/bgm/boss_dragon.ogg',
 ];
 
 self.addEventListener('install', e => e.waitUntil(
