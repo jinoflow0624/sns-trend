@@ -25,7 +25,7 @@ if (conf.includes('REPLACE_ME')) {
   conf = conf.replaceAll('REPLACE_ME', 'demo-diceheroes').replace(/databaseURL: '[^']*'/, "databaseURL: 'http://127.0.0.1:9100?ns=demo-diceheroes-default-rtdb'");
 }
 
-const SKIP = new Set(['test', 'sim', 'node_modules', 'README.md', 'package.json', 'package-lock.json']);
+const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'package.json', 'package-lock.json']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(src, out, { recursive: true, filter: p => !SKIP.has(p.slice(src.length + 1).split(/[\\/]/)[0]) });
