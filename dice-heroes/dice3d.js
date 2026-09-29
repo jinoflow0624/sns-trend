@@ -250,6 +250,29 @@ export class DiceTray {
     return this.env;
   }
 
+  coreMat() {
+    if (this.coreM) return this.coreM;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = '#1C1815'; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = '#4A3A2C'; g.lineWidth = 3;
+    for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(20 + k * 22, 64 + (k % 2 ? 20 : -20), 14, 0, Math.PI * 2); g.stroke(); }
+    g.strokeStyle = '#8A5A34'; g.lineWidth = 2;
+    g.strokeRect(8, 8, 112, 112);
+    this.coreM = new THREE.MeshStandardMaterial({ map: this.canvasTex(c), roughness: 0.45, metalness: 0.9, envMap: this.envMap(), envMapIntensity: 0.6 });
+    return this.coreM;
+  }
+
+  // 만화풍 음영 3단계
+  toonRamp() {
+    if (this.ramp) return this.ramp;
+    const t = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255, 190, 190, 190, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
+    t.minFilter = t.magFilter = THREE.NearestFilter;
+    t.needsUpdate = true;
+    return (this.ramp = t);
+  }
+
   canvasTex(c) {
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
@@ -265,17 +288,27 @@ export class DiceTray {
       const p = dieMatParams(diceId);
       for (let v = 1; v <= 6; v++) {
         const old = this.faceMats[v];
-        const m = new THREE.MeshStandardMaterial({ map: this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId)), roughness: p.roughness, metalness: p.metalness });
-        if (p.env) { m.envMap = this.envMap(); m.envMapIntensity = p.env; }
-        if (p.emissive) m.emissive = new THREE.Color(p.emissive);
-        if (dieGlows(diceId)) {
-          m.emissive = new THREE.Color(0xFFFFFF);
-          m.emissiveMap = this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, true));
-          m.emissiveIntensity = p.glow || 0.8;
+        const face = mode => this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, mode));
+        let m;
+        if (p.toon) {
+          m = new THREE.MeshToonMaterial({ map: face(''), gradientMap: this.toonRamp() });
+        } else {
+          m = new THREE.MeshStandardMaterial({ map: face(''), roughness: p.roughness, metalness: p.metalness });
+          if (p.env) { m.envMap = this.envMap(); m.envMapIntensity = p.env; }
+          if (p.emissive) m.emissive = new THREE.Color(p.emissive);
+          if (p.glow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = face('glow'); m.emissiveIntensity = p.glow; }
+          if (p.bump) { m.bumpMap = face('bump'); m.bumpScale = p.bump; }
         }
+        if (p.cutout) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }        // 구멍 뚫린 금속 골조: 반대편 면이 비쳐 보인다
+        if (p.clear) { m.transparent = true; m.depthWrite = false; m.side = THREE.DoubleSide; }   // 투명: 반대편 눈까지 비친다
+        m.userData.baseTransparent = !!p.clear;
         this.faceMats[v] = m;
-        if (old) { old.map?.dispose(); old.emissiveMap?.dispose(); old.dispose(); }
+        if (old) { old.map?.dispose(); old.emissiveMap?.dispose(); old.bumpMap?.dispose(); old.dispose(); }
       }
+      this.outlineOn = !!p.outline;
+      this.coreOn = !!p.core;
+      this.twinkle = !!p.twinkle;
+      this.dice?.forEach(d => { d.outline.visible = this.outlineOn; d.core.visible = this.coreOn; d.mesh.castShadow = !p.clear; });
       this.dice?.forEach(d => this.setFaces(d, d.faces));
     }
     if (trayId !== this.traySkin) {
@@ -350,7 +383,18 @@ export class DiceTray {
   ensure(n) {
     while (this.dice.length < n) {
       const mesh = new THREE.Mesh(this.geo, STD_FACES.map(v => this.faceMats[v]));
-      mesh.castShadow = true;
+      mesh.castShadow = !this.faceMats[1].userData.baseTransparent;
+      // 만화풍 스킨의 굵은 외곽선 (뒷면만 그린 조금 큰 검은 상자)
+      this.outlineMat ||= new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide });
+      const outline = new THREE.Mesh(this.geo, this.outlineMat);
+      outline.scale.setScalar(1.07);
+      outline.visible = !!this.outlineOn;
+      mesh.add(outline);
+      // 오픈하츠 스킨의 속 기계장치 (어두운 금속 심)
+      const core = new THREE.Mesh(this.geo, this.coreMat());
+      core.scale.setScalar(0.58);
+      core.visible = !!this.coreOn;
+      mesh.add(core);
       const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), this.glowGold);
       glow.rotation.x = -Math.PI / 2;
       glow.position.y = 0.02;
@@ -366,7 +410,7 @@ export class DiceTray {
       aura.scale.setScalar(1.14);
       aura.visible = false;
       this.scene.add(mesh, glow, ring, aura);
-      this.dice.push({ mesh, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, boxed: false, hop: null, value: 0, lift: 0, morph: null });
+      this.dice.push({ mesh, outline, core, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, boxed: false, hop: null, value: 0, lift: 0, morph: null });
     }
     while (this.dice.length > n) {
       const d = this.dice.pop();
@@ -410,7 +454,7 @@ export class DiceTray {
       this.setFaces(d, remap(2, v));
       d.mesh.quaternion.identity();
       d.mesh.position.set(this.slotX(i, n), HALF, this.homeZ(d));
-      d.mesh.material.forEach(m => (m.transparent = false));
+      d.mesh.material.forEach(m => (m.transparent = !!m.userData.baseTransparent));
       d.blank = !values[i];
     });
     this.refreshGlow();
@@ -538,7 +582,7 @@ export class DiceTray {
         b.angularVelocity.set(live.angularVelocity.x + (Math.random() - 0.5) * 20, live.angularVelocity.y + (Math.random() - 0.5) * 20, live.angularVelocity.z + (Math.random() - 0.5) * 20);
         b.addEventListener('collide', e => {
           const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-          if (v > 2.2) hits.push({ f: frames.length, v });
+          if (v > 2.2) hits.push({ f: frames.length, v, i });
         });
         world.addBody(b);
         bodies.push({ i, b });
@@ -558,7 +602,7 @@ export class DiceTray {
       b.angularVelocity.set((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 30, 35 + Math.random() * 30);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-        if (v > 2.2) hits.push({ f: frames.length, v });
+        if (v > 2.2) hits.push({ f: frames.length, v, i });
       });
       world.addBody(b);
       bodies.push({ i, b });
@@ -640,7 +684,7 @@ export class DiceTray {
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
         const t = performance.now();
-        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v); }
+        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); }
       });
       world.addBody(b);
       bodies.push({ i, b });
@@ -728,7 +772,8 @@ export class DiceTray {
     const t = performance.now();
     // 배터리 절약: 움직이는 게 없으면 그리기를 쉰다 (빛나는 주사위만 있으면 초당 10번)
     const moving = this.anim || this.live || this.shrink || this.dice.some(d => d.morph || d.wobble || d.hop || d.auraI > 0.01 || Math.abs(this.liftWant(d) - d.lift) > 0.002);
-    const glowing = this.dice.some(d => d.glow.visible);
+    const glowing = this.twinkle || this.dice.some(d => d.glow.visible);
+    if (this.twinkle) for (let v = 1; v <= 6; v++) this.faceMats[v].emissiveIntensity = 0.75 + Math.sin(t / 380 + v * 1.7) * 0.3;   // 별빛이 반짝인다
     if (!moving && !this.dirty) {
       if (!glowing || t - (this.lastDraw || 0) < 100) return;
     }
@@ -749,7 +794,7 @@ export class DiceTray {
           this.dice[i].mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(sp.axis, Math.PI * 2 * sp.turns * w));
         }
       });
-      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) this.onHit(a.hits[a.hitIdx++].v);
+      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); }
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
         a.t1 = t + 50;
@@ -811,7 +856,7 @@ export class DiceTray {
       d.aura.position.copy(d.mesh.position);
       d.aura.quaternion.copy(d.mesh.quaternion);
       d.aura.scale.setScalar(1.14 * scale);
-      d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank; });
+      d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank || !!m.userData.baseTransparent; });
     });
     this.renderer.render(this.scene, this.camera);
   }

@@ -865,7 +865,7 @@ function ensureTray() {
 async function makeTray() {
   const opts = {
     onPick: i => onAct('die', { dataset: { i: String(i) } }),
-    onHit: v => sfx.clack(v),
+    onHit: (v, i) => diceHit(v, i, tray),
     onThrow: () => sfx.shake(),
     onBox: () => sfx.box(),
     onLong: i => dieInfo(i),
@@ -1821,6 +1821,29 @@ function showDashboard() {
   </div>`;
 }
 
+// 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
+let heartT = 0;
+function diceHit(v, i, t) {
+  const skin = diceSkin(prefs.diceSkin);
+  sfx.hit(skin.sound, v);
+  if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
+  const now = performance.now();
+  if (now - heartT < 90) return;
+  heartT = now;
+  const p = t.screenPos(i);
+  for (let k = 0; k < 2 + (v > 8 ? 1 : 0); k++) {
+    const h = document.createElement('span');
+    h.className = 'heart-pop';
+    h.textContent = '♥';
+    h.style.left = `${p.x + (Math.random() - 0.5) * 30}px`;
+    h.style.top = `${p.y - 10}px`;
+    h.style.setProperty('--dx', `${(Math.random() - 0.5) * 60}px`);
+    h.style.fontSize = `${14 + Math.random() * 12}px`;
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 900);
+  }
+}
+
 // ── 꾸미기 (주사위 · 트레이 스킨) ─────────────────────────────────────────────
 // 위쪽에 실제 3D 트레이 미리보기, 아래에 스킨 목록. 고르면 바로 미리보기와 게임 트레이에 입혀진다.
 let skinPreview = null;
@@ -1865,7 +1888,7 @@ async function showSkins(tab = 'dice') {
     if (!webglOK()) { host.classList.add('flat'); return; }
     const { DiceTray } = await import('./dice3d.js');
     if (!host.isConnected) return;
-    skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: v => sfx.clack(v) });
+    skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }

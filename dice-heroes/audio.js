@@ -136,6 +136,20 @@ function noise(dest, { t, dur, vol = 0.2, hp = 800, lp = 12000 }) {
   if (dest === sfxGain) duck(t, dur);
 }
 
+// 맑게 울리고 서서히 사라지는 소리 (방울·유리·금화·별빛). 칩튠 엔벨로프 대신 지수 감쇠
+function ping(dest, { f, t, dur = 0.3, vol = 0.1, type = 'sine', slide = null }) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  if (type === 'sine' || type === 'square' || type === 'triangle') o.type = type; else o.setPeriodicWave(waves[type]);
+  o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + Math.min(dur, 0.12));
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(dest);
+  o.start(t); o.stop(t + dur + 0.02);
+  if (dest === sfxGain) duck(t, dur);
+}
+
 function drum(dest, kind, t) {
   if (kind === 'K') voice(dest, { type: 'tri', f: 160, slide: 40, t, dur: 0.14, vol: 0.55 });
   if (kind === 'S') noise(dest, { t, dur: 0.12, vol: 0.28, hp: 1200, lp: 7000 });
@@ -446,6 +460,50 @@ export const sfx = {
     const t = ctx.currentTime;
     voice(sfxGain, { type: 'tri', f: 420, slide: 260, t, dur: 0.07, vol: 0.18 });
     noise(sfxGain, { t, dur: 0.03, vol: 0.08, hp: 600, lp: 3000 });
+  },
+  // 주사위 스킨별 부딪히는 소리 (style: skins.js 의 sound). 없으면 기본 달그락
+  hit(style, v = 5) {
+    if (!unlock()) return;
+    const t = ctx.currentTime, k = Math.min(1, v / 14), r = Math.random();
+    switch (style) {
+      case 'bell': {        // 오픈하츠: 고급 방울 — 맑은 고음 + 비화성 배음이 길게 울린다
+        const f = 1900 + r * 1300;
+        ping(sfxGain, { f, t, dur: 0.55, vol: 0.05 + k * 0.08 });
+        ping(sfxGain, { f: f * 2.76, t, dur: 0.3, vol: 0.02 + k * 0.03 });
+        ping(sfxGain, { f: f * 5.4, t, dur: 0.12, vol: 0.01 + k * 0.015 });
+        break;
+      }
+      case 'coin': {        // 황금: 금화가 부딪히는 짤랑
+        const f = 3000 + r * 900;
+        ping(sfxGain, { f, t, dur: 0.22, vol: 0.05 + k * 0.08, type: 'square' });
+        ping(sfxGain, { f: f * 1.51, t: t + 0.012, dur: 0.28, vol: 0.03 + k * 0.05 });
+        noise(sfxGain, { t, dur: 0.02, vol: 0.05 + k * 0.08, hp: 5000, lp: 12000 });
+        break;
+      }
+      case 'soft':          // 미니멀: 톡 — 짧고 둥근 소리
+        ping(sfxGain, { f: 520 + r * 120, slide: 300, t, dur: 0.07, vol: 0.12 + k * 0.14, type: 'triangle' });
+        break;
+      case 'twinkle': {     // 우주: 반짝반짝 — 높은 음이 두세 개 흩뿌려진다
+        const notes = [1568, 1760, 2093, 2349, 2637, 3136];
+        for (let i = 0; i < 2 + (k > 0.5 ? 1 : 0); i++) ping(sfxGain, { f: notes[Math.floor(Math.random() * notes.length)], t: t + i * 0.055, dur: 0.35, vol: 0.03 + k * 0.05 });
+        break;
+      }
+      case 'glass': {       // 투명: 유리알이 부딪히는 챙
+        const f = 2600 + r * 1200;
+        ping(sfxGain, { f, t, dur: 0.2, vol: 0.05 + k * 0.08 });
+        ping(sfxGain, { f: f * 2.32, t, dur: 0.12, vol: 0.02 + k * 0.04 });
+        noise(sfxGain, { t, dur: 0.015, vol: 0.04 + k * 0.06, hp: 4000, lp: 11000 });
+        break;
+      }
+      case 'pop':           // 하트: 뿅
+        ping(sfxGain, { f: 700 + r * 200, slide: 1500 + r * 300, t, dur: 0.1, vol: 0.05 + k * 0.07, type: 'square' });
+        break;
+      case 'key':           // 키캡: 도각 — 스위치 클릭 + 낮은 바닥음
+        noise(sfxGain, { t, dur: 0.018, vol: 0.12 + k * 0.2, hp: 2000, lp: 6000 });
+        ping(sfxGain, { f: 170 + r * 40, slide: 120, t: t + 0.004, dur: 0.05, vol: 0.12 + k * 0.12, type: 'triangle' });
+        break;
+      default: this.clack(v);
+    }
   },
   // 주사위가 바닥·벽·서로에 부딪히는 소리 (충격량에 따라)
   clack(v = 5) {

@@ -4,14 +4,17 @@
 // 나중에 유료 해금을 붙일 자리: 각 스킨의 tier ('free' | 'special'). 지금은 모두 열려 있다(isUnlocked).
 // 결제를 붙일 때 isUnlocked 만 바꾸면 목록·선택 화면은 그대로 동작한다.
 
+// sound: 굴릴 때 부딪히는 소리 (audio.js sfx.hit)
 export const DICE_SKINS = [
-  { id: 'classic', name: '기본', desc: '상아색 기본 주사위', tier: 'free' },
-  { id: 'ruby', name: '루비', desc: '붉은 보석에 금빛 눈', tier: 'special' },
-  { id: 'obsidian', name: '흑요석 금장', desc: '검은 돌에 금박 테두리', tier: 'special' },
-  { id: 'jade', name: '비취', desc: '결이 흐르는 초록 옥', tier: 'special' },
-  { id: 'galaxy', name: '은하수', desc: '별이 반짝이는 밤하늘 · 빛나는 눈', tier: 'special' },
-  { id: 'ice', name: '얼음 수정', desc: '금이 간 푸른 얼음', tier: 'special' },
-  { id: 'gold', name: '황금', desc: '반짝이는 순금 주사위', tier: 'special' },
+  { id: 'classic', name: '기본', desc: '상아색 기본 주사위', tier: 'free', sound: 'classic' },
+  { id: 'openheart', name: '오픈하츠', desc: '속이 비친 금속 스켈레톤 · 숫자 눈 · 방울 소리', tier: 'special', sound: 'bell' },
+  { id: 'gold', name: '황금', desc: '온통 순금 · 새겨진 눈 · 금화 소리', tier: 'special', sound: 'coin' },
+  { id: 'minimal', name: '미니멀', desc: '굵은 선의 만화풍 · 톡톡 소리', tier: 'special', sound: 'soft' },
+  { id: 'cosmic', name: '우주', desc: '은하수가 반짝이는 밤하늘 · 반짝 소리', tier: 'special', sound: 'twinkle' },
+  { id: 'black', name: '블랙', desc: '기본 주사위의 흑백 반전', tier: 'special', sound: 'classic' },
+  { id: 'clear', name: '투명', desc: '추억의 투명 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
+  { id: 'heart', name: '하트', desc: '연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
+  { id: 'keycap', name: '키캡', desc: '기계식 키보드 키캡 · 도각 소리', tier: 'special', sound: 'key' },
 ];
 
 export const TRAY_SKINS = [
@@ -42,124 +45,255 @@ const PIP_POS = {
   6: [[.27, .25], [.73, .25], [.27, .5], [.73, .5], [.27, .75], [.73, .75]],
 };
 
-// 스킨별 바탕 · 눈 색 · 재질
-const DIE_STYLE = {
-  classic: { bg: ['#FFFDF6', '#EDE3CF'], pip: ['#4A3A6B', '#16102A'], one: ['#FF6B6B', '#B0122B'], mat: { roughness: 0.32, metalness: 0.02 } },
-  ruby: { bg: ['#FF3355', '#5A0010'], pip: ['#FFF3B0', '#C8901E'], one: ['#FFFFFF', '#FFD76A'], mat: { roughness: 0.12, metalness: 0.25, env: 0.7, emissive: 0x2A0008 }, facets: true },
-  obsidian: { bg: ['#3A3350', '#07060C'], pip: ['#FFE9A0', '#B8860B'], one: ['#FF6B6B', '#B0122B'], mat: { roughness: 0.18, metalness: 0.3, env: 1.0 }, border: '#E8B84A' },
-  jade: { bg: ['#5FCB8E', '#0E5A36'], pip: ['#0E2E20', '#021208'], one: ['#FF6B6B', '#9E0F24'], mat: { roughness: 0.22, metalness: 0.05, env: 0.5 }, veins: true },
-  galaxy: { bg: ['#3A2A7A', '#07051A'], pip: ['#B8FFFF', '#26C6FF'], one: ['#FFB8F0', '#FF3DB8'], mat: { roughness: 0.3, metalness: 0.1, env: 0.6, glow: 0.9 }, stars: true, glowPips: true },
-  ice: { bg: ['#E0F7FF', '#4FA8E0'], pip: ['#1A4F90', '#061E44'], one: ['#FF6B8A', '#B0122B'], mat: { roughness: 0.08, metalness: 0.05, env: 0.9, emissive: 0x0A2030 }, cracks: true },
-  gold: { bg: ['#FFD84A', '#A8640A'], pip: ['#4A2800', '#1E1000'], one: ['#FF4B4B', '#8E0A1C'], mat: { roughness: 0.25, metalness: 0.7, env: 1.1 }, brushed: true },
+// 재질 (dice3d.js 가 읽는다)
+//   env: 반사 세기 · toon: 만화풍 음영 · outline: 검은 외곽선 · cutout: 구멍 뚫린 면(양면)
+//   clear: 반투명(양면) · bump: 새김 · glow: 발광 · twinkle: 반짝임
+const DIE_MAT = {
+  classic: { roughness: 0.32, metalness: 0.02 },
+  openheart: { roughness: 0.32, metalness: 0.85, env: 1.4, cutout: true, core: true },
+  gold: { roughness: 0.26, metalness: 1.0, env: 1.25, bump: 2.2 },
+  minimal: { toon: true, outline: true },
+  cosmic: { roughness: 0.35, metalness: 0.1, env: 0.4, glow: 1.0, twinkle: true },
+  black: { roughness: 0.3, metalness: 0.05 },
+  clear: { roughness: 0.04, metalness: 0.0, env: 1.1, clear: true },
+  heart: { roughness: 0.38, metalness: 0.0, env: 0.35 },
+  keycap: { roughness: 0.62, metalness: 0.0, env: 0.2 },
 };
-export const dieMatParams = id => DIE_STYLE[id]?.mat || DIE_STYLE.classic.mat;
+export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
+export const dieGlows = id => !!DIE_MAT[id]?.glow;
 
-// 주사위 한 면 (256×256). glowOnly: 빛나는 눈만 그린 발광 지도
-export function drawDieFace(c, v, id = 'classic', glowOnly = false) {
-  const st = DIE_STYLE[id] || DIE_STYLE.classic;
-  const W = c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const r = rng(v * 97 + id.length * 13);
-  if (glowOnly) { g.fillStyle = '#000'; g.fillRect(0, 0, W, W); }
-  else {
-    const grad = g.createRadialGradient(100, 90, 20, 128, 128, 190);
-    grad.addColorStop(0, st.bg[0]);
-    grad.addColorStop(1, st.bg[1]);
-    g.fillStyle = grad;
-    g.fillRect(0, 0, W, W);
-    if (st.facets) {                       // 보석 면: 빛이 꺾인 조각
-      for (let k = 0; k < 7; k++) {
-        g.fillStyle = `rgba(255,255,255,${0.04 + r() * 0.1})`;
-        g.beginPath();
-        g.moveTo(128, 128);
-        const a = r() * 6.3, b = a + 0.5 + r() * 0.6;
-        g.lineTo(128 + Math.cos(a) * 200, 128 + Math.sin(a) * 200);
-        g.lineTo(128 + Math.cos(b) * 200, 128 + Math.sin(b) * 200);
-        g.fill();
-      }
-      g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3;
-      g.strokeRect(30, 30, 196, 196);
-    }
-    if (st.veins) {                        // 옥의 결
-      for (let k = 0; k < 9; k++) {
-        g.strokeStyle = `rgba(${r() < .5 ? '240,255,245' : '10,60,35'},${0.12 + r() * 0.2})`;
-        g.lineWidth = 1 + r() * 4;
-        g.beginPath();
-        let x = r() * W, y = 0;
-        g.moveTo(x, y);
-        while (y < W) { x += (r() - 0.5) * 60; y += 20 + r() * 30; g.lineTo(x, y); }
-        g.stroke();
-      }
-    }
-    if (st.stars) {                        // 성운 + 별
-      for (let k = 0; k < 4; k++) {
-        const x = r() * W, y = r() * W, rad = 50 + r() * 70;
-        const ng = g.createRadialGradient(x, y, 0, x, y, rad);
-        ng.addColorStop(0, k % 2 ? 'rgba(255,80,200,.35)' : 'rgba(60,200,255,.3)');
-        ng.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = ng; g.fillRect(0, 0, W, W);
-      }
-      for (let k = 0; k < 70; k++) {
-        g.fillStyle = `rgba(255,255,255,${0.3 + r() * 0.7})`;
-        const s = r() < 0.9 ? 1.5 : 3;
-        g.fillRect(r() * W, r() * W, s, s);
-      }
-    }
-    if (st.cracks) {                       // 얼음 금
-      g.strokeStyle = 'rgba(255,255,255,.8)';
-      for (let k = 0; k < 6; k++) {
-        g.lineWidth = 1 + r() * 1.5;
-        g.beginPath();
-        let x = r() * W, y = r() * W;
-        g.moveTo(x, y);
-        for (let s = 0; s < 4; s++) { x += (r() - 0.5) * 90; y += (r() - 0.5) * 90; g.lineTo(x, y); }
-        g.stroke();
-      }
-      const sh = g.createLinearGradient(0, 0, W, W);
-      sh.addColorStop(0, 'rgba(255,255,255,.45)'); sh.addColorStop(0.4, 'rgba(255,255,255,0)');
-      g.fillStyle = sh; g.fillRect(0, 0, W, W);
-    }
-    if (st.brushed) {                      // 금 결
-      for (let y = 0; y < W; y += 2) {
-        g.fillStyle = `rgba(${r() < .5 ? '255,255,220' : '120,70,0'},${r() * 0.08})`;
-        g.fillRect(0, y, W, 1);
-      }
-      const sh = g.createLinearGradient(0, 0, W, W);
-      sh.addColorStop(0.2, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,240,.45)'); sh.addColorStop(0.8, 'rgba(255,255,255,0)');
-      g.fillStyle = sh; g.fillRect(0, 0, W, W);
-    }
-    if (st.border) {
-      g.strokeStyle = st.border; g.lineWidth = 7;
-      g.strokeRect(22, 22, 212, 212);
-      g.lineWidth = 2;
-      g.strokeRect(34, 34, 188, 188);
-    }
-  }
+function roundRect(g, x, y, w, h, r, begin = true) {
+  if (begin) g.beginPath();
+  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function heartPath(g, x, y, s) {
+  g.beginPath();
+  g.moveTo(x, y + s * 0.35);
+  g.bezierCurveTo(x - s * 1.1, y - s * 0.35, x - s * 0.55, y - s * 1.05, x, y - s * 0.45);
+  g.bezierCurveTo(x + s * 0.55, y - s * 1.05, x + s * 1.1, y - s * 0.35, x, y + s * 0.35);
+  g.closePath();
+}
+// 둥근 눈 (입체 그라데이션)
+function pips(g, v, col, one, W, { r0 = 25, r1 = 40, shine = true } = {}) {
   for (const [x, y] of PIP_POS[v]) {
-    const rad = v === 1 ? 40 : 25;
-    const px = x * W, py = y * W;
-    const col = v === 1 ? st.one : st.pip;
-    if (glowOnly && !st.glowPips) continue;
-    if (st.glowPips) { g.shadowColor = col[1]; g.shadowBlur = 24; }
+    const rad = v === 1 ? r1 : r0;
+    const px = x * W, py = y * W, c = v === 1 ? one : col;
     const pg = g.createRadialGradient(px - rad * .3, py - rad * .3, rad * .1, px, py, rad);
-    pg.addColorStop(0, col[0]);
-    pg.addColorStop(1, col[1]);
+    pg.addColorStop(0, c[0]); pg.addColorStop(1, c[1]);
     g.fillStyle = pg;
     g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
-    g.shadowBlur = 0;
-    if (!glowOnly) {
+    if (shine) {
       g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2;
       g.beginPath(); g.arc(px, py + 1.5, rad, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
     }
   }
+}
+
+// 주사위 한 면 (256×256). mode: '' 색 | 'glow' 발광 지도 | 'bump' 새김 높이 지도
+export function drawDieFace(c, v, id = 'classic', mode = '') {
+  const W = c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const r = rng(v * 97 + id.length * 13);
+  g.clearRect(0, 0, W, W);
+  const radial = (a, b) => {
+    const grad = g.createRadialGradient(100, 90, 20, 128, 128, 190);
+    grad.addColorStop(0, a); grad.addColorStop(1, b);
+    g.fillStyle = grad; g.fillRect(0, 0, W, W);
+  };
+  switch (id) {
+    case 'openheart': {
+      // 금속 테 + 안쪽 기계 골조(톱니·살) — 빈 곳은 투명해서 반대편 면이 비쳐 보인다
+      const cu = g.createLinearGradient(0, 0, W, W);
+      cu.addColorStop(0, '#F2B27A'); cu.addColorStop(0.5, '#C8733A'); cu.addColorStop(1, '#7A3C16');
+      const dark = '#26211D';
+      // 골조: 대각선 살 + 톱니바퀴 두 개
+      g.strokeStyle = dark; g.lineWidth = 14; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(40, 60); g.lineTo(216, 196); g.moveTo(60, 216); g.lineTo(196, 40); g.stroke();
+      const gear = (cx, cy, R, teeth) => {
+        g.fillStyle = dark;
+        g.beginPath();
+        for (let k = 0; k < teeth * 2; k++) {
+          const a = k / (teeth * 2) * Math.PI * 2, rr = k % 2 ? R : R * 1.2;
+          g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+        }
+        g.closePath(); g.fill();
+        g.globalCompositeOperation = 'destination-out';
+        g.beginPath(); g.arc(cx, cy, R * 0.55, 0, Math.PI * 2); g.fill();
+        g.globalCompositeOperation = 'source-over';
+        g.strokeStyle = '#8A5A34'; g.lineWidth = 3;
+        g.beginPath(); g.arc(cx, cy, R * 0.55, 0, Math.PI * 2); g.stroke();
+      };
+      gear(78 + r() * 20, 170 + r() * 10, 30, 9);
+      gear(178 - r() * 20, 82 + r() * 10, 24, 8);
+      // 바깥 테 (두꺼운 구리 테 + 안쪽 모서리 그림자)
+      g.fillStyle = cu;
+      g.beginPath(); g.rect(0, 0, W, W); roundRect(g, 30, 30, W - 60, W - 60, 22, false); g.fill('evenodd');
+      g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 4; roundRect(g, 30, 30, W - 60, W - 60, 22); g.stroke();
+      g.strokeStyle = 'rgba(255,230,200,.6)'; g.lineWidth = 2; g.strokeRect(6, 6, W - 12, W - 12);
+      // 숫자: 구리 테두리 두른 굵은 숫자
+      g.font = 'bold 150px Georgia, "Times New Roman", serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineJoin = 'round';
+      g.lineWidth = 22; g.strokeStyle = cu; g.strokeText(String(v), W / 2, W / 2 + 8);
+      g.fillStyle = dark; g.fillText(String(v), W / 2, W / 2 + 8);
+      g.lineWidth = 3; g.strokeStyle = 'rgba(255,220,180,.7)'; g.strokeText(String(v), W / 2, W / 2 + 8);
+      if (v === 6) { g.fillStyle = cu; g.fillRect(W / 2 - 34, W / 2 + 74, 68, 10); }   // 6 밑줄
+      break;
+    }
+    case 'gold': {
+      if (mode === 'bump') {
+        g.fillStyle = '#fff'; g.fillRect(0, 0, W, W);
+        for (const [x, y] of PIP_POS[v]) {
+          const rad = v === 1 ? 38 : 24, px = x * W, py = y * W;
+          const pg = g.createRadialGradient(px, py, 0, px, py, rad);
+          pg.addColorStop(0, '#000'); pg.addColorStop(0.75, '#333'); pg.addColorStop(1, '#fff');
+          g.fillStyle = pg; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
+        }
+        break;
+      }
+      radial('#FFE68A', '#C8861A');
+      for (let y = 0; y < W; y += 2) { g.fillStyle = `rgba(${r() < .5 ? '255,250,210' : '120,70,0'},${r() * 0.07})`; g.fillRect(0, y, W, 1); }
+      const sh = g.createLinearGradient(0, 0, W, W);
+      sh.addColorStop(0.15, 'rgba(255,255,255,0)'); sh.addColorStop(0.45, 'rgba(255,255,235,.5)'); sh.addColorStop(0.75, 'rgba(255,255,255,0)');
+      g.fillStyle = sh; g.fillRect(0, 0, W, W);
+      // 새긴 눈: 어두운 금빛 구멍 + 아래쪽 반사 테
+      for (const [x, y] of PIP_POS[v]) {
+        const rad = v === 1 ? 38 : 24, px = x * W, py = y * W;
+        const pg = g.createRadialGradient(px, py - rad * 0.3, rad * 0.1, px, py, rad);
+        pg.addColorStop(0, '#2A1800'); pg.addColorStop(0.7, '#6A4308'); pg.addColorStop(1, '#B07A18');
+        g.fillStyle = pg; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(255,245,200,.85)'; g.lineWidth = 3;
+        g.beginPath(); g.arc(px, py, rad - 1.5, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+      }
+      break;
+    }
+    case 'minimal': {
+      // 만화풍: 흰 면 + 굵은 검은 테 + 납작한 검은 눈
+      g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, W);
+      g.strokeStyle = '#111'; g.lineWidth = 20; roundRect(g, 10, 10, W - 20, W - 20, 30); g.stroke();
+      g.fillStyle = '#111';
+      for (const [x, y] of PIP_POS[v]) { g.beginPath(); g.arc(x * W, y * W, v === 1 ? 36 : 25, 0, Math.PI * 2); g.fill(); }
+      break;
+    }
+    case 'cosmic': {
+      const glow = mode === 'glow';
+      if (glow) { g.fillStyle = '#000'; g.fillRect(0, 0, W, W); }
+      else {
+        radial('#2A1060', '#05030F');
+        const blobs = [['rgba(200,80,255,.55)', 110], ['rgba(90,110,255,.5)', 95], ['rgba(255,110,210,.4)', 80], ['rgba(120,60,220,.5)', 120], ['rgba(60,170,255,.35)', 70]];
+        for (const [col, rad] of blobs) {
+          const x = r() * W, y = r() * W;
+          const ng = g.createRadialGradient(x, y, 0, x, y, rad);
+          ng.addColorStop(0, col); ng.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = ng; g.fillRect(0, 0, W, W);
+        }
+        for (let k = 0; k < 4; k++) {         // 어두운 먼지띠
+          const x = r() * W, y = r() * W, rad = 25 + r() * 35;
+          const ng = g.createRadialGradient(x, y, 0, x, y, rad);
+          ng.addColorStop(0, 'rgba(5,2,15,.7)'); ng.addColorStop(1, 'rgba(5,2,15,0)');
+          g.fillStyle = ng; g.fillRect(0, 0, W, W);
+        }
+      }
+      const rr = rng(v * 7 + 3);
+      for (let k = 0; k < 140; k++) {
+        const b = rr();
+        g.fillStyle = `rgba(255,255,255,${0.35 + b * 0.65})`;
+        const s = b > 0.93 ? 2.5 : 1.3;
+        g.fillRect(rr() * W, rr() * W, s, s);
+      }
+      for (let k = 0; k < 5; k++) {         // 십자 빛줄기가 있는 밝은 별
+        const x = rr() * W, y = rr() * W, L = 10 + rr() * 12;
+        const sg = g.createRadialGradient(x, y, 0, x, y, L);
+        sg.addColorStop(0, 'rgba(255,255,255,1)'); sg.addColorStop(0.3, 'rgba(170,220,255,.6)'); sg.addColorStop(1, 'rgba(120,160,255,0)');
+        g.fillStyle = sg; g.beginPath(); g.arc(x, y, L, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(220,240,255,.85)'; g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(x - L * 1.6, y); g.lineTo(x + L * 1.6, y); g.moveTo(x, y - L * 1.6); g.lineTo(x, y + L * 1.6); g.stroke();
+      }
+      // 눈: 빛나는 별빛 구슬
+      for (const [x, y] of PIP_POS[v]) {
+        const rad = v === 1 ? 34 : 22, px = x * W, py = y * W;
+        const pg = g.createRadialGradient(px, py, 0, px, py, rad);
+        if (v === 1) { pg.addColorStop(0, '#FFFFFF'); pg.addColorStop(0.45, '#FF8AE0'); pg.addColorStop(1, 'rgba(255,60,200,0)'); }
+        else { pg.addColorStop(0, '#FFFFFF'); pg.addColorStop(0.45, '#9EEBFF'); pg.addColorStop(1, 'rgba(60,180,255,0)'); }
+        g.fillStyle = pg; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
+      }
+      break;
+    }
+    case 'black':
+      radial('#34323C', '#060608');
+      pips(g, v, ['#FFFFFF', '#CFCBD8'], ['#FF6B6B', '#B0122B'], W);
+      break;
+    case 'clear': {
+      // 투명: 거의 비치는 면 + 모서리 빛 + 색 눈 (1·4 는 빨강, 나머지 파랑)
+      g.fillStyle = 'rgba(225,238,255,0.16)'; g.fillRect(0, 0, W, W);
+      g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 10; roundRect(g, 5, 5, W - 10, W - 10, 26); g.stroke();
+      const sh = g.createLinearGradient(0, 0, W, W);
+      sh.addColorStop(0, 'rgba(255,255,255,.28)'); sh.addColorStop(0.35, 'rgba(255,255,255,0)');
+      g.fillStyle = sh; g.fillRect(0, 0, W, W);
+      const red = v === 1 || v === 4;
+      pips(g, v, red ? ['#FF5A6E', '#B00020'] : ['#4F7BFF', '#1230B0'], ['#FF5A6E', '#B00020'], W, { r0: 24, r1: 30 });
+      break;
+    }
+    case 'heart': {
+      radial('#FFF3F7', '#FFB8CE');
+      const sp = rng(v * 11);
+      for (let k = 0; k < 12; k++) { g.fillStyle = 'rgba(255,255,255,.55)'; heartPath(g, sp() * W, sp() * W, 5 + sp() * 4); g.fill(); }
+      for (const [x, y] of PIP_POS[v]) {
+        const s = v === 1 ? 66 : 36, px = x * W, py = y * W + s * 0.2;
+        const hg = g.createLinearGradient(px, py - s, px, py + s * 0.4);
+        if (v === 1) { hg.addColorStop(0, '#FF5277'); hg.addColorStop(1, '#B3003A'); } else { hg.addColorStop(0, '#FF6FA0'); hg.addColorStop(1, '#D1105A'); }
+        g.fillStyle = hg; heartPath(g, px, py, s); g.fill();
+        g.fillStyle = 'rgba(255,255,255,.6)';
+        g.beginPath(); g.ellipse(px - s * 0.4, py - s * 0.55, s * 0.16, s * 0.1, -0.6, 0, Math.PI * 2); g.fill();
+      }
+      break;
+    }
+    case 'keycap': {
+      // 키캡: 옆벽(어두운 테) + 살짝 오목한 윗면 + 숫자 각인. 1 은 포인트 색(주황), 3·5 는 회색 모디파이어
+      const PAL = { 1: ['#F28C28', '#FFFFFF'], 3: ['#A2A7AE', '#FFFFFF'], 5: ['#A2A7AE', '#FFFFFF'] };
+      const [base, legend] = PAL[v] || ['#EEE6D4', '#3A3A3E'];
+      const shade = (hex, k) => {
+        const n = parseInt(hex.slice(1), 16);
+        const f = x => Math.max(0, Math.min(255, Math.round(x * k)));
+        return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+      };
+      g.fillStyle = shade(base, 0.78); g.fillRect(0, 0, W, W);
+      const side = g.createLinearGradient(0, 0, 0, W);
+      side.addColorStop(0, 'rgba(255,255,255,.12)'); side.addColorStop(1, 'rgba(0,0,0,.18)');
+      g.fillStyle = side; g.fillRect(0, 0, W, W);
+      const top = g.createRadialGradient(W / 2, W / 2, 10, W / 2, W / 2, 130);
+      top.addColorStop(0, shade(base, 0.96)); top.addColorStop(1, shade(base, 1.06));
+      g.fillStyle = top; roundRect(g, 30, 26, W - 60, W - 64, 26); g.fill();
+      g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 3; roundRect(g, 30, 26, W - 60, W - 64, 26); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(52, 30); g.lineTo(W - 52, 30); g.stroke();
+      g.fillStyle = legend;
+      g.font = 'bold 104px "Arial Black", Arial, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(String(v), W / 2, W / 2 - 14);
+      for (let k = 0; k < v; k++) { g.beginPath(); g.arc(W / 2 - (v - 1) * 9 + k * 18, W / 2 + 58, 5, 0, Math.PI * 2); g.fill(); }
+      break;
+    }
+    default:
+      radial('#FFFDF6', '#EDE3CF');
+      pips(g, v, ['#4A3A6B', '#16102A'], ['#FF6B6B', '#B0122B'], W);
+  }
+  if (mode === 'glow' && id !== 'cosmic') { g.fillStyle = '#000'; g.fillRect(0, 0, W, W); }
   return c;
 }
-export const dieGlows = id => !!DIE_STYLE[id]?.glowPips;
 
 // 2D 대체 화면(dice2d)에 쓰는 색
+const D2 = {
+  classic: ['#FFFDF6', '#EDE3CF', '#16102A', '#B0122B'], openheart: ['#C8733A', '#4A2A12', '#1A1512', '#1A1512'],
+  gold: ['#FFE68A', '#C8861A', '#5A3A08', '#5A3A08'], minimal: ['#FFFFFF', '#FFFFFF', '#111111', '#111111'],
+  cosmic: ['#3A1A80', '#05030F', '#9EEBFF', '#FF8AE0'], black: ['#34323C', '#060608', '#FFFFFF', '#FF6B6B'],
+  clear: ['#E8F2FF', '#B8D0F0', '#1230B0', '#B00020'], heart: ['#FFF3F7', '#FFB8CE', '#E0306A', '#C9184A'],
+  keycap: ['#EEE6D4', '#C8C0AE', '#3A3A3E', '#F28C28'],
+};
 export function die2dColors(id) {
-  const st = DIE_STYLE[id] || DIE_STYLE.classic;
-  return { bg: `radial-gradient(circle at 40% 35%, ${st.bg[0]}, ${st.bg[1]})`, pip: st.pip[1], one: st.one[1] };
+  const [a, b, pip, one] = D2[id] || D2.classic;
+  return { bg: `radial-gradient(circle at 40% 35%, ${a}, ${b})`, pip, one };
 }
 
 // ── 트레이 ──────────────────────────────────────────────────────────────────
@@ -326,6 +460,7 @@ export function diceThumb(id) {
   c.width = c.height = 96;
   const g = c.getContext('2d');
   g.beginPath(); g.roundRect(4, 4, 88, 88, 18); g.clip();
+  if (id === 'openheart' || id === 'clear') { g.fillStyle = id === 'clear' ? '#2E8F6E' : '#1A1512'; g.fillRect(4, 4, 88, 88); }
   g.drawImage(big, 4, 4, 88, 88);
   return c.toDataURL();
 }
