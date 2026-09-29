@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hahahoho.diceheroes",
+      "sha256_cert_fingerprints": [
+        "PLAY_APP_SIGNING_KEY_SHA256 (Play Console → 설정 → 앱 무결성 → 앱 서명 키 인증서)",
+        "UPLOAD_KEY_SHA256 (내 android.keystore — 로컬 테스트용)"
+      ]
+    }
+  }
+]

@@ -1,0 +1,59 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('meta/host').val() === auth.uid && newData.child('members').child(auth.uid).val() === true) || (!newData.exists() && data.child('lastActive').val() < now - 21600000))",
+        ".validate": "$code.matches(/^DH-[A-Z0-9]{4,8}$/) && newData.hasChildren(['state', 'meta', 'members'])",
+        "meta": {
+          "host": { ".validate": "newData.isString() && newData.val().length <= 128" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "started": {
+            ".write": "auth != null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": { ".validate": false }
+        },
+        "members": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (data.exists() || data.parent().parent().child('meta/started').val() !== true)",
+            ".validate": "newData.val() === true"
+          }
+        },
+        "state": {
+          ".write": "auth != null && data.parent().child('members').child(auth.uid).exists()",
+          ".validate": "newData.isString() && newData.val().length < 200000"
+        },
+        "lastActive": {
+          ".write": "auth != null && data.parent().child('members').child(auth.uid).exists()",
+          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        },
+        "seen": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "emote": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && data.parent().parent().child('members').child(auth.uid).exists()",
+            "e": { ".validate": "newData.isNumber()" },
+            "t": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "roomIndex": {
+      ".read": "auth != null",
+      ".indexOn": [".value"],
+      "$code": {
+        ".write": "auth != null",
+        ".validate": "newData.isNumber() && $code.matches(/^DH-[A-Z0-9]{4,8}$/)"
+      }
+    }
+  }
+}

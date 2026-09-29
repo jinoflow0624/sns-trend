@@ -223,6 +223,8 @@ export const BGM_FILES = { title: 'assets/bgm/title.ogg', adventure: 'assets/bgm
 | `config.js` | 게임 이름·버전 (이름을 바꿀 때 여기만) |
 | `engine.js` | 룰 엔진 + 봇 + 협동 보스. DOM·네트워크 의존 없는 순수 로직, 상태는 JSON |
 | `net.js` · `fireconfig.js` | 온라인 방 (Firebase / 탭 간 로컬 백엔드) |
+| `env.js` · `fire.js` · `live.js` | 테스트판/배포판 구분, Firebase 앱·익명 로그인, 배포판 전용 Remote Config·Analytics |
+| `privacy.html` | 개인정보 처리방침 (스토어 등록용 URL) |
 | `app.js` | 화면 흐름(스플래시·타이틀·스토리·편성·게임·결과), 입력, 연출 순서 |
 | `fx.js` | 화면 전체 입자 연출 (점수 공격 구체, 보스 스킬, 분노 불꽃, 화면 흔들림) |
 | `icons.js` | 도트 아이콘 격자와 특성·의뢰·이벤트·보스 능력별 아이콘 표 |
@@ -232,10 +234,16 @@ export const BGM_FILES = { title: 'assets/bgm/title.ogg', adventure: 'assets/bgm
 | `tutorial.js` | 튜토리얼 대본(단계·강조 대상·허용 동작·완료 조건) |
 | `style.css` | 도트 프레임 · 픽셀 서체 스타일 |
 | `manifest.webmanifest` · `sw.js` · `icons/` | 설치형 앱(PWA/TWA) |
-| `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT), Firebase Database SDK 번들 (아콰이어와 동일) |
+| `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT), Firebase Database SDK 번들 (테스트판), Firebase 전체 번들 `firebase-full.js` 12.19 (배포판: DB·Auth·App Check·Remote Config·Analytics) |
 | `fonts/` | 갈무리11 (SIL OFL 1.1) |
 | `test/engine.test.mjs` | 엔진 테스트 |
 | `sim/simulate.mjs` · `sim/coop.mjs` | 대전 · 협동 밸런스 시뮬레이터 |
+
+## 테스트판 / 배포판
+
+이 폴더가 곧 **테스트판**입니다 (GitHub Pages, 아콰이어와 같은 Firebase). **배포판**(전용 Firebase · 익명 로그인 · 보안 규칙 ·
+App Check · Remote Config · Analytics · 구글 플레이 TWA)은 같은 소스를 `../dice-heroes-prod/build.mjs` 로 빌드합니다.
+자세한 절차는 [`../dice-heroes-prod/README-배포.md`](../dice-heroes-prod/README-배포.md).
 
 ## 다음 단계 후보
 1. 온라인 방 실서버 점검 (배포 주소에서 Firebase 연결 확인)

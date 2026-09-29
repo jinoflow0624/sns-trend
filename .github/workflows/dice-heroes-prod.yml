@@ -1,0 +1,39 @@
+name: Dice Heroes 배포판 배포
+
+# 다이스 히어로즈 배포판(전용 Firebase)을 손으로 눌러 배포한다. (Actions 탭 → 이 워크플로 → Run workflow)
+# 필요한 시크릿: FIREBASE_SERVICE_ACCOUNT_DICEHEROES
+#   Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키 생성 → JSON 파일 내용 전체를 붙여 넣는다.
+# 테스트판(GitHub Pages)은 이 워크플로와 상관없이 main 에 합치면 바로 반영된다.
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: '배포 대상 (hosting,database 권장. remoteconfig 는 콘솔에서 바꾼 값을 덮어쓰니 처음 한 번만)'
+        default: 'hosting,database'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 엔진 테스트
+        run: node dice-heroes/test/engine.test.mjs
+      - name: 배포판 빌드
+        run: node dice-heroes-prod/build.mjs
+      - name: Firebase 배포
+        working-directory: dice-heroes-prod
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DICEHEROES }}
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx -y firebase-tools@14 deploy --only "$TARGETS" --non-interactive

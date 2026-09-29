@@ -1019,3 +1019,11 @@ html.color-assist .card .rar::after { content: none; }
 html.color-assist .row.can:not(.combo) .v::after { content: ' ●'; font-size: 10px; }
 html.color-assist .row.combo .v::after { content: ' ★'; font-size: 10px; }
 html.color-assist .d2.held::after, html.color-assist .member.turn::after { content: '▶'; position: absolute; left: -2px; top: -10px; font-size: 10px; color: var(--gold); }
+
+/* ── v0.10 배포판: 서버 공지 · 개인정보 · 데이터 지우기 ── */
+#live-bar { display: flex; flex-direction: column; gap: 4px; max-width: 320px; margin: 0 auto; }
+#live-bar:empty { display: none; }
+.live-note { margin: 0; padding: 6px 10px; font-size: 12px; line-height: 1.4; color: #FFF3C4; background: rgba(20, 12, 50, .82); border: 2px solid #FFCF4A; text-align: center; }
+.set-links { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; }
+.set-links a, .linkish { color: #CFC6FF; text-decoration: underline; background: none; border: 0; padding: 4px 0; font: inherit; cursor: pointer; }
+.pbtn.danger { border-image-source: var(--fr-red); }

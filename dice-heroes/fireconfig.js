@@ -10,3 +10,7 @@ export const firebaseConfig = {
   messagingSenderId: '865925204000',
   appId: '1:865925204000:web:e71dc2f1cdab0ba5df1445',
 };
+
+// 배포판에서만 쓰는 값 (테스트판은 비워 둔다)
+export const APP_CHECK_KEY = '';      // reCAPTCHA v3 사이트 키
+export const MEASUREMENT_ID = '';     // Google Analytics 측정 ID
