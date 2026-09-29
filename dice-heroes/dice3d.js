@@ -384,7 +384,8 @@ export class DiceTray {
     const dieMat = new CANNON.Material('die');
     const floorMat = new CANNON.Material('floor');
     world.addContactMaterial(new CANNON.ContactMaterial(dieMat, floorMat, { friction: 1.5, restitution: 0.25 }));
-    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.2, restitution: 0.4 }));
+    // 주사위끼리는 미끄럽고 덜 튀게: 스치면 비껴가서 각자 제 갈 길을 간다
+    world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.03, restitution: 0.08 }));
 
     const floor = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
     floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -402,8 +403,19 @@ export class DiceTray {
     }
 
     const bodies = [];
-    // 굴리는 주사위마다 목표 x (가운데 기준 대칭, 섞어서)
-    const lanes = [-2.8, -1.4, 0, 1.4, 2.8].sort(() => Math.random() - 0.5);
+    // 던질 자리: 앞줄·뒷줄 두 줄로 나누고, 줄 안에서는 왼쪽에서 출발한 주사위가 더 멀리 가게 한다
+    // → 날아가는 길이 엇갈리거나 앞지르지 않아 주사위끼리 덜 부딪히고 넓게 흩어진다 (서로 부딪힌 쌍 7.6 → 4.6 / 판)
+    const nRoll = rolling.filter(Boolean).length;
+    const flip = Math.random() < 0.5 ? 1 : -1;
+    const rowZ = [-(1.9 + Math.random() * 0.4) * flip, (1.9 + Math.random() * 0.4) * flip];
+    const three = Math.random() < 0.5 ? 0 : 1;
+    const ROW3 = { tx: [-3.4, 0, 3.2], sx: [0.9, 2.55, 4.2] }, ROW2 = { tx: [-1.8, 1.7], sx: [2.0, 4.0] };
+    let cells = [];
+    for (const r of [0, 1]) {
+      const row = r === three || nRoll > 5 ? ROW3 : ROW2;
+      row.tx.forEach((tx, c) => cells.push({ z: rowZ[r], tx, sx: row.sx[c] }));
+    }
+    while (cells.length > Math.max(1, nRoll)) cells.splice(Math.floor(Math.random() * cells.length), 1);
     let k = 0;
     const hits = [];
     const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
@@ -422,16 +434,18 @@ export class DiceTray {
       b.angularDamping = 0.06;
       // 오른쪽 위에서 한 줌 던지되, 주사위마다 트레이 가운데 기준으로 고르게 흩어진 목표 지점을 향해 알맞은 힘으로
       // (예전엔 모두 같은 방향으로 세게 던져 왼쪽 벽에 몰렸다: 평균 x -1.9, 왼쪽 벽 25%)
-      const sx = TRAY_W / 2 - 1.0 - Math.random() * 0.9, sz = -1.6 + Math.random() * 3.2;
-      b.position.set(sx, 3.2 + i * 0.35 + Math.random() * 0.4, sz);
+      const cell = cells[k % cells.length];
+      const sx = cell.sx + (Math.random() - 0.5) * 0.3, sz = cell.z + (Math.random() - 0.5) * 0.3;
+      b.position.set(sx, 3.3 + Math.random() * 0.6, sz);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
       b.quaternion.set(q.x, q.y, q.z, q.w);
-      const tx = lanes[k % lanes.length] + (Math.random() - 0.5) * 1.2 + 0.65, tz = (Math.random() - 0.5) * 3.6;   // +0.65: 세게 던지면 조금 더 미끄러져 가는 만큼
+      const tx = cell.tx + (Math.random() - 0.5) * 0.8 + 2.0, tz = cell.z + (Math.random() - 0.5) * 0.6;   // +2.0: 세게 던지면 조금 더 미끄러져 가는 만큼
       k++;
       // 세게 던진다: 옆으로 2배 속도 + 펠트에 내리꽂는 힘. 세게 내리꽂을수록 첫 착지 마찰이 커서 목표 근처에서 멈춘다
       const AIM = 4.2;   // 목표까지 거리 × 이 값 = 옆으로 던지는 속도 (시뮬레이션으로 맞춤)
-      b.velocity.set((tx - sx) * AIM * (0.9 + Math.random() * 0.2), -24 - Math.random() * 3, (tz - sz) * AIM * (0.9 + Math.random() * 0.2));
-      b.angularVelocity.set((Math.random() - 0.5) * 65, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 65);
+      b.velocity.set((tx - sx) * AIM * (0.95 + Math.random() * 0.1), -24 - Math.random() * 3, (tz - sz) * AIM);
+      // 굴러가는 방향으로 앞구르기 회전을 크게, 옆으로 새는 회전은 작게 (옆 주사위 쪽으로 튀지 않게)
+      b.angularVelocity.set((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 30, 35 + Math.random() * 30);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
         if (v > 2.2) hits.push({ f: frames.length, v });
