@@ -381,6 +381,9 @@ export class DiceTray {
     }
 
     const bodies = [];
+    // 굴리는 주사위마다 목표 x (가운데 기준 대칭, 섞어서)
+    const lanes = [-2.8, -1.4, 0, 1.4, 2.8].sort(() => Math.random() - 0.5);
+    let k = 0;
     const hits = [];
     const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
     this.dice.forEach((d, i) => {
@@ -396,10 +399,16 @@ export class DiceTray {
       // 바닥을 움켜쥐고(마찰 큼) 모서리로 넘어가며 데굴데굴 구르게: 회전은 오래 유지, 던지는 힘·회전은 크게
       b.linearDamping = 0.08;
       b.angularDamping = 0.06;
-      b.position.set(TRAY_W / 2 - 0.9 - Math.random() * 0.8, 2.2 + i * 0.35 + Math.random() * 0.5, -1.9 + Math.random() * 2.2);
+      // 오른쪽 위에서 한 줌 던지되, 주사위마다 트레이 가운데 기준으로 고르게 흩어진 목표 지점을 향해 알맞은 힘으로
+      // (예전엔 모두 같은 방향으로 세게 던져 왼쪽 벽에 몰렸다: 평균 x -1.9, 왼쪽 벽 25%)
+      const sx = TRAY_W / 2 - 1.0 - Math.random() * 0.9, sz = -1.6 + Math.random() * 3.2;
+      b.position.set(sx, 2.0 + i * 0.35 + Math.random() * 0.4, sz);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
       b.quaternion.set(q.x, q.y, q.z, q.w);
-      b.velocity.set(-15 - Math.random() * 4, 1 + Math.random() * 2, (Math.random() - 0.3) * 5);
+      const tx = lanes[k % lanes.length] + (Math.random() - 0.5) * 1.2, tz = (Math.random() - 0.5) * 3.6;
+      k++;
+      const AIM = 2.1;   // 목표까지 거리 × 이 값 = 던지는 속도 (마찰로 목표 근처에서 멈추도록 시뮬레이션으로 맞춤)
+      b.velocity.set((tx - sx) * AIM * (0.9 + Math.random() * 0.2), 1 + Math.random() * 2, (tz - sz) * AIM * (0.9 + Math.random() * 0.2));
       b.angularVelocity.set((Math.random() - 0.5) * 65, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 65);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
