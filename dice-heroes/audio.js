@@ -3,8 +3,10 @@
 // 해당 트랙은 파일 재생으로 바뀐다 (예: { title: 'assets/bgm/title.ogg' }).
 
 // 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich
-// 예) export const BGM_FILES = { boss_dragon: 'assets/bgm/boss_dragon.ogg' };
-export const BGM_FILES = {};
+// 파일은 마디 경계에서 잘라 끝과 처음이 이어지게 다듬은 루프여야 한다. sw.js 캐시 목록에도 넣는다.
+export const BGM_FILES = {
+  boss_dragon: 'assets/bgm/boss_dragon.ogg',   // 32마디 루프, 120BPM (Suno)
+};
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? `boss_${id}` : 'boss');
 
@@ -17,7 +19,6 @@ export function setAudio(patch) {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* 무시 */ }
   if (bgmGain) bgmGain.gain.value = settings.bgm * 0.5;
   if (sfxGain) sfxGain.gain.value = settings.sfx * 0.6;
-  if (fileAudio) fileAudio.volume = settings.bgm;
 }
 export function buzz(ms = 20) {
   if (settings.vibrate && navigator.vibrate) try { navigator.vibrate(ms); } catch { /* 무시 */ }
@@ -302,21 +303,39 @@ const SONGS = {
 
 const tokenize = rows => rows.join(' ').trim().split(/\s+/);
 
-let playing = null;       // { name, timer, step, next }
-let fileAudio = null;
+let playing = null;       // { name, timer, step, next } 또는 음원 파일이면 { name, src }
+
+// 음원 파일은 WebAudio 버퍼로 반복한다 — <audio loop> 는 이음새에서 살짝 끊길 수 있다.
+// 음원은 피크 -1 dBFS 로 맞춰 두고, 칩튠 곡과 체감 음량이 비슷하도록 여기서 줄인다.
+const FILE_VOL = 0.9;
+const buffers = {};
+const badFiles = new Set();   // 못 받았거나 못 푼 파일(구형 iOS 의 OGG 등)은 칩튠 곡으로 대신한다
+const loadBuffer = url => (buffers[url] ||= fetch(url)
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+  .then(b => ctx.decodeAudioData(b))
+  .catch(err => { delete buffers[url]; throw err; }));
 
 export function playBgm(name) {
   if (playing?.name === name) return;
   stopBgm();
-  if (BGM_FILES[name]) {
-    fileAudio = new Audio(BGM_FILES[name]);
-    fileAudio.loop = true;
-    fileAudio.volume = settings.bgm;
-    fileAudio.play().catch(() => {});
-    playing = { name };
+  if (!unlock()) return;
+  const url = BGM_FILES[name];
+  if (url && !badFiles.has(url)) {
+    const state = { name };
+    playing = state;
+    loadBuffer(url).then(buf => {
+      if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
+      const src = ctx.createBufferSource(), g = ctx.createGain();
+      src.buffer = buf; src.loop = true; g.gain.value = FILE_VOL;
+      src.connect(g).connect(bgmGain);
+      src.start();
+      state.src = src;
+    }).catch(() => {
+      badFiles.add(url);
+      if (playing === state) { playing = null; if (SONGS[name]) playBgm(name); }
+    });
     return;
   }
-  if (!unlock()) return;
   const song = SONGS[name];
   const tracks = {
     lead: tokenize(song.lead), harm: tokenize(song.harm),
@@ -346,7 +365,7 @@ export function playBgm(name) {
 
 export function stopBgm() {
   if (playing?.timer) clearInterval(playing.timer);
-  if (fileAudio) { fileAudio.pause(); fileAudio = null; }
+  if (playing?.src) try { playing.src.stop(); } catch { /* 이미 멈춤 */ }
   playing = null;
 }
 
