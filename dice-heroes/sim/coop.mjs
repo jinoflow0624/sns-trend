@@ -5,6 +5,10 @@ import * as E from '../engine.js';
 
 const N = Number(process.argv[2]) || 120;
 const ONLY = process.argv[3];
+// 4번째 인자: 난이도별 체력 배율을 모든 보스·인원에 곱한다 (예: 1.1,1.08,1.05) — 조정값을 찾을 때
+if (process.argv[4]) process.argv[4].split(',').forEach((v, d) => {
+  for (const b of Object.values(E.HP_TUNE)) b[d] = b[d].map(x => x * Number(v));
+});
 function mulberry(seed) {
   return () => {
     let t = (seed = (seed + 0x6D2B79F5) >>> 0);
@@ -16,7 +20,7 @@ function mulberry(seed) {
 const pct = x => (100 * x).toFixed(0).padStart(4) + '%';
 console.log(`\n협동모드 밸런스 — 조합당 ${N}판 (봇, 카드는 희귀도 우선)\n`);
 console.log('보스            난이도        1인            2인            4인');
-for (const b of E.BOSSES.filter(x => !ONLY || x.id === ONLY)) {
+for (const b of E.BOSSES.filter(x => !ONLY || ONLY === 'all' || x.id === ONLY)) {
   for (const d of E.DIFFS) {
     const cells = [];
     for (const n of [1, 2, 4]) {
