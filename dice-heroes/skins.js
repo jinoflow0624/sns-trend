@@ -1,8 +1,7 @@
 // 꾸미기 — 주사위 스킨 · 트레이 스킨.
 // 그림은 모두 캔버스로 그린다(이미지 파일 없음). three.js 에 의존하지 않아서 목록 미리보기(2D)에도 같은 그림을 쓴다.
 //
-// 나중에 유료 해금을 붙일 자리: 각 스킨의 tier ('free' | 'special'). 지금은 모두 열려 있다(isUnlocked).
-// 결제를 붙일 때 isUnlocked 만 바꾸면 목록·선택 화면은 그대로 동작한다.
+// 각 스킨의 tier ('free' | 'special'). 스페셜 스킨은 보석으로 산다 (가격·보유 여부는 wallet.js).
 
 // sound: 굴릴 때 부딪히는 소리 (audio.js sfx.hit)
 export const DICE_SKINS = [
@@ -27,7 +26,6 @@ export const TRAY_SKINS = [
   { id: 'starry', name: '은하', desc: '우주 바닥 · 네온 테두리', tier: 'special' },
 ];
 
-export const isUnlocked = () => true;   // TODO(유료화): 구매 기록을 보고 판단
 export const diceSkin = id => DICE_SKINS.find(s => s.id === id) || DICE_SKINS[0];
 export const traySkin = id => TRAY_SKINS.find(s => s.id === id) || TRAY_SKINS[0];
 

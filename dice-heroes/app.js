@@ -11,10 +11,11 @@ import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
-import { PROD, deleteAccount } from './fire.js';
+import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
 import { webglOK, DiceTray2D } from './dice2d.js';
-import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, isUnlocked, diceThumb, trayThumb, preloadDice } from './skins.js';
+import * as Wal from './wallet.js';
+import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice } from './skins.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -121,6 +122,7 @@ function showSplash() {
 // ── 타이틀 · 메뉴 ────────────────────────────────────────────────────────────
 function showTitle() {
   screen = 'title';
+  Wal.loadWallet().then(syncOwned, () => {});
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
@@ -131,6 +133,7 @@ function showTitle() {
   <div class="screen title-screen">
     <canvas class="scene" aria-hidden="true"></canvas>
     <div class="title-ui">
+      ${unlocked ? `<button class="gem-chip title-gems" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button>` : ''}
       <div class="logo">
         <span class="logo-sub">운명의 주사위 RPG</span>
         <h1 class="logo-main">${esc(GAME.name)}</h1>
@@ -158,6 +161,19 @@ function showTitle() {
   showLiveBar();
   setStage(titleScene(app.querySelector('.scene')));
   playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
+}
+
+// 지갑이 바뀌면: 시작 화면 보석 숫자 갱신, 안 산 스킨을 쓰고 있었으면 기본으로
+Wal.onWallet(w => { const el = document.getElementById('gem-count'); if (el) el.textContent = Wal.gems().toLocaleString(); if (w) syncOwned(); });
+function syncOwned() {
+  if (!Wal.wallet()) return;
+  let changed = false;
+  setup.forEach(p => { if (!p.bot && !Wal.owns('cls', p.cls)) { p.cls = firstOwnedClass(); changed = true; } });
+  if (changed) store.set(KEYS.setup, setup);
+  changed = false;
+  if (!Wal.owns('dice', prefs.diceSkin)) { prefs.diceSkin = 'classic'; changed = true; }
+  if (!Wal.owns('tray', prefs.traySkin)) { prefs.traySkin = 'classic'; changed = true; }
+  if (changed) { store.set(KEYS.prefs, prefs); tray?.setSkin?.(prefs.diceSkin, prefs.traySkin); }
 }
 
 function offlineToast() {
@@ -473,10 +489,12 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
       ${removable ? `<button class="x" data-act="remove" data-i="${i}" aria-label="빼기">✕</button>` : ''}
     </div>
     ${editable ? `<div class="classes">
-      ${E.CLASSES.map(k => `
-        <button class="cls${pl.cls === k.id ? ' on' : ''}" style="--c:${k.color}" data-act="cls" data-i="${i}" data-cls="${k.id}">
-          ${portrait(k.id, 'mini')}<span>${k.ko}</span>
-        </button>`).join('')}
+      ${E.CLASSES.map(k => {
+        const lock = !pl.bot && !Wal.owns('cls', k.id);
+        return `<button class="cls${pl.cls === k.id ? ' on' : ''}${lock ? ' locked' : ''}" style="--c:${k.color}" data-act="${lock ? 'cls-buy' : 'cls'}" data-i="${i}" data-cls="${k.id}">
+          ${portrait(k.id, 'mini')}<span>${lock ? `${ico('gem', 'xs')}${Wal.priceOf('cls', k.id).toLocaleString()}` : k.ko}</span>
+        </button>`;
+      }).join('')}
     </div>` : ''}
     <p class="cls-desc"><b style="color:${c.color}">${c.ko}</b> ${c.desc}</p>
   </section>`;
@@ -497,7 +515,8 @@ function onSetupAct(act, t) {
     return act === 'mode' ? pickNext() : showSetup();
   }
   if (pick.for !== 'local') return;
-  if (act === 'human') setup[i].bot = false;
+  if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; store.set(KEYS.setup, setup); showSetup(); });
+  if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
   if (act === 'cls') setup[i].cls = t.dataset.cls;
   if (act === 'remove') setup.splice(i, 1);
@@ -507,6 +526,7 @@ function onSetupAct(act, t) {
   }
   if (act === 'start') {
     if (opts.mode === 'coop') clampDiff(opts);
+    syncOwned();
     setup.forEach((p, k) => { p.name = (p.name || '').trim() || (p.bot ? BOT_NAMES[k] : `영웅${k + 1}`); });
     store.set(KEYS.setup, setup);
     sfx.start();
@@ -564,7 +584,7 @@ async function createRoom() {
   const room = {
     v: 1, host: token, started: false,
     opts: { ...opts },
-    seats: [{ token, name: myName, cls: setup[0]?.cls || 'warrior', bot: false }],
+    seats: [{ token, name: myName, cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false }],
     game: null, fxLog: [], fxId: 0,
     seen: { [token]: Date.now() },
   };
@@ -597,7 +617,7 @@ async function joinRoom(code) {
     if (room.started) return fail('이미 시작한 방입니다.');
     if (room.seats.length >= 4) return fail('방이 가득 찼습니다 (최대 4명).');
     const used = new Set(room.seats.map(s => s.cls));
-    room.seats.push({ token, name: myName, cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: false });
+    room.seats.push({ token, name: myName, cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false });
     return room;
   });
   if (!res.ok) return showOnlineMenu(res.failure);
@@ -728,6 +748,10 @@ function onLobbyAct(act, t) {
     const me = room.seats.find(s => s.token === online.token);
     me?.ready ? sfx.back() : sfx.start();
     return lobbyTxn(r => { const s = r.seats.find(x => x.token === online.token); if (s) s.ready = !s.ready; });
+  }
+  if (act === 'cls-buy') {
+    const i = Number(t.dataset.i);
+    return classBuyDialog(t.dataset.cls, id => lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = id; }));
   }
   if (act === 'cls') {
     sfx.select();
@@ -973,6 +997,7 @@ function onlineAct(fn, { any = false, quiet = false } = {}) {
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
 function startGame(state) {
   S = state;
+  gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxNote.includes('오류')) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
   Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
@@ -1964,6 +1989,7 @@ function showResults() {
   layer.innerHTML = `<div class="overlay solid"><div class="results">
     <h1>${fo ? '기권승' : '모험 종료'}</h1>
     <div class="winner">${portrait(rank[0].p.cls, 'big')}<b>${esc(rank[0].p.name)} 승리!</b>${fo ? `<small class="hint">${esc(fo.name)} 님이 1분 넘게 돌아오지 않아 기권패</small>` : ''}</div>
+    ${gemsBox()}
     ${rank.map((r, k) => {
       const b = E.breakdown(r.p);
       return `<div class="frame rank${k === 0 ? ' first' : ''}">
@@ -1993,6 +2019,7 @@ function showCoopResults() {
     <div class="boss-result${b.won ? ' down' : ''}" style="--c:${info.color}">${portrait(b.id, 'boss-big')}</div>
     <div class="grade g${grade}">${grade}</div>
     <p class="hint">${info.ko} · ${E.DIFFS[b.diff].ko} · ${b.won ? `${S.round}라운드에 쓰러뜨림` : `남은 체력 ${b.hp}`}</p>
+    ${gemsBox()}
     ${order.map((r, k) => `<div class="frame rank${k === 0 ? ' first' : ''}">
         <span class="medal m${k}">${k === 0 ? 'MVP' : k + 1}</span>${portrait(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b><span>점수표 ${E.cardTotal(r.p)} · 의뢰 ${r.p.questsDone.length}</span></div>
@@ -2017,6 +2044,32 @@ function loadProfile() {
   const p = store.get(KEYS.profile) || {};
   return { games: 0, wins: 0, best: null, classes: {}, perks: {}, bosses: {}, recent: [], recorded: [], ...p };
 }
+// 한 판 보석 정산 → 결과 화면의 보석 칸을 채운다
+let gemResult = null;
+async function claimGems(info) {
+  gemResult = { pending: true };
+  paintGems();
+  const r = await Wal.earn(info).catch(err => ({ ok: false, why: err?.message || '서버 오류' }));
+  gemResult = r;
+  paintGems();
+  if (r.ok && r.total) { sfx.coin(); }
+}
+function gemsBox() {
+  if (!gemResult) return '';
+  return `<div class="frame gem-res" id="gem-res">${gemInner()}</div>`;
+}
+function gemInner() {
+  const r = gemResult;
+  if (!r || r.pending) return `<span class="hint">${ico('gem')} 보석 정산 중…</span>`;
+  if (r.offline) return `<span class="hint">${ico('gem')} 오프라인이라 이번 판은 보석을 받지 못했어요</span>`;
+  if (!r.ok) return `<span class="hint">${ico('gem')} 보석을 받지 못했어요 · ${esc(r.why || '')}</span>`;
+  if (!r.total) return `<span class="hint">${ico('gem')} 이번 판 보석 없음 (점수 100점마다 5개)</span>`;
+  return `<b class="gem-total">${ico('gem')} +${r.total}</b>
+    <span class="gem-parts">${r.parts.filter(p => p.gems || p.id === 'win').map(p => `${esc(p.ko)} ${p.gems ? '+' + p.gems : ''}`).join(' · ')}</span>
+    <small class="hint">보유 ${Wal.gems().toLocaleString()} · 오늘 대전 승리 보상 ${Wal.VS_DAILY - Wal.vsLeftToday()}/${Wal.VS_DAILY}</small>`;
+}
+function paintGems() { const el = document.getElementById('gem-res'); if (el) el.innerHTML = gemInner(); }
+
 function recordProfile() {
   if (!S || S.tutorial) return;
   const idx = online ? S.players.findIndex(p => p.token === online.token) : S.players.findIndex(p => !p.bot);
@@ -2036,6 +2089,9 @@ function recordProfile() {
   if (!prof.best || score > prof.best.score) prof.best = { score, cls: me.cls, mode: S.mode, date: Date.now() };
   prof.classes[me.cls] = (prof.classes[me.cls] || 0) + 1;
   for (const [id, n] of Object.entries(me.perks)) prof.perks[id] = (prof.perks[id] || 0) + n;
+  const firstClear = coop && S.boss.won && !(prof.bosses[`${S.boss.id}:${S.boss.diff}`]?.wins);
+  claimGems({ mode: S.mode, win, online: !!online, humans: S.players.filter(p => !p.bot).length, score, flip: me.flip, nudge: me.nudge,
+    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null, firstClear });
   if (coop) {
     const bk = `${S.boss.id}:${S.boss.diff}`;
     const b = prof.bosses[bk] || { tries: 0, wins: 0, grade: null };
@@ -2154,6 +2210,7 @@ function diceHit(v, i, t) {
 // 위쪽에 실제 3D 트레이 미리보기, 아래에 스킨 목록. 고르면 바로 미리보기와 게임 트레이에 입혀진다.
 let skinPreview = null;
 function closeSkinPreview() {
+  skinTry = null;
   skinPreview?.destroy?.();
   skinPreview = null;
 }
@@ -2163,30 +2220,36 @@ async function showSkins(tab = 'dice') {
   const thumb = tab === 'dice' ? diceThumb : trayThumb;
   const reuse = skinPreview && layer.querySelector('.skin-preview');
   const cards = list.map(k => {
-    const open = isUnlocked(k.id);
-    return `<button class="skin-card${k.id === cur ? ' on' : ''}${open ? '' : ' locked'}" data-act="skin-pick" data-kind="${tab}" data-id="${k.id}">
+    const open = Wal.owns(tab, k.id);
+    const trying = skinTry?.kind === tab && skinTry.id === k.id;
+    return `<button class="skin-card${k.id === cur ? ' on' : ''}${open ? '' : ' locked'}${trying ? ' trying' : ''}" data-act="skin-pick" data-kind="${tab}" data-id="${k.id}">
       <img src="${thumb(k.id)}" alt="">
       <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
-      ${k.tier === 'special' ? '<span class="skin-tag">스페셜</span>' : ''}
+      ${open ? (k.tier === 'special' ? '<span class="skin-tag">보유</span>' : '') : `<span class="skin-tag price">${ico('gem', 'xs')}${Wal.priceOf(tab, k.id).toLocaleString()}</span>`}
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
     </button>`;
   }).join('');
+  const buyBar = () => skinTry ? `<div class="buy-bar"><span>${esc((skinTry.kind === 'dice' ? diceSkin : traySkin)(skinTry.id).name)} 미리 보는 중</span>
+      <button class="pbtn gold small" data-act="buy" data-kind="${skinTry.kind}" data-id="${skinTry.id}">${ico('gem', 'xs')} ${Wal.priceOf(skinTry.kind, skinTry.id).toLocaleString()}에 사기</button></div>` : '';
   if (reuse) {
     layer.querySelector('.skin-grid').innerHTML = cards;
     layer.querySelectorAll('.skin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    layer.querySelector('.buy-slot').innerHTML = buyBar();
+    layer.querySelector('.gem-chip b').textContent = Wal.gems().toLocaleString();
     return;
   }
   closeSkinPreview();
   DICE_SKINS.forEach(k => preloadDice(k.id).catch(() => {}));   // 고르면 바로 바뀌게 그림 스킨을 미리 받아 둔다
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame skins" data-act="noop">
-    <h2>꾸미기</h2>
+    <h2>꾸미기 <span class="gem-chip">${ico('gem', 'xs')}<b>${Wal.gems().toLocaleString()}</b></span></h2>
     <div class="skin-preview"><button class="pbtn small skin-roll" data-act="skin-roll">굴려 보기</button></div>
     <div class="seg skin-tabs" role="tablist">
       <button data-act="skin-tab" data-tab="dice" class="${tab === 'dice' ? 'on' : ''}">주사위</button>
       <button data-act="skin-tab" data-tab="tray" class="${tab === 'tray' ? 'on' : ''}">트레이</button>
     </div>
+    <div class="buy-slot">${buyBar()}</div>
     <div class="skin-grid">${cards}</div>
-    <p class="hint">스페셜 스킨은 지금은 모두 무료로 쓸 수 있어요.</p>
+    <p class="hint">보석은 대전 승리 · 보스 토벌 · 높은 점수로 모아요. 잠긴 스킨은 눌러서 미리 볼 수 있어요.</p>
     <button class="pbtn gold" data-act="close">닫기</button>
   </div></div>`;
   const host = layer.querySelector('.skin-preview');
@@ -2199,8 +2262,17 @@ async function showSkins(tab = 'dice') {
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }
+// 안 산 스킨: 미리 보기만 (사기 버튼이 뜬다). 산 스킨: 바로 쓴다
+let skinTry = null;
 function pickSkin(kind, id) {
-  if (!isUnlocked(id)) return toast(ico('warn'), '아직 잠겨 있어요', '', 1400);
+  if (!Wal.owns(kind, id)) {
+    sfx.select();
+    skinTry = { kind, id };
+    const d = kind === 'dice' ? id : diceSkin(prefs.diceSkin).id, t = kind === 'tray' ? id : traySkin(prefs.traySkin).id;
+    skinPreview?.setSkin(d, t);
+    return showSkins(kind);
+  }
+  skinTry = null;
   sfx.select();
   if (kind === 'dice') prefs.diceSkin = id; else prefs.traySkin = id;
   store.set(KEYS.prefs, prefs);
@@ -2209,6 +2281,35 @@ function pickSkin(kind, id) {
   tray?.setSkin?.(d, t);
   showSkins(kind);
 }
+// 잠긴 직업을 누르면: 설명과 가격을 보여 주고 살지 묻는다
+let afterClassBuy = null;
+const firstOwnedClass = () => E.CLASSES.find(c => Wal.owns('cls', c.id))?.id || 'gambler';
+function classBuyDialog(id, then) {
+  const k = E.classInfo(id), price = Wal.priceOf('cls', id);
+  afterClassBuy = then;
+  sfx.select();
+  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame buy-cls" data-act="noop" style="--c:${k.color}">
+    <h2>${portrait(id, 'mini')} ${k.ko} 해금</h2>
+    <p><b style="color:${k.color}">${k.ko}</b> ${k.desc}</p>
+    <p class="hint">보유 ${ico('gem', 'xs')}${Wal.gems().toLocaleString()} · 해금하면 계속 쓸 수 있어요 (봇 동료는 해금 없이도 모든 직업)</p>
+    <div class="modal-actions"><button class="pbtn" data-act="close">취소</button>
+      <button class="pbtn gold" data-act="buy" data-kind="cls" data-id="${id}" ${Wal.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()}에 해금</button></div>
+  </div></div>`;
+}
+
+// 보석으로 사기 (스킨 · 직업 공용)
+async function buyItem(kind, id, btn) {
+  if (btn) btn.disabled = true;
+  const r = await Wal.buy(kind, id).catch(err => ({ ok: false, why: navigator.onLine ? (err?.message || '서버 오류') : '인터넷 연결이 필요해요.' }));
+  if (btn) btn.disabled = false;
+  if (!r.ok) { sfx.back(); return toast(ico('warn'), '살 수 없어요', r.why, 2000); }
+  sfx.coin();
+  const name = kind === 'cls' ? E.classInfo(id).ko : (kind === 'dice' ? diceSkin : traySkin)(id).name;
+  toast(ico('gem'), `${name} 획득!`, `남은 보석 ${Wal.gems().toLocaleString()}`, 1600);
+  if (kind === 'cls') { layer.innerHTML = ''; return afterClassBuy?.(id); }
+  return pickSkin(kind, id);
+}
+
 async function rollPreview() {
   if (!skinPreview || skinPreview.anim) return;
   sfx.rollPress();
@@ -2233,6 +2334,7 @@ function showSettings(inGame = false) {
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
+    ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
@@ -2242,6 +2344,18 @@ function showSettings(inGame = false) {
     </div>
   </div></div>`;
 }
+// 설정의 계정 줄: 게스트면 '구글 계정 연결' 버튼
+async function paintAccount() {
+  const el = document.getElementById('account-row');
+  if (!el) return;
+  try {
+    const a = await accountInfo();
+    el.innerHTML = a.guest
+      ? `계정 <small>게스트 · 이 기기에만 저장</small><button class="pbtn small gold" data-act="link-google">구글 계정 연결</button>`
+      : `계정 <small>구글 ${esc(a.email)} · 다른 기기에서도 이어서</small>`;
+  } catch { el.innerHTML = '계정 <small>인터넷 연결이 필요해요</small>'; }
+}
+
 function showCredits() {
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame credits" data-act="noop">
     <h2>크레딧</h2>
@@ -2626,7 +2740,17 @@ function onAct(act, t) {
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
   if (act === 'skin-roll') return rollPreview();
-  if (act === 'settings') { sfx.select(); return showSettings(false); }
+  if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
+  if (act === 'settings') { sfx.select(); showSettings(false); return paintAccount(); }
+  if (act === 'link-google') {
+    sfx.select();
+    t.disabled = true;
+    return linkGoogle().then(async r => {
+      if (r.switched) await Wal.reloadWallet();
+      toast(ico('up'), '구글 계정을 연결했어요', r.switched ? '이 구글 계정에 있던 보석과 구매 기록으로 이어서 해요.' : '보석과 구매 기록이 이 계정에 저장돼요. 다른 기기에서도 이어서 할 수 있어요.', 2600);
+      paintAccount();
+    }, err => { t.disabled = false; if (err?.code !== 'auth/popup-closed-by-user') toast(ico('warn'), '연결하지 못했어요', String(err?.message || err).slice(0, 80), 2400); });
+  }
   if (act === 'wipe') {
     sfx.select();
     layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
@@ -2639,7 +2763,7 @@ function onAct(act, t) {
   if (act === 'wipe-yes') {
     leaveRoom(false);
     setAnalytics(false);
-    deleteAccount().catch(err => console.warn('[wipe]', err)).finally(() => {
+    Wal.deleteWallet().catch(err => console.warn('[wipe wallet]', err)).then(() => deleteAccount()).catch(err => console.warn('[wipe]', err)).finally(() => {
       try { Object.keys(localStorage).filter(k => k.startsWith('diceheroes') || k.startsWith('dh.')).forEach(k => localStorage.removeItem(k)); } catch {}
       location.reload();
     });
@@ -2814,4 +2938,4 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
-if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; } };
+if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox() };

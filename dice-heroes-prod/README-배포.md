@@ -109,3 +109,12 @@ firebase emulators:start --only auth,database --project demo-diceheroes
 Spark(무료) 한도: 동시 접속 100 · DB 다운로드 월 10GB · Hosting 전송 하루 360MB.
 Firebase 콘솔 **사용량 및 결제** 에서 70%를 넘기 시작하면 Blaze 로 전환하고 예산 알림(예: 월 1만 원)을 걸어 두세요.
 Blaze 로 바꾸면 Cloud Functions 로 서버 쪽 규칙 검사(부정행위 방지)도 추가할 수 있습니다.
+
+## 6. 보석 (게임 재화) · 구글 계정
+
+- 보석은 `wallets/<로그인 번호>` 에 저장된다. 보안 규칙이 서버 시간으로 '오늘'을 확인하고
+  대전 승리 보상은 하루 3회까지만, 한 번에 늘 수 있는 보석은 1,200개까지, 산 적 없는 직업·스킨을 공짜로 여는 쓰기는 막는다.
+- **구글 계정 연결을 켜려면** Firebase 콘솔 → Authentication → 로그인 방법 → **Google 사용 설정** (지원 이메일 선택 후 저장).
+  승인된 도메인에 `diceheroes-4fbbb.web.app` 이 있는지 확인. 켜기 전에는 설정의 '구글 계정 연결'이 오류를 낸다.
+- **출시 전 할 일 (중요)**: Firebase 요금제를 **Blaze** 로 올리고, 보석 계산을 Cloud Functions(서버)로 옮긴다.
+  지금 규칙은 시계 조작·하루 제한·공짜 해금은 막지만, 앱 코드를 고쳐 보상을 부풀리는 조작까지는 막지 못한다.
