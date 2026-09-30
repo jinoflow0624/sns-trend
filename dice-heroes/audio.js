@@ -91,6 +91,11 @@ export function unlock() {
   return ctx;
 }
 
+// 브라우저는 첫 터치 전엔 소리를 막는다(오디오가 '멈춤' 상태로 시작). 메뉴 음악은 시작 화면이 뜨자마자 걸어 두고,
+// 허락되는 첫 순간(아무 곳이나 터치·클릭·키) 바로 들리게 한다. 전화·다른 앱 때문에 멈췄을 때도 다음 터치로 다시 켠다
+const wake = () => { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); };
+['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
+
 // 효과음이 울리는 동안 배경음악을 살짝 내렸다가 끝나면 부드럽게 되돌린다
 let duckUntil = 0;
 function duck(t, dur) {
@@ -381,6 +386,12 @@ const loadBuffer = url => (buffers[url] ||= fetch(url)
   .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
   .then(b => ctx.decodeAudioData(b))
   .catch(err => { delete buffers[url]; throw err; }));
+
+// 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악을 준비해서 시작 화면에서 바로 나오게)
+export function preloadBgm(name) {
+  const url = BGM_FILES[name];
+  if (url && !badFiles.has(url) && unlock()) loadBuffer(url).catch(() => {});
+}
 
 export function playBgm(name) {
   if (playing?.name === name) return;
