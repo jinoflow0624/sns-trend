@@ -1933,8 +1933,9 @@ function showResults() {
   stopBgm();
   FX().rage(false);
   recordProfile();
-  sfx.win();
-  setTimeout(() => playBgm('victory'), 1500);
+  // 내가 졌으면 패배 곡, 이겼으면(또는 한 기기에서 여럿이 한 판) 승리 팡파레 뒤 승리 곡
+  if (lostGame()) { sfx.lose(); setTimeout(() => playBgm('title'), 2300); }
+  else { sfx.win(); setTimeout(() => playBgm('victory'), 1500); }
   if (!online) store.del(KEYS.save);
   if (S.mode === 'coop') return showCoopResults();
   const rank = E.ranking(S);
@@ -1954,6 +1955,15 @@ function showResults() {
     ${resultActions()}
   </div></div>`;
   countUp(layer);
+}
+function lostGame() {
+  if (S.mode === 'coop') return !S.boss.won;
+  const humans = S.players.filter(p => !p.bot).length;
+  if (!online && humans > 1) return false;
+  const idx = online ? S.players.findIndex(p => p.token === online.token) : S.players.findIndex(p => !p.bot);
+  if (idx < 0) return false;
+  const top = E.ranking(S)[0];
+  return !(top.i === idx || top.total === E.finalScore(S.players[idx]) && S.forfeit !== idx);
 }
 function showCoopResults() {
   const b = S.boss, info = E.bossInfo(b.id), grade = E.coopGrade(S);
