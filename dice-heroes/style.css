@@ -1094,3 +1094,14 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .member.dodge .m-por { animation: duelDodge .55s ease-out; }
 @keyframes duelDodge { 30% { transform: translateX(12px) rotate(8deg); opacity: .6; } 60% { transform: translateX(6px); opacity: 1; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .member.atk .m-por, .member.hurt, .member.hurt .m-por img, .member.dodge .m-por, .m-por .crown { animation: none; } }
+
+/* 점수가 오르는 순간: 톡 커졌다 돌아오며 반짝 */
+.member .pts { display: inline-block; transform-origin: 30% 60%; position: relative; z-index: 1; }
+.member .pts.bump { animation: ptsBump .7s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes ptsBump {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.6); color: #FFFFFF; text-shadow: 0 0 8px var(--gold), 2px 2px 0 var(--ink); }
+  60% { transform: scale(1.25); color: var(--gold); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .member .pts.bump { animation: none; } }
