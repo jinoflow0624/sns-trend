@@ -1079,3 +1079,18 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .ready-bar .rb.on { background: var(--mint); color: var(--ink); font-weight: 700; }
 .rdy { color: var(--muted); }
 .rdy.on { color: var(--mint); font-weight: 700; }
+
+/* ── 대전: 공격 · 피격 · 회피 · 왕관 ── */
+.m-por { position: relative; }
+.m-por .crown { position: absolute; left: 50%; top: -13px; transform: translateX(-50%); z-index: 2; pointer-events: none; animation: crownBob 1.6s ease-in-out infinite; }
+.m-por .crown .ico { width: 18px; height: 18px; filter: drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 0 4px rgba(255,200,61,.8)); }
+@keyframes crownBob { 50% { transform: translate(-50%, -2px); } }
+.member.atk .m-por { animation: duelAtk .6s ease-out; }
+@keyframes duelAtk { 0% { transform: none; } 25% { transform: translateY(-10px) scale(1.25); filter: brightness(1.8) drop-shadow(0 0 8px var(--c)); } 55% { transform: translateY(-4px) scale(1.12); filter: brightness(1.3); } 100% { transform: none; filter: none; } }
+.member.hurt { animation: duelHurt .5s ease-out; }
+@keyframes duelHurt { 0%, 40%, 80% { transform: translateX(-4px); background: #5A1830; } 20%, 60% { transform: translateX(4px); } 100% { transform: none; } }
+.member.hurt .m-por img { animation: duelHurtImg .5s steps(2) ; }
+@keyframes duelHurtImg { 0%, 60% { filter: brightness(2.5) sepia(1) hue-rotate(-40deg) saturate(5); } 100% { filter: none; } }
+.member.dodge .m-por { animation: duelDodge .55s ease-out; }
+@keyframes duelDodge { 30% { transform: translateX(12px) rotate(8deg); opacity: .6; } 60% { transform: translateX(6px); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .member.atk .m-por, .member.hurt, .member.hurt .m-por img, .member.dodge .m-por, .m-por .crown { animation: none; } }

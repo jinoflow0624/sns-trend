@@ -1023,9 +1023,10 @@ function render() {
     ${coop ? bossPanel() : ''}
 
     <div class="party" style="--n:${S.players.length}">
+      ${(() => { if (!ui.crownFreeze) crownShown = leaders(); return ''; })()}
       ${S.players.map((p, i) => `
         <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">
-          <div class="m-por">${portrait(p.cls)}<span class="lv">${p.level}</span></div>
+          <div class="m-por">${portrait(p.cls)}<span class="lv">${p.level}</span>${crownShown.includes(i) ? `<span class="crown">${ico('crown', 'xs')}</span>` : ''}</div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ' (나)' : ''}</span>
             <b class="pts">${coop ? `${ico('sword', 'xs')}${Math.round(S.boss.dmg[i] || 0)}` : E.finalScore(p)}</b></div>
           ${online && !p.bot && !alive(p.token) ? `<span class="off">끊김 ${Math.ceil(dropLeft(p.token) / 1000)}초</span>` : ''}
@@ -1505,6 +1506,7 @@ const FX_SLOW = new URLSearchParams(location.search).has('slowfx') ? 0.25 : 1;
 //   점수 기록 → 다음 턴으로 넘어가도 기록한 주사위가 에너지로 모일 때까지 남아 있다
 // 공격이 날아가는 동안은 보스 체력을 맞기 전 값으로 보여 준다 (명중하는 순간 깎인다)
 function holdHp(list) {
+  if (S && !S.boss && list.some(f => f.type === 'score')) ui.crownFreeze = true;   // 점수 연출이 끝날 때 왕관을 옮긴다
   if (!S?.boss) { ui.hpHold = null; return; }
   const dealt = list.filter(f => f.type === 'damage').reduce((a, f) => a + f.amount - (f.blocked || 0), 0);
   const healed = list.filter(f => f.type === 'boss' && f.skill === 'plunder').reduce((a, f) => a + (f.amount || 0), 0);
@@ -1530,6 +1532,7 @@ async function trayReady() {
 
 async function attackFx(f) {
   if (!(await trayReady())) { ui.dice = null; return; }
+  if (!S.boss && duelTarget(f.player) >= 0) return duelFx(f);
   if (prefs.fx === 'min') {                 // 연출 최소: 구체는 건너뛰고 명중만
     const el = S.boss ? document.getElementById('boss-art') : document.querySelector(`.member[data-i="${f.player}"] .pts`);
     const r = el?.getBoundingClientRect();
@@ -1557,6 +1560,87 @@ async function attackFx(f) {
   ui.dice = null;
   render();
   tray.restore();
+}
+
+// ── 대전: 점수 = 공격 ────────────────────────────────────────────────────────
+// 점수를 적으면 주사위 에너지를 받은 내 영웅이 직업 기술로 상대를 친다 (점수는 그대로 내 것 — 연출만).
+// 노리는 상대: 나를 뺀 사람 중 점수가 가장 높은 사람 (1등을 노리고, 내가 1등이면 2등을 견제)
+// 역전해서 1등이 되면 왕관이 옛 1등에게서 튕겨 나와 나에게 온다.
+function duelTarget(me) {
+  let best = -1, bs = -Infinity;
+  S.players.forEach((p, i) => { if (i !== me && E.finalScore(p) > bs) { bs = E.finalScore(p); best = i; } });
+  return best;
+}
+// 왕관: 점수가 가장 높은 사람(동점이면 모두). 0점뿐이면 없음
+function leaders() {
+  if (S.boss || S.players.length < 2) return [];
+  const sc = S.players.map(p => E.finalScore(p)), max = Math.max(...sc);
+  return max > 0 ? sc.map((v, i) => (v === max ? i : -1)).filter(i => i >= 0) : [];
+}
+let crownShown = [];
+const porPos = i => {
+  const r = document.querySelector(`.member[data-i="${i}"] .m-por`)?.getBoundingClientRect();
+  return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 80 };
+};
+const memberFx = (i, cls, ms) => {
+  const el = document.querySelector(`.member[data-i="${i}"]`);
+  if (!el) return;
+  el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+};
+async function duelFx(f) {
+  const me = f.player, foe = duelTarget(me), fx = FX();
+  const style = attackStyle(f.pts, f.cat);
+  const cls = S.players[me].cls;
+  const hitFoe = big => { sfx.boom(big ? style.power : 0.6); memberFx(foe, 'hurt', 520); if (big) shake(app.querySelector('.party'), Math.min(2, style.power)); };
+  if (prefs.fx === 'min') {                 // 연출 최소: 기술은 건너뛰고 명중만
+    fx.impact(porPos(foe).x, porPos(foe).y, style.pal, 1);
+    hitFoe(true);
+  } else {
+    fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
+    const from = (f.dice || S.dice).map((_, i) => tray.screenPos(i));
+    // 1) 주사위가 에너지로 뭉친다 → 2) 내 영웅에게 스며든다 → 3) 영웅이 뛰어올라 기술 발사 → 4) 상대 명중
+    const o = await fx.gather(from, { pal: style.pal, power: style.power, onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); } });
+    tray.restore();
+    await fx.flyOrb(o, porPos(me), { pal: style.pal, power: style.power, ms: 240, shrink: 0.7 });
+    fx.burst(porPos(me).x, porPos(me).y, { n: 18, pal: style.pal, speed: [60, 200], life: [0.3, 0.6] });
+    memberFx(me, 'atk', 620);
+    sfx.whoosh();
+    await wait(140);
+    await fx.strike(cls, porPos(me), porPos(foe), { pal: style.pal, power: style.power, onHit: hitFoe });
+    fx.impact(porPos(foe).x, porPos(foe).y, style.pal, style.power * 0.8);
+    if (f.cat === 'yacht') { fx.flash('#FFFFFF', 320, 0.5); shake(app.querySelector('.game'), 2.5); }
+  }
+  ui.dice = null;
+  await crownCheck(me);
+  render();
+  tray.restore();
+}
+// 1등이 바뀌었으면 왕관을 옮긴다 (점수 연출이 끝날 때까지 왕관은 옛 자리에 둔다)
+async function crownCheck(me) {
+  const now = leaders();
+  const was = crownShown;
+  const same = now.length === was.length && now.every(i => was.includes(i));
+  ui.crownFreeze = false;
+  if (same) return;
+  if (now.includes(me) && !was.includes(me) && prefs.fx !== 'min') {
+    const from = was.length ? porPos(was[0]) : { x: porPos(me).x, y: porPos(me).y - 80 };
+    // 떠나는 왕관은 지운다
+    document.querySelectorAll('.member .crown').forEach(el => { el.style.visibility = 'hidden'; });
+    sfx.coin();
+    await FX().crown(from, { x: porPos(me).x, y: porPos(me).y - 22 }, crownDraw);
+    floatText(was.length ? '역전! 1등 탈환' : '1등!', 'gold', -40, 'tray', 'crown');
+  }
+  crownShown = now;
+}
+// 캔버스에 그리는 도트 왕관
+function crownDraw(g, x, y, s = 1, rot = 0) {
+  g.save(); g.translate(Math.round(x), Math.round(y)); g.rotate(Math.sin(rot) * 0.3); g.scale(s * 2, s * 2);
+  const px = (c, a, b, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(a, b, w, h); };
+  px('#06041A', -7, -6, 14, 10);
+  px('#FFD24A', -6, -1, 12, 4); px('#FFD24A', -6, -5, 2, 4); px('#FFD24A', -1, -6, 2, 5); px('#FFD24A', 4, -5, 2, 4);
+  px('#FFF0A8', -6, -1, 12, 1); px('#E8435A', -1, 0, 2, 2); px('#C86A0E', -6, 2, 12, 1);
+  g.restore();
 }
 
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
@@ -1602,6 +1686,7 @@ async function playFx(list) {
     try { await playOne(f); } catch (err) { console.error('[fx]', f.type, err); ui.dice = null; tray?.restore(); }
   }
   ui.hpHold = null;
+  ui.crownFreeze = false;
 }
 
 async function playOne(f) {
@@ -1623,6 +1708,8 @@ async function playOne(f) {
           sfx.zero();
           floatText(`${E.catInfo(f.cat).ko} 0`, 'dim');
           if (tray) FX().fizzle(S.dice.map((_, i) => tray.screenPos(i)));
+          const foe = !S.boss && prefs.fx !== 'min' ? duelTarget(f.player) : -1;
+          if (foe >= 0) { memberFx(foe, 'dodge', 600); FX().miss(porPos(f.player), porPos(foe)); ui.crownFreeze = false; }
           ui.dice = null;
           await wait(380);
         }
