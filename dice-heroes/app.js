@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL } from './pixel.js';
 import { titleScene, storyScene, STORY } from './scenes.js';
-import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
+import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, attackStyle, RAGE, shake } from './fx.js';
@@ -105,6 +105,7 @@ function saveOpts() { store.set(KEYS.opts, opts); }
 // ── 스플래시 ─────────────────────────────────────────────────────────────────
 function showSplash() {
   screen = 'splash';
+  preloadBgm('title');
   app.innerHTML = `
   <div class="screen splash" data-act="skip-splash">
     <div class="studio">
@@ -153,7 +154,7 @@ function showTitle() {
   </div>`;
   showLiveBar();
   setStage(titleScene(app.querySelector('.scene')));
-  if (unlocked) playBgm('title');
+  playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
 }
 
 function showLiveBar() {
