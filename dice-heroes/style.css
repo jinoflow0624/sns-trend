@@ -1105,3 +1105,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
   100% { transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) { .member .pts.bump { animation: none; } }
+
+/* 3D 주사위를 받는 동안 */
+.tray-loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); font-size: 13px; animation: blink 1.2s steps(2, jump-none) infinite; pointer-events: none; }
+.hint.diag { font-size: 10px; opacity: .7; word-break: break-all; }

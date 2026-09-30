@@ -112,13 +112,14 @@ function makeWorld(ceiling = 6.0, dieBounce = 0.08) {
 }
 
 export class DiceTray {
-  constructor(host, { onPick, onHit, onLong, onThrow, onBox, lowGfx = false, diceSkin = 'classic', traySkin = 'classic' } = {}) {
+  constructor(host, { onPick, onHit, onLong, onThrow, onBox, onFail, lowGfx = false, diceSkin = 'classic', traySkin = 'classic' } = {}) {
     this.host = host;
     this.onThrow = onThrow || (() => {});   // 주사위가 손을 떠나는 순간 (흔드는 소리)
     this.onBox = onBox || (() => {});       // 고정한 주사위가 함에 들어가는 순간
     this.onPick = onPick || (() => {});
     this.onHit = onHit || (() => {});
     this.onLong = onLong || (() => {});      // 주사위를 꾹 누름 (정보 보기)
+    this.onFail = onFail || (() => {});      // 그래픽 오류로 3D를 계속 그릴 수 없을 때
     this.dice = [];
     this.anim = null;
     this.target = false;
@@ -860,9 +861,32 @@ export class DiceTray {
   // 잡은 주사위는 살짝 떠 있다 (함 안에서는 조금만)
   liftWant(d) { return d.held ? (d.boxed ? 0.15 : 0.45) : 0; }
 
+  // 그리기 루프. 기기 그래픽 오류로 계속 실패하면(5초 안에 3번) 멈추고 앱에 알린다 → 앱이 2D 주사위로 바꾼다
   loop() {
     if (!this.running) return;
     requestAnimationFrame(this.loop);
+    try { this.frame(); }
+    catch (err) {
+      console.error('[3d frame]', err);
+      const now = performance.now();
+      this.errT = (this.errT || []).filter(t => now - t < 5000).concat(now);
+      if (this.errT.length >= 3) this.fail(err);
+    }
+  }
+
+  fail(err) {
+    if (this.failed) return;
+    this.failed = true;
+    this.running = false;
+    this.live = null;
+    const a = this.anim;
+    this.anim = null;
+    a?.resolve?.();                             // 굴리던 중이면 기다리던 쪽을 풀어 준다 (게임은 계속)
+    this.dice?.forEach(d => { d.morph?.resolve?.(); d.morph = null; });
+    this.onFail(err);
+  }
+
+  frame() {
     if (document.hidden) return;              // 다른 앱을 보는 동안은 그리지 않는다
     const t = performance.now();
     // 배터리 절약: 움직이는 게 없으면 그리기를 쉰다 (빛나는 주사위만 있으면 초당 10번)
