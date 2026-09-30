@@ -46,6 +46,41 @@ export function signIn() {
   return signing;
 }
 
+// 배포판: 구글 계정 연결. 지금 익명 계정에 구글을 붙이므로 보석·구매 기록이 그대로 이어진다.
+// 이미 다른 기기에서 연결한 구글 계정이면 그 계정으로 바꿔 들어간다 (그 계정의 보석을 쓴다).
+export async function linkGoogle() {
+  if (!PROD) throw new Error('테스트판에서는 구글 계정을 연결할 수 없어요.');
+  const { fb, app } = await fireApp();
+  await signIn();
+  const auth = fb.getAuth(app);
+  const provider = new fb.GoogleAuthProvider();
+  try {
+    const res = await fb.linkWithPopup(auth.currentUser, provider);
+    return { switched: false, email: res.user.email || res.user.providerData.find(p => p.providerId === 'google.com')?.email };
+  } catch (err) {
+    if (err?.code === 'auth/credential-already-in-use' || err?.code === 'auth/email-already-in-use') {
+      const cred = fb.GoogleAuthProvider.credentialFromError(err);
+      const res = await fb.signInWithCredential(auth, cred);
+      uid = res.user.uid;
+      signing = Promise.resolve(uid);
+      return { switched: true, email: res.user.email };
+    }
+    if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/operation-not-supported-in-this-environment') {
+      await fb.linkWithRedirect(auth.currentUser, provider);    // 팝업이 막히는 앱 화면: 페이지를 넘겨서 연결
+    }
+    throw err;
+  }
+}
+// 지금 계정 상태: 구글 연결 여부 · 이메일
+export async function accountInfo() {
+  if (!PROD) return { guest: true, test: true };
+  const { fb, app } = await fireApp();
+  await signIn();
+  const u = fb.getAuth(app).currentUser;
+  const g = u?.providerData.find(p => p.providerId === 'google.com');
+  return { guest: !g, email: g?.email || '' };
+}
+
 // 배포판: 서버에 있는 내 로그인 기록을 지운다 (설정 → 내 데이터 지우기)
 export async function deleteAccount() {
   if (!PROD) return;

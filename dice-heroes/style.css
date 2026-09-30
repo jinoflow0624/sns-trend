@@ -1116,3 +1116,28 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .tool b.full { background: var(--gold); color: var(--ink); }
 .diff.locked { opacity: .5; background: #140F36 !important; color: var(--muted) !important; }
 .diff.locked .ico { width: 12px; height: 12px; vertical-align: -1px; }
+
+/* ── 보석 ── */
+.gem-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #0E2A4A; border: 2px solid var(--ink); box-shadow: inset 0 0 0 2px #2F5FB0; color: #C8F4FF; font-size: 13px; font-weight: 700; vertical-align: middle; }
+.gem-chip .ico { width: 14px; height: 14px; }
+.title-gems { position: absolute; top: calc(env(safe-area-inset-top) + 10px); right: 12px; z-index: 3; font-size: 14px; }
+.skins h2 .gem-chip { font-size: 12px; margin-left: 6px; }
+.skin-tag.price { background: #0E2A4A; color: #C8F4FF; display: inline-flex; align-items: center; gap: 2px; }
+.skin-tag.price .ico { width: 12px; height: 12px; }
+.skin-card.locked img { filter: saturate(.55) brightness(.85); }
+.skin-card.trying { box-shadow: inset 0 0 0 2px var(--sky), 0 0 10px rgba(79,179,255,.6); }
+.buy-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; margin: 4px 0; background: #0E2A4A; border: 2px solid var(--ink); font-size: 12px; color: #C8F4FF; }
+.buy-bar .ico { width: 14px; height: 14px; }
+.cls.locked { opacity: .75; }
+.cls.locked img { filter: grayscale(.8) brightness(.8); }
+.cls.locked span { display: inline-flex; align-items: center; gap: 2px; color: #C8F4FF; font-size: 10px; }
+.cls.locked span .ico { width: 10px; height: 10px; }
+.buy-cls h2 { display: flex; align-items: center; gap: 8px; }
+.buy-cls .modal-actions .ico { width: 14px; height: 14px; }
+.gem-res { display: grid; gap: 3px; justify-items: center; text-align: center; margin: 6px 0; }
+.gem-res .gem-total { font-size: 20px; color: #C8F4FF; display: inline-flex; align-items: center; gap: 6px; }
+.gem-res .gem-total .ico { width: 22px; height: 22px; }
+.gem-res .gem-parts { font-size: 12px; color: var(--text); }
+.gem-res .hint .ico { width: 14px; height: 14px; vertical-align: -2px; }
+.set-row.account { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.set-row.account small { flex: 1; }
