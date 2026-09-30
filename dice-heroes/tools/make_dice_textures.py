@@ -134,6 +134,15 @@ def black():
 
 # ── 오픈하츠: 6 면(정면) 렌더를 통째로 쓰고, 가운데 숫자만 지운 뒤 같은 구리 질감으로 새 숫자를 새긴다
 FONT = '/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf'
+OH_SCALE = 1.22   # 오픈하츠: 가운데 원(테·톱니)과 숫자를 렌더보다 키우는 배율
+
+
+def enlarge_disc(img, cx, cy, r, s, soft=28):
+    # (cx, cy) 중심 반지름 r 원판을 s 배 키워 제자리에 얹는다 (가장자리는 부드럽게)
+    h, w = img.shape[:2]
+    big = cv2.warpAffine(img, np.float32([[s, 0, cx - s * cx], [0, s, cy - s * cy]]), (w, h), flags=cv2.INTER_CUBIC)
+    m = feather_circle(h, w, cx, cy, r * s, soft)
+    return (big * m + img * (1 - m)).astype(np.uint8)
 
 
 def openheart():
@@ -149,16 +158,17 @@ def openheart():
     mask = cv2.bitwise_and(copper, circ)
     mask = cv2.dilate(mask, np.ones((9, 9), np.uint8), iterations=2)
     blank = cv2.inpaint(face, mask, 9, cv2.INPAINT_TELEA)
-    blank = cv2.GaussianBlur(blank, (0, 0), 1.2) * 0 + blank   # (그대로)
+    blank = enlarge_disc(blank, cx, cy, 285, OH_SCALE)   # 테·톱니 원을 키운다
     # 새 숫자: 구리 질감(테두리 막대에서 떠 온 결) + 어두운 음각 테두리 + 밝은 윗모서리
     tex = cv2.resize(face[40:110, 150:870], (1024, 1024))   # 윗 가로 테
     tex = cv2.cvtColor(tex, cv2.COLOR_BGR2RGB)
-    font = ImageFont.truetype(FONT, 400)
+    font = ImageFont.truetype(FONT, int(400 * OH_SCALE))
     for v in range(1, 7):
         base = Image.fromarray(cv2.cvtColor(blank, cv2.COLOR_BGR2RGB))
         # 숫자 아래 어두운 원판 (기계장치 앞에 숫자가 또렷하게)
         shade = Image.new('L', (1024, 1024), 0)
-        ImageDraw.Draw(shade).ellipse((cx - 165, cy - 200, cx + 165, cy + 200), fill=120)
+        k = OH_SCALE
+        ImageDraw.Draw(shade).ellipse((cx - 165 * k, cy - 200 * k, cx + 165 * k, cy + 200 * k), fill=120)
         shade = shade.filter(ImageFilter.GaussianBlur(40))
         base = Image.composite(Image.new('RGB', (1024, 1024), (22, 16, 12)), base, shade)
         m_in = Image.new('L', (1024, 1024), 0)
@@ -169,8 +179,8 @@ def openheart():
         ty = cy - (bb[1] + bb[3]) / 2 - 10
         d.text((tx, ty), text, font=font, fill=255)
         if v == 6:
-            d.rectangle((cx - 95, cy + 185, cx + 95, cy + 205), fill=255)   # 6 밑줄 (렌더와 같게)
-        m_out = m_in.filter(ImageFilter.MaxFilter(13))
+            d.rectangle((cx - 95 * k, cy + 185 * k, cx + 95 * k, cy + 205 * k), fill=255)   # 6 밑줄 (렌더와 같게)
+        m_out = m_in.filter(ImageFilter.MaxFilter(15))
         base.paste(Image.new('RGB', (1024, 1024), (30, 18, 10)), (0, 0), m_out)
         copper_img = Image.fromarray(tex)
         base.paste(copper_img, (0, 0), m_in)
