@@ -4,7 +4,7 @@
 // 룰은 engine.js, 온라인은 net.js, 3D 주사위는 dice3d.js, 소리는 audio.js, 도트 그림은 pixel.js · scenes.js.
 import * as E from './engine.js';
 import { GAME } from './config.js';
-import { spriteURL } from './pixel.js';
+import { spriteURL, isImgSprite } from './pixel.js';
 import { titleScene, storyScene, STORY } from './scenes.js';
 import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -71,7 +71,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const rushing = () => !!online && online.latest !== undefined;
 const wait = ms => new Promise(r => setTimeout(r, (rushing() ? ms * 0.25 : ms) / fxRate()));
 const br = s => esc(s).replace(/\n/g, '<br>');
-const portrait = (id, cl = '') => `<img class="spr ${cl}" src="${spriteURL(id, 4)}" alt="">`;
+// 보스 그림: 마왕은 어려움에서 분노하면(체력 절반 아래) 분노한 모습으로
+const bossArt = () => (S?.boss?.id === 'demon' && S.boss.diff === 2 && S.boss.hp * 2 < S.boss.maxHp && S.boss.hp > 0 ? 'demon_rage' : S?.boss?.id);
+const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
 const eventIco = (id, cls) => ico(EVENT_ICON[id], cls);
@@ -1233,7 +1235,7 @@ function render() {
     setTimeout(() => {
       FX().flash('#C21E56', 700, 0.6); sfx.boom(3); buzz(150);
       shake(app.querySelector('.boss-panel'), 3);
-      toast(portrait('demon', 't-boss'), '마왕이 진정한 모습을 드러냈다!', '분노 — 이제 봉인이 주사위 2개를 묶는다', 2600);
+      toast(portrait('demon_rage', 't-boss'), '마왕이 진정한 모습을 드러냈다!', '분노 — 이제 봉인이 주사위 2개를 묶는다', 2600);
     }, 300);
   }
   FX().rage(rage, () => document.getElementById('boss-art')?.getBoundingClientRect(), RAGE[S.boss?.id]);
@@ -1388,7 +1390,7 @@ function bossPanel() {
   const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0;
   return `
   <section class="boss-panel${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
-    <div class="boss-art" id="boss-art">${portrait(b.id, 'boss')}<div class="aura"></div></div>
+    <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
       <div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
@@ -2024,7 +2026,7 @@ async function playOne(f) {
       case 'boss': {
         if (f.skill === 'unseal') { await skillFx(f); break; }
         const b = E.bossInfo(S.boss.id);
-        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(b.id, 't-boss'));
+        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
         await skillFx(f);
         await note;
         break;

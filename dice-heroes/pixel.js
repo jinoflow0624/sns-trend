@@ -290,10 +290,46 @@ const OWN = {"warrior": {"a": "#D9463E", "A": "#8E2226", "h": "#6B3E26"}, "rogue
 
 const cache = new Map();
 
+// 그림 파일로 된 스프라이트 — 마왕 릴리스 (512px 도트 그림: 평소 · 분노). 파일을 받기 전에는 위의 도트(demon)로 대신 그린다
+const IMG_SPRITES = { demon: 'assets/boss/demon.png', demon_rage: 'assets/boss/demon_rage.png' };
+const imgs = {};
+export const isImgSprite = name => !!IMG_SPRITES[name];
+export function preloadSprites() {
+  if (typeof Image === 'undefined') return;
+  for (const [k, url] of Object.entries(IMG_SPRITES)) {
+    if (imgs[k]) continue;
+    const im = new Image();
+    im.onload = () => { for (const key of [...cache.keys()]) if (key.startsWith(k + ':')) cache.delete(key); };   // 대신 그린 도트는 지운다
+    im.src = url;
+    imgs[k] = im;
+  }
+}
+preloadSprites();
+
+function imgCanvas(name, scale, flip) {
+  const im = imgs[name];
+  if (!im?.complete || !im.naturalWidth) return null;
+  // 그림은 도트보다 촘촘해서 2배 크기로 뽑는다 (화면에서는 부드럽게 줄여 보인다 · .spr-hi)
+  const size = Math.min(im.naturalWidth, 32 * scale * 2);
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = size < im.naturalWidth;
+  g.imageSmoothingQuality = 'high';
+  if (flip) { g.translate(size, 0); g.scale(-1, 1); }
+  g.drawImage(im, 0, 0, size, size);
+  return c;
+}
+
 // 스프라이트를 확대한 캔버스 (도트가 번지지 않게 정수 배율)
 export function spriteCanvas(name, scale = 4, flip = false) {
   const key = `${name}:${scale}:${flip}`;
   if (cache.has(key)) return cache.get(key);
+  if (IMG_SPRITES[name]) {
+    const c = imgCanvas(name, scale, flip);
+    if (c) { cache.set(key, c); return c; }
+    if (!SPRITES[name]) return spriteCanvas('demon', scale, flip);   // 분노 그림을 받기 전: 평소 도트로
+  }
   const rows = SPRITES[name];
   const pal = { ...PALETTE, ...(OWN[name] || {}) };
   const c = document.createElement('canvas');
