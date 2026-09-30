@@ -405,6 +405,23 @@ test('일격필살은 첫 굴림만, 맨손 승부는 도구를 안 썼을 때�
   assert.ok(E.questMet('twin', [5, 5, 6, 6, 1]) && !E.questMet('twin', [5, 6, 6, 6, 1]));
   assert.ok(E.questMet('sum15', [3, 3, 3, 3, 3]));
 });
+test('무희: 다른 구역에 번갈아 적으면 +1, 앙코르는 한 번 굴림 +1', () => {
+  const s = E.createGame([{ name: 'D', cls: 'dancer' }], 9);
+  s.board = []; s.events = s.events.map(() => 'calm');
+  const p = s.players[0];
+  E.roll(s); s.dice = [1, 2, 3, 4, 6];
+  assert.equal(E.catScore(s, p, 'choice'), 16);            // 첫 기록은 보너스 없음
+  E.commitScore(s, 'choice'); E.drainFx(s);
+  while (s.phase === 'levelup') E.pickPerk(s, p.offers[0][0]);
+  E.roll(s); s.dice = [6, 6, 6, 2, 3];
+  assert.equal(E.catScore(s, p, 'sixes'), 18 + E.DANCE_BONUS);   // 아래 칸 → 위 칸
+  assert.equal(E.catScore(s, p, 'full'), 0);
+  assert.equal(p.encore, 1);
+  const left = s.rollsLeft;
+  E.useEncore(s);
+  assert.equal(s.rollsLeft, left + 1);
+  assert.throws(() => E.useEncore(s));
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

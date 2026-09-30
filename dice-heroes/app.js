@@ -1142,7 +1142,7 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ' (봇)' : ''}</span>
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && S.rolled && !ui.busy && cur.cls === 'dancer' && cur.encore > 0 ? `<button class="encore-btn" data-act="encore">${ico('sparkle', 'xs')} 앙코르 <small>굴림 +1 · 1회</small></button>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
@@ -1706,6 +1706,14 @@ const memberFx = (i, cls, ms) => {
   el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
   setTimeout(() => el.classList.remove(cls), ms);
 };
+// 무희가 춤출 때: 초상화 둘레로 꽃잎·리본이 돈다
+function danceFx(i) {
+  memberFx(i, 'dance', 900);
+  const c = porPos(i), fx = FX();
+  fx.burst(c.x, c.y, { n: 26, pal: ['#FFFFFF', '#FF9AD0', '#E84FA0', '#FFC83D'], speed: [60, 200], life: [0.4, 0.8], size: [2, 5], grav: -40 });
+  fx.ring(c.x, c.y, { color: '#FF9AD0', r0: 8, r1: 60, dur: 520, width: 4 });
+}
+
 async function duelFx(f) {
   // 나를 뺀 모두를 한꺼번에 공격한다 (3~4인이면 기술이 상대마다 한 갈래씩 동시에 날아간다)
   const me = f.player, fx = FX();
@@ -1831,6 +1839,7 @@ async function playOne(f) {
           floatText(`${E.catInfo(f.cat).ko} +${f.pts}`, 'gold');
           stamp(f.pts, f.cat);
           if (f.bonus?.length) floatText(f.bonus.map(b => `${b.ko} +${b.amt}`).join(' · '), 'mint', 30);
+          if (f.bonus?.some(b => b.ko === '춤사위') && !S.boss) danceFx(f.player);
           await attackFx(f);
           sfx.score();
         } else {
@@ -1886,6 +1895,7 @@ async function playOne(f) {
         else if (f.why !== 'quest' && (f.flip || f.nudge)) floatText(E.chargeText(f), 'mint', -20);
         if (f.over) { floatText(`보유 한도 ${E.CHARGE_CAP}개 · ${f.over}개 넘침 → 경험치로`, 'dim', 12); await wait(260); }
         break;
+      case 'encore': sfx.card(); danceFx(f.player); floatText(`${p.name} 앙코르! 굴림 +1`, 'gold', -20, 'tray', 'up'); await wait(400); break;
       case 'spill': floatText(`넘친 충전 → 경험치 +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
     }
   }
@@ -2672,6 +2682,13 @@ async function onGameAct(act, t) {
     if (!tryAct(() => E.roll(S))) { tray?.cancelShake?.(); return; }
     await rollAnimated(mask);
     step();
+    return;
+  }
+  if (act === 'encore') {                     // 무희: 게임 중 한 번, 이번 턴 굴림 +1
+    if (!(await doAct(g => E.useEncore(g)))) return;
+    sfx.card(); buzz(40);
+    danceFx(S.turn);
+    if (!online) { E.drainFx(S); floatText('앙코르! 굴림 +1', 'gold', -20, 'tray', 'up'); render(); }
     return;
   }
   if (act === 'tool') {

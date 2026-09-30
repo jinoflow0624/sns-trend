@@ -88,7 +88,13 @@ export const CLASSES = [
     desc: '요트 +10점' },
   { id: 'monk',    ko: '수도승',   icon: '📿', color: '#FF9A1F',
     desc: '점수를 기록할 때 남은 굴림 1회당 조정 +1' },
+  { id: 'dancer',  ko: '무희',     icon: '💃', color: '#FF6FB5',
+    desc: '춤사위: 직전 기록과 다른 구역(위 칸↔아래 칸)에 적으면 +1 · 앙코르: 게임 중 1번, 그 턴 굴림 +1' },
 ];
+export const DANCE_BONUS = 1;   // 봇 1대1 시뮬레이션: +1 → 승률 52% (+2 58% · +3 69% · +4 70%)
+const secOf = cat => (UPPER_IDS.includes(cat) ? 'up' : 'low');
+// 무희 춤사위: 직전에 적은 칸과 다른 구역에 적으면 보너스 (첫 기록은 없음)
+export const danceStep = (p, cat) => p.cls === 'dancer' && !!p.lastSec && p.lastSec !== secOf(cat);
 export const classInfo = id => CLASSES.find(c => c.id === id);
 
 // ── 특성 카드 (레벨업 보상) ──────────────────────────────────────────────────
@@ -348,7 +354,7 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
         name: p.name, cls, bot: !!p.bot,
         scores: Object.fromEntries(CAT_IDS.map(id => [id, null])),
         xp: 0, level: 1, perks: {},
-        flip: cls === 'rogue' ? 1 : 0, nudge: 0,
+        flip: cls === 'rogue' ? 1 : 0, nudge: 0, encore: cls === 'dancer' ? 1 : 0,
         offers: [], questsDone: [], roundScore: 0,
         stats: { xpEarned: 0, zeros: 0 },
       };
@@ -476,6 +482,17 @@ export function useFlip(s, i) {
   s.toolUsed = true;
 }
 
+// 무희 앙코르: 게임 중 한 번, 이번 턴 굴림 +1
+export function useEncore(s) {
+  const p = current(s);
+  if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
+  if (p.cls !== 'dancer' || !(p.encore > 0)) fail('앙코르를 쓸 수 없습니다.');
+  p.encore--;
+  s.rollsLeft++;
+  log(s, `${p.name} · 앙코르! 굴림 +1`);
+  fx(s, { type: 'encore', player: s.turn });
+}
+
 export function useNudge(s, i, delta) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
@@ -509,6 +526,7 @@ export function scoreParts(s, p, cat, d = s.dice) {
       add('도박사', p.cls === 'gambler' ? 10 : 0);
       add('요트 잭팟', ev === 'jackpot' ? 50 : 0);
     }
+    add('춤사위', danceStep(p, cat) ? DANCE_BONUS : 0);
   }
   return { base, bonus, total: base + bonus.reduce((a, b) => a + b.amt, 0) };
 }
@@ -602,6 +620,7 @@ export function commitScore(s, cat) {
   const before = cardTotal(p);
   p.scores[cat] = pts;
   p.roundScore = pts;
+  p.lastSec = secOf(cat);
   const ev = event(s);
 
   let xp = pts;
@@ -864,6 +883,12 @@ export function botAction(s, rng = Math.random, samples = 24) {
     if (bestAct && (s.rollsLeft === 0 || bestGain > 12)) return bestAct;
   }
 
+  if (p.cls === 'dancer' && p.encore > 0 && s.rollsLeft === 0 && s.round >= 4) {
+    const all = (1 << n) - 1, now = valueOf(s, p, s.dice);
+    let best = now;
+    for (let mask = 0; mask < all; mask++) best = Math.max(best, holdValue(s, p, mask, samples, rng));
+    if (best > now + 8) return { type: 'encore' };
+  }
   if (s.rollsLeft > 0) {
     const all = (1 << n) - 1;
     let bestMask = all, bestV = valueOf(s, p, s.dice);
@@ -900,6 +925,7 @@ export function applyBot(s, act) {
     case 'reroll': s.held = act.hold.slice(); return roll(s);
     case 'flip': return useFlip(s, act.i);
     case 'nudge': return useNudge(s, act.i, act.d);
+    case 'encore': return useEncore(s);
     case 'score': return commitScore(s, act.cat);
     case 'perk': return pickPerk(s, act.id);
   }
