@@ -34,7 +34,10 @@ export const STEPS = [
     done: s => s.phase === 'roll' && s.round === 2,
     after: s => { s.players[0].flip += 1; s.players[0].nudge += 1; } },
   { text: '라운드마다 모두에게 적용되는 이벤트가 바뀌어.\n그리고 요정의 선물! 뒤집기와 조정을 한 번씩 줄게.', next: '고마워!' },
-  { target: '[data-act=roll]', allow: ['roll'], text: '2라운드야. 굴려 봐!', done: s => s.rolled },
+  // 흔들어 굴리기를 쓸 수 있는 폰이면 흔들어서 굴려 보게 한다 (버튼도 그대로 된다)
+  { target: '[data-act=roll]', allow: ['roll'], shake: true, text: '2라운드야. 굴려 봐!',
+    shakeText: '2라운드야! 이번엔 폰을 흔들어서 굴려 볼까?\n흔드는 동안 주사위가 통 안에서 데굴데굴 구르고,\n흔들기를 멈추면 그 자리에서 결과가 나와.\n(굴리기 버튼을 눌러도 돼)',
+    done: s => s.rolled },
   { target: '[data-tool=flip]', toolTarget: '#tray', allow: ['tool', 'die'], only: { tool: 'flip', die: 0 },
     text: '1은 뒤집으면 6이 돼 (마주 보는 면의 합은 7).\n뒤집기를 누르면 주사위마다 뒤집힌 눈이 보여.\n맨 왼쪽 주사위를 눌러 뒤집어!',
     done: s => s.dice[0] === 6 },
