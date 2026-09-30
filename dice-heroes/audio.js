@@ -5,7 +5,11 @@
 // 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich
 // 파일은 마디 경계에서 잘라 끝과 처음이 이어지게 다듬은 루프여야 한다. sw.js 캐시 목록에도 넣는다.
 export const BGM_FILES = {
+  title:       'assets/bgm/title.ogg',         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
+  adventure:   'assets/bgm/versus.ogg',        // 대전 · 32마디 루프, 133BPM (Suno)
   boss_dragon: 'assets/bgm/boss_dragon.ogg',   // 32마디 루프, 120BPM (Suno)
+  boss_orc:    'assets/bgm/boss_orc.ogg',      // 28마디 루프, 120BPM (Suno)
+  boss_lich:   'assets/bgm/boss_lich.ogg',     // 28마디 루프, 120BPM (Suno)
 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? `boss_${id}` : 'boss');
@@ -14,7 +18,7 @@ const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
 // 채널 음량: 슬라이더가 같은 값이면 효과음이 배경음악보다 또렷하게(약 6dB) 크게 들리도록 맞춘 비율.
 // 효과음이 날 때는 배경음악을 잠깐 DUCK 만큼 낮춰(더킹) 효과음이 묻히지 않게 한다.
-const BGM_LEVEL = 0.3, SFX_LEVEL = 2.2, DUCK = 0.6;
+const BGM_LEVEL = 0.42, SFX_LEVEL = 3.1, DUCK = 0.6;
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* 저장 불가 */ }
 export const audioSettings = () => ({ ...settings });
 export function setAudio(patch) {
@@ -477,13 +481,21 @@ export const sfx = {
     if (!unlock()) return;
     const t = ctx.currentTime, k = Math.min(1, v / 14), r = Math.random();
     switch (style) {
-      case 'bell': {        // 오픈하츠: 묵직한 금속 방울 — 낮은 몸통 '둥' + 중음 금속 울림 + 비화성 배음
-        const f = 620 + r * 260;
-        ping(sfxGain, { f: 150 + r * 30, slide: 95, t, dur: 0.16, vol: 0.1 + k * 0.14, type: 'triangle' });
-        ping(sfxGain, { f, t, dur: 0.7, vol: 0.05 + k * 0.08 });
-        ping(sfxGain, { f: f * 2.76, t, dur: 0.38, vol: 0.02 + k * 0.035 });
-        ping(sfxGain, { f: f * 5.4, t, dur: 0.1, vol: 0.006 + k * 0.01 });
-        noise(sfxGain, { t, dur: 0.02, vol: 0.04 + k * 0.07, hp: 700, lp: 4000 });
+      case 'silver': {      // 오픈하츠: 은 장신구끼리 부딪히는 '찰캉' — 밝은 금속 타격 + 비화성 배음, 세게 부딪히면 체인처럼 잘게 한 번 더
+        if (t - (this.svT || 0) < 0.03) break;
+        this.svT = t;
+        const f = 1900 + r * 700;
+        noise(sfxGain, { t, dur: 0.012, vol: 0.05 + k * 0.09, hp: 3500, lp: 12000 });
+        ping(sfxGain, { f, t, dur: 0.32, vol: 0.04 + k * 0.07 });
+        ping(sfxGain, { f: f * 1.006, t, dur: 0.32, vol: 0.02 + k * 0.03 });   // 살짝 어긋난 음이 맥놀이로 금속 떨림을 만든다
+        ping(sfxGain, { f: f * 2.76, t, dur: 0.16, vol: 0.02 + k * 0.04 });
+        ping(sfxGain, { f: f * 5.4, t, dur: 0.06, vol: 0.01 + k * 0.02 });
+        if (k > 0.5) {
+          const f2 = 2600 + Math.random() * 900, t2 = t + 0.03 + Math.random() * 0.03;
+          noise(sfxGain, { t: t2, dur: 0.01, vol: 0.03 + k * 0.04, hp: 4000, lp: 12000 });
+          ping(sfxGain, { f: f2, t: t2, dur: 0.14, vol: 0.02 + k * 0.03 });
+          ping(sfxGain, { f: f2 * 2.76, t: t2, dur: 0.07, vol: 0.01 + k * 0.015 });
+        }
         break;
       }
       case 'coin': {        // 황금: 금화가 부딪히는 짤랑
@@ -532,11 +544,22 @@ export const sfx = {
   zero() { seq(['E4', 'C4', 'G#3'], 0.1, { type: 'p25', vol: 0.12 }); },
   coin() { seq(['B5', 'E6'], 0.07, { type: 'p50', vol: 0.16, dur: 0.25 }); buzz(25); },
   quest() { seq(['G5', 'C6', 'E6', 'G6', 'E6', 'G6'], 0.07, { type: 'p25', vol: 0.16 }); buzz(40); },
+  // 레벨업 팡파레: 배경음악과 같은 패미컴 4채널 편성(펄스 리드·펄스 화음·삼각파 베이스·노이즈 드럼)
+  // 도약 → IV–V–I 로 올라가 C장조로 끝난다. 16분음표 한 칸 = 0.085초, 전체 약 1.7초
   levelup() {
-    seq(['C5', 'E5', 'G5', 'C6', 'E6', 'G6', 'C7'], 0.055, { type: 'p25', vol: 0.15 });
-    setTimeout(() => seq(['C6', 'C6', 'C6', 'G6'], 0.1, { type: 'p50', vol: 0.14, dur: 0.14 }), 420);
-    setTimeout(() => seq(['E6'], 0.5, { type: 'p25', vol: 0.14, dur: 0.6 }), 860);
     buzz(80);
+    if (!unlock()) return;
+    const t0 = ctx.currentTime + 0.02, st = 0.085;
+    const part = (type, vol, notes) => notes.forEach(([at, n, len, vib = 0]) =>
+      voice(sfxGain, { type, f: freq(n), t: t0 + at * st, dur: len * st * 0.95, vol, vib }));
+    part('p25', 0.085, [[0, 'G5', 1], [1, 'C6', 1], [2, 'E6', 1], [3, 'G6', 3], [6, 'E6', 1], [7, 'G6', 1], [8, 'A6', 2], [10, 'B6', 2], [12, 'C7', 8, 1]]);
+    part('p12', 0.04, [[0, 'E5', 1], [1, 'G5', 1], [2, 'C6', 1], [3, 'E6', 3], [6, 'C6', 1], [7, 'E6', 1], [8, 'F6', 2], [10, 'G6', 2], [12, 'E6', 8]]);
+    part('tri', 0.11, [[0, 'C3', 3], [3, 'C4', 3], [6, 'G3', 2], [8, 'F3', 2], [10, 'G3', 2], [12, 'C3', 8]]);
+    const kick = at => voice(sfxGain, { type: 'tri', f: 160, slide: 40, t: t0 + at * st, dur: 0.12, vol: 0.07 });
+    const snare = (at, v = 1) => noise(sfxGain, { t: t0 + at * st, dur: 0.08, vol: 0.04 * v, hp: 1200, lp: 7000 });
+    [0, 3, 12].forEach(kick);
+    snare(3); snare(8); snare(10, 0.7); snare(10.5, 0.8); snare(11, 0.9); snare(11.5, 1);
+    noise(sfxGain, { t: t0 + 12 * st, dur: 0.6, vol: 0.03, hp: 5000 });   // 마지막 박 심벌
   },
   card() { seq(['G6', 'D7'], 0.04, { type: 'p12', vol: 0.1 }); },
   legend() { seq(['C6', 'E6', 'G6', 'B6', 'D7', 'G7'], 0.05, { type: 'p12', vol: 0.12 }); },
