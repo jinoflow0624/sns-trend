@@ -387,8 +387,8 @@ function showDemonUnlock() {
   el.className = 'demon-reveal';
   el.innerHTML = `<div class="dr-cracks"></div>
     <div class="dr-boss">${portrait('demon', 'dr-img')}</div>
-    <p class="dr-l1">세 마물이 쓰러지자 봉인이 흔들린다…</p>
-    <h1 class="dr-title">마왕 릴리스 부활</h1>
+    <p class="dr-l1">세 마물을 쓰러뜨려 마왕성에 도달했다.</p>
+    <h1 class="dr-title">마왕 릴리스</h1>
     <p class="dr-l2">보스 선택에서 마왕에게 도전할 수 있어요</p>
     <button class="pbtn gold dr-ok" data-act="demon-ok">도전을 받아들인다</button>`;
   document.body.appendChild(el);
