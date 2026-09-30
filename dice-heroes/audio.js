@@ -643,6 +643,14 @@ export const sfx = {
     voice(sfxGain, { type: 'p12', f: 900, slide: 200, t, dur: 0.5, vol: 0.1, vib: 3 });
     voice(sfxGain, { type: 'p25', f: 300, slide: 1200, t: t + 0.1, dur: 0.45, vol: 0.06 });
   },
+  // 마왕의 패기: 낮고 길게 '둥~' 한 번 (칩튠 화음 없이)
+  haki() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 110, slide: 36, t, dur: 1.5, vol: 0.42 });
+    voice(sfxGain, { type: 'p50', f: 55, slide: 30, t, dur: 1.3, vol: 0.05 });
+    noise(sfxGain, { t, dur: 0.9, vol: 0.14, hp: 60, lp: 700 });
+  },
   // 마왕의 봉인 (약 1.3초, fx.seal 과 박자를 맞춤): 낮게 깔리는 어둠 → 사방에서 쇠사슬이 날아와 철컥철컥 →
   // 사슬이 끼익 조여들고 → 쾅! 자물쇠가 잠긴다
   seal() {

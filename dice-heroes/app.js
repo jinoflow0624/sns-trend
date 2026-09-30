@@ -1537,7 +1537,10 @@ async function toast(icon, title, text, ms = 1900, img = '') {
 let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
-  layer.innerHTML = `<div class="overlay" data-act="skip-banner"><div class="banner">
+  // 마왕의 패기 라운드: 라운드 표시만 하고, 패기는 그다음 따로 발동한다 (hakiFx)
+  layer.innerHTML = evId === 'haki'
+    ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div></div></div>`
+    : `<div class="overlay" data-act="skip-banner"><div class="banner">
     <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span></div></div>`;
   sfx.round();
   await Promise.race([wait(ui.fast ? 700 : 1500), new Promise(r => (skipBanner = r))]);
@@ -1952,20 +1955,20 @@ async function skillFx(f) {
 
 // 마왕의 패기: 화면 전체가 붉게 떨리고 큰 글씨가 내리꽂힌다
 async function hakiFx() {
-  // 천천히: 붉은 기운이 번지고(0.8초) → 글자가 천천히 내려앉아(0.9초) → 잠시 머물다(2.4초) → 서서히 사라진다
+  // 붉은 기운이 번지며 '둥~' 한 번 → 글자가 내려앉아 머물다(약 2.5초) → 서서히 사라진다
   const fx = FX();
-  sfx.boom(3); buzz(120);
+  sfx.haki(); buzz(160);
   fx.flash('#C21E56', 900, 0.45);
   fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FF2A6A', r0: 20, r1: Math.max(innerWidth, innerHeight), dur: 1400, width: 14 });
   fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FFFFFF', r0: 10, r1: innerWidth * 0.8, dur: 1100, width: 6 });
   shake(app.querySelector('.game'), 2);
-  await wait(ui.fast ? 150 : 300);
+  await wait(ui.fast ? 150 : 250);
   const el = document.createElement('div');
   el.className = 'haki-banner';
   el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
   document.body.appendChild(el);
-  setTimeout(() => { fx.ring(innerWidth / 2, innerHeight * 0.42, { color: '#FF9AB8', r0: 30, r1: innerWidth * 0.6, dur: 900, width: 4 }); sfx.boom(1.5); }, ui.fast ? 400 : 800);
-  await wait(ui.fast ? 1500 : 3000);
+  setTimeout(() => fx.ring(innerWidth / 2, innerHeight * 0.42, { color: '#FF9AB8', r0: 30, r1: innerWidth * 0.6, dur: 900, width: 4 }), ui.fast ? 400 : 800);
+  await wait(ui.fast ? 1300 : 2250);
   el.classList.add('out');
   setTimeout(() => el.remove(), 700);
 }
