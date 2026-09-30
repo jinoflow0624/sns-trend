@@ -372,6 +372,9 @@ function modeCards(o) {
 // 마왕: 화염룡·오크·리치의 어려움을 모두 한 번씩 깨면 봉인이 풀린다
 // 테스트판 ?demon: 마왕과 마왕 난이도 전부를 바로 열어 둔다 (배포판에서는 무시)
 const DEMON_TEST = !PROD && new URLSearchParams(location.search).has('demon');
+// 테스트판 ?demon=all: 마왕의 쉬움·보통·어려움까지 전부 열어 둔다 (분노·봉인 2개 확인용)
+const DEMON_ALL = DEMON_TEST && new URLSearchParams(location.search).get('demon') === 'all';
+if (DEMON_TEST) Object.assign(opts, { mode: 'coop', boss: 'demon' });   // '새 게임'을 누르면 바로 협동 · 마왕이 골라져 있다
 const demonOpen = () => DEMON_TEST || ['dragon', 'orc', 'lich'].every(b => (loadProfile().bosses?.[`${b}:2`]?.wins || 0) > 0);
 function showDemonUnlock() {
   if (!demonOpen() || store.get('diceheroes.demonSeen')) return;
@@ -393,7 +396,7 @@ function showDemonUnlock() {
 
 // 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
 function diffOpen(boss, d) {
-  if (d <= 0) return true;
+  if (d <= 0 || (DEMON_ALL && boss === 'demon')) return true;
   return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
 }
 const clearedAt = (boss, d) => (loadProfile().bosses?.[`${boss}:${d}`]?.wins || 0) > 0;
@@ -407,7 +410,10 @@ function firstClearNote(o) {
     : `<p class="first-bonus">${ico('gem', 'xs')} <b>첫 토벌 보너스!</b> 보석 ${base * Wal.FIRST_CLEAR_MUL}개 <small>(평소 ${base}개의 ${Wal.FIRST_CLEAR_MUL}배)</small></p>`;
 }
 const topOpenDiff = boss => [2, 1, 0].find(d => diffOpen(boss, d));
-function clampDiff(o) { if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss); }
+function clampDiff(o) {
+  if (E.bossInfo(o.boss)?.final && !demonOpen()) o.boss = 'dragon';   // 테스트 링크로 골라 둔 마왕이 남아 있어도 봉인 중엔 못 고른다
+  if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss);
+}
 
 function bossPicker(o) {
   clampDiff(o);
