@@ -457,6 +457,21 @@ const GRIDS = {
     "...kkkkkkk..",
     "............",
   ],
+  // 튜토리얼: 여기를 눌러 (위를 가리키는 손가락)
+  hand: [
+    "....kk......",
+    "...kwwk.....",
+    "...kwwk.....",
+    "...kwwkkk...",
+    "...kwwkwwkk.",
+    ".kkkwwkwwkwk",
+    "kwwkwwwwwkwk",
+    "kwwwwwwwwwwk",
+    ".kwwwwwwwwwk",
+    "..kwwwwwwwk.",
+    "...kwwwwwk..",
+    "....kkkkk...",
+  ],
   hourglass: [
     ".kkkkkkkkkk.",
     ".knnnnnnnnk.",

@@ -1193,3 +1193,40 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .dr-l2 { color: var(--text); font-size: 13px; margin: 0; opacity: 0; animation: drFade .5s 3s forwards; position: relative; }
 .dr-ok { opacity: 0; animation: drFade .5s 3.4s forwards; position: relative; }
 @keyframes drFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── 튜토리얼 보강: 누를 곳 · 선물 · 흔들기 안내 ── */
+#coach .spot { box-shadow: 0 0 0 3px rgba(255, 210, 74, .35), 0 0 18px 4px rgba(255, 210, 74, .45); }
+#coach .taps { position: fixed; inset: 0; pointer-events: none; }
+.tap-ring {
+  position: fixed; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+  border: 3px solid var(--gold); box-shadow: 0 0 10px 2px rgba(255, 210, 74, .7);
+  animation: tapRing 1s ease-out infinite;
+}
+@keyframes tapRing { 0% { transform: scale(.55); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+.tap-hand { position: fixed; width: 34px; height: 34px; margin: 6px 0 0 -8px; animation: tapHand .8s ease-in-out infinite; filter: drop-shadow(2px 2px 0 #06041A); }
+.tap-hand .ico { width: 34px; height: 34px; image-rendering: pixelated; }
+@keyframes tapHand { 50% { transform: translate(-2px, -8px); } }
+.pbtn.tool.gift { animation: giftPop .6s ease; box-shadow: 0 0 0 3px var(--gold), 0 0 16px 4px rgba(255, 210, 74, .8); }
+@keyframes giftPop { 30% { transform: scale(1.12); } }
+.gift-plus {
+  position: fixed; transform: translate(-50%, -100%); padding: 2px 8px; font-size: 13px; font-weight: 700; white-space: nowrap;
+  color: #3B2300; background: var(--gold); border: 3px solid var(--ink); animation: giftUp 1.6s ease forwards; pointer-events: none;
+}
+@keyframes giftUp { 0% { opacity: 0; transform: translate(-50%, -60%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -110%) scale(1.1); } 80% { opacity: 1; transform: translate(-50%, -150%); } 100% { opacity: 0; transform: translate(-50%, -170%); } }
+/* 흔들기 안내: 화면 가운데에서 폰이 좌우로 흔들리고 주사위가 통통 튄다 */
+.shake-guide { position: fixed; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 8px; pointer-events: none; }
+.shake-guide b { font-size: 18px; color: var(--gold); text-shadow: 2px 2px 0 #06041A; animation: blink 1s steps(2, jump-none) infinite; }
+.sg-phone {
+  position: relative; width: 70px; height: 118px; border: 5px solid #E8E4F0; border-radius: 12px; background: #1B6B4A;
+  box-shadow: 0 0 0 3px #06041A, 0 0 24px 6px rgba(79, 179, 255, .45); animation: sgShake .5s ease-in-out infinite;
+}
+.sg-phone i { position: absolute; width: 16px; height: 16px; background: #fff; border: 2px solid #06041A; border-radius: 3px; animation: sgDie .25s ease-in-out infinite alternate; }
+.sg-phone i:nth-child(1) { left: 8px; top: 30px; }
+.sg-phone i:nth-child(2) { left: 28px; top: 58px; animation-delay: .1s; }
+.sg-phone i:nth-child(3) { left: 16px; top: 82px; animation-delay: .18s; }
+@keyframes sgShake { 0%, 100% { transform: rotate(-16deg) translateX(-14px); } 50% { transform: rotate(16deg) translateX(14px); } }
+@keyframes sgDie { from { transform: translate(-6px, -4px) rotate(-20deg); } to { transform: translate(6px, 4px) rotate(25deg); } }
+.shake-guide .sg-l, .shake-guide .sg-r { position: absolute; top: 40px; font-size: 26px; font-weight: 700; color: #4FB3FF; animation: blink .5s steps(2, jump-none) infinite; }
+.shake-guide .sg-l { left: -34px; }
+.shake-guide .sg-r { right: -34px; animation-delay: .25s; }
+@media (prefers-reduced-motion: reduce) { .tap-ring, .tap-hand, .sg-phone, .sg-phone i { animation: none; } }

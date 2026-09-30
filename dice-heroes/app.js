@@ -2532,25 +2532,47 @@ function startTutorial() {
 }
 
 // 지금 단계에서 강조할 요소 (도구를 켠 뒤에는 주사위 쪽으로 옮겨 간다)
-function coachTarget(st) {
+// 강조할 요소 (여러 개면 첫 번째 — 스크롤 기준)와, 그 요소들을 모두 덮는 사각형
+function coachTargets(st) {
   const sel = ui.tool && st.toolTarget ? st.toolTarget : st.target;
-  return sel ? document.querySelector(sel) : null;
+  if (!sel) return [];
+  return [].concat(sel).map(q => document.querySelector(q)).filter(Boolean);
+}
+function coachTarget(st) { return coachTargets(st)[0] || null; }
+function coachRect(st) {
+  const els = coachTargets(st);
+  if (!els.length) return null;
+  const rs = els.map(e => e.getBoundingClientRect());
+  return { left: Math.min(...rs.map(r => r.left)), top: Math.min(...rs.map(r => r.top)), right: Math.max(...rs.map(r => r.right)), bottom: Math.max(...rs.map(r => r.bottom)),
+    get width() { return this.right - this.left; }, get height() { return this.bottom - this.top; } };
+}
+// 손가락으로 가리킬 곳 (화면 좌표). 단계에 tap 이 없으면 강조 영역 가운데
+function coachTaps(st, r) {
+  const list = st.tap ? st.tap(S, ui.tool) : null;
+  if (!list) return r ? [{ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }] : [];
+  return list.map(t => {
+    if (typeof t === 'object' && tray) return tray.screenPos(t.die);
+    const e = document.querySelector(t);
+    const b = e?.getBoundingClientRect();
+    return b && b.width ? { x: b.left + b.width / 2, y: b.top + b.height / 2 } : null;
+  }).filter(Boolean);
 }
 
 function updateCoach() {
   if (!tut || screen !== 'game') { coachEl.innerHTML = ''; return; }
   const st = STEPS[tut.step];
   if (!st || ui.busy) { coachEl.innerHTML = ''; tut.shown = -1; return; }
-  const target = coachTarget(st);
-  if (st.target && !target) { coachEl.innerHTML = ''; tut.shown = -1; return; }
-  const r = target?.getBoundingClientRect();
+  if (st.target && !coachTarget(st)) { coachEl.innerHTML = ''; tut.shown = -1; return; }
   // 안내 상자는 단계가 바뀔 때만 새로 그린다 (같은 안내가 두 번 튀어나오지 않게)
   if (tut.shown !== tut.step) {
     tut.shown = tut.step;
+    const shakeGuide = st.shake && SHAKE_OK;
     coachEl.innerHTML = `
       <div class="blk" data-act="blocked"></div><div class="blk" data-act="blocked"></div>
       <div class="blk" data-act="blocked"></div><div class="blk" data-act="blocked"></div>
       <div class="spot"></div>
+      <div class="taps"></div>
+      ${shakeGuide ? `<div class="shake-guide" aria-hidden="true"><div class="sg-phone"><i></i><i></i><i></i></div><span class="sg-l">((</span><span class="sg-r">))</span><b>폰을 흔들어!</b></div>` : ''}
       <div class="scroll-hint" hidden></div>
       <div class="coach-box">
         <img class="spr coach-fairy" src="${spriteURL('fairy', 4)}" alt="">
@@ -2559,11 +2581,29 @@ function updateCoach() {
           <span class="coach-step">${tut.step + 1} / ${STEPS.length}</span>
           <button class="coach-skip" data-act="coach-skip">튜토리얼 건너뛰기 ▶▶</button></div>
       </div>`;
+    if (st.gift) setTimeout(() => giftFx(st), 350);
+    coachFollow();
   }
+  placeCoach();
+}
+// 강조 상자 · 손가락을 매 프레임 대상에 맞춘다 (점수표가 올라오는 동안에도 정확한 자리에)
+let coachRaf = 0;
+function coachFollow() {
+  cancelAnimationFrame(coachRaf);
+  const tick = () => {
+    if (!tut || screen !== 'game' || !coachEl.firstChild) return;
+    placeCoach();
+    coachRaf = requestAnimationFrame(tick);
+  };
+  coachRaf = requestAnimationFrame(tick);
+}
+function placeCoach() {
+  const st = STEPS[tut?.step];
   const [b1, b2, b3, b4] = coachEl.querySelectorAll('.blk');
-  const spot = coachEl.querySelector('.spot');
-  const box = coachEl.querySelector('.coach-box');
-  const hint = coachEl.querySelector('.scroll-hint');
+  const spot = coachEl.querySelector('.spot'), box = coachEl.querySelector('.coach-box');
+  const hint = coachEl.querySelector('.scroll-hint'), taps = coachEl.querySelector('.taps');
+  if (!st || !b1 || !box) return;
+  const r = coachRect(st);
   const W = innerWidth, H = innerHeight;
   if (!r) {
     // 안내만 하는 단계: 화면 전체를 막는다
@@ -2572,6 +2612,7 @@ function updateCoach() {
     spot.hidden = true;
     box.className = 'coach-box center';
     hint.hidden = true;
+    taps.innerHTML = '';
     return;
   }
   const pad = 6;
@@ -2582,7 +2623,7 @@ function updateCoach() {
   Object.assign(b4.style, { left: `${R}px`, top: `${T}px`, width: `${Math.max(0, W - R)}px`, height: `${B - T}px` });
   spot.hidden = false;
   Object.assign(spot.style, { left: `${L}px`, top: `${T}px`, width: `${R - L}px`, height: `${B - T}px` });
-  const low = r.top + r.height / 2 > H * 0.5;
+  const low = (r.top + r.bottom) / 2 > H * 0.5;
   box.className = `coach-box ${low ? 'top' : 'bottom'}`;
   // 버튼이 화면 밖이면 스크롤 방향을 알려 준다
   const off = r.top > H - 40 ? 'down' : r.bottom < 40 ? 'up' : null;
@@ -2592,6 +2633,41 @@ function updateCoach() {
     hint.innerHTML = off === 'down' ? '▼ 아래로 스크롤해서 반짝이는 곳을 눌러 줘 ▼' : '▲ 위로 스크롤해 줘 ▲';
     box.className = `coach-box ${off === 'down' ? 'top' : 'bottom'}`;
   }
+  // 누를 곳: 고리 + 첫 곳엔 손가락
+  const pts = off ? [] : coachTaps(st, r);
+  const key = pts.map(p => `${Math.round(p.x)},${Math.round(p.y)}`).join('|');
+  if (taps.dataset.key !== key) {
+    taps.dataset.key = key;
+    taps.innerHTML = pts.map((p, k) => `<span class="tap-ring" style="left:${p.x}px;top:${p.y}px"></span>${k === 0 ? `<span class="tap-hand" style="left:${p.x}px;top:${p.y}px">${ico('hand')}</span>` : ''}`).join('');
+  }
+}
+// 요정의 선물: 뒤집기 · 조정 버튼으로 반짝이가 날아가 +1 이 쌓인다
+function giftFx(st) {
+  if (!tut || STEPS[tut.step] !== st) return;
+  const fairy = coachEl.querySelector('.coach-fairy')?.getBoundingClientRect();
+  const from = fairy ? { cx: fairy.left + fairy.width / 2, cy: fairy.top + fairy.height / 2, R: 8, tt: 0 } : { cx: innerWidth / 2, cy: innerHeight / 2, R: 8, tt: 0 };
+  const fx = FX();
+  ['flip', 'nudge'].forEach((tool, k) => {
+    const el = document.querySelector(`[data-tool=${tool}]`);
+    const b = el?.getBoundingClientRect();
+    if (!b) return;
+    const tgt = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    setTimeout(() => {
+      sfx.card();
+      fx.flyOrb({ ...from }, tgt, { pal: PALETTES.frost, power: 1.2, ms: 520, shrink: 0.5 }).then(() => {
+        fx.burst(tgt.x, tgt.y, { n: 22, pal: ['#FFFFFF', '#C8F4FF', '#FFD24A'], speed: [60, 180], life: [0.3, 0.6] });
+        fx.ring(tgt.x, tgt.y, { color: '#FFD24A', r0: 6, r1: 46, dur: 420, width: 4 });
+        sfx.coin();
+        el.classList.remove('gift'); void el.offsetWidth; el.classList.add('gift');
+        const tag = document.createElement('span');
+        tag.className = 'gift-plus';
+        tag.textContent = tool === 'flip' ? '뒤집기 +1' : '조정 +1';
+        tag.style.left = `${tgt.x}px`; tag.style.top = `${b.top}px`;
+        coachEl.appendChild(tag);
+        setTimeout(() => tag.remove(), 1600);
+      });
+    }, k * 320);
+  });
 }
 function scrollToTarget() {
   const st = STEPS[tut?.step];
