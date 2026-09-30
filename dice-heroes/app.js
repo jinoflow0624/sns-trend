@@ -141,7 +141,7 @@ function showTitle() {
         ${rejoinLeft > 0 ? `<button class="pbtn gold" data-act="rejoin" data-code="${esc(last.code)}">방으로 돌아가기 <small>${esc(last.code)} · ${rejoinLeft}초 안에</small></button>` : ''}
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
         <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
-        <button class="pbtn" data-act="online">온라인 방 <small>친구 초대</small></button>
+        <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
         <div class="menu-row">
           <button class="pbtn small" data-act="dashboard">대시보드</button>
@@ -150,6 +150,7 @@ function showTitle() {
           <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
       </nav>` : `<button class="touch" data-act="touch">화면을 터치하세요</button>`}
+      ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 혼자 · 한 기기로는 그대로 할 수 있어요</p>' : ''}
       <div id="live-bar"></div>
       <footer class="ver">v${GAME.version} · © ${GAME.year} ${esc(GAME.studio)}</footer>
     </div>
@@ -158,6 +159,14 @@ function showTitle() {
   setStage(titleScene(app.querySelector('.scene')));
   playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
 }
+
+function offlineToast() {
+  sfx.back();
+  return toast(ico('warn'), '인터넷 연결이 없어요', '온라인 방은 인터넷이 필요해요. 혼자 · 한 기기로는 지금 바로 할 수 있어요.', 2400);
+}
+// 연결이 끊기거나 돌아오면 시작 화면 안내를 고친다
+addEventListener('online', () => { if (screen === 'title' && !layer.firstElementChild) showTitle(); });
+addEventListener('offline', () => { if (screen === 'title' && !layer.firstElementChild) showTitle(); });
 
 function showLiveBar() {
   const el = document.getElementById('live-bar');
@@ -2632,13 +2641,14 @@ function onAct(act, t) {
       return showDashboard();
     } catch { return toast(ico('warn'), '백업 코드가 올바르지 않아요', '처음부터 끝까지 빠짐없이 붙여 넣었는지 확인해 주세요.', 2200); }
   }
-  if (act === 'rejoin') { sfx.select(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
+  if (act === 'rejoin') { sfx.select(); if (!navigator.onLine) return offlineToast(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'story') { sfx.select(); layer.innerHTML = ''; return showStory(() => showTitle()); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
   if (act === 'new') { sfx.select(); return beginPick('local', opts); }
   if (act === 'online') {
     sfx.select();
     if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 혼자 하기는 그대로 할 수 있어요.', 2200);
+    if (!navigator.onLine) return offlineToast();
     return showOnlineMenu();
   }
   if (act === 'room-create') {
