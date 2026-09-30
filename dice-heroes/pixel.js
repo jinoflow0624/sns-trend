@@ -129,6 +129,40 @@ export const SPRITES = {
     "......kdk.......",
     ".....kdk........"
   ],
+  "demon": [
+    "................................",
+    "..kk........................kk..",
+    ".khk........................khk.",
+    ".khhk......................khhk.",
+    "..khhk.......kk..kk.......khhk..",
+    "..khHhk.....kgk..kgk.....khHhk..",
+    "...khHhk...kgGk..kGgk...khHhk...",
+    "....khHhk.kgGgkkkkgGgk.khHhk....",
+    ".....khHkkgGggGggGggGgkkHhk.....",
+    "......kkgggggggrrgggggggkk......",
+    "......kaggggggggggggggggak......",
+    ".....kaasssssSSssSSsssssaak.....",
+    "....kaassssssssssssssssssaak....",
+    "....kasskkkksssssssskkkkssak....",
+    "....kaskeeEEksssssskEEeeksak....",
+    "....kasskkkksssssssskkkkssak....",
+    "....kaassssSSssssssSSssssaak....",
+    ".....kaassSkkkkSSkkkkSssaak.....",
+    "...kkkaaassswwksskwwsssaaakkk...",
+    "..kccckaaaasssskkssssaaaakccck..",
+    ".kccCckaAaaaaaaaaaaaaaaAakcCcck.",
+    "kccCcckaAAgaaaaaaaaaagAAakccCcck",
+    "kcCcckaaAaagaaAaaAaagaaAaakccCck",
+    "kcCcckaAaaaggaAaaAaggaaaAakccCck",
+    "kcCckaAaaaaaaarrrraaaaaaaAakcCck",
+    "kcCckaAaaaaaaarrrraaaaaaaAakcCck",
+    "kcCcckaAaaaaaaaaaaaaaaaaAakccCck",
+    "kccCckaAAaaaaaaaaaaaaaaAAakcCcck",
+    ".kcCcckaAAaaaaaaaaaaaaAAakccCck.",
+    ".kccCccckaaaaaaaaaaaaaakcccCcck.",
+    "..kkccCcccckkaaaaaakkccccCcckk..",
+    "....kkkkkkkkkkkkkkkkkkkkkkkk...."
+  ],
   "fairy": [
     "................",
     "..kk........kk..",
@@ -252,7 +286,7 @@ export const SPRITES = {
 };
 
 const PALETTE = {"k": "#1A1030", "s": "#F7C9A0", "S": "#DE9A74", "e": "#1A1030", "w": "#FFFFFF", "g": "#FFC83D", "d": "#5A3A2A", "b": "#D8ECFF", "h": "#6B3E26", "r": "#E8435A", "y": "#C9A36B", "o": "#E9B04E", "t": "#9CF2FF"};
-const OWN = {"warrior": {"a": "#D9463E", "A": "#8E2226", "h": "#6B3E26"}, "rogue": {"m": "#2F8F6E", "h": "#2B2440"}, "mage": {"p": "#7B4BD6", "y": "#C9A36B"}, "bard": {"c": "#2F7FD6", "h": "#E3A546"}, "gambler": {"j": "#3A2E5C", "h": "#2B2440"}, "monk": {"o": "#E07A1F", "O": "#A34F12", "n": "#8E2226"}, "dancer": {"v": "#E84FA0", "V": "#9E2F72", "l": "#FFC83D", "h": "#3A1E2E", "r": "#FF5A6A"}, "fairy": {"y": "#FFE27A"}, "dragon": {"m": "#7A1E3A", "M": "#4A0E24", "b": "#E8B87A", "B": "#B8864A", "r": "#D9463E", "R": "#8E2226", "y": "#FFB34D", "Y": "#D9822A", "w": "#FFF3D6", "W": "#CFC0A0", "e": "#FFE24A", "E": "#FF8A1A", "f": "#FF5A1F", "F": "#FFD24A", "K": "#1A1030", "k": "#1A1030"}, "orc": {"g": "#6BBE45", "G": "#3F7F2A", "a": "#5A5F78", "A": "#373A50", "m": "#8A90A8", "M": "#5A5F78", "w": "#F2EEDD", "W": "#C9C2A6", "f": "#7A4A2A", "F": "#4A2A14", "y": "#FFC83D", "Y": "#B8801A", "d": "#5A3A2A", "D": "#3A2414", "e": "#FF3B3B", "r": "#E8435A", "R": "#9C1C33", "s": "#D8E4F0", "S": "#8A9AB0", "K": "#1A1030", "k": "#1A1030"}, "lich": {"q": "#4A3290", "Q": "#3A2474", "p": "#5A3AA0", "P": "#3A2470", "w": "#EEE6D0", "W": "#B8AE92", "y": "#FFC83D", "Y": "#B8801A", "c": "#7CF2FF", "C": "#2FB8D8", "r": "#E8435A", "d": "#6B4A2A", "D": "#3A2414", "K": "#1A1030", "k": "#1A1030"}};
+const OWN = {"warrior": {"a": "#D9463E", "A": "#8E2226", "h": "#6B3E26"}, "rogue": {"m": "#2F8F6E", "h": "#2B2440"}, "mage": {"p": "#7B4BD6", "y": "#C9A36B"}, "bard": {"c": "#2F7FD6", "h": "#E3A546"}, "gambler": {"j": "#3A2E5C", "h": "#2B2440"}, "monk": {"o": "#E07A1F", "O": "#A34F12", "n": "#8E2226"}, "dancer": {"v": "#E84FA0", "V": "#9E2F72", "l": "#FFC83D", "h": "#3A1E2E", "r": "#FF5A6A"}, "fairy": {"y": "#FFE27A"}, "demon": {"k": "#12081E", "h": "#EDE4D2", "H": "#9A8F80", "a": "#3A2A52", "A": "#221538", "c": "#C21E56", "C": "#6E0B2C", "g": "#FFC83D", "G": "#B8801A", "e": "#FF2A2A", "E": "#FFE24A", "s": "#8A7AB0", "S": "#5A4A80", "w": "#FFFFFF", "r": "#FF2A6A"}, "dragon": {"m": "#7A1E3A", "M": "#4A0E24", "b": "#E8B87A", "B": "#B8864A", "r": "#D9463E", "R": "#8E2226", "y": "#FFB34D", "Y": "#D9822A", "w": "#FFF3D6", "W": "#CFC0A0", "e": "#FFE24A", "E": "#FF8A1A", "f": "#FF5A1F", "F": "#FFD24A", "K": "#1A1030", "k": "#1A1030"}, "orc": {"g": "#6BBE45", "G": "#3F7F2A", "a": "#5A5F78", "A": "#373A50", "m": "#8A90A8", "M": "#5A5F78", "w": "#F2EEDD", "W": "#C9C2A6", "f": "#7A4A2A", "F": "#4A2A14", "y": "#FFC83D", "Y": "#B8801A", "d": "#5A3A2A", "D": "#3A2414", "e": "#FF3B3B", "r": "#E8435A", "R": "#9C1C33", "s": "#D8E4F0", "S": "#8A9AB0", "K": "#1A1030", "k": "#1A1030"}, "lich": {"q": "#4A3290", "Q": "#3A2474", "p": "#5A3AA0", "P": "#3A2470", "w": "#EEE6D0", "W": "#B8AE92", "y": "#FFC83D", "Y": "#B8801A", "c": "#7CF2FF", "C": "#2FB8D8", "r": "#E8435A", "d": "#6B4A2A", "D": "#3A2414", "K": "#1A1030", "k": "#1A1030"}};
 
 const cache = new Map();
 

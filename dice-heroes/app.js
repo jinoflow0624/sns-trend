@@ -123,6 +123,7 @@ function showSplash() {
 function showTitle() {
   screen = 'title';
   Wal.loadWallet().then(syncOwned, () => {});
+  if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
@@ -366,6 +367,26 @@ function modeCards(o) {
   </div>`;
 }
 
+// 마왕: 화염룡·오크·리치의 어려움을 모두 한 번씩 깨면 봉인이 풀린다
+const demonOpen = () => ['dragon', 'orc', 'lich'].every(b => (loadProfile().bosses?.[`${b}:2`]?.wins || 0) > 0);
+function showDemonUnlock() {
+  if (!demonOpen() || store.get('diceheroes.demonSeen')) return;
+  store.set('diceheroes.demonSeen', 1);
+  stopBgm();
+  sfx.boom(3); buzz(200);
+  const el = document.createElement('div');
+  el.className = 'demon-reveal';
+  el.innerHTML = `<div class="dr-cracks"></div>
+    <div class="dr-boss">${portrait('demon', 'dr-img')}</div>
+    <p class="dr-l1">세 마물이 쓰러지자 봉인이 흔들린다…</p>
+    <h1 class="dr-title">마왕 아스타로트 부활</h1>
+    <p class="dr-l2">보스 선택에서 마왕에게 도전할 수 있어요</p>
+    <button class="pbtn gold dr-ok" data-act="demon-ok">도전을 받아들인다</button>`;
+  document.body.appendChild(el);
+  setTimeout(() => { FX().flash('#C21E56', 600, 0.6); sfx.boom(3); }, 1400);
+  setTimeout(() => sfx.legend(), 2600);
+}
+
 // 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
 function diffOpen(boss, d) {
   if (d <= 0) return true;
@@ -379,8 +400,10 @@ function bossPicker(o) {
   return `
   <section class="frame mode-box">
     <div class="bosses">
-      ${E.BOSSES.map(b => `
-        <button class="boss-pick${o.boss === b.id ? ' on' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
+      ${E.BOSSES.map(b => b.final && !demonOpen()
+        ? `<button class="boss-pick sealed-boss" style="--c:${b.color}" data-act="boss-locked">
+          ${portrait(b.id, 'bp')}<b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
+        : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
     </div>
@@ -503,6 +526,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
 function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
   if (act === 'pick-back') return pickBack();
+  if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), '봉인된 보스', '화염룡 · 오크 대장 · 리치 왕의 어려움을 모두 깨면 봉인이 풀려요.', 2400); }
   if (act === 'diff-locked') {
     sfx.back();
     const d = Number(t.dataset.v);
@@ -1142,7 +1166,7 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ' (봇)' : ''}</span>
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && S.rolled && !ui.busy && cur.cls === 'dancer' && cur.encore > 0 ? `<button class="encore-btn" data-act="encore">${ico('sparkle', 'xs')} 앙코르 <small>굴림 +1 · 1회</small></button>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && S.rolled && !ui.busy && cur.cls === 'dancer' && cur.encore > 0 && E.event(S) !== 'haki' ? `<button class="encore-btn" data-act="encore">${ico('sparkle', 'xs')} 앙코르 <small>굴림 +1 · 1회</small></button>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
@@ -1152,7 +1176,7 @@ function render() {
       </button>
       <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 ? '' : 'disabled'}>
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
-      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 ? '' : 'disabled'}>
+      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
         ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>
       <button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
         ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
@@ -1182,6 +1206,15 @@ function render() {
   trailHp();
   if (myTurn) setTimeout(termTips, 600);
   const rage = coop && S.boss.diff === 2 && S.boss.hp * 2 < S.boss.maxHp && S.boss.hp > 0;
+  // 마왕 분노: 처음 분노하는 순간 한 번 '변신' 연출
+  if (rage && S.boss.id === 'demon' && ui.demonRageSeed !== S.seed) {
+    ui.demonRageSeed = S.seed;
+    setTimeout(() => {
+      FX().flash('#C21E56', 700, 0.6); sfx.boom(3); buzz(150);
+      shake(app.querySelector('.boss-panel'), 3);
+      toast(portrait('demon', 't-boss'), '마왕이 진정한 모습을 드러냈다!', '분노 — 이제 봉인이 주사위 2개를 묶는다', 2600);
+    }, 300);
+  }
   FX().rage(rage, () => document.getElementById('boss-art')?.getBoundingClientRect(), RAGE[S.boss?.id]);
   ensureTray().then(t => {
     if (t !== tray) return;              // 그사이 트레이를 새로 만들었으면 옛 것은 붙이지 않는다
@@ -1288,9 +1321,16 @@ function dieInfo(i) {
 function diceOverlay(myTurn) {
   const ovl = document.getElementById('dice-ovl');
   if (!ovl || !tray || !S) return;
-  if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = ''; return; }
-  const box = document.getElementById('tray').getBoundingClientRect();
-  ovl.innerHTML = S.dice.map((v, i) => {
+  // 마왕의 봉인: 봉인된 주사위 위에 쇠사슬 문양 (다시 굴리면 풀린다)
+  const box0 = document.getElementById('tray').getBoundingClientRect();
+  const seals = S.rolled && S.sealed?.length && !tray.anim ? S.sealed.map(i => {
+    const p = tray.screenPos(i);
+    return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px"><span class="seal-ring"></span>${ico('chain')}</div>`;
+  }).join('') : '';
+  if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals; return; }
+  const box = box0;
+  ovl.innerHTML = seals + S.dice.map((v, i) => {
+    if (S.sealed?.includes(i)) return '';
     const p = tray.screenPos(i);
     const x = p.x - box.left, y = p.y - box.top;
     if (ui.tool === 'flip') {
@@ -1583,6 +1623,8 @@ const BOSS_LINES = {
   drums: '전쟁의 북! 이번 라운드 굴림 기회 -1',
   plunder: '약탈! 0점을 틈타 체력을 회복했다',
   bone: '뼈 방패! 보호막을 둘렀다',
+  seal: '봉인! 주사위가 쇠사슬에 묶였다 — 다시 굴리면 풀린다',
+  unseal: '봉인이 풀렸다',
 };
 
 // ?slowfx 로 열면 연출을 4배 느리게 (화면 점검용)
@@ -1813,7 +1855,31 @@ async function skillFx(f) {
   }
   if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
   if (f.skill === 'bone' && bossC) { sfx.twist(); await fx.shield(bossC); return; }
+  if (f.skill === 'seal' && t) {                 // 보랏빛 문양이 조여들고 쇠사슬이 감긴다
+    sfx.twist(); buzz(60);
+    await fx.seal(pts, ms);
+    render();
+    return;
+  }
+  if (f.skill === 'unseal') { if (t) pts.forEach(p => fx.burst(p.x, p.y, { n: 14, pal: ['#FFFFFF', '#C9B8FF', '#7A4BFF'], speed: [60, 180], life: [0.3, 0.5] })); return; }
   sfx.zero();
+}
+
+// 마왕의 패기: 화면 전체가 붉게 떨리고 큰 글씨가 내리꽂힌다
+async function hakiFx() {
+  const fx = FX();
+  sfx.boom(3); buzz(120);
+  fx.flash('#C21E56', 420, 0.55);
+  fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FF2A6A', r0: 20, r1: Math.max(innerWidth, innerHeight), dur: 700, width: 14 });
+  fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FFFFFF', r0: 10, r1: innerWidth * 0.8, dur: 520, width: 6 });
+  shake(app.querySelector('.game'), 3);
+  const el = document.createElement('div');
+  el.className = 'haki-banner';
+  el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 재굴림 · 조정 금지</small>`;
+  document.body.appendChild(el);
+  await wait(ui.fast ? 900 : 1600);
+  el.classList.add('out');
+  setTimeout(() => el.remove(), 400);
 }
 
 // 연출 중 오류가 나도 게임이 멈추지 않게 (연출은 건너뛰고 진행)
@@ -1833,6 +1899,7 @@ async function playOne(f) {
       case 'round':
         if (S.boss && f.round === 1 && prefs.fx !== 'min') await bossBanner();
         if (!S.tutorial || f.round > 1) await banner(f.round, f.event);
+        if (f.event === 'haki' && prefs.fx !== 'min') await hakiFx();
         break;
       case 'score':
         if (f.pts > 0) {
@@ -1863,6 +1930,7 @@ async function playOne(f) {
         await wait(420);
         break;
       case 'boss': {
+        if (f.skill === 'unseal') { await skillFx(f); break; }
         const b = E.bossInfo(S.boss.id);
         const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(b.id, 't-boss'));
         await skillFx(f);
@@ -2023,6 +2091,7 @@ function lostGame() {
 }
 function showCoopResults() {
   const b = S.boss, info = E.bossInfo(b.id), grade = E.coopGrade(S);
+  if (b.won && b.diff === 2 && demonOpen() && !store.get('diceheroes.demonSeen')) setTimeout(showDemonUnlock, 3200);
   const order = S.players.map((p, i) => ({ p, i, dmg: Math.round(b.dmg[i] || 0) })).sort((x, y) => y.dmg - x.dmg);
   layer.innerHTML = `<div class="overlay solid"><div class="results coop-res">
     <h1>${b.won ? '토벌 성공!' : '토벌 실패…'}</h1>
@@ -2710,6 +2779,7 @@ async function onGameAct(act, t) {
       return;
     }
     if (ui.tool === 'nudge') return;          // 조정은 주사위 위의 −1 / +1 로
+    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();
     if (online) return onlineAct(g => E.toggleHold(g, i));
@@ -2757,6 +2827,7 @@ function onAct(act, t) {
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
   if (act === 'skin-roll') return rollPreview();
+  if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
   if (act === 'settings') { sfx.select(); showSettings(false); return paintAccount(); }
   if (act === 'link-google') {
