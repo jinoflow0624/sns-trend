@@ -53,7 +53,7 @@ test('항목 보너스 특성은 0점일 때 붙지 않는다', () => {
   const s = game();
   const p = s.players[0];
   p.perks.full = 1;
-  assert.equal(E.catScore(s, p, 'full', [2, 2, 3, 3, 3]), 23);
+  assert.equal(E.catScore(s, p, 'full', [2, 2, 3, 3, 3]), 20);   // 13 × 1.5
   assert.equal(E.catScore(s, p, 'full', [1, 2, 3, 4, 5]), 0);
 });
 test('뒤집기는 7-눈, 조정은 ±1 (1~6 밖은 거부)', () => {
@@ -224,7 +224,7 @@ test('칸 강화 특성은 이미 점수를 낸 칸에 소급 적용 (0점 칸 �
   s.phase = 'levelup';
   p.offers = [['basic', 'choice', 'flip']];
   E.pickPerk(s, 'basic');
-  assert.deepEqual([p.scores.ones, p.scores.twos, p.scores.threes], [5, 0, 11]);
+  assert.deepEqual([p.scores.ones, p.scores.twos, p.scores.threes], [4, 0, 11]);   // ×1.2: 3→4, 9→11
   s.phase = 'levelup'; s.turn = 0;
   p.offers = [['choice', 'flip', 'nudge']];
   assert.equal(E.perkRetro(p, 'choice'), 8);
