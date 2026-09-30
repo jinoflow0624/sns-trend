@@ -73,7 +73,7 @@ const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 
 const easeIn = t => t * t * t;
 
 // 트레이 물리 세계 (바닥·벽·천장). 굴림 녹화와 흔드는 동안의 실시간 물리가 같이 쓴다
-function makeWorld(ceiling = 6.0) {
+function makeWorld(ceiling = 6.0, dieBounce = 0.08) {
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -32, 0) });
   world.allowSleep = true;
   const dieMat = new CANNON.Material('die');
@@ -83,7 +83,8 @@ function makeWorld(ceiling = 6.0) {
   // 벽은 탄력 있게: 부딪히면 튕겨 나오는 속도가 바닥 기준보다 약 20% 크다 (WALL_BOUNCE 로 조절)
   world.addContactMaterial(new CANNON.ContactMaterial(dieMat, wallMat, { friction: WALL_FRICTION, restitution: WALL_BOUNCE }));
   // 주사위끼리는 미끄럽고 덜 튀게: 스치면 비껴가서 각자 제 갈 길을 간다
-  world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.03, restitution: 0.08 }));
+  // (흔드는 동안은 dieBounce 를 크게 줘서 서로 튕겨 낸다 — 한데 뭉치지 않게)
+  world.addContactMaterial(new CANNON.ContactMaterial(dieMat, dieMat, { friction: 0.03, restitution: dieBounce }));
 
   const floor = new CANNON.Body({ mass: 0, material: floorMat, shape: new CANNON.Plane() });
   floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -724,7 +725,7 @@ export class DiceTray {
   // 흔들기를 멈추면 앱이 roll() 을 부르고, roll() 은 지금 자세·속도 그대로 이어서 멈출 때까지 굴린다
   startShake(rolling) {
     if (this.anim || this.live) return false;
-    const { world, dieMat } = makeWorld(3.4);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튄다
+    const { world, dieMat } = makeWorld(3.4, 0.7);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튀고, 주사위끼리는 통통 튕긴다
     const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
     const bodies = [];
     let lastHit = 0;
@@ -744,10 +745,12 @@ export class DiceTray {
         const t = performance.now();
         if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); }
         // 벽에 부딪히면 모서리로 넘어가며 데굴데굴 (미끄러지기만 하지 않게)
+        // 주사위끼리 부딪히면 옆으로 튕겨 나간다
+        if (v > 1.5 && e.body.mass > 0) { b.velocity.x += (Math.random() - 0.5) * v * 1.6; b.velocity.z += (Math.random() - 0.5) * v * 1.6; b.velocity.y = Math.max(b.velocity.y, Math.min(5, v * 0.5)); }
         if (v > 3 && e.body.mass === 0) b.angularVelocity.set(b.angularVelocity.x + (Math.random() - 0.5) * v * 2.2, b.angularVelocity.y + (Math.random() - 0.5) * v * 1.2, b.angularVelocity.z + (Math.random() - 0.5) * v * 2.2);
       });
       world.addBody(b);
-      bodies.push({ i, b });
+      bodies.push({ i, b, w: 0.65 + Math.random() * 0.7 });
     });
     this.live = { world, bodies, ids: new Set(bodies.map(x => x.i)), last: performance.now(), t0: performance.now(), acc: { x: 0, y: 0, z: 0 }, accT: 0, jolt: { x: 0, y: 0, vx: 0, vy: 0 } };
     return true;
@@ -780,12 +783,22 @@ export class DiceTray {
     const fade = t - L.accT < 90 ? 1 : Math.max(0, 1 - (t - L.accT - 90) / 120);
     const a = L.acc, K = 2.1 * fade;
     const cap = 15;
-    for (const { b } of L.bodies) {
-      // 관성: 폰(통)이 가는 반대쪽으로 주사위가 쏠린다
-      b.velocity.x = Math.max(-cap, Math.min(cap, b.velocity.x - a.x * K * dt * 10));
-      b.velocity.z = Math.max(-cap, Math.min(cap, b.velocity.z + a.y * K * dt * 10));
+    for (const { b, w } of L.bodies) {
+      // 관성: 폰(통)이 가는 반대쪽으로 주사위가 쏠린다 (주사위마다 쏠리는 정도가 조금씩 달라 한 줄로 몰려다니지 않게)
+      b.velocity.x = Math.max(-cap, Math.min(cap, b.velocity.x - a.x * K * w * dt * 10));
+      b.velocity.z = Math.max(-cap, Math.min(cap, b.velocity.z + a.y * K * w * dt * 10));
       // 통을 위로 들어 올리면 바닥에 눌리고, 내리면 떠오른다 (떠오르는 쪽만 조금)
       if (a.z < -4 && b.position.y < HALF + 0.3) b.velocity.y = Math.min(8, b.velocity.y - a.z * K * dt * 6);
+    }
+    // 서로 붙어 있는 주사위는 살짝 밀어 낸다 (벽 한쪽에 한 덩어리로 뭉치지 않게)
+    const B = L.bodies, NEAR = SIZE * 1.5;
+    for (let p = 0; p < B.length; p++) for (let q = p + 1; q < B.length; q++) {
+      const a1 = B[p].b.position, a2 = B[q].b.position;
+      const dx = a2.x - a1.x, dz = a2.z - a1.z, d = Math.hypot(dx, dz);
+      if (d >= NEAR || d < 1e-4) continue;
+      const push = (NEAR - d) / NEAR * 170 * dt, nx = dx / d, nz = dz / d;
+      B[p].b.velocity.x -= nx * push; B[p].b.velocity.z -= nz * push;
+      B[q].b.velocity.x += nx * push; B[q].b.velocity.z += nz * push;
     }
     L.world.step(1 / 60, dt, 3);
     for (const { i, b } of L.bodies) {

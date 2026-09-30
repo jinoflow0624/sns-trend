@@ -310,32 +310,64 @@ function endStory() {
   then ? then() : showTitle();
 }
 
-// ── 모드 · 보스 선택 (편성 화면과 온라인 로비가 함께 쓴다) ────────────────────
-function modePicker(o, editable) {
-  const dis = editable ? '' : 'disabled';
+// ── 게임 준비: 모드 → 보스(협동만) → 캐릭터, 단계별 화면 ─────────────────────
+// pick.for: 'local' 한 기기 · 'create' 온라인 방 만들기 전 · 'room' 대기실에서 방장이 바꾸기
+let pick = { for: 'local', step: 'mode', o: null };
+const pickSteps = () => {
+  const coop = pick.o.mode === 'coop';
+  if (pick.for === 'local') return coop ? ['mode', 'boss', 'party'] : ['mode', 'party'];
+  return coop ? ['mode', 'boss'] : ['mode'];
+};
+const STEP_TITLE = { mode: '모드 선택', boss: '보스 선택', party: '캐릭터 선택' };
+
+function beginPick(kind, o) {
+  pick = { for: kind, step: 'mode', o };
+  showSetup();
+}
+
+function modeCards(o) {
+  return `
+  <div class="mode-cards">
+    <button class="mode-card${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus">
+      ${ico('swords')}<b>대전</b><small>12라운드 동안 점수표를 채우고 의뢰·레벨업으로 성장해 최종 점수가 가장 높은 영웅이 승리</small>
+    </button>
+    <button class="mode-card${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop">
+      ${ico('shield')}<b>협동</b><small>다 함께 보스 토벌. 점수를 적으면 그만큼 보스에게 피해, 12라운드 안에 쓰러뜨리면 승리</small>
+    </button>
+  </div>`;
+}
+
+function bossPicker(o) {
   return `
   <section class="frame mode-box">
-    <div class="tabs">
-      <button class="tab${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus" ${dis}>${ico('swords')} 대전<small>최고 점수 경쟁</small></button>
-      <button class="tab${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop" ${dis}>${ico('shield')} 협동<small>다 함께 보스 토벌</small></button>
-    </div>
-    ${o.mode === 'coop' ? `
     <div class="bosses">
       ${E.BOSSES.map(b => `
-        <button class="boss-pick${o.boss === b.id ? ' on' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}" ${dis}>
+        <button class="boss-pick${o.boss === b.id ? ' on' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
     </div>
     <div class="diffs">
-      ${E.DIFFS.map(d => `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}" ${dis}>${d.ko}</button>`).join('')}
+      ${E.DIFFS.map(d => `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}</button>`).join('')}
     </div>
     <ul class="skills">
       ${E.bossInfo(o.boss).skills.map(k => `<li><span>${skillIco(k.id)}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
     </ul>
-    <p class="hint">점수를 적으면 그만큼 보스에게 피해. 의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요. 12라운드 안에 쓰러뜨리면 승리.</p>` :
-    '<p class="hint">12라운드 동안 점수표를 채우고 의뢰·레벨업으로 성장해 최종 점수가 가장 높은 영웅이 승리.</p>'}
+    <p class="hint">의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요.</p>
   </section>`;
 }
+
+// 고른 모드·보스 한 줄 요약 (캐릭터 선택 화면 · 대기실)
+function optsSummary(o, change = '') {
+  const b = E.bossInfo(o.boss), d = E.DIFFS.find(x => x.id === o.diff) || E.DIFFS[0];
+  return `
+  <section class="frame opts-sum">
+    ${o.mode === 'coop'
+      ? `${portrait(b.id, 'sum-bp')}<div><b>${ico('shield', 'xs')} 협동 · ${b.ko}</b><small><span class="diff-chip" style="--c:${d.color}">${d.ko}</span> ${b.title}</small></div>`
+      : `<span class="sum-ico">${ico('swords')}</span><div><b>대전</b><small>최고 점수 경쟁</small></div>`}
+    ${change ? `<button class="pbtn small" data-act="${change}">변경</button>` : ''}
+  </section>`;
+}
+
 function onModeAct(act, t, o) {
   if (act === 'mode') o.mode = t.dataset.v;
   if (act === 'boss') o.boss = t.dataset.v;
@@ -343,27 +375,60 @@ function onModeAct(act, t, o) {
   sfx.select();
 }
 
-// ── 파티 편성 (한 기기) ──────────────────────────────────────────────────────
 function showSetup() {
   screen = 'setup';
-  setStage(null);
+  if (pick.for !== 'room') setStage(null);
   layer.innerHTML = '';
   playBgm('title');
+  pick.o ||= opts;
+  const steps = pickSteps();
+  if (!steps.includes(pick.step)) pick.step = steps[steps.length - 1];
+  const n = steps.indexOf(pick.step);
+  const last = n === steps.length - 1;
+  // 모드를 고르기 전엔 협동 기준으로 단계를 보여 준다 (대전을 고르면 보스 단계가 빠진다)
+  const shown = pick.step === 'mode' && pick.for === 'local' ? ['mode', 'boss', 'party'] : pick.step === 'mode' ? ['mode', 'boss'] : steps;
+  const o = pick.o;
+  let body = '';
+  if (pick.step === 'mode') body = `${modeCards(o)}<p class="hint">모드를 누르면 다음 단계로 넘어가요.</p>`;
+  if (pick.step === 'boss') body = `${bossPicker(o)}
+      <button class="pbtn gold big" data-act="pick-next">${last ? (pick.for === 'create' ? '방 만들기' : '완료') : '다음 ▶'}</button>`;
+  if (pick.step === 'party') body = `
+      ${optsSummary(o)}
+      ${setup.map((pl, i) => seatCard(pl, i, { editable: true, removable: setup.length > 1, humanToggle: true })).join('')}
+      <button class="pbtn small" data-act="add" ${setup.length >= 4 ? 'disabled' : ''}>＋ ${o.mode === 'coop' ? '동료' : '상대'} 추가</button>
+      <p class="hint">사람이 여럿이면 한 기기를 돌려 가며 합니다. 각자 기기로 하려면 메뉴의 <b>온라인 방</b>을 쓰세요.</p>
+      <button class="pbtn gold big" data-act="start">${o.mode === 'coop' ? '토벌 출발' : '모험 출발'}</button>`;
   app.innerHTML = `
   <div class="screen page">
     <header class="page-head">
-      <button class="icon-btn" data-act="home" aria-label="뒤로">◀</button>
-      <h2>파티 편성</h2>
-      <span class="count">${setup.length} / 4</span>
+      <button class="icon-btn" data-act="pick-back" aria-label="뒤로">◀</button>
+      <h2>${STEP_TITLE[pick.step]}</h2>
+      <span class="count">${pick.step === 'party' ? `${setup.length} / 4` : ''}</span>
     </header>
-    <div class="wrap">
-      ${modePicker(opts, true)}
-      ${setup.map((pl, i) => seatCard(pl, i, { editable: true, removable: setup.length > 1, humanToggle: true })).join('')}
-      <button class="pbtn small" data-act="add" ${setup.length >= 4 ? 'disabled' : ''}>＋ ${opts.mode === 'coop' ? '동료' : '상대'} 추가</button>
-      <p class="hint">사람이 여럿이면 한 기기를 돌려 가며 합니다. 각자 기기로 하려면 메뉴의 <b>온라인 방</b>을 쓰세요.</p>
-      <button class="pbtn gold big" data-act="start">${opts.mode === 'coop' ? '토벌 출발' : '모험 출발'}</button>
-    </div>
+    <div class="steps" aria-hidden="true">${shown.map((k, j) => `<span class="${j < n ? 'done' : j === n ? 'now' : ''}">${STEP_TITLE[k].replace(' 선택', '')}</span>`).join('')}</div>
+    <div class="wrap">${body}</div>
   </div>`;
+}
+
+// 다음 단계 / 이전 단계. 끝까지 가면: 한 기기 → 출발 버튼(캐릭터 화면), 방 만들기 → 방 생성, 대기실 → 반영하고 돌아감
+function pickNext() {
+  const steps = pickSteps(), n = steps.indexOf(pick.step);
+  if (n < steps.length - 1) { pick.step = steps[n + 1]; return showSetup(); }
+  if (pick.for === 'create') { saveOpts(); return createRoom(); }
+  if (pick.for === 'room' && online) {
+    const o = { ...pick.o };
+    opts = { ...o }; saveOpts();
+    showLobby();
+    return lobbyTxn(r => { r.opts = o; r.seats.forEach(s => { s.ready = false; }); });   // 조건이 바뀌면 다시 준비
+  }
+}
+function pickBack() {
+  sfx.back();
+  const steps = pickSteps(), n = steps.indexOf(pick.step);
+  if (n > 0) { pick.step = steps[n - 1]; return showSetup(); }
+  if (pick.for === 'create') return showOnlineMenu();
+  if (pick.for === 'room' && online) return showLobby();
+  return showTitle();
 }
 
 function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
@@ -394,7 +459,14 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
 
 function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
-  if (['mode', 'boss', 'diff'].includes(act)) { onModeAct(act, t, opts); saveOpts(); return showSetup(); }
+  if (act === 'pick-back') return pickBack();
+  if (act === 'pick-next') { sfx.select(); return pickNext(); }
+  if (['mode', 'boss', 'diff'].includes(act)) {
+    onModeAct(act, t, pick.o);
+    if (pick.for === 'local') saveOpts();
+    return act === 'mode' ? pickNext() : showSetup();
+  }
+  if (pick.for !== 'local') return;
   if (act === 'human') setup[i].bot = false;
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
   if (act === 'cls') setup[i].cls = t.dataset.cls;
@@ -568,12 +640,18 @@ const isHost = () => online && online.room?.host === online.token;
 // 나는 늘 접속 중 (내 접속 신호는 내 화면으로 되돌아오지 않을 수 있다)
 const alive = token => token === online?.token || (!!online?.room?.seen?.[token] && Date.now() - online.room.seen[token] < Net.ABSENT_MS);
 
+// 준비(레디): 방장을 뺀 사람 참가자가 모두 준비해야 시작할 수 있다
+const needReady = room => room.seats.filter(s => !s.bot && s.token !== room.host);
 function showLobby() {
   screen = 'lobby';
   const room = online.room;
   const host = isHost();
   const link = Net.inviteLink(online.code);
   const humans = room.seats.filter(s => !s.bot).length;
+  const need = needReady(room), readyN = need.filter(s => s.ready).length;
+  const allReady = readyN === need.length;
+  const mine = room.seats.find(s => s.token === online.token);
+  const tooFew = room.seats.length < 2 && humans < 2 && room.opts.mode === 'versus';
   app.innerHTML = `
   <div class="screen page">
     <header class="page-head">
@@ -589,16 +667,20 @@ function showLobby() {
         <button class="pbtn gold" data-act="copy-link">초대 링크 복사</button>
         <p class="hint">링크를 받은 친구가 열면 이 방으로 바로 들어옵니다.</p>
       </section>
-      ${modePicker(room.opts, host)}
+      ${optsSummary(room.opts, host ? 'lobby-opts' : '')}
       ${!host ? '<p class="hint">모드와 보스는 방장이 정합니다.</p>' : ''}
+      ${need.length ? `<div class="ready-bar"><b>준비 ${readyN} / ${need.length}</b>${need.map(s => `<span class="rb${s.ready ? ' on' : ''}">${s.ready ? '✔' : '…'} ${esc(s.name)}</span>`).join('')}</div>` : ''}
       ${room.seats.map((s, i) => {
         const me = s.token === online.token;
-        const tag = s.bot ? '봇' : `${s.token === room.host ? `${ico('crown', 'xs')} 방장 · ` : ''}${me ? '나' : alive(s.token) ? '접속 중' : '연결 끊김'}`;
-        return seatCard(s, i, { editable: me, removable: host && !me, humanToggle: false, tag });
+        const who = s.token === room.host ? `${ico('crown', 'xs')} 방장` : s.bot ? '봇' : s.ready ? '<span class="rdy on">준비 완료</span>' : '<span class="rdy">준비 중</span>';
+        const tag = s.bot ? '봇' : `${who} · ${me ? '나' : alive(s.token) ? '접속 중' : '연결 끊김'}`;
+        return seatCard(s, i, { editable: me && !s.ready, removable: host && !me, humanToggle: false, tag });
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>＋ 봇 추가</button>` : ''}
-      ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${room.seats.length < 2 && humans < 2 && room.opts.mode === 'versus' ? 'disabled' : ''}>게임 시작</button>`
-             : '<p class="waiting">방장이 시작하기를 기다리는 중…</p>'}
+      ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>게임 시작</button>
+                ${!allReady ? `<p class="waiting">모두 준비하면 시작할 수 있어요 (${readyN} / ${need.length})</p>` : ''}`
+             : `<button class="pbtn big ${mine?.ready ? '' : 'gold'}" data-act="lobby-ready">${mine?.ready ? '준비 취소' : '준비 완료!'}</button>
+                <p class="waiting">${mine?.ready ? (allReady ? '방장이 시작하기를 기다리는 중…' : '다른 사람이 준비하기를 기다리는 중…') : '캐릭터를 고르고 준비 버튼을 눌러 주세요'}</p>`}
     </div>
   </div>`;
 }
@@ -610,17 +692,16 @@ function lobbyTxn(fn) {
 
 function onLobbyAct(act, t) {
   const room = online.room;
-  if (['mode', 'boss', 'diff'].includes(act)) {
-    if (!isHost()) return;
-    const o = { ...room.opts };
-    onModeAct(act, t, o);
-    opts = { ...o }; saveOpts();
-    return lobbyTxn(r => { r.opts = o; });
+  if (act === 'lobby-opts' && isHost()) { sfx.select(); return beginPick('room', { ...room.opts }); }
+  if (act === 'lobby-ready') {
+    const me = room.seats.find(s => s.token === online.token);
+    me?.ready ? sfx.back() : sfx.start();
+    return lobbyTxn(r => { const s = r.seats.find(x => x.token === online.token); if (s) s.ready = !s.ready; });
   }
   if (act === 'cls') {
     sfx.select();
     const i = Number(t.dataset.i);
-    return lobbyTxn(r => { if (r.seats[i]?.token === online.token) r.seats[i].cls = t.dataset.cls; });
+    return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = t.dataset.cls; });
   }
   if (act === 'lobby-bot' && isHost()) {
     sfx.select();
@@ -648,6 +729,7 @@ function onLobbyAct(act, t) {
     return lobbyTxn((r, fail) => {
       if (r.started) return;
       if (r.seats.length < 1) return fail('참가자가 없습니다.');
+      if (needReady(r).some(s => !s.ready)) return fail('아직 준비하지 않은 사람이 있어요.');
       const g = E.createGame(r.seats.map(s => ({ name: s.name, cls: s.cls, bot: s.bot })), undefined, r.opts);
       g.players.forEach((p, i) => (p.token = r.seats[i].token));
       r.fxLog = [{ id: 1, list: E.drainFx(g) }];
@@ -689,6 +771,7 @@ async function onRoom(room) {
       toast(ico('door'), '방에서 나왔습니다', '');
       leaveRoom(); return showTitle();
     }
+    if (screen === 'setup' && pick.for === 'room') return;          // 방장이 모드·보스를 바꾸는 중
     if (screen !== 'lobby' || !document.activeElement?.matches?.('input')) showLobby();
     return;
   }
@@ -2081,7 +2164,7 @@ function endTutorial(skipped) {
   store.del(KEYS.save);
   toast(ico('cap'), skipped ? '튜토리얼을 건너뛰었어요' : '튜토리얼 완료!',
     skipped ? '메뉴 → 설정에서 언제든 다시 볼 수 있어요.' : '이제 파티를 꾸려 진짜 모험을 떠나 보자.', 2200);
-  return showSetup();
+  return beginPick('local', opts);
 }
 
 function coachNext() {
@@ -2354,13 +2437,18 @@ function onAct(act, t) {
   if (act === 'rejoin') { sfx.select(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'story') { sfx.select(); layer.innerHTML = ''; return showStory(() => showTitle()); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
-  if (act === 'new') { sfx.select(); return showSetup(); }
+  if (act === 'new') { sfx.select(); return beginPick('local', opts); }
   if (act === 'online') {
     sfx.select();
     if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 혼자 하기는 그대로 할 수 있어요.', 2200);
     return showOnlineMenu();
   }
-  if (act === 'room-create') { sfx.select(); return createRoom(); }
+  if (act === 'room-create') {
+    sfx.select();
+    myName = (document.getElementById('my-name')?.value || myName).trim().slice(0, 10) || '모험가';
+    store.set(KEYS.name, myName);
+    return beginPick('create', opts);
+  }
   if (act === 'room-join') { sfx.select(); return joinRoom(document.getElementById('join-code')?.value); }
   if (act === 'resume') {
     sfx.start();
@@ -2380,7 +2468,7 @@ function onAct(act, t) {
     sfx.start();
     layer.innerHTML = '';
     S = null;
-    return lobbyTxn(r => { r.started = false; r.game = null; r.fxLog = []; });
+    return lobbyTxn(r => { r.started = false; r.game = null; r.fxLog = []; r.seats.forEach(s => { s.ready = false; }); });
   }
   if (act === 'dash-perk') {
     const k = E.perkInfo(t.dataset.id), n = loadProfile().perks[k.id] || 0;
@@ -2414,7 +2502,8 @@ function handleBack() {
   }
   if (screen === 'lobby') { onAct('room-leave', {}); return true; }
   if (screen === 'story') { endStory(); return true; }
-  if (['setup', 'online', 'dashboard'].includes(screen)) { sfx.back(); showTitle(); return true; }
+  if (screen === 'setup') { pickBack(); return true; }
+  if (['online', 'dashboard'].includes(screen)) { sfx.back(); showTitle(); return true; }
   return false;
 }
 addEventListener('popstate', () => {
