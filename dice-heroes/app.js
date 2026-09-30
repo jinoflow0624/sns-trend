@@ -13,6 +13,7 @@ import { FX, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
+import { webglOK, DiceTray2D } from './dice2d.js';
 import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, isUnlocked, diceThumb, trayThumb, preloadDice } from './skins.js';
 
 const app = document.getElementById('app');
@@ -120,6 +121,7 @@ function showSplash() {
 // ── 타이틀 · 메뉴 ────────────────────────────────────────────────────────────
 function showTitle() {
   screen = 'title';
+  preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;
@@ -944,6 +946,7 @@ function onlineAct(fn, { any = false, quiet = false } = {}) {
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
 function startGame(state) {
   S = state;
+  if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxNote.includes('오류')) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
   Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
   setStage(null);
@@ -959,28 +962,59 @@ function ensureTray() {
   if (tray) return Promise.resolve(tray);
   return (trayMaking ||= makeTray().finally(() => { trayMaking = null; }));
 }
-async function makeTray() {
-  const opts = {
+// 그래픽 상태 (설정 화면에 표시 — 문제를 알려 줄 때 도움이 된다)
+let gfxNote = '';
+// 최근 오류 한 줄 (설정 화면 맨 아래에 보여 준다 — 폰에서 생긴 문제를 알려 줄 때 캡처하면 원인 찾기가 쉽다)
+let lastErr = store.get('diceheroes.lastErr') || '';
+const noteErr = e => { lastErr = `${new Date().toLocaleTimeString()} ${String(e?.message || e?.reason?.message || e?.reason || e).slice(0, 120)}`; store.set('diceheroes.lastErr', lastErr); };
+addEventListener('error', noteErr);
+addEventListener('unhandledrejection', noteErr);
+// 3D 엔진(three.js·cannon, 약 1MB)은 시작 화면에서 미리 받아 둔다. 인터넷이 느려 제때 못 받으면 2D 주사위로 한다
+let load3d = null;
+const preload3d = () => (load3d ||= webglOK() ? import('./dice3d.js').catch(err => { load3d = null; throw err; }) : Promise.reject(new Error('WebGL 없음')));
+const timeout = (ms, why) => new Promise((_, no) => setTimeout(() => no(new Error(why)), ms));
+function trayOpts() {
+  return {
     onPick: i => onAct('die', { dataset: { i: String(i) } }),
     onHit: (v, i) => diceHit(v, i, tray),
     onThrow: () => sfx.shake(),
     onBox: () => sfx.box(),
     onLong: i => dieInfo(i),
+    onFail: err => to2d(`그리기 오류: ${err?.message || err}`),
     lowGfx: !!prefs.lowGfx,
     diceSkin: diceSkin(prefs.diceSkin).id,
     traySkin: traySkin(prefs.traySkin).id,
   };
-  const { webglOK, DiceTray2D } = await import('./dice2d.js');
-  if (webglOK()) {
-    try {
-      const { DiceTray } = await import('./dice3d.js');
-      tray = new DiceTray(document.getElementById('tray'), opts);
-      return tray;
-    } catch (err) { console.error('[3d]', err); }
+}
+async function makeTray() {
+  const host = document.getElementById('tray');
+  try {
+    const { DiceTray } = await Promise.race([preload3d(), timeout(tray3dWait(), '3D 불러오기 시간 초과')]);
+    tray = new DiceTray(document.getElementById('tray') || host, trayOpts());
+    gfxNote = '3D';
+    return tray;
+  } catch (err) {
+    console.warn('[3d]', err);
+    gfxNote = `2D (${err?.message || err})`;
+    if (/시간 초과/.test(err?.message)) {
+      store.set('diceheroes.slow3d', 1);
+      preload3d().then(() => store.del('diceheroes.slow3d'), () => {});   // 늦게라도 받으면 다음 판부터 3D
+    }
   }
-  // 3D를 쓸 수 없는 기기: 2D 주사위로 대신한다
-  tray = new DiceTray2D(document.getElementById('tray'), opts);
+  // 3D를 쓸 수 없거나 제때 못 받은 기기: 2D 주사위로 대신한다 (3D는 뒤에서 계속 받아 두었다가 다음 판부터)
+  tray = new DiceTray2D(document.getElementById('tray') || host, trayOpts());
   return tray;
+}
+// 3D 를 기다리는 시간: 처음엔 8초, 이미 한 번 늦었던 기기는 3초
+const tray3dWait = () => (store.get('diceheroes.slow3d') ? 3000 : 8000);
+// 3D 가 게임 도중 그리기에 실패하면 그 자리에서 2D 로 바꿔 계속한다
+function to2d(why) {
+  gfxNote = `2D (${why})`;
+  const host = document.getElementById('tray');
+  try { tray?.destroy?.(); } catch { /* 무시 */ }
+  tray = host ? new DiceTray2D(host, trayOpts()) : null;
+  toast(ico('warn'), '그래픽을 간단하게 바꿨어요', '이 기기에서 3D 주사위를 그리지 못해 2D 주사위로 계속해요.', 2400);
+  render();
 }
 
 // 지금 이 기기가 조작할 차례인가
@@ -1056,7 +1090,7 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ' (봇)' : ''}</span>
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div></div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
@@ -1099,6 +1133,7 @@ function render() {
   FX().rage(rage, () => document.getElementById('boss-art')?.getBoundingClientRect(), RAGE[S.boss?.id]);
   ensureTray().then(t => {
     if (t !== tray) return;              // 그사이 트레이를 새로 만들었으면 옛 것은 붙이지 않는다
+    document.querySelector('.tray-loading')?.remove();
     t.attach(document.getElementById('tray'));
     t.show(ui.dice || S.dice, S.rolled ? S.held : []);
     t.setTarget(!!ui.tool && myTurn);
@@ -2159,6 +2194,7 @@ function showSettings(inGame = false) {
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
+    <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
     <div class="modal-actions">
@@ -2467,6 +2503,11 @@ async function onGameAct(act, t) {
     return;
   }
   if (act === 'roll') {
+    if (!tray) {                             // 주사위가 아직 준비 안 됐으면 기다린다 (그사이 굴림 기회가 날아가지 않게)
+      ui.busy = true; render();
+      await ensureTray();
+      ui.busy = false;
+    }
     if (!tray?.live) sfx.rollPress();  // 짧은 진동 + 흔드는 소리 (흔들어 굴리기는 시작할 때 이미 냈다)
     // 흔드는 도중 버튼을 눌러도 흔들기 상태를 끝낸다 (예전엔 여기서 멈춘 채로 남아 다음 흔들기가 안 먹었다)
     stopShakeWatch();
