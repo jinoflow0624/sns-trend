@@ -153,13 +153,13 @@ export function drawDieFace(c, v, id = 'classic', mode = '') {
       g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 4; roundRect(g, 30, 30, W - 60, W - 60, 22); g.stroke();
       g.strokeStyle = 'rgba(255,230,200,.6)'; g.lineWidth = 2; g.strokeRect(6, 6, W - 12, W - 12);
       // 숫자: 구리 테두리 두른 굵은 숫자
-      g.font = 'bold 150px Georgia, "Times New Roman", serif';
+      g.font = 'bold 183px Georgia, "Times New Roman", serif';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.lineJoin = 'round';
       g.lineWidth = 22; g.strokeStyle = cu; g.strokeText(String(v), W / 2, W / 2 + 8);
       g.fillStyle = dark; g.fillText(String(v), W / 2, W / 2 + 8);
       g.lineWidth = 3; g.strokeStyle = 'rgba(255,220,180,.7)'; g.strokeText(String(v), W / 2, W / 2 + 8);
-      if (v === 6) { g.fillStyle = cu; g.fillRect(W / 2 - 34, W / 2 + 74, 68, 10); }   // 6 밑줄
+      if (v === 6) { g.fillStyle = cu; g.fillRect(W / 2 - 41, W / 2 + 88, 82, 11); }   // 6 밑줄
       break;
     }
     case 'gold': {
