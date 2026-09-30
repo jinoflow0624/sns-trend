@@ -319,8 +319,8 @@ test('수도승: 남은 굴림 1회당 조정 +1', () => {
   assert.equal(s.players[1].nudge, 0);
 });
 test('운명 비틀기는 두 번째 굴림 직후, fx에 바뀌기 전 눈', () => {
-  const s = coop('lich', 2, 1);              // 어려움: 2라운드마다
-  s.round = 2;
+  const s = coop('lich', 2, 1);              // 어려움: 3라운드마다
+  s.round = 3;
   s.board = [];
   E.drainFx(s);
   E.roll(s);
