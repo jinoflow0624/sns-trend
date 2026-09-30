@@ -892,8 +892,8 @@ export const QUEST_ICON = {
 };
 export const EVENT_ICON = {
   calm: 'sun', festival: 'party', fog: 'fog', wind: 'leaf', bounty: 'money', zen: 'lotus', jackpot: 'coins',
-  harvest: 'wheat', duel: 'trophy', refresh: 'sheet', blessing: 'sparkle',
+  harvest: 'wheat', duel: 'trophy', refresh: 'sheet', blessing: 'sparkle', haki: 'eye',
 };
 export const SKILL_ICON = {
-  breath: 'fire', scale: 'dscale', rage: 'anger', drums: 'drum', plunder: 'money', twist: 'vortex', bone: 'bone',
+  breath: 'fire', scale: 'dscale', rage: 'anger', drums: 'drum', plunder: 'money', twist: 'vortex', bone: 'bone', seal: 'chain', haki: 'eye',
 };

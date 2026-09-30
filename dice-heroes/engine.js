@@ -194,6 +194,8 @@ export const EVENTS = [
   { id: 'duel',     ko: '결투 대회',   icon: '🏆', desc: '이번 라운드 최고 득점자 뒤집기 +1 · 조정 +1' },
   { id: 'refresh',  ko: '게시판 갱신', icon: '📋', desc: '퀘스트 보드가 전부 새로 바뀐다' },
   { id: 'blessing', ko: '여신의 축복', icon: '✨', desc: '모두 뒤집기 1회 충전' },
+  // 마왕전 짝수 라운드 전용 (덱에는 없다)
+  { id: 'haki', ko: '패기 발동', icon: '👁️', desc: '마왕의 패기! 이번 라운드 재굴림·조정 금지' },
 ];
 export const eventInfo = id => EVENTS.find(e => e.id === id);
 // 12라운드에 쓸 덱. 평온은 둘, 나머지는 한 장씩 (첫 라운드는 항상 평온)
@@ -215,6 +217,7 @@ export const DIFFS = [
 export const HP_TUNE = {
   dragon: [[1.236, 1.183, 1.157, 1.131], [1.107, 1.127, 1.108, 1.089], [1.05, 1.05, 1.058, 1.066]],
   orc:    [[1.263, 1.202, 1.158, 1.116], [1.208, 1.187, 1.142, 1.096], [1.102, 1.135, 1.11, 1.085]],
+  demon:  [[1.34, 1.29, 1.25, 1.19], [1.2, 1.15, 1.15, 1.15], [1.08, 1.04, 1.04, 1.03]],
   lich:   [[1.233, 1.218, 1.19, 1.162], [1.129, 1.153, 1.132, 1.112], [1.048, 1.115, 1.078, 1.04]],
 };
 
@@ -251,8 +254,22 @@ export const BOSSES = [
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '어려움에서만 쓴다' },
     ],
   },
+  {
+    // 세 보스의 어려움을 모두 깨면 나타난다. 승률은 다른 보스의 약 70% (봇 시뮬레이션), 보석 보상 1.2배
+    id: 'demon', ko: '마왕 아스타로트', title: '봉인에서 깨어난 어둠의 왕', color: '#C21E56', hpMul: [1, 1, 1], final: true,
+    skills: [
+      { id: 'seal', icon: '⛓️', ko: '봉인',
+        desc: d => `홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인되어 재굴림·뒤집기·조정을 할 수 없다 (다시 굴리면 풀림)` },
+      { id: 'haki', icon: '👁️', ko: '패기',
+        desc: d => '짝수 라운드: 라운드 이벤트 대신 패기 발동 — 재굴림·조정 금지 (한 번만 굴린다)' },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 변신 — 봉인이 주사위 2개로' : '어려움에서만 쓴다' },
+    ],
+  },
 ];
 export const bossInfo = id => BOSSES.find(b => b.id === id);
+// 봉인·패기 (마왕)
+const haki = s => event(s) === 'haki';
+export const isSealed = (s, i) => !!s.sealed?.includes(i);
 const enraged = s => s.boss.diff === 2 && s.boss.hp * 2 < s.boss.maxHp;
 const every = (s, k) => s.round % k === 0;
 
@@ -274,6 +291,12 @@ function bossAfterRoll(s) {
     idx.forEach(i => (s.dice[i] = 1));
     log(s, `이그니스의 화염 숨결! 주사위 ${n}개가 1로 탔다`);
     fx(s, { type: 'boss', skill: 'breath', dice: idx, from });
+  }
+  if (b.id === 'demon' && s.rollNo === 1 && s.round % 2 === 1 && s.rollsLeft > 0) {
+    const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
+    s.sealed = idx;
+    log(s, `마왕의 봉인! 주사위 ${idx.length}개가 봉인됐다`);
+    fx(s, { type: 'boss', skill: 'seal', dice: idx });
   }
   if (b.id === 'lich' && s.rollNo === 2 && every(s, [3, 2, 1][b.diff])) {
     const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
@@ -378,6 +401,7 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
   s.board = s.deck.splice(0, QUEST_SLOTS);
   const rest = shuffle(s, [...EVENT_DECK.filter(e => e !== 'calm'), 'calm']);
   s.events = ['calm', ...rest].slice(0, ROUNDS);
+  if (s.boss?.id === 'demon') s.events = s.events.map((e, i) => (i % 2 === 1 ? 'haki' : e));
   startTurn(s);
   return s;
 }
@@ -392,6 +416,7 @@ export function maxRolls(s, p = current(s)) {
   if (event(s) === 'wind') n++;
   if (event(s) === 'fog') n--;
   n += bossRollMod(s);
+  if (haki(s)) return 1;                 // 마왕의 패기: 한 번만 굴린다
   return Math.max(1, n);
 }
 
@@ -408,6 +433,7 @@ function startTurn(s) {
   s.rollsLeft = maxRolls(s, p);
   s.rollNo = 0;
   s.toolUsed = false;
+  s.sealed = [];
   s.rolled = false;
   s.phase = 'roll';
   if (s.turn === 0) {
@@ -454,7 +480,7 @@ export function roll(s) {
   // 튜토리얼처럼 결과를 미리 정해 둔 굴림 (s.script = [[눈...], ...])
   const forced = s.script?.length ? s.script.shift() : null;
   s.dice = s.dice.map((v, i) => {
-    if (s.rolled && s.held[i]) return v;
+    if (s.rolled && (s.held[i] || isSealed(s, i))) return v;
     if (forced) return forced[i];
     let r = die(s);
     if (r === 1 && perkCount(p, 'lucky')) r = die(s);
@@ -464,12 +490,17 @@ export function roll(s) {
   s.rolled = true;
   s.rollsLeft--;
   s.rollNo = (s.rollNo || 0) + 1;
+  if (s.sealed?.length && s.rollNo >= 2) {                  // 한 번 다시 굴리면 봉인이 풀린다
+    fx(s, { type: 'boss', skill: 'unseal', dice: s.sealed.slice() });
+    s.sealed = [];
+  }
   if (!forced) bossAfterRoll(s);
 }
 
 export function toggleHold(s, i) {
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (i < 0 || i >= s.dice.length) fail('없는 주사위입니다.');
+  if (isSealed(s, i)) fail('봉인된 주사위는 움직일 수 없어요. 다시 굴리면 풀려요.');
   s.held[i] = !s.held[i];
 }
 
@@ -477,6 +508,7 @@ export function useFlip(s, i) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (p.flip <= 0) fail('뒤집기 충전이 없습니다.');
+  if (isSealed(s, i)) fail('봉인된 주사위는 뒤집을 수 없어요. 다시 굴리면 풀려요.');
   s.dice[i] = 7 - s.dice[i];
   p.flip--;
   s.toolUsed = true;
@@ -487,6 +519,7 @@ export function useEncore(s) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (p.cls !== 'dancer' || !(p.encore > 0)) fail('앙코르를 쓸 수 없습니다.');
+  if (haki(s)) fail('마왕의 패기! 이번 라운드는 다시 굴릴 수 없어요.');
   p.encore--;
   s.rollsLeft++;
   log(s, `${p.name} · 앙코르! 굴림 +1`);
@@ -497,6 +530,8 @@ export function useNudge(s, i, delta) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (p.nudge <= 0) fail('조정 충전이 없습니다.');
+  if (haki(s)) fail('마왕의 패기! 이번 라운드는 조정을 쓸 수 없어요.');
+  if (isSealed(s, i)) fail('봉인된 주사위는 조정할 수 없어요. 다시 굴리면 풀려요.');
   const v = s.dice[i] + (delta > 0 ? 1 : -1);
   if (v < 1 || v > 6) fail('주사위는 1~6 사이여야 합니다.');
   s.dice[i] = v;
@@ -862,16 +897,17 @@ export function botAction(s, rng = Math.random, samples = 24) {
 
   const n = s.dice.length;
   // 기술(뒤집기/조정)로 확 좋아지면 쓴다
-  if (p.flip > 0 || p.nudge > 0) {
+  if (p.flip > 0 || (p.nudge > 0 && !haki(s))) {
     const now = valueOf(s, p, s.dice);
     let bestGain = 5, bestAct = null;
     for (let i = 0; i < n; i++) {
+      if (isSealed(s, i)) continue;
       if (p.flip > 0) {
         const nd = s.dice.slice(); nd[i] = 7 - nd[i];
         const g = valueOf(s, p, nd) - now;
         if (g > bestGain) { bestGain = g; bestAct = { type: 'flip', i }; }
       }
-      if (p.nudge > 0) for (const dlt of [-1, 1]) {
+      if (p.nudge > 0 && !haki(s)) for (const dlt of [-1, 1]) {
         const v = s.dice[i] + dlt;
         if (v < 1 || v > 6) continue;
         const nd = s.dice.slice(); nd[i] = v;
@@ -883,7 +919,7 @@ export function botAction(s, rng = Math.random, samples = 24) {
     if (bestAct && (s.rollsLeft === 0 || bestGain > 12)) return bestAct;
   }
 
-  if (p.cls === 'dancer' && p.encore > 0 && s.rollsLeft === 0 && s.round >= 4) {
+  if (p.cls === 'dancer' && p.encore > 0 && s.rollsLeft === 0 && s.round >= 4 && !haki(s)) {
     const all = (1 << n) - 1, now = valueOf(s, p, s.dice);
     let best = now;
     for (let mask = 0; mask < all; mask++) best = Math.max(best, holdValue(s, p, mask, samples, rng));
@@ -892,7 +928,9 @@ export function botAction(s, rng = Math.random, samples = 24) {
   if (s.rollsLeft > 0) {
     const all = (1 << n) - 1;
     let bestMask = all, bestV = valueOf(s, p, s.dice);
+    const sealedBits = (s.sealed || []).reduce((m, i) => m | (1 << i), 0);
     for (let mask = 0; mask < all; mask++) {
+      if ((mask & sealedBits) !== sealedBits) continue;     // 봉인된 주사위는 굴릴 수 없다
       const v = holdValue(s, p, mask, samples, rng);
       if (v > bestV + 0.5) { bestV = v; bestMask = mask; }
     }

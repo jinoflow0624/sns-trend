@@ -422,6 +422,26 @@ test('무희: 다른 구역에 번갈아 적으면 +1, 앙코르는 한 번 굴�
   assert.equal(s.rollsLeft, left + 1);
   assert.throws(() => E.useEncore(s));
 });
+test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀림), 짝수 라운드 패기(굴림 1회·조정 금지)', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 11, { mode: 'coop', boss: 'demon', diff: 0 });
+  assert.ok(s.events.every((e, i) => (i % 2 === 1) === (e === 'haki')));
+  E.roll(s);
+  assert.equal(s.sealed.length, 1);
+  const i = s.sealed[0], v = s.dice[i];
+  assert.throws(() => E.toggleHold(s, i));
+  s.players[0].flip = 1; assert.throws(() => E.useFlip(s, i));
+  E.roll(s);
+  assert.equal(s.dice[i], v);                 // 봉인된 주사위는 굴러가지 않았다
+  assert.equal(s.sealed.length, 0);           // 그리고 봉인이 풀렸다
+  E.commitScore(s, 'choice');
+  while (s.phase === 'levelup') E.pickPerk(s, s.players[0].offers[0][0]);
+  assert.equal(s.round, 2);
+  assert.equal(E.event(s), 'haki');
+  E.roll(s);
+  assert.equal(s.rollsLeft, 0);
+  s.players[0].nudge = 1;
+  assert.throws(() => E.useNudge(s, 0, s.dice[0] < 6 ? 1 : -1));
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

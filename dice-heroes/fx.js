@@ -20,9 +20,10 @@ export const PALETTES = {
   bone:   ['#FFFFFF', '#F2EEDD', '#C9C2A6', '#9DB7D6'],
   smoke:  ['#5A5470', '#3A344F', '#2A2440'],
   heal:   ['#E6FFE0', '#8CF28C', '#3EE6B4'],
+  hell:   ['#FFFFFF', '#FF9AB8', '#FF2A6A', '#C21E56', '#4A0A24'],
 };
 // 분노 불꽃 색
-export const RAGE = { dragon: 'fire', orc: 'toxic', lich: 'arcane' };
+export const RAGE = { dragon: 'fire', orc: 'toxic', lich: 'arcane', demon: 'hell' };
 
 // 점수 크기에 따라 공격 색과 세기를 고른다
 export function attackStyle(pts, cat) {
@@ -457,6 +458,34 @@ class FxLayer {
     }, 700);
     this.ring(at.x, at.y, { color: '#C8F4FF', r0: 20, r1: 70, dur: 500, width: 8 });
     this.burst(at.x, at.y, { n: 18, pal: PALETTES.bone, speed: [80, 200] });
+  }
+
+  // 마왕의 봉인: 보랏빛 마법진이 조여들며 쇠사슬이 감긴다
+  async seal(points, ms = 900) {
+    await this.add((g, k) => {
+      for (const p of points) {
+        const r = 46 * (1 - ease(k) * 0.55);
+        g.globalAlpha = 0.9;
+        g.strokeStyle = '#B98CFF'; g.lineWidth = 3;
+        g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.stroke();
+        g.strokeStyle = '#7A4BFF'; g.lineWidth = 2;
+        g.beginPath(); g.arc(p.x, p.y, r * 0.72, 0, TAU); g.stroke();
+        for (let q = 0; q < 6; q++) {                  // 룬 조각
+          const a = k * 5 + (q / 6) * TAU;
+          g.fillStyle = q % 2 ? '#FFFFFF' : '#C9B8FF';
+          g.fillRect(Math.round(p.x + Math.cos(a) * r) - 3, Math.round(p.y + Math.sin(a) * r) - 3, 6, 6);
+        }
+        if (k > 0.45) {                                 // 쇠사슬 X 자로
+          const c = Math.min(1, (k - 0.45) / 0.4), L = 26 * c;
+          g.strokeStyle = '#8A90A8'; g.lineWidth = 5;
+          for (const [dx, dy] of [[1, 1], [1, -1]]) { g.beginPath(); g.moveTo(p.x - dx * L, p.y - dy * L); g.lineTo(p.x + dx * L, p.y + dy * L); g.stroke(); }
+          g.strokeStyle = '#D8E4F0'; g.lineWidth = 2;
+          for (const [dx, dy] of [[1, 1], [1, -1]]) { g.beginPath(); g.moveTo(p.x - dx * L, p.y - dy * L); g.lineTo(p.x + dx * L, p.y + dy * L); g.stroke(); }
+        }
+        g.globalAlpha = 1;
+      }
+    }, ms);
+    points.forEach(p => { this.burst(p.x, p.y, { n: 18, pal: PALETTES.arcane, speed: [40, 160], life: [0.3, 0.6] }); this.ring(p.x, p.y, { color: '#B98CFF', r0: 10, r1: 44, dur: 360, width: 4 }); });
   }
 
   // 0점: 에너지가 흩어져 연기가 된다
