@@ -176,22 +176,29 @@ class FxLayer {
   // from: 주사위 화면 좌표들, getTarget: () => {x, y}. 구체가 목표에 닿는 순간 resolve.
   async energy(from, getTarget, { pal = PALETTES.gold, power = 1, onCharge, onLaunch, onImpact } = {}) {
     if (!from.length) return;
+    const o = await this.gather(from, { pal, power, onCharge });
+    onLaunch?.();
+    const tgt = getTarget();
+    await this.flyOrb(o, tgt, { pal, power });
+    onImpact?.();
+    this.impact(tgt.x, tgt.y, pal, power);
+  }
+
+  // 주사위마다 에너지 조각이 소용돌이치며 가운데로 모여 구체가 되고, 부풀며 번쩍 → { cx, cy, R, tt }
+  async gather(from, { pal = PALETTES.gold, power = 1, onCharge } = {}) {
     const cx = from.reduce((a, p) => a + p.x, 0) / from.length;
     const cy = from.reduce((a, p) => a + p.y, 0) / from.length - 10;
     const R = Math.min(42, 14 + power * 8);
     const sp = this.speed;
-
-    // 1) 모이기: 주사위마다 에너지 조각이 소용돌이치며 가운데로
     onCharge?.();
     const motes = [];
     from.forEach(p => {
       this.burst(p.x, p.y, { n: 10, pal, speed: [40, 140], life: [0.2, 0.45], size: [2, 4] });
       for (let i = 0; i < 9; i++) motes.push({ x0: p.x + rnd(-14, 14), y0: p.y + rnd(-14, 14), delay: rnd(0, 0.35), swirl: rnd(-1, 1) * 40, c: pick(pal), s: rnd(3, 6) });
     });
-    const gather = 420 / sp;
-    let tt = 0;
+    const o = { cx, cy, R, tt: 0 };
     await this.add((g, k, dt) => {
-      tt += dt;
+      o.tt += dt;
       for (const m of motes) {
         const q = Math.max(0, Math.min(1, (k - m.delay * 0.6) / (1 - m.delay * 0.6)));
         const e = easeIn(q);
@@ -204,46 +211,153 @@ class FxLayer {
         g.globalAlpha = 1;
         g.fillRect(Math.round(x - m.s / 2), Math.round(y - m.s / 2), m.s, m.s);
       }
-      FxLayer.orb(g, cx, cy, R * 0.5 * ease(k), pal, tt);
-    }, gather * sp);
-
-    // 2) 모아 쏘기 준비: 구체가 부풀며 번쩍
-    const charge = 300 / sp;
-    this.ring(cx, cy, { color: pal[1], r0: R * 3, r1: R * 0.6, dur: charge * sp, width: 3 });
+      FxLayer.orb(g, cx, cy, R * 0.5 * ease(k), pal, o.tt);
+    }, 420);
+    this.ring(cx, cy, { color: pal[1], r0: R * 3, r1: R * 0.6, dur: 300, width: 3 });
     await this.add((g, k, dt) => {
-      tt += dt;
-      const r = R * (0.5 + 0.5 * ease(k)) * (1 + Math.sin(tt * 40) * 0.06);
-      FxLayer.orb(g, cx, cy, r, pal, tt);
+      o.tt += dt;
+      const r = R * (0.5 + 0.5 * ease(k)) * (1 + Math.sin(o.tt * 40) * 0.06);
+      FxLayer.orb(g, cx, cy, r, pal, o.tt);
       if (Math.random() < 0.8) {
         const a = rnd(0, TAU), d = R * 3;
         this.spawn({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, vx: -Math.cos(a) * d * 4, vy: -Math.sin(a) * d * 4, life: 0.22, size: 3, color: pick(pal) });
       }
-    }, charge * sp);
+    }, 300);
+    return o;
+  }
 
-    // 3) 발사: 휘어지는 궤적 + 꼬리
-    onLaunch?.();
-    const tgt = getTarget();
+  // 모은 구체를 휘어지는 궤적으로 날린다 (꼬리를 남기며). 닿으면 resolve
+  async flyOrb(o, tgt, { pal = PALETTES.gold, power = 1, ms = 330, shrink = 0.25 } = {}) {
+    const { cx, cy, R } = o;
     const side = tgt.x < cx ? -1 : 1;
     const ctrl = { x: (cx + tgt.x) / 2 + side * 70 + rnd(-30, 30), y: Math.min(cy, tgt.y) - 70 - power * 20 };
-    const fly = 330 / sp;
     let px = cx, py = cy;
     await this.add((g, k, dt) => {
-      tt += dt;
+      o.tt += dt;
       const e = easeIn(k) * 0.55 + k * 0.45;
       const x = (1 - e) * (1 - e) * cx + 2 * (1 - e) * e * ctrl.x + e * e * tgt.x;
       const y = (1 - e) * (1 - e) * cy + 2 * (1 - e) * e * ctrl.y + e * e * tgt.y;
-      const steps = 4;
-      for (let i = 0; i < steps; i++) {
-        const ix = px + (x - px) * (i / steps), iy = py + (y - py) * (i / steps);
+      for (let i = 0; i < 4; i++) {
+        const ix = px + (x - px) * (i / 4), iy = py + (y - py) * (i / 4);
         this.spawn({ x: ix + rnd(-3, 3), y: iy + rnd(-3, 3), vx: rnd(-30, 30), vy: rnd(-30, 30), life: rnd(0.2, 0.45), size: rnd(3, 6), color: pick(pal), drag: 3 });
       }
       px = x; py = y;
-      FxLayer.orb(g, x, y, R * (1 - 0.25 * k), pal, tt);
-    }, fly * sp);
+      FxLayer.orb(g, x, y, R * (1 - shrink * k), pal, o.tt);
+    }, ms);
+  }
 
-    // 4) 명중
-    onImpact?.();
-    this.impact(tgt.x, tgt.y, pal, power);
+  // ── 대전: 직업별 공격 ──────────────────────────────────────────────────────
+  // a(공격자) → b(상대) 로 직업에 맞는 기술을 날린다. 마지막 한 발이 닿는 순간 resolve (onHit: 한 발마다)
+  async strike(cls, a, b, { pal = PALETTES.gold, power = 1, onHit } = {}) {
+    const dx = b.x - a.x, dy = b.y - a.y, ang = Math.atan2(dy, dx);
+    const S = 1 + (power - 1) * 0.35;                           // 족보가 클수록 크게
+    const shots = power >= 3 ? 5 : power >= 1.8 ? 4 : 3;       // 여러 발 기술의 발 수
+    const hit = (x, y, big = false) => {
+      this.burst(x, y, { n: big ? 26 : 12, pal, speed: [80, 260], life: [0.25, 0.55], size: [2, 5], drag: 3 });
+      onHit?.(big);
+    };
+    const line = (k, bend = 0) => {
+      const x = a.x + dx * k, y = a.y + dy * k;
+      return { x: x - Math.sin(ang) * bend, y: y + Math.cos(ang) * bend };
+    };
+    const trail = (x, y, n = 2, size = [2, 5], p = pal) => { for (let i = 0; i < n; i++) this.spawn({ x: x + rnd(-3, 3), y: y + rnd(-3, 3), vx: rnd(-25, 25), vy: rnd(-25, 25), life: rnd(0.18, 0.4), size: rnd(...size), color: pick(p), drag: 3 }); };
+    // 한 발을 날리는 공통 틀: draw(g, 위치, 진행도, 발 번호)
+    const volley = (n, gap, dur, draw, path = k => line(ease(k))) => Promise.all([...Array(n)].map((_, i) => wait(i * gap / this.speed).then(() =>
+      this.add((g, k) => { const p = path(k, i); draw(g, p, k, i); }, dur).then(() => { const p = path(1, i); hit(p.x, p.y, i === n - 1); }))));
+
+    if (cls === 'warrior') {
+      // 검기: 초승달 모양 참격이 날아가 벤다
+      const R = 26 * S;
+      await volley(power >= 1.8 ? 2 : 1, 140, 300, (g, p, k) => {
+        g.save(); g.translate(p.x, p.y); g.rotate(ang);
+        for (let w = 0; w < 3; w++) {
+          g.strokeStyle = w === 0 ? '#FFFFFF' : pal[Math.min(pal.length - 1, w + 1)];
+          g.globalAlpha = 1 - w * 0.3;
+          g.lineWidth = (7 - w * 2) * S;
+          g.beginPath(); g.arc(-w * 6, 0, R, -1.1, 1.1); g.stroke();
+        }
+        g.restore(); g.globalAlpha = 1;
+        trail(p.x, p.y, 3);
+      });
+    } else if (cls === 'mage') {
+      // 화염구: 불꽃 꼬리를 끌며 포물선으로
+      const o = { cx: a.x, cy: a.y, R: 11 * S, tt: 0 };
+      await this.flyOrb(o, b, { pal: PALETTES.fire, power, ms: 380, shrink: -0.3 });
+      hit(b.x, b.y, true);
+      this.burst(b.x, b.y, { n: 20, pal: PALETTES.fire, speed: [60, 220], grav: -120, life: [0.4, 0.8], size: [4, 8] });
+    } else if (cls === 'rogue') {
+      // 단검 연속 투척
+      await volley(shots, 90, 230, (g, p) => {
+        g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(ang);
+        g.fillStyle = '#E8EEF8'; g.fillRect(-2, -3 * S, 16 * S, 6 * S);        // 칼날
+        g.fillStyle = '#FFFFFF'; g.fillRect(2, -1, 12 * S, 2);
+        g.fillStyle = '#5A3A2A'; g.fillRect(-10 * S, -2 * S, 8 * S, 4 * S);    // 손잡이
+        g.fillStyle = pal[2] || pal[0]; g.fillRect(-3 * S, -5 * S, 3 * S, 10 * S);
+        g.restore();
+        trail(p.x, p.y, 1, [2, 3], ['#FFFFFF', '#C8F4FF']);
+      }, (k, i) => line(ease(k), (i % 2 ? 1 : -1) * 10 * Math.sin(k * Math.PI)));
+    } else if (cls === 'bard') {
+      // 음표 파동: 물결치며 날아가는 음표들
+      await volley(shots, 110, 420, (g, p, k, i) => {
+        const c = pal[(i % (pal.length - 1)) + 1] || '#FFFFFF', z = S * 1.2, x = Math.round(p.x), y = Math.round(p.y);
+        g.fillStyle = c;
+        g.beginPath(); g.ellipse(x, y, 6 * z, 4.5 * z, -0.4, 0, TAU); g.fill();   // 머리
+        g.fillRect(x + 4 * z, y - 18 * z, 2.5 * z, 18 * z);                      // 기둥
+        g.fillRect(x + 4 * z, y - 18 * z, 8 * z, 3 * z);                         // 꼬리
+        g.fillStyle = '#FFFFFF'; g.fillRect(x - 3 * z, y - 2 * z, 2 * z, 2 * z);
+        if (Math.random() < 0.5) trail(p.x, p.y, 1, [2, 3]);
+      }, (k, i) => line(k, Math.sin(k * TAU * 1.5 + i) * 22));
+    } else if (cls === 'gambler') {
+      // 카드 날리기: 빙글빙글 도는 카드
+      await volley(shots, 100, 320, (g, p, k, i) => {
+        const w = 12 * S, h = 17 * S, sx = Math.cos(k * 16 + i);
+        g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(ang + k * 3); g.scale(Math.max(0.15, Math.abs(sx)), 1);
+        g.fillStyle = '#06041A'; g.fillRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4);
+        g.fillStyle = sx > 0 ? '#FFFFFF' : '#C8142E'; g.fillRect(-w / 2, -h / 2, w, h);
+        if (sx > 0) { g.fillStyle = i % 2 ? '#C8142E' : '#06041A'; g.beginPath(); g.moveTo(0, -5 * S); g.lineTo(4 * S, 0); g.lineTo(0, 5 * S); g.lineTo(-4 * S, 0); g.fill(); }
+        g.restore();
+        trail(p.x, p.y, 1, [2, 3], ['#FFD24A', '#FFFFFF']);
+      }, (k, i) => line(ease(k), (i - (shots - 1) / 2) * 12 * Math.sin(k * Math.PI)));
+    } else {
+      // 수도승(기본): 기공 장풍 — 고리 파동을 뿜으며 곧게 날아간다
+      const R = 13 * S;
+      let lastRing = 0;
+      await this.add((g, k) => {
+        const p = line(easeIn(k) * 0.6 + k * 0.4);
+        if (k - lastRing > 0.12) { lastRing = k; this.ring(p.x, p.y, { color: pal[1] || '#FFFFFF', r0: R, r1: R * 2.4, dur: 260, width: 3 }); }
+        const grad = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * 1.8);
+        grad.addColorStop(0, '#FFFFFF'); grad.addColorStop(0.4, (pal[1] || '#FFD24A')); grad.addColorStop(1, (pal[3] || pal[2] || '#FF9A1F') + '00');
+        g.fillStyle = grad; g.beginPath(); g.arc(p.x, p.y, R * 1.8, 0, TAU); g.fill();
+        trail(p.x, p.y, 3, [3, 6]);
+      }, 340);
+      hit(b.x, b.y, true);
+      this.ring(b.x, b.y, { color: '#FFFFFF', r0: 8, r1: 70 * S, dur: 380, width: 6 });
+    }
+  }
+
+  // 0점: 힘없는 연기 한 줌이 날아가다 흩어진다 (상대는 가볍게 피한다)
+  async miss(a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    await this.add((g, k) => {
+      const x = a.x + dx * 0.7 * ease(k), y = a.y + dy * 0.7 * ease(k) - Math.sin(k * Math.PI) * 20;
+      g.globalAlpha = 1 - k * 0.6;
+      g.fillStyle = PALETTES.smoke[0]; g.beginPath(); g.arc(x, y, 7 + k * 5, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+    }, 380);
+    this.burst(a.x + dx * 0.7, a.y + dy * 0.7, { n: 10, pal: PALETTES.smoke, speed: [20, 70], grav: -40, life: [0.4, 0.8], size: [3, 6] });
+  }
+
+  // 왕관이 옛 1등에게서 튕겨 나와 새 1등에게 날아간다
+  async crown(a, b, draw) {
+    this.burst(a.x, a.y, { n: 14, pal: PALETTES.gold, speed: [60, 200], life: [0.3, 0.6] });
+    await this.add((g, k) => {
+      const e = ease(k);
+      const x = a.x + (b.x - a.x) * e, y = a.y + (b.y - a.y) * e - Math.sin(k * Math.PI) * 70;
+      draw(g, x, y, 1 + Math.sin(k * Math.PI) * 0.6, k * TAU * 2);
+      if (Math.random() < 0.7) this.spawn({ x, y, vx: rnd(-40, 40), vy: rnd(-40, 40), life: 0.4, size: rnd(2, 4), color: pick(PALETTES.gold), drag: 3 });
+    }, 620);
+    this.burst(b.x, b.y, { n: 24, pal: PALETTES.gold, speed: [80, 240], life: [0.35, 0.7] });
+    this.ring(b.x, b.y, { color: '#FFD24A', r1: 60, dur: 420, width: 5 });
   }
 
   impact(x, y, pal, power = 1) {
