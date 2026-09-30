@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL } from './pixel.js';
 import { titleScene, storyScene, STORY } from './scenes.js';
-import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz, bossSong } from './audio.js';
+import { sfx, playBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, attackStyle, RAGE, shake } from './fx.js';
@@ -205,6 +205,7 @@ function startShakeRoll(x, y, z) {
   const now = performance.now();
   motion.last = now;
   if (!tray?.startShake) return onAct('roll', btn);        // 2D 화면: 바로 굴린다
+  if (tray.live && !motion.rolling) tray.cancelShake();     // 지난 흔들기가 어중간하게 남아 있으면 정리하고 다시
   const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
   if (!tray.startShake(mask)) return;
   sfx.rollPress();
@@ -221,9 +222,10 @@ function stopShakeWatch() {
 }
 function endShake() {
   stopShakeWatch();
+  motion.rolling = false;
   const btn = rollReady();
-  if (btn && myControl() && !ui.busy) { onAct('roll', btn); motion.rolling = false; }
-  else { motion.rolling = false; tray?.cancelShake?.(); render(); }
+  if (btn && myControl() && !ui.busy && !ui.sending) onAct('roll', btn);
+  else { tray?.cancelShake?.(); render(); }
   motion.last = performance.now();
 }
 function listenShake(on) {
@@ -247,7 +249,15 @@ async function setShake(on, input) {
   listenShake(on);
   if (on) toast(ico('die5'), '흔들어 굴리기 켜짐', '내 차례에 폰을 흔들면 주사위가 굴러다니고, 멈추면 결과가 나와요.', 2400);
 }
-if (SHAKE_OK && prefs.shake) listenShake(true);
+if (SHAKE_OK && prefs.shake) {
+  listenShake(true);
+  // 아이폰은 앱을 다시 열 때마다 동작 센서 권한을 다시 받아야 센서 값이 온다 (터치한 순간에만 요청 가능).
+  // 첫 터치 때 조용히 다시 요청한다 (한 번 허락했으면 창이 다시 뜨지 않는다)
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    const ask = () => { removeEventListener('pointerup', ask, true); DeviceMotionEvent.requestPermission().catch(() => {}); };
+    addEventListener('pointerup', ask, true);
+  }
+}
 
 // ── 스토리 ───────────────────────────────────────────────────────────────────
 let story = { i: 0, shown: 0, timer: null, then: null };
@@ -1828,6 +1838,7 @@ let heartT = 0;
 function diceHit(v, i, t) {
   const skin = diceSkin(prefs.diceSkin);
   sfx.hit(skin.sound, v);
+  if (v > 3.5) rumble(v);   // 던지는 동안·흔드는 동안 부딪힐 때마다 진동
   if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
   const now = performance.now();
   if (now - heartT < 90) return;
@@ -1920,7 +1931,7 @@ function showSettings(inGame = false) {
     <h2>${inGame ? '일시정지' : '설정'}</h2>
     <label class="set-row">배경음악<input id="set-bgm" type="range" min="0" max="1" step="0.05" value="${a.bgm}"></label>
     <label class="set-row">효과음<input id="set-sfx" type="range" min="0" max="1" step="0.05" value="${a.sfx}"></label>
-    <label class="set-row">진동<input id="set-vib" type="checkbox" ${a.vibrate ? 'checked' : ''}></label>
+    <label class="set-row">진동${canVibrate() ? '' : ' <small>이 기기는 버튼을 누를 때만</small>'}<input id="set-vib" type="checkbox" ${a.vibrate ? 'checked' : ''}></label>
     <div class="set-row">연출 속도<div class="seg" role="group" aria-label="연출 속도">
       ${[['normal', '보통'], ['fast', '빠르게'], ['min', '최소']].map(([v, k]) => `<button data-act="pref-fx" data-v="${v}" class="${prefs.fx === v ? 'on' : ''}">${k}</button>`).join('')}
     </div></div>
@@ -2211,15 +2222,20 @@ async function onGameAct(act, t) {
     if (tryAct(() => E.pickPerk(S, t.dataset.id))) step();
     return;
   }
-  if (ui.busy || ui.sending || !myControl() || S.phase !== 'roll') return;
+  if (ui.busy || ui.sending || !myControl() || S.phase !== 'roll') {
+    if (act === 'roll' && tray?.live) { stopShakeWatch(); motion.rolling = false; tray.cancelShake(); render(); }   // 흔들던 주사위가 트레이에 멈춰 남지 않게
+    return;
+  }
   if (act === 'roll') {
-    if (!motion.rolling) sfx.rollPress();  // 짧은 진동 + 흔드는 소리 (흔들어 굴리기는 시작할 때 이미 냈다)
+    if (!tray?.live) sfx.rollPress();  // 짧은 진동 + 흔드는 소리 (흔들어 굴리기는 시작할 때 이미 냈다)
+    // 흔드는 도중 버튼을 눌러도 흔들기 상태를 끝낸다 (예전엔 여기서 멈춘 채로 남아 다음 흔들기가 안 먹었다)
     stopShakeWatch();
+    motion.rolling = false;
     ui.tool = null;
     ui.zeroArm = null;
     const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
     if (online) return onlineAct(g => E.roll(g));
-    if (!tryAct(() => E.roll(S))) return;
+    if (!tryAct(() => E.roll(S))) { tray?.cancelShake?.(); return; }
     await rollAnimated(mask);
     step();
     return;

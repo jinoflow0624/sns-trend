@@ -53,6 +53,17 @@ export function buzz(ms = 20) {
   } catch { /* 무시 */ }
 }
 
+// 주사위가 부딪힐 때 드르륵 — 세게 부딪힐수록 길게. 터치 없이도 울려야 해서 진동 API가 있는 기기(안드로이드)만
+let rumbleT = 0;
+export function rumble(v = 5) {
+  if (!settings.vibrate || typeof navigator.vibrate !== 'function') return;
+  const now = performance.now();
+  if (now - rumbleT < 80) return;
+  rumbleT = now;
+  try { navigator.vibrate(Math.round(35 + Math.min(1, v / 14) * 30)); } catch { /* 무시 */ }
+}
+export const canVibrate = () => typeof navigator.vibrate === 'function';
+
 let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
 const waves = {};
 
