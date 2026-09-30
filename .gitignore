@@ -12,3 +12,6 @@ __pycache__/
 
 # Next.js 실험 (배포 제외)
 trend-analyzer/
+
+# 파이썬 패키지 설치 파일 — 게임 폴더에 섞이지 않게
+*.whl
