@@ -7,7 +7,7 @@
 // sound: 굴릴 때 부딪히는 소리 (audio.js sfx.hit)
 export const DICE_SKINS = [
   { id: 'classic', name: '기본', desc: '상아색 기본 주사위', tier: 'free', sound: 'classic' },
-  { id: 'openheart', name: '오픈하츠', desc: '톱니가 비치는 구리 스켈레톤 · 숫자 눈 · 방울 소리', tier: 'special', sound: 'bell' },
+  { id: 'openheart', name: '오픈하츠', desc: '톱니가 비치는 구리 스켈레톤 · 숫자 눈 · 은빛 찰캉 소리', tier: 'special', sound: 'silver' },
   { id: 'gold', name: '황금', desc: '온통 순금 · 새겨진 눈 · 금화 소리', tier: 'special', sound: 'coin' },
   { id: 'minimal', name: '미니멀', desc: '굵은 선의 만화풍 · 톡톡 소리', tier: 'special', sound: 'soft' },
   { id: 'cosmic', name: '우주', desc: '은하수가 반짝이는 밤하늘 · 반짝 소리', tier: 'special', sound: 'twinkle' },

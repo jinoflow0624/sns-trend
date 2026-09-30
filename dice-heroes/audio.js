@@ -18,7 +18,7 @@ const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
 // 채널 음량: 슬라이더가 같은 값이면 효과음이 배경음악보다 또렷하게(약 6dB) 크게 들리도록 맞춘 비율.
 // 효과음이 날 때는 배경음악을 잠깐 DUCK 만큼 낮춰(더킹) 효과음이 묻히지 않게 한다.
-const BGM_LEVEL = 0.3, SFX_LEVEL = 2.2, DUCK = 0.6;
+const BGM_LEVEL = 0.42, SFX_LEVEL = 3.1, DUCK = 0.6;
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* 저장 불가 */ }
 export const audioSettings = () => ({ ...settings });
 export function setAudio(patch) {
@@ -481,13 +481,21 @@ export const sfx = {
     if (!unlock()) return;
     const t = ctx.currentTime, k = Math.min(1, v / 14), r = Math.random();
     switch (style) {
-      case 'bell': {        // 오픈하츠: 묵직한 금속 방울 — 낮은 몸통 '둥' + 중음 금속 울림 + 비화성 배음
-        const f = 620 + r * 260;
-        ping(sfxGain, { f: 150 + r * 30, slide: 95, t, dur: 0.16, vol: 0.1 + k * 0.14, type: 'triangle' });
-        ping(sfxGain, { f, t, dur: 0.7, vol: 0.05 + k * 0.08 });
-        ping(sfxGain, { f: f * 2.76, t, dur: 0.38, vol: 0.02 + k * 0.035 });
-        ping(sfxGain, { f: f * 5.4, t, dur: 0.1, vol: 0.006 + k * 0.01 });
-        noise(sfxGain, { t, dur: 0.02, vol: 0.04 + k * 0.07, hp: 700, lp: 4000 });
+      case 'silver': {      // 오픈하츠: 은 장신구끼리 부딪히는 '찰캉' — 밝은 금속 타격 + 비화성 배음, 세게 부딪히면 체인처럼 잘게 한 번 더
+        if (t - (this.svT || 0) < 0.03) break;
+        this.svT = t;
+        const f = 1900 + r * 700;
+        noise(sfxGain, { t, dur: 0.012, vol: 0.05 + k * 0.09, hp: 3500, lp: 12000 });
+        ping(sfxGain, { f, t, dur: 0.32, vol: 0.04 + k * 0.07 });
+        ping(sfxGain, { f: f * 1.006, t, dur: 0.32, vol: 0.02 + k * 0.03 });   // 살짝 어긋난 음이 맥놀이로 금속 떨림을 만든다
+        ping(sfxGain, { f: f * 2.76, t, dur: 0.16, vol: 0.02 + k * 0.04 });
+        ping(sfxGain, { f: f * 5.4, t, dur: 0.06, vol: 0.01 + k * 0.02 });
+        if (k > 0.5) {
+          const f2 = 2600 + Math.random() * 900, t2 = t + 0.03 + Math.random() * 0.03;
+          noise(sfxGain, { t: t2, dur: 0.01, vol: 0.03 + k * 0.04, hp: 4000, lp: 12000 });
+          ping(sfxGain, { f: f2, t: t2, dur: 0.14, vol: 0.02 + k * 0.03 });
+          ping(sfxGain, { f: f2 * 2.76, t: t2, dur: 0.07, vol: 0.01 + k * 0.015 });
+        }
         break;
       }
       case 'coin': {        // 황금: 금화가 부딪히는 짤랑
