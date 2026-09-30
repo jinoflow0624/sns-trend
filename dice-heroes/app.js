@@ -368,7 +368,9 @@ function modeCards(o) {
 }
 
 // 마왕: 화염룡·오크·리치의 어려움을 모두 한 번씩 깨면 봉인이 풀린다
-const demonOpen = () => ['dragon', 'orc', 'lich'].every(b => (loadProfile().bosses?.[`${b}:2`]?.wins || 0) > 0);
+// 테스트판 ?demon: 마왕과 마왕 난이도 전부를 바로 열어 둔다 (배포판에서는 무시)
+const DEMON_TEST = !PROD && new URLSearchParams(location.search).has('demon');
+const demonOpen = () => DEMON_TEST || ['dragon', 'orc', 'lich'].every(b => (loadProfile().bosses?.[`${b}:2`]?.wins || 0) > 0);
 function showDemonUnlock() {
   if (!demonOpen() || store.get('diceheroes.demonSeen')) return;
   store.set('diceheroes.demonSeen', 1);
@@ -389,7 +391,7 @@ function showDemonUnlock() {
 
 // 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
 function diffOpen(boss, d) {
-  if (d <= 0) return true;
+  if (d <= 0 || (DEMON_TEST && boss === 'demon')) return true;
   return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
 }
 const topOpenDiff = boss => [2, 1, 0].find(d => diffOpen(boss, d));
@@ -3013,14 +3015,15 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   });
 }
 
-// ?demo 봇 대결, ?skip 타이틀로 바로 (화면 점검용)
+// ?demo 봇 대결, ?skip 타이틀로 바로, ?demon 마왕 바로 열기 (화면 점검용)
 const q = new URLSearchParams(location.search);
 if (q.has('demo')) {
   unlocked = true;
   const mode = q.get('demo') === 'coop' ? { mode: 'coop', boss: q.get('boss') || 'dragon', diff: 1 } : {};
   startGame(E.createGame([{ name: '고블린 봇', cls: 'rogue', bot: true }, { name: '슬라임 봇', cls: 'mage', bot: true }], undefined, mode));
-} else if (q.has('skip') || urlRoom) {
+} else if (q.has('skip') || urlRoom || DEMON_TEST) {
   showTitle();
+  if (DEMON_TEST) { store.set('diceheroes.demonSeen', 0); setTimeout(showDemonUnlock, 600); }
 } else {
   showSplash();
 }
