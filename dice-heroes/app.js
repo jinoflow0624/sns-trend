@@ -1563,8 +1563,7 @@ async function attackFx(f) {
 }
 
 // ── 대전: 점수 = 공격 ────────────────────────────────────────────────────────
-// 점수를 적으면 주사위 에너지를 받은 내 영웅이 직업 기술로 상대를 친다 (점수는 그대로 내 것 — 연출만).
-// 노리는 상대: 나를 뺀 사람 중 점수가 가장 높은 사람 (1등을 노리고, 내가 1등이면 2등을 견제)
+// 점수를 적으면 주사위 에너지를 받은 내 영웅이 직업 기술로 나를 뺀 모두를 친다 (점수는 그대로 내 것 — 연출만).
 // 역전해서 1등이 되면 왕관이 옛 1등에게서 튕겨 나와 나에게 온다.
 function duelTarget(me) {
   let best = -1, bs = -Infinity;
@@ -1589,17 +1588,24 @@ const memberFx = (i, cls, ms) => {
   setTimeout(() => el.classList.remove(cls), ms);
 };
 async function duelFx(f) {
-  const me = f.player, foe = duelTarget(me), fx = FX();
+  // 나를 뺀 모두를 한꺼번에 공격한다 (3~4인이면 기술이 상대마다 한 갈래씩 동시에 날아간다)
+  const me = f.player, fx = FX();
+  const foes = S.players.map((_, i) => i).filter(i => i !== me);
   const style = attackStyle(f.pts, f.cat);
   const cls = S.players[me].cls;
-  const hitFoe = big => { sfx.boom(big ? style.power : 0.6); memberFx(foe, 'hurt', 520); if (big) shake(app.querySelector('.party'), Math.min(2, style.power)); };
+  let boomT = 0;
+  const hitFoe = (foe, big) => {
+    memberFx(foe, 'hurt', 520);
+    const now = performance.now();
+    if (now - boomT > 70) { boomT = now; sfx.boom(big ? style.power : 0.6); }   // 동시에 맞아도 소리는 한 번만 크게
+    if (big) shake(app.querySelector('.party'), Math.min(2, style.power));
+  };
   if (prefs.fx === 'min') {                 // 연출 최소: 기술은 건너뛰고 명중만
-    fx.impact(porPos(foe).x, porPos(foe).y, style.pal, 1);
-    hitFoe(true);
+    foes.forEach(foe => { fx.impact(porPos(foe).x, porPos(foe).y, style.pal, 1); hitFoe(foe, true); });
   } else {
     fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
     const from = (f.dice || S.dice).map((_, i) => tray.screenPos(i));
-    // 1) 주사위가 에너지로 뭉친다 → 2) 내 영웅에게 스며든다 → 3) 영웅이 뛰어올라 기술 발사 → 4) 상대 명중
+    // 1) 주사위가 에너지로 뭉친다 → 2) 내 영웅에게 스며든다 → 3) 영웅이 뛰어올라 기술 발사 → 4) 상대 모두 명중
     const o = await fx.gather(from, { pal: style.pal, power: style.power, onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); } });
     tray.restore();
     await fx.flyOrb(o, porPos(me), { pal: style.pal, power: style.power, ms: 240, shrink: 0.7 });
@@ -1607,8 +1613,9 @@ async function duelFx(f) {
     memberFx(me, 'atk', 620);
     sfx.whoosh();
     await wait(140);
-    await fx.strike(cls, porPos(me), porPos(foe), { pal: style.pal, power: style.power, onHit: hitFoe });
-    fx.impact(porPos(foe).x, porPos(foe).y, style.pal, style.power * 0.8);
+    await Promise.all(foes.map((foe, k) => wait(k * 70 / fx.speed)
+      .then(() => fx.strike(cls, porPos(me), porPos(foe), { pal: style.pal, power: style.power, onHit: big => hitFoe(foe, big) }))
+      .then(() => fx.impact(porPos(foe).x, porPos(foe).y, style.pal, style.power * (foes.length > 1 ? 0.6 : 0.8)))));
     if (f.cat === 'yacht') { fx.flash('#FFFFFF', 320, 0.5); shake(app.querySelector('.game'), 2.5); }
   }
   ui.dice = null;
@@ -1708,8 +1715,10 @@ async function playOne(f) {
           sfx.zero();
           floatText(`${E.catInfo(f.cat).ko} 0`, 'dim');
           if (tray) FX().fizzle(S.dice.map((_, i) => tray.screenPos(i)));
-          const foe = !S.boss && prefs.fx !== 'min' ? duelTarget(f.player) : -1;
-          if (foe >= 0) { memberFx(foe, 'dodge', 600); FX().miss(porPos(f.player), porPos(foe)); ui.crownFreeze = false; }
+          if (!S.boss && prefs.fx !== 'min' && duelTarget(f.player) >= 0) {   // 0점: 모두에게 힘없이 날아가고 다들 피한다
+            S.players.forEach((_, foe) => { if (foe !== f.player) { memberFx(foe, 'dodge', 600); FX().miss(porPos(f.player), porPos(foe)); } });
+            ui.crownFreeze = false;
+          }
           ui.dice = null;
           await wait(380);
         }
