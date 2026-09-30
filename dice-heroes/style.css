@@ -636,7 +636,7 @@ img.t-boss { width: 44px; height: 44px; }
 .card em.retro { color: var(--gold); font-weight: 700; }
 
 /* ── v0.5: 한 화면 레이아웃 · 점수표 창 · 연출 ─────────────────────────────── */
-.classes { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.classes { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
 .cls { font-size: 10px; }
 
 /* 게임 화면은 스크롤 없이 한 화면에 담는다. 남는 높이는 주사위 트레이가 가져간다. */
@@ -1141,3 +1141,13 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .gem-res .hint .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .set-row.account { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .set-row.account small { flex: 1; }
+
+/* ── 무희 ── */
+.encore-btn { position: absolute; right: 8px; bottom: 8px; z-index: 4; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 13px; font-weight: 700;
+  color: #fff; background: linear-gradient(#FF6FB5, #C23A7E); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink), 0 0 12px rgba(255,111,181,.7); animation: encorePulse 1.2s ease-in-out infinite; }
+.encore-btn small { font-size: 9px; font-weight: 400; opacity: .85; }
+.encore-btn .ico { width: 14px; height: 14px; }
+@keyframes encorePulse { 50% { transform: translateY(-2px); box-shadow: 0 5px 0 var(--ink), 0 0 18px rgba(255,111,181,.95); } }
+.member.dance .m-por { animation: danceSpin .9s ease-in-out; }
+@keyframes danceSpin { 0% { transform: none; } 25% { transform: translateY(-6px) rotate(-12deg); } 50% { transform: translateY(-8px) rotate(12deg) scale(1.15); } 75% { transform: translateY(-4px) rotate(-6deg); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .encore-btn, .member.dance .m-por { animation: none; } }

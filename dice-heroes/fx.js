@@ -307,6 +307,21 @@ class FxLayer {
         g.fillStyle = '#FFFFFF'; g.fillRect(x - 3 * z, y - 2 * z, 2 * z, 2 * z);
         if (Math.random() < 0.5) trail(p.x, p.y, 1, [2, 3]);
       }, (k, i) => line(k, Math.sin(k * TAU * 1.5 + i) * 22));
+    } else if (cls === 'dancer') {
+      // 리본 춤: 분홍 리본 꽃잎이 빙글빙글 춤추며 날아간다
+      const petals = ['#FFFFFF', '#FF9AD0', '#E84FA0', '#FFC83D'];
+      await volley(shots, 90, 460, (g, p, k, i) => {
+        const r = 7 * S, a = k * 14 + i;
+        g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(a);
+        for (let q = 0; q < 4; q++) {                    // 꽃잎 네 장
+          g.rotate(Math.PI / 2);
+          g.fillStyle = petals[(q + i) % petals.length];
+          g.beginPath(); g.ellipse(r * 0.9, 0, r, r * 0.45, 0, 0, TAU); g.fill();
+        }
+        g.fillStyle = '#FFC83D'; g.beginPath(); g.arc(0, 0, r * 0.35, 0, TAU); g.fill();
+        g.restore();
+        this.spawn({ x: p.x, y: p.y, vx: rnd(-30, 30), vy: rnd(-40, 10), life: rnd(0.3, 0.6), size: rnd(2, 4), color: pick(petals), drag: 2 });
+      }, (k, i) => line(k, Math.sin(k * TAU + i * 1.3) * 26));
     } else if (cls === 'gambler') {
       // 카드 날리기: 빙글빙글 도는 카드
       await volley(shots, 100, 320, (g, p, k, i) => {
