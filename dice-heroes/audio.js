@@ -450,6 +450,20 @@ const seq = (notes, gap, opts = {}) => {
   notes.forEach((n, i) => n && voice(sfxGain, { type: opts.type || 'p50', f: freq(n), t: t0 + i * gap, dur: opts.dur || gap * 1.2, vol: opts.vol || 0.18 }));
 };
 
+// 짧은 팡파레: 배경음악과 같은 편성(펄스 리드 p25·펄스 화음 p12·삼각파 베이스·노이즈 드럼)
+// parts: { p25|p12|tri: [[칸, 음, 길이, 비브라토]] }, drums: { kick, snare, hat: [칸…], crash: 칸 }
+const FANFARE_VOL = { p25: 0.085, p12: 0.04, tri: 0.11 };
+function fanfare(st, parts, drums = {}) {
+  if (!unlock()) return;
+  const t0 = ctx.currentTime + 0.02, at = i => t0 + i * st;
+  for (const [type, notes] of Object.entries(parts))
+    for (const [i, n, len, vib = 0] of notes) voice(sfxGain, { type, f: freq(n), t: at(i), dur: len * st * 0.95, vol: FANFARE_VOL[type], vib });
+  (drums.kick || []).forEach(i => voice(sfxGain, { type: 'tri', f: 160, slide: 40, t: at(i), dur: 0.12, vol: 0.07 }));
+  (drums.snare || []).forEach(i => noise(sfxGain, { t: at(i), dur: 0.08, vol: 0.04, hp: 1200, lp: 7000 }));
+  (drums.hat || []).forEach(i => noise(sfxGain, { t: at(i), dur: 0.04, vol: 0.03, hp: 7000 }));
+  if (drums.crash != null) noise(sfxGain, { t: at(drums.crash), dur: 0.45, vol: 0.03, hp: 5000 });
+}
+
 export const sfx = {
   tap() { seq(['C6'], 0.04, { type: 'p25', vol: 0.1 }); },
   select() { seq(['E5', 'B5'], 0.05, { type: 'p25', vol: 0.14 }); },
@@ -544,31 +558,37 @@ export const sfx = {
   zero() { seq(['E4', 'C4', 'G#3'], 0.1, { type: 'p25', vol: 0.12 }); },
   coin() { seq(['B5', 'E6'], 0.07, { type: 'p50', vol: 0.16, dur: 0.25 }); buzz(25); },
   quest() { seq(['G5', 'C6', 'E6', 'G6', 'E6', 'G6'], 0.07, { type: 'p25', vol: 0.16 }); buzz(40); },
-  // 레벨업 팡파레: 배경음악과 같은 패미컴 4채널 편성(펄스 리드·펄스 화음·삼각파 베이스·노이즈 드럼)
-  // 도약 → IV–V–I 로 올라가 C장조로 끝난다. 16분음표 한 칸 = 0.085초, 전체 약 1.7초
+  // 레벨업 팡파레: 도약 → IV–V–I 로 올라가 C장조로 끝난다. 약 0.9초
   levelup() {
     buzz(80);
-    if (!unlock()) return;
-    const t0 = ctx.currentTime + 0.02, st = 0.085;
-    const part = (type, vol, notes) => notes.forEach(([at, n, len, vib = 0]) =>
-      voice(sfxGain, { type, f: freq(n), t: t0 + at * st, dur: len * st * 0.95, vol, vib }));
-    part('p25', 0.085, [[0, 'G5', 1], [1, 'C6', 1], [2, 'E6', 1], [3, 'G6', 3], [6, 'E6', 1], [7, 'G6', 1], [8, 'A6', 2], [10, 'B6', 2], [12, 'C7', 8, 1]]);
-    part('p12', 0.04, [[0, 'E5', 1], [1, 'G5', 1], [2, 'C6', 1], [3, 'E6', 3], [6, 'C6', 1], [7, 'E6', 1], [8, 'F6', 2], [10, 'G6', 2], [12, 'E6', 8]]);
-    part('tri', 0.11, [[0, 'C3', 3], [3, 'C4', 3], [6, 'G3', 2], [8, 'F3', 2], [10, 'G3', 2], [12, 'C3', 8]]);
-    const kick = at => voice(sfxGain, { type: 'tri', f: 160, slide: 40, t: t0 + at * st, dur: 0.12, vol: 0.07 });
-    const snare = (at, v = 1) => noise(sfxGain, { t: t0 + at * st, dur: 0.08, vol: 0.04 * v, hp: 1200, lp: 7000 });
-    [0, 3, 12].forEach(kick);
-    snare(3); snare(8); snare(10, 0.7); snare(10.5, 0.8); snare(11, 0.9); snare(11.5, 1);
-    noise(sfxGain, { t: t0 + 12 * st, dur: 0.6, vol: 0.03, hp: 5000 });   // 마지막 박 심벌
+    fanfare(0.075, {
+      p25: [[0, 'G5', 1], [1, 'C6', 1], [2, 'E6', 1], [3, 'G6', 2], [5, 'A6', 1], [6, 'B6', 1], [7, 'C7', 5, 1]],
+      p12: [[0, 'E5', 1], [1, 'G5', 1], [2, 'C6', 1], [3, 'E6', 2], [5, 'F6', 1], [6, 'G6', 1], [7, 'E6', 5]],
+      tri: [[0, 'C3', 3], [3, 'C4', 2], [5, 'F3', 1], [6, 'G3', 1], [7, 'C3', 5]],
+    }, { kick: [0, 3, 7], snare: [3, 6, 6.5], crash: 7 });
   },
   card() { seq(['G6', 'D7'], 0.04, { type: 'p12', vol: 0.1 }); },
   legend() { seq(['C6', 'E6', 'G6', 'B6', 'D7', 'G7'], 0.05, { type: 'p12', vol: 0.12 }); },
   round() { seq(['G4', null, 'G4', 'C5'], 0.09, { type: 'p50', vol: 0.14 }); },
   turn() { seq(['E5', 'A5'], 0.09, { type: 'p25', vol: 0.12 }); },
-  win() { seq(['C5', 'C5', 'C5', 'C5', 'G#4', 'A#4', 'C5', null, 'A#4', 'C5'], 0.12, { type: 'p25', vol: 0.16, dur: 0.14 }); },
+  // 승리 팡파레: 빰빰빰 빠—암, 따라라 빠——암. 1.5초 뒤 이어지는 승리 곡과 같은 F장조, 약 1.35초
+  win() {
+    buzz(60);
+    fanfare(0.09, {
+      p25: [[0, 'A5', 1], [1, 'A5', 1], [2, 'A5', 1], [3, 'F6', 3], [6, 'E6', 1], [7, 'D6', 1], [8, 'E6', 1], [9, 'F6', 6, 1]],
+      p12: [[0, 'F5', 1], [1, 'F5', 1], [2, 'F5', 1], [3, 'C6', 3], [6, 'C6', 1], [7, 'A#5', 1], [8, 'C6', 1], [9, 'A5', 6]],
+      tri: [[0, 'F2', 3], [3, 'A2', 3], [6, 'C3', 1], [7, 'A#2', 1], [8, 'C3', 1], [9, 'F2', 6]],
+    }, { kick: [0, 3, 9], snare: [3, 6, 7, 8, 8.5], crash: 9 });
+  },
   start() { seq(['C5', 'G5', 'C6', 'E6', 'G6'], 0.06, { type: 'p25', vol: 0.16 }); buzz(30); },
-  // 족보 완성 알림
-  combo() { seq(['E6', 'G6', 'C7'], 0.045, { type: 'p12', vol: 0.13 }); buzz(20); },
+  // 족보 완성 알림: 짧게 '띠링' — 두 음 도약 + 반짝이는 끝음, 약 0.25초
+  combo() {
+    buzz(20);
+    fanfare(0.04, {
+      p25: [[0, 'G6', 1], [1, 'C7', 1], [2, 'E7', 4]],
+      p12: [[0, 'E6', 1], [1, 'G6', 1], [2, 'C7', 4]],
+    }, { hat: [2] });
+  },
   // 주사위가 에너지로 모이는 소리 (점점 높아진다)
   charge(power = 1) {
     if (!unlock()) return;
