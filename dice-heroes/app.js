@@ -174,7 +174,7 @@ function syncOwned() {
   changed = false;
   if (!Wal.owns('dice', prefs.diceSkin)) { prefs.diceSkin = 'classic'; changed = true; }
   if (!Wal.owns('tray', prefs.traySkin)) { prefs.traySkin = 'classic'; changed = true; }
-  if (changed) { store.set(KEYS.prefs, prefs); tray?.setSkin?.(prefs.diceSkin, prefs.traySkin); }
+  if (changed) { store.set(KEYS.prefs, prefs); tray?.setSkin?.(prefs.diceSkin, prefs.traySkin); if (tray) tray.skinKey = ''; }
 }
 
 function offlineToast() {
@@ -629,7 +629,7 @@ async function createRoom() {
   const room = {
     v: 1, host: token, started: false,
     opts: { ...opts },
-    seats: [{ token, name: myName, cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false }],
+    seats: [{ token, name: myName, cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false, skin: mySkin() }],
     game: null, fxLog: [], fxId: 0,
     seen: { [token]: Date.now() },
   };
@@ -662,7 +662,7 @@ async function joinRoom(code) {
     if (room.started) return fail('이미 시작한 방입니다.');
     if (room.seats.length >= 4) return fail('방이 가득 찼습니다 (최대 4명).');
     const used = new Set(room.seats.map(s => s.cls));
-    room.seats.push({ token, name: myName, cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false });
+    room.seats.push({ token, name: myName, cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false, skin: mySkin() });
     return room;
   });
   if (!res.ok) return showOnlineMenu(res.failure);
@@ -831,7 +831,7 @@ function onLobbyAct(act, t) {
       if (r.seats.length < 1) return fail('참가자가 없습니다.');
       if (needReady(r).some(s => !s.ready)) return fail('아직 준비하지 않은 사람이 있어요.');
       const g = E.createGame(r.seats.map(s => ({ name: s.name, cls: s.cls, bot: s.bot })), undefined, r.opts);
-      g.players.forEach((p, i) => (p.token = r.seats[i].token));
+      g.players.forEach((p, i) => { p.token = r.seats[i].token; if (r.seats[i].skin) p.skin = r.seats[i].skin; });   // 친구 차례엔 친구 주사위·트레이로 보여 준다
       r.fxLog = [{ id: 1, list: E.drainFx(g) }];
       r.fxId = 1;
       r.game = g;
@@ -1241,6 +1241,7 @@ function render() {
     if (t !== tray) return;              // 그사이 트레이를 새로 만들었으면 옛 것은 붙이지 않는다
     document.querySelector('.tray-loading')?.remove();
     t.attach(document.getElementById('tray'));
+    turnSkin(t);
     t.show(ui.dice || S.dice, S.rolled ? S.held : []);
     t.setTarget(!!ui.tool && myTurn);
     requestAnimationFrame(() => diceOverlay(myTurn));
@@ -1338,6 +1339,17 @@ function dieInfo(i) {
   a.remove();
 }
 
+// 마왕의 봉인 문양: 두 겹 원 + 오망성 + 룬 (천천히 돌며 붉게 맥박친다)
+const SEAL_SIGIL = `<svg class="sigil" viewBox="0 0 100 100" aria-hidden="true">
+  <circle class="sg-glow" cx="50" cy="50" r="44"/>
+  <g class="sg-spin">
+    <circle cx="50" cy="50" r="46" class="sg-o"/><circle cx="50" cy="50" r="38" class="sg-i"/>
+    <path d="M50 12 L72.3 80.7 L13.9 38.3 L86.1 38.3 L27.7 80.7 Z" class="sg-star"/>
+    ${[0, 72, 144, 216, 288].map(a => `<rect x="47" y="0" width="6" height="6" transform="rotate(${a + 36} 50 50)" class="sg-rune"/>`).join('')}
+  </g>
+  <circle cx="50" cy="50" r="7" class="sg-core"/>
+</svg>`;
+
 // 뒤집기: 각 주사위 위에 뒤집으면 나올 눈 / 조정: 각 주사위 위에 −1 · +1
 function diceOverlay(myTurn) {
   const ovl = document.getElementById('dice-ovl');
@@ -1347,7 +1359,7 @@ function diceOverlay(myTurn) {
   const sealList = ui.sealRoll || S.sealed || [];   // 굴리는 동안에도 봉인 표시는 제자리에 남는다
   const seals = S.rolled && sealList.length ? sealList.map(i => {
     const p = tray.screenPos(i);
-    return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px"><span class="seal-ring"></span>${ico('chain')}</div>`;
+    return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${SEAL_SIGIL}</div>`;
   }).join('') : '';
   if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals; return; }
   const box = box0;
@@ -1821,7 +1833,8 @@ async function duelFx(f) {
 async function upperFx(f) {
   const me = f.player, fx = FX();
   sfx.quest(); buzz(80);
-  floatText(`상단 보너스 달성! +${f.amount}`, 'gold', -10, 'tray', 'sparkle');
+  const who = S.players[me];   // 누구의 보너스인지 (전사는 50점, 나머지는 63점부터)
+  floatText(`${who.name} · 상단 보너스 (${E.upperNeed(who)}점↑) +${f.amount}`, 'gold', -10, 'tray', 'sparkle');
   if (prefs.fx === 'min') { if (!S.boss) bumpPts(me, f.amount); return; }
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
   const pal = PALETTES.gold, src = porPos(me);
@@ -1939,19 +1952,22 @@ async function skillFx(f) {
 
 // 마왕의 패기: 화면 전체가 붉게 떨리고 큰 글씨가 내리꽂힌다
 async function hakiFx() {
+  // 천천히: 붉은 기운이 번지고(0.8초) → 글자가 천천히 내려앉아(0.9초) → 잠시 머물다(2.4초) → 서서히 사라진다
   const fx = FX();
   sfx.boom(3); buzz(120);
-  fx.flash('#C21E56', 420, 0.55);
-  fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FF2A6A', r0: 20, r1: Math.max(innerWidth, innerHeight), dur: 700, width: 14 });
-  fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FFFFFF', r0: 10, r1: innerWidth * 0.8, dur: 520, width: 6 });
-  shake(app.querySelector('.game'), 3);
+  fx.flash('#C21E56', 900, 0.45);
+  fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FF2A6A', r0: 20, r1: Math.max(innerWidth, innerHeight), dur: 1400, width: 14 });
+  fx.ring(innerWidth / 2, innerHeight / 2, { color: '#FFFFFF', r0: 10, r1: innerWidth * 0.8, dur: 1100, width: 6 });
+  shake(app.querySelector('.game'), 2);
+  await wait(ui.fast ? 150 : 300);
   const el = document.createElement('div');
   el.className = 'haki-banner';
   el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
   document.body.appendChild(el);
-  await wait(ui.fast ? 900 : 1600);
+  setTimeout(() => { fx.ring(innerWidth / 2, innerHeight * 0.42, { color: '#FF9AB8', r0: 30, r1: innerWidth * 0.6, dur: 900, width: 4 }); sfx.boom(1.5); }, ui.fast ? 400 : 800);
+  await wait(ui.fast ? 1500 : 3000);
   el.classList.add('out');
-  setTimeout(() => el.remove(), 400);
+  setTimeout(() => el.remove(), 700);
 }
 
 // 연출 중 오류가 나도 게임이 멈추지 않게 (연출은 건너뛰고 진행)
@@ -2334,11 +2350,27 @@ function showDashboard() {
   </div>`;
 }
 
+// 온라인 대전: 내 주사위 · 트레이 스킨 (방에 들어갈 때 자리에 적어 둔다)
+const mySkin = () => {
+  const d = diceSkin(prefs.diceSkin).id, t = traySkin(prefs.traySkin).id;
+  return { dice: Wal.owns('dice', d) ? d : 'classic', tray: Wal.owns('tray', t) ? t : 'classic' };   // 산 것만 (안 산 걸 미리 보던 중이어도 남에게는 기본으로)
+};
+// 지금 차례인 사람의 스킨으로 트레이를 바꾼다 (친구 차례엔 친구 것, 내 차례·봇·한 기기에선 내 것)
+function turnSkin(t) {
+  const cur = S && online ? E.current(S) : null;
+  const sk = cur?.skin && cur.token !== online.token && !cur.bot ? cur.skin : mySkin();
+  const key = `${sk.dice}|${sk.tray}`;
+  ui.skinDice = sk.dice;
+  if (!t?.setSkin || t.skinKey === key) return;   // 트레이마다 지금 입힌 스킨을 기억 (새로 만든 트레이는 다시 입힌다)
+  t.skinKey = key;
+  t.setSkin(diceSkin(sk.dice).id, traySkin(sk.tray).id);
+}
+
 // 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
 let heartT = 0;
 function diceHit(v, i, t) {
   // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
-  const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : prefs.diceSkin);
+  const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin);
   sfx.hit(skin.sound, v);
   if (v > 3.5) rumble(v);   // 던지는 동안·흔드는 동안 부딪힐 때마다 진동
   if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
@@ -2432,6 +2464,7 @@ function pickSkin(kind, id) {
   const d = diceSkin(prefs.diceSkin).id, t = traySkin(prefs.traySkin).id;
   skinPreview?.setSkin(d, t);
   tray?.setSkin?.(d, t);
+  if (tray) tray.skinKey = '';
   showSkins(kind);
 }
 // 잠긴 직업을 누르면: 설명과 가격을 보여 주고 살지 묻는다
@@ -3158,6 +3191,9 @@ document.addEventListener('input', e => {
   const i = e.target.dataset?.name;
   if (i !== undefined) onNameInput(Number(i), e.target.value);
 });
+// 그림을 길게 눌렀을 때 뜨는 '이미지 복사' 메뉴 막기 (안드로이드 크롬은 CSS 만으로는 안 막힌다)
+addEventListener('contextmenu', e => { if (e.target.closest?.('img, canvas, .spr, .ico')) e.preventDefault(); });
+addEventListener('dragstart', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
 addEventListener('resize', () => { updateCoach(); closePopover(); });
 addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: true });
 

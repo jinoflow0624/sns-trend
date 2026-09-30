@@ -59,6 +59,8 @@ body {
   -webkit-user-select: none;
 }
 input { user-select: text; -webkit-user-select: text; }
+/* 그림을 길게 눌러도 '이미지 복사·저장' 메뉴가 뜨지 않게 (마왕 초상화 등) */
+img, canvas { -webkit-touch-callout: none; -webkit-user-drag: none; user-drag: none; }
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
 button:focus-visible, input:focus-visible { outline: 2px dashed var(--gold); outline-offset: 3px; }
 img.spr { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
@@ -1165,19 +1167,30 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 /* ── 마왕 ── */
 .seal-tag { position: absolute; transform: translate(-50%, -50%); width: 46px; height: 46px; display: grid; place-items: center; pointer-events: none; z-index: 3; }
 .seal-tag .ico { width: 26px; height: 26px; filter: drop-shadow(0 0 4px #7A4BFF) drop-shadow(0 2px 0 var(--ink)); }
+/* 봉인 문양 (마왕): 원 두 겹 + 오망성, 천천히 돌며 붉은 기운이 맥박친다 */
+.seal-tag { width: 64px; height: 64px; }
+.seal-tag .sigil { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 5px #FF2A6A) drop-shadow(0 0 2px #06041A); }
+.sigil .sg-spin { transform-origin: 50px 50px; animation: sealSpin 6s linear infinite; }
+.sigil .sg-o { fill: none; stroke: #FF2A6A; stroke-width: 3.5; }
+.sigil .sg-i { fill: none; stroke: #B98CFF; stroke-width: 2; stroke-dasharray: 5 4; }
+.sigil .sg-star { fill: rgba(194, 30, 86, .18); stroke: #FF9AB8; stroke-width: 2.5; stroke-linejoin: miter; }
+.sigil .sg-rune { fill: #FFFFFF; }
+.sigil .sg-glow { fill: rgba(122, 20, 60, .35); animation: sigilPulse 1.4s ease-in-out infinite; transform-origin: 50px 50px; }
+.sigil .sg-core { fill: #FF2A6A; animation: sigilPulse 1.4s ease-in-out infinite; transform-origin: 50px 50px; }
+@keyframes sigilPulse { 50% { opacity: .45; transform: scale(1.12); } }
 .seal-ring { position: absolute; inset: 0; border: 3px solid #B98CFF; border-radius: 50%; box-shadow: 0 0 10px #7A4BFF, inset 0 0 8px #7A4BFF; animation: sealSpin 2.4s linear infinite; border-style: dashed; }
 @keyframes sealSpin { to { transform: rotate(360deg); } }
 .haki-banner { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 60; display: grid; justify-items: center; gap: 6px; pointer-events: none;
-  animation: hakiIn .45s cubic-bezier(.2, 1.6, .4, 1); }
+  animation: hakiIn .9s cubic-bezier(.2, 1.25, .4, 1); }
 .haki-banner b { font-size: 44px; color: #fff; letter-spacing: 4px; text-shadow: 0 0 12px #FF2A6A, 3px 3px 0 #4A0A24, -2px -2px 0 #C21E56; white-space: nowrap; }
 .haki-banner small { font-size: 13px; color: #FFD0DC; background: rgba(40, 6, 20, .85); padding: 4px 10px; border: 2px solid #C21E56; display: inline-flex; gap: 6px; align-items: center; }
 .haki-banner small .ico { width: 16px; height: 16px; }
-.haki-banner.out { opacity: 0; transform: translate(-50%, -60%); transition: .35s; }
+.haki-banner.out { opacity: 0; transform: translate(-50%, -60%); transition: .7s ease; }
 @keyframes hakiIn { from { transform: translate(-50%, -50%) scale(3); opacity: 0; } }
 .boss-pick.sealed-boss { position: relative; }
 .boss-pick.sealed-boss img { filter: brightness(0) drop-shadow(0 0 6px #C21E56); }
 .boss-pick.sealed-boss b { color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .seal-ring, .haki-banner { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .seal-ring, .haki-banner, .sigil * { animation: none !important; } }
 .bosses { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
 .boss-pick img.bp { width: 56px; height: 56px; }
 .demon-reveal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; align-content: center; gap: 10px; padding: 24px; text-align: center; background: #05020A; animation: fade .6s; }
