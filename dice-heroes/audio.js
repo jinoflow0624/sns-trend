@@ -544,11 +544,22 @@ export const sfx = {
   zero() { seq(['E4', 'C4', 'G#3'], 0.1, { type: 'p25', vol: 0.12 }); },
   coin() { seq(['B5', 'E6'], 0.07, { type: 'p50', vol: 0.16, dur: 0.25 }); buzz(25); },
   quest() { seq(['G5', 'C6', 'E6', 'G6', 'E6', 'G6'], 0.07, { type: 'p25', vol: 0.16 }); buzz(40); },
+  // 레벨업 팡파레: 배경음악과 같은 패미컴 4채널 편성(펄스 리드·펄스 화음·삼각파 베이스·노이즈 드럼)
+  // 도약 → IV–V–I 로 올라가 C장조로 끝난다. 16분음표 한 칸 = 0.085초, 전체 약 1.7초
   levelup() {
-    seq(['C5', 'E5', 'G5', 'C6', 'E6', 'G6', 'C7'], 0.055, { type: 'p25', vol: 0.15 });
-    setTimeout(() => seq(['C6', 'C6', 'C6', 'G6'], 0.1, { type: 'p50', vol: 0.14, dur: 0.14 }), 420);
-    setTimeout(() => seq(['E6'], 0.5, { type: 'p25', vol: 0.14, dur: 0.6 }), 860);
     buzz(80);
+    if (!unlock()) return;
+    const t0 = ctx.currentTime + 0.02, st = 0.085;
+    const part = (type, vol, notes) => notes.forEach(([at, n, len, vib = 0]) =>
+      voice(sfxGain, { type, f: freq(n), t: t0 + at * st, dur: len * st * 0.95, vol, vib }));
+    part('p25', 0.085, [[0, 'G5', 1], [1, 'C6', 1], [2, 'E6', 1], [3, 'G6', 3], [6, 'E6', 1], [7, 'G6', 1], [8, 'A6', 2], [10, 'B6', 2], [12, 'C7', 8, 1]]);
+    part('p12', 0.04, [[0, 'E5', 1], [1, 'G5', 1], [2, 'C6', 1], [3, 'E6', 3], [6, 'C6', 1], [7, 'E6', 1], [8, 'F6', 2], [10, 'G6', 2], [12, 'E6', 8]]);
+    part('tri', 0.11, [[0, 'C3', 3], [3, 'C4', 3], [6, 'G3', 2], [8, 'F3', 2], [10, 'G3', 2], [12, 'C3', 8]]);
+    const kick = at => voice(sfxGain, { type: 'tri', f: 160, slide: 40, t: t0 + at * st, dur: 0.12, vol: 0.07 });
+    const snare = (at, v = 1) => noise(sfxGain, { t: t0 + at * st, dur: 0.08, vol: 0.04 * v, hp: 1200, lp: 7000 });
+    [0, 3, 12].forEach(kick);
+    snare(3); snare(8); snare(10, 0.7); snare(10.5, 0.8); snare(11, 0.9); snare(11.5, 1);
+    noise(sfxGain, { t: t0 + 12 * st, dur: 0.6, vol: 0.03, hp: 5000 });   // 마지막 박 심벌
   },
   card() { seq(['G6', 'D7'], 0.04, { type: 'p12', vol: 0.1 }); },
   legend() { seq(['C6', 'E6', 'G6', 'B6', 'D7', 'G7'], 0.05, { type: 'p12', vol: 0.12 }); },
