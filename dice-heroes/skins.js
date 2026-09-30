@@ -48,17 +48,18 @@ const PIP_POS = {
 // 재질 (dice3d.js 가 읽는다)
 //   env: 반사 세기 · toon: 만화풍 음영 · outline: 검은 외곽선 · cutout: 구멍 뚫린 면(양면)
 //   clear: 반투명(양면) · bump: 새김 · glow: 발광 · twinkle: 반짝임
+//   upright: 숫자 눈 — 굴린 뒤 윗면 숫자의 머리가 화면 위쪽을 향하게 세운다
 const DIE_MAT = {
   classic: { roughness: 0.32, metalness: 0.02 },
   // image: 디자인 렌더로 만든 면 그림(assets/dice/<스킨>/1~6.webp, tools/make_dice_textures.py). 그림에 음영이 이미 들어 있다
-  openheart: { roughness: 0.4, metalness: 0.45, env: 0.8, image: true },
+  openheart: { roughness: 0.4, metalness: 0.45, env: 0.8, image: true, upright: true },
   gold: { roughness: 0.28, metalness: 0.35, env: 0.9, image: true },
   minimal: { toon: true, outline: true },
   cosmic: { roughness: 0.25, metalness: 0.1, env: 0.5, image: true, selfGlow: 0.35, twinkle: true },
   black: { roughness: 0.28, metalness: 0.1, env: 0.6, image: true },
   clear: { roughness: 0.04, metalness: 0.0, env: 1.1, clear: true },
   heart: { roughness: 0.24, metalness: 0.0, env: 0.35 },
-  keycap: { roughness: 0.7, metalness: 0.0, env: 0.15 },
+  keycap: { roughness: 0.7, metalness: 0.0, env: 0.15, upright: true },
 };
 export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;

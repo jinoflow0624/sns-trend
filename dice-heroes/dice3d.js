@@ -48,6 +48,13 @@ function glowTexture(color) {
   return tex;
 }
 
+// 각 면 그림의 '위쪽'이 주사위 몸체 기준으로 가리키는 방향 (BoxGeometry UV 의 v+ 방향)
+const FACE_UPS = [
+  new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 1, 0),
+  new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1),
+  new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 1, 0),
+];
+
 // 위를 향한 면 번호
 function topFace(q) {
   let best = 0, bestDot = -2;
@@ -696,17 +703,26 @@ export class DiceTray {
     });
     this.refreshGlow();
 
-    // 합치기 연출: 정렬 줄 위치 + 윗면은 그대로, 90° 단위로 가장 가까운 방향으로 반듯하게
+    // 합치기 연출: 정렬 줄 위치 + 윗면은 그대로, 90° 단위로 가장 가까운 방향으로 반듯하게.
+    // 숫자가 그려진 스킨(upright)은 윗면 숫자의 머리가 화면 위쪽(-z)을 향하도록 돌린다
+    const upright = dieMatParams(this.diceSkin).upright;
     const settle = bodies.map(({ i }, k) => {
       const q = new THREE.Quaternion(last[k][3], last[k][4], last[k][5], last[k][6]);
-      const top = FACE_NORMALS[topFace(q)].clone().applyQuaternion(q);
-      const upright = new THREE.Quaternion().setFromUnitVectors(top, UP).multiply(q);
-      const side = new THREE.Vector3(1, 0, 0).applyQuaternion(upright);
-      if (Math.abs(side.y) > 0.7) side.set(0, 0, 1).applyQuaternion(upright);
-      const yaw = Math.atan2(-side.z, side.x);
-      const snap = Math.round(yaw / (Math.PI / 2)) * (Math.PI / 2);
-      const fix = new THREE.Quaternion().setFromAxisAngle(UP, snap - yaw);
-      return { i, from: null, to: fix.multiply(upright) };
+      const tf = topFace(q);
+      const top = FACE_NORMALS[tf].clone().applyQuaternion(q);
+      const level = new THREE.Quaternion().setFromUnitVectors(top, UP).multiply(q);
+      let fix;
+      if (upright) {
+        const head = FACE_UPS[tf].clone().applyQuaternion(level);
+        fix = new THREE.Quaternion().setFromAxisAngle(UP, Math.PI / 2 - Math.atan2(-head.z, head.x));
+      } else {
+        const side = new THREE.Vector3(1, 0, 0).applyQuaternion(level);
+        if (Math.abs(side.y) > 0.7) side.set(0, 0, 1).applyQuaternion(level);
+        const yaw = Math.atan2(-side.z, side.x);
+        const snap = Math.round(yaw / (Math.PI / 2)) * (Math.PI / 2);
+        fix = new THREE.Quaternion().setFromAxisAngle(UP, snap - yaw);
+      }
+      return { i, from: null, to: fix.multiply(level) };
     });
 
     return new Promise(resolve => {
