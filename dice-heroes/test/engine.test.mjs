@@ -247,8 +247,8 @@ test('드래곤 용린 갑옷: 상단 피해 감소', () => {
   E.roll(s);
   s.dice = [6, 6, 6, 1, 2];
   const hp0 = s.boss.hp;
-  E.commitScore(s, 'sixes');                 // 18 × 65% (보통: 35% 감소)
-  assert.equal(hp0 - s.boss.hp, 12);
+  E.commitScore(s, 'sixes');                 // 18 × 70% (보통: 30% 감소)
+  assert.equal(hp0 - s.boss.hp, 13);
 });
 test('오크 약탈: 0점이면 회복, 전쟁의 북: 굴림 -1', () => {
   const s = coop('orc', 1);
@@ -258,8 +258,8 @@ test('오크 약탈: 0점이면 회복, 전쟁의 북: 굴림 -1', () => {
   E.roll(s);
   s.dice = [1, 2, 3, 5, 6];
   E.commitScore(s, 'yacht');
-  assert.equal(s.boss.hp, hp0 + 20);
-  s.round = 2; s.events[1] = 'calm';          // 보통: 2라운드마다 북
+  assert.equal(s.boss.hp, hp0 + 15);
+  s.round = 3; s.events[2] = 'calm';          // 보통: 3라운드마다 북
   assert.equal(E.maxRolls(s), E.BASE_ROLLS - 1);
 });
 test('리치 뼈 방패는 체력보다 먼저 깎인다', () => {
@@ -322,9 +322,9 @@ test('운명 비틀기는 두 번째 굴림 직후, fx에 바뀌기 전 눈', ()
   assert.equal(f.from.length, before.length);
 });
 test('화염 숨결은 첫 굴림, 가장 높은 주사위가 1로 (fx.from 은 타기 전)', () => {
-  const s = coop('dragon', 2, 1);            // 매우 어려움: 2라운드마다
+  const s = coop('dragon', 2, 1);            // 어려움: 3라운드마다
   s.board = [];
-  s.round = 2; s.events[1] = 'calm';
+  s.round = 3; s.events[2] = 'calm';
   E.drainFx(s);
   E.roll(s);
   const f = E.drainFx(s).find(x => x.skill === 'breath');
