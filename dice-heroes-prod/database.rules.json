@@ -50,24 +50,11 @@
     "wallets": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['gems', 'vs']) && newData.child('gems').isNumber() && newData.child('gems').val() >= 0 && ((!data.exists() && newData.child('gems').val() <= 30000) || (data.exists() && newData.child('gems').val() - data.child('gems').val() <= 1200))",
-        "gems": { ".validate": "newData.isNumber()" },
-        "vs": {
-          ".validate": "newData.hasChildren(['day', 'n'])",
-          "day": { ".validate": "newData.isNumber() && newData.val() <= (now + 32400000) / 86400000 && newData.val() > (now + 32400000) / 86400000 - 1" },
-          "n": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3 && (!data.exists() || newData.parent().child('day').val() > data.parent().child('day').val() || newData.val() >= data.val())" },
-          "$other": { ".validate": false }
-        },
-        "owned": {
-          "$kind": {
-            "$id": { ".validate": "newData.val() === true && (data.exists() || newData.parent().parent().parent().child('gems').val() < data.parent().parent().parent().child('gems').val())" }
-          }
-        },
-        "granted": { ".validate": "newData.isBoolean()" },
-        "t": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
-        "$other": { ".validate": false }
+        ".write": "auth != null && auth.uid === $uid && !newData.exists()"
       }
+    },
+    "runs": {
+      "$uid": { ".indexOn": ["t"] }
     },
     "roomIndex": {
       ".read": "auth != null",

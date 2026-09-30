@@ -4,3 +4,5 @@ twa/app/
 twa/*.keystore
 twa/*.jks
 *.log
+functions/node_modules/
+functions/shared/

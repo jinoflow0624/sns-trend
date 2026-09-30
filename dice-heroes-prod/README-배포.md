@@ -108,13 +108,19 @@ firebase emulators:start --only auth,database --project demo-diceheroes
 
 Spark(무료) 한도: 동시 접속 100 · DB 다운로드 월 10GB · Hosting 전송 하루 360MB.
 Firebase 콘솔 **사용량 및 결제** 에서 70%를 넘기 시작하면 Blaze 로 전환하고 예산 알림(예: 월 1만 원)을 걸어 두세요.
-Blaze 로 바꾸면 Cloud Functions 로 서버 쪽 규칙 검사(부정행위 방지)도 추가할 수 있습니다.
+(Blaze 전환 완료 — 보석 정산은 Cloud Functions 가 한다. 6번 참고)
 
 ## 6. 보석 (게임 재화) · 구글 계정
 
-- 보석은 `wallets/<로그인 번호>` 에 저장된다. 보안 규칙이 서버 시간으로 '오늘'을 확인하고
-  대전 승리 보상은 하루 3회까지만, 한 번에 늘 수 있는 보석은 1,200개까지, 산 적 없는 직업·스킨을 공짜로 여는 쓰기는 막는다.
+- 보석은 `wallets/<로그인 번호>` 에 저장된다. **앱은 읽기만 하고, 늘리고 줄이는 건 모두 서버 함수**(`functions/`, Blaze 요금제)가 한다.
+  - `wallet` 지갑 불러오기(처음이면 기본 보석) · `buy` 사기 · `startRun` 판 시작 기록 · `claimRun` 한 판 정산
+  - 온라인 방 판: 서버가 방의 게임 기록(`rooms/DH-<코드>/state`)을 직접 읽어 승패·점수·남은 기술을 확인한다 (앱이 보낸 값은 안 쓴다)
+  - 오프라인 판(봇전): 서버가 볼 수 없으니 판 시작 기록 필수 · 시작 1분 안 정산 불가 · 하루 15판 · 점수 1,500 상한 · 같은 판 두 번 정산 불가
+  - 대전 승리 보상 하루 3회 · 보스·난이도별 첫 토벌(×3) 기록도 서버가 센다. 날짜는 서버 시간 (한국 자정 기준)
+  - 가격·보상 규칙은 게임과 같은 `dice-heroes/wallet-rules.js` 를 `build.mjs` 가 `functions/shared/` 로 복사해 쓴다
+  - 함수 위치: `asia-southeast1` (데이터베이스와 같은 싱가포르)
+- **처음 함수를 배포할 때 필요한 권한** (Google Cloud 콘솔 → IAM): 배포용 서비스 계정(`firebase-adminsdk-…@diceheroes-4fbbb.iam.gserviceaccount.com`)에
+  `Cloud Functions 관리자`, `Cloud Run 관리자`, `서비스 계정 사용자`, `Artifact Registry 관리자`, `Cloud Build 편집자`, `서비스 사용량 관리자` 역할.
+- 에뮬레이터 점검: `firebase emulators:start --only auth,database,functions` 후 `?fbemu=127.0.0.1:9100&fbauth=127.0.0.1:9099&fnemu=127.0.0.1:5001`
 - **구글 계정 연결을 켜려면** Firebase 콘솔 → Authentication → 로그인 방법 → **Google 사용 설정** (지원 이메일 선택 후 저장).
   승인된 도메인에 `diceheroes-4fbbb.web.app` 이 있는지 확인. 켜기 전에는 설정의 '구글 계정 연결'이 오류를 낸다.
-- **출시 전 할 일 (중요)**: Firebase 요금제를 **Blaze** 로 올리고, 보석 계산을 Cloud Functions(서버)로 옮긴다.
-  지금 규칙은 시계 조작·하루 제한·공짜 해금은 막지만, 앱 코드를 고쳐 보상을 부풀리는 조작까지는 막지 못한다.

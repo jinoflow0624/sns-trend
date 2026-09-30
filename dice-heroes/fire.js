@@ -30,6 +30,20 @@ export function fireApp() {
   return init;
 }
 
+// 배포판: 서버 함수 부르기 (보석 정산 · 구매 — dice-heroes-prod/functions). 에뮬레이터: ?fnemu=127.0.0.1:5001
+let fns = null;
+export async function callServer(name, data = {}) {
+  const { fb, app } = await fireApp();
+  await signIn();
+  if (!fns) {
+    fns = fb.getFunctions(app, 'asia-southeast1');   // 데이터베이스와 같은 곳 (싱가포르)
+    const fnEmu = new URLSearchParams(location.search).get('fnemu');
+    if (fnEmu) { const [h, p] = fnEmu.split(':'); fb.connectFunctionsEmulator(fns, h, Number(p)); }
+  }
+  const res = await fb.httpsCallable(fns, name, { timeout: 20000 })(data);
+  return res.data;
+}
+
 // 배포판: 익명 로그인 (가입 없이 기기마다 고유 번호). 같은 기기면 다음에도 같은 번호가 이어진다
 let signing = null;
 export function signIn() {
