@@ -9,7 +9,7 @@ import { titleScene, storyScene, STORY } from './scenes.js';
 import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
-import { FX, attackStyle, RAGE, shake } from './fx.js';
+import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
@@ -1816,6 +1816,48 @@ async function duelFx(f) {
   render();
   tray.restore();
 }
+// 상단 보너스 달성 (에이스~식스 합 63, 전사 50): 점수 공격과 따로 한 방 더.
+// 내 영웅에게 황금 빛기둥이 내리꽂히고 → 보스전은 황금 구체가 보스에게, 대전은 직업 기술이 나를 뺀 모두에게
+async function upperFx(f) {
+  const me = f.player, fx = FX();
+  sfx.quest(); buzz(80);
+  floatText(`상단 보너스 달성! +${f.amount}`, 'gold', -10, 'tray', 'sparkle');
+  if (prefs.fx === 'min') { if (!S.boss) bumpPts(me, f.amount); return; }
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
+  const pal = PALETTES.gold, src = porPos(me);
+  // 1) 황금 빛기둥 + 고리
+  fx.flash('#FFD24A', 280, 0.3);
+  await fx.add((g, k) => {
+    const w = 26 * (1 - k * 0.6);
+    g.globalAlpha = 0.55 * (1 - k);
+    g.fillStyle = '#FFD24A'; g.fillRect(Math.round(src.x - w), 0, Math.round(w * 2), Math.round(src.y + 20));
+    g.globalAlpha = 0.9 * (1 - k);
+    g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(src.x - 4), 0, 8, Math.round(src.y + 20));
+    g.globalAlpha = 1;
+  }, 420);
+  fx.ring(src.x, src.y, { color: '#FFD24A', r0: 8, r1: 90, dur: 520, width: 6 });
+  fx.burst(src.x, src.y, { n: 36, pal, speed: [80, 260], life: [0.4, 0.8] });
+  memberFx(me, 'atk', 620);
+  sfx.whoosh();
+  // 2) 공격
+  if (S.boss) {
+    const r = document.getElementById('boss-art')?.getBoundingClientRect();
+    const tgt = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 120 };
+    await fx.flyOrb({ cx: src.x, cy: src.y, R: 16, tt: 0 }, tgt, { pal, power: 2.4, ms: 380, shrink: 0.8 });
+    fx.impact(tgt.x, tgt.y, pal, 2.4);
+    sfx.boom(2.4); shake(app.querySelector('.game'), 2);
+  } else {
+    const foes = S.players.map((_, i) => i).filter(i => i !== me);
+    const cls = S.players[me].cls;
+    await Promise.all(foes.map((foe, k) => wait(k * 70 / fx.speed)
+      .then(() => fx.strike(cls, src, porPos(foe), { pal, power: 2.2, onHit: () => { memberFx(foe, 'hurt', 520); sfx.boom(2); } }))
+      .then(() => fx.impact(porPos(foe).x, porPos(foe).y, pal, 1.6))));
+    bumpPts(me, f.amount);
+    shake(app.querySelector('.party'), 1.6);
+    await crownCheck(me);
+  }
+}
+
 // 1등이 바뀌었으면 왕관을 옮긴다 (점수 연출이 끝날 때까지 왕관은 옛 자리에 둔다)
 async function crownCheck(me) {
   const now = leaders();
@@ -1951,6 +1993,7 @@ async function playOne(f) {
           await wait(380);
         }
         break;
+      case 'upper': await upperFx(f); break;
       case 'damage':
         sfx.clack(12); buzz(30);
         bumpPts(f.player, f.amount);
@@ -1995,6 +2038,7 @@ async function playOne(f) {
         break;
       case 'encore': sfx.card(); danceFx(f.player); floatText(`${p.name} 앙코르! 굴림 +1`, 'gold', -20, 'tray', 'up'); await wait(400); break;
       case 'spill': floatText(`넘친 충전 → 경험치 +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
+      case 'save': floatText(`굴림 ${f.n}번 아낌 → 경험치 +${f.xp}`, 'mint', 74, 'tray', 'up'); await wait(300); break;
     }
   }
   ui.hpHold = null;
@@ -2293,7 +2337,8 @@ function showDashboard() {
 // 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
 let heartT = 0;
 function diceHit(v, i, t) {
-  const skin = diceSkin(prefs.diceSkin);
+  // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
+  const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : prefs.diceSkin);
   sfx.hit(skin.sound, v);
   if (v > 3.5) rumble(v);   // 던지는 동안·흔드는 동안 부딪힐 때마다 진동
   if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
@@ -2487,25 +2532,47 @@ function startTutorial() {
 }
 
 // 지금 단계에서 강조할 요소 (도구를 켠 뒤에는 주사위 쪽으로 옮겨 간다)
-function coachTarget(st) {
+// 강조할 요소 (여러 개면 첫 번째 — 스크롤 기준)와, 그 요소들을 모두 덮는 사각형
+function coachTargets(st) {
   const sel = ui.tool && st.toolTarget ? st.toolTarget : st.target;
-  return sel ? document.querySelector(sel) : null;
+  if (!sel) return [];
+  return [].concat(sel).map(q => document.querySelector(q)).filter(Boolean);
+}
+function coachTarget(st) { return coachTargets(st)[0] || null; }
+function coachRect(st) {
+  const els = coachTargets(st);
+  if (!els.length) return null;
+  const rs = els.map(e => e.getBoundingClientRect());
+  return { left: Math.min(...rs.map(r => r.left)), top: Math.min(...rs.map(r => r.top)), right: Math.max(...rs.map(r => r.right)), bottom: Math.max(...rs.map(r => r.bottom)),
+    get width() { return this.right - this.left; }, get height() { return this.bottom - this.top; } };
+}
+// 손가락으로 가리킬 곳 (화면 좌표). 단계에 tap 이 없으면 강조 영역 가운데
+function coachTaps(st, r) {
+  const list = st.tap ? st.tap(S, ui.tool) : null;
+  if (!list) return r ? [{ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }] : [];
+  return list.map(t => {
+    if (typeof t === 'object' && tray) return tray.screenPos(t.die);
+    const e = document.querySelector(t);
+    const b = e?.getBoundingClientRect();
+    return b && b.width ? { x: b.left + b.width / 2, y: b.top + b.height / 2 } : null;
+  }).filter(Boolean);
 }
 
 function updateCoach() {
   if (!tut || screen !== 'game') { coachEl.innerHTML = ''; return; }
   const st = STEPS[tut.step];
   if (!st || ui.busy) { coachEl.innerHTML = ''; tut.shown = -1; return; }
-  const target = coachTarget(st);
-  if (st.target && !target) { coachEl.innerHTML = ''; tut.shown = -1; return; }
-  const r = target?.getBoundingClientRect();
+  if (st.target && !coachTarget(st)) { coachEl.innerHTML = ''; tut.shown = -1; return; }
   // 안내 상자는 단계가 바뀔 때만 새로 그린다 (같은 안내가 두 번 튀어나오지 않게)
   if (tut.shown !== tut.step) {
     tut.shown = tut.step;
+    const shakeGuide = st.shake && SHAKE_OK;
     coachEl.innerHTML = `
       <div class="blk" data-act="blocked"></div><div class="blk" data-act="blocked"></div>
       <div class="blk" data-act="blocked"></div><div class="blk" data-act="blocked"></div>
       <div class="spot"></div>
+      <div class="taps"></div>
+      ${shakeGuide ? `<div class="shake-guide" aria-hidden="true"><div class="sg-phone"><i></i><i></i><i></i></div><span class="sg-l">((</span><span class="sg-r">))</span><b>폰을 흔들어!</b></div>` : ''}
       <div class="scroll-hint" hidden></div>
       <div class="coach-box">
         <img class="spr coach-fairy" src="${spriteURL('fairy', 4)}" alt="">
@@ -2514,11 +2581,29 @@ function updateCoach() {
           <span class="coach-step">${tut.step + 1} / ${STEPS.length}</span>
           <button class="coach-skip" data-act="coach-skip">튜토리얼 건너뛰기 ▶▶</button></div>
       </div>`;
+    if (st.gift) setTimeout(() => giftFx(st), 350);
+    coachFollow();
   }
+  placeCoach();
+}
+// 강조 상자 · 손가락을 매 프레임 대상에 맞춘다 (점수표가 올라오는 동안에도 정확한 자리에)
+let coachRaf = 0;
+function coachFollow() {
+  cancelAnimationFrame(coachRaf);
+  const tick = () => {
+    if (!tut || screen !== 'game' || !coachEl.firstChild) return;
+    placeCoach();
+    coachRaf = requestAnimationFrame(tick);
+  };
+  coachRaf = requestAnimationFrame(tick);
+}
+function placeCoach() {
+  const st = STEPS[tut?.step];
   const [b1, b2, b3, b4] = coachEl.querySelectorAll('.blk');
-  const spot = coachEl.querySelector('.spot');
-  const box = coachEl.querySelector('.coach-box');
-  const hint = coachEl.querySelector('.scroll-hint');
+  const spot = coachEl.querySelector('.spot'), box = coachEl.querySelector('.coach-box');
+  const hint = coachEl.querySelector('.scroll-hint'), taps = coachEl.querySelector('.taps');
+  if (!st || !b1 || !box) return;
+  const r = coachRect(st);
   const W = innerWidth, H = innerHeight;
   if (!r) {
     // 안내만 하는 단계: 화면 전체를 막는다
@@ -2527,6 +2612,7 @@ function updateCoach() {
     spot.hidden = true;
     box.className = 'coach-box center';
     hint.hidden = true;
+    taps.innerHTML = '';
     return;
   }
   const pad = 6;
@@ -2537,7 +2623,7 @@ function updateCoach() {
   Object.assign(b4.style, { left: `${R}px`, top: `${T}px`, width: `${Math.max(0, W - R)}px`, height: `${B - T}px` });
   spot.hidden = false;
   Object.assign(spot.style, { left: `${L}px`, top: `${T}px`, width: `${R - L}px`, height: `${B - T}px` });
-  const low = r.top + r.height / 2 > H * 0.5;
+  const low = (r.top + r.bottom) / 2 > H * 0.5;
   box.className = `coach-box ${low ? 'top' : 'bottom'}`;
   // 버튼이 화면 밖이면 스크롤 방향을 알려 준다
   const off = r.top > H - 40 ? 'down' : r.bottom < 40 ? 'up' : null;
@@ -2547,6 +2633,41 @@ function updateCoach() {
     hint.innerHTML = off === 'down' ? '▼ 아래로 스크롤해서 반짝이는 곳을 눌러 줘 ▼' : '▲ 위로 스크롤해 줘 ▲';
     box.className = `coach-box ${off === 'down' ? 'top' : 'bottom'}`;
   }
+  // 누를 곳: 고리 + 첫 곳엔 손가락
+  const pts = off ? [] : coachTaps(st, r);
+  const key = pts.map(p => `${Math.round(p.x)},${Math.round(p.y)}`).join('|');
+  if (taps.dataset.key !== key) {
+    taps.dataset.key = key;
+    taps.innerHTML = pts.map((p, k) => `<span class="tap-ring" style="left:${p.x}px;top:${p.y}px"></span>${k === 0 ? `<span class="tap-hand" style="left:${p.x}px;top:${p.y}px">${ico('hand')}</span>` : ''}`).join('');
+  }
+}
+// 요정의 선물: 뒤집기 · 조정 버튼으로 반짝이가 날아가 +1 이 쌓인다
+function giftFx(st) {
+  if (!tut || STEPS[tut.step] !== st) return;
+  const fairy = coachEl.querySelector('.coach-fairy')?.getBoundingClientRect();
+  const from = fairy ? { cx: fairy.left + fairy.width / 2, cy: fairy.top + fairy.height / 2, R: 8, tt: 0 } : { cx: innerWidth / 2, cy: innerHeight / 2, R: 8, tt: 0 };
+  const fx = FX();
+  ['flip', 'nudge'].forEach((tool, k) => {
+    const el = document.querySelector(`[data-tool=${tool}]`);
+    const b = el?.getBoundingClientRect();
+    if (!b) return;
+    const tgt = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    setTimeout(() => {
+      sfx.card();
+      fx.flyOrb({ ...from }, tgt, { pal: PALETTES.frost, power: 1.2, ms: 520, shrink: 0.5 }).then(() => {
+        fx.burst(tgt.x, tgt.y, { n: 22, pal: ['#FFFFFF', '#C8F4FF', '#FFD24A'], speed: [60, 180], life: [0.3, 0.6] });
+        fx.ring(tgt.x, tgt.y, { color: '#FFD24A', r0: 6, r1: 46, dur: 420, width: 4 });
+        sfx.coin();
+        el.classList.remove('gift'); void el.offsetWidth; el.classList.add('gift');
+        const tag = document.createElement('span');
+        tag.className = 'gift-plus';
+        tag.textContent = tool === 'flip' ? '뒤집기 +1' : '조정 +1';
+        tag.style.left = `${tgt.x}px`; tag.style.top = `${b.top}px`;
+        coachEl.appendChild(tag);
+        setTimeout(() => tag.remove(), 1600);
+      });
+    }, k * 320);
+  });
 }
 function scrollToTarget() {
   const st = STEPS[tut?.step];
@@ -3043,13 +3164,9 @@ addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: 
 // 설치형 앱(PWA)으로 쓸 때 오프라인 캐시
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai')) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
-  // 예전(캐시 우선) 서비스 워커가 새 것으로 바뀌면 한 번 새로고침해서 최신 파일로 연다
-  let reloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded || screen === 'game' || screen === 'lobby') return;
-    reloaded = true;
-    location.reload();
-  });
+  // 새 서비스 워커로 바뀌어도(새 버전 배포 뒤 첫 실행 · 처음 방문) 새로고침하지 않는다.
+  // 서비스 워커는 네트워크 우선이라 이미 최신 파일로 떠 있다 — 예전엔 여기서 새로고침해서
+  // 게임을 켜고 몇 초 뒤 갑자기 처음부터 다시 시작되는 일이 있었다.
 }
 
 // ?demo 봇 대결, ?skip 타이틀로 바로, ?demon 마왕 바로 열기 (화면 점검용)

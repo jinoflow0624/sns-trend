@@ -53,7 +53,7 @@ test('항목 보너스 특성은 0점일 때 붙지 않는다', () => {
   const s = game();
   const p = s.players[0];
   p.perks.full = 1;
-  assert.equal(E.catScore(s, p, 'full', [2, 2, 3, 3, 3]), 23);
+  assert.equal(E.catScore(s, p, 'full', [2, 2, 3, 3, 3]), 20);   // 13 × 1.5
   assert.equal(E.catScore(s, p, 'full', [1, 2, 3, 4, 5]), 0);
 });
 test('뒤집기는 7-눈, 조정은 ±1 (1~6 밖은 거부)', () => {
@@ -79,10 +79,10 @@ test('점수만큼 경험치, 문턱을 넘으면 레벨업 카드 3장', () => 
   E.roll(s);
   s.dice = [6, 6, 6, 5, 5];
   s.board = [];                 // 퀘스트 영향 제거
-  E.commitScore(s, 'choice');   // 28점 → 28xp → Lv2 (25 필요), 남은 3
+  E.commitScore(s, 'choice');   // 28점 + 굴림 2번 아낌(×5) → 38xp → Lv2 (25 필요), 남은 13
   const p = s.players[0];
   assert.equal(p.level, 2);
-  assert.equal(p.xp, 3);
+  assert.equal(p.xp, 13);
   assert.equal(s.phase, 'levelup');
   assert.equal(p.offers[0].length, 3);
   assert.equal(new Set(p.offers[0]).size, 3);
@@ -96,7 +96,19 @@ test('0점을 기록하면 위로 경험치', () => {
   s.dice = [1, 2, 3, 5, 6];
   s.board = [];
   E.commitScore(s, 'yacht');
-  assert.equal(s.players[0].xp, E.ZERO_XP);
+  assert.equal(s.players[0].xp, E.ZERO_XP + 2 * E.SAVE_XP);   // 굴림 2번 아낀 경험치도 함께
+});
+test('굴림 아끼기: 남은 굴림 1개당 경험치 5, 수도승은 조정으로만', () => {
+  for (const cls of ['gambler', 'monk']) {
+    const s = E.createGame([{ name: 'A', cls }, { name: 'B', cls: 'gambler' }], 3);
+    s.board = [];
+    E.roll(s);
+    s.dice = [1, 2, 3, 5, 6];
+    E.commitScore(s, 'yacht');
+    const p = s.players[0];
+    assert.equal(p.xp, E.ZERO_XP + (cls === 'monk' ? 0 : 2 * E.SAVE_XP));
+    assert.ok(E.drainFx(s).some(f => f.type === 'save') === (cls !== 'monk'));
+  }
 });
 test('의뢰를 깨면 난이도별 뒤집기·조정과 경험치를 얻고 보드가 다시 채워진다', () => {
   const s = game();
@@ -212,7 +224,7 @@ test('칸 강화 특성은 이미 점수를 낸 칸에 소급 적용 (0점 칸 �
   s.phase = 'levelup';
   p.offers = [['basic', 'choice', 'flip']];
   E.pickPerk(s, 'basic');
-  assert.deepEqual([p.scores.ones, p.scores.twos, p.scores.threes], [5, 0, 11]);
+  assert.deepEqual([p.scores.ones, p.scores.twos, p.scores.threes], [4, 0, 11]);   // ×1.2: 3→4, 9→11
   s.phase = 'levelup'; s.turn = 0;
   p.offers = [['choice', 'flip', 'nudge']];
   assert.equal(E.perkRetro(p, 'choice'), 8);
@@ -247,8 +259,8 @@ test('드래곤 용린 갑옷: 상단 피해 감소', () => {
   E.roll(s);
   s.dice = [6, 6, 6, 1, 2];
   const hp0 = s.boss.hp;
-  E.commitScore(s, 'sixes');                 // 18 × 50%
-  assert.equal(hp0 - s.boss.hp, 9);
+  E.commitScore(s, 'sixes');                 // 18 × 75% (25% 감소, 모든 난이도)
+  assert.equal(hp0 - s.boss.hp, 14);
 });
 test('오크 약탈: 0점이면 회복, 전쟁의 북: 굴림 -1', () => {
   const s = coop('orc', 1);
@@ -258,8 +270,8 @@ test('오크 약탈: 0점이면 회복, 전쟁의 북: 굴림 -1', () => {
   E.roll(s);
   s.dice = [1, 2, 3, 5, 6];
   E.commitScore(s, 'yacht');
-  assert.equal(s.boss.hp, hp0 + 20);
-  s.round = 2; s.events[1] = 'calm';          // 보통: 2라운드마다 북
+  assert.equal(s.boss.hp, hp0 + 10);
+  s.round = 3; s.events[2] = 'calm';          // 보통: 3라운드마다 북
   assert.equal(E.maxRolls(s), E.BASE_ROLLS - 1);
 });
 test('리치 뼈 방패는 체력보다 먼저 깎인다', () => {
@@ -307,7 +319,8 @@ test('수도승: 남은 굴림 1회당 조정 +1', () => {
   assert.equal(s.players[1].nudge, 0);
 });
 test('운명 비틀기는 두 번째 굴림 직후, fx에 바뀌기 전 눈', () => {
-  const s = coop('lich', 2, 1);              // 매우 어려움: 매 라운드
+  const s = coop('lich', 2, 1);              // 어려움: 3라운드마다
+  s.round = 3;
   s.board = [];
   E.drainFx(s);
   E.roll(s);
@@ -321,9 +334,9 @@ test('운명 비틀기는 두 번째 굴림 직후, fx에 바뀌기 전 눈', ()
   assert.equal(f.from.length, before.length);
 });
 test('화염 숨결은 첫 굴림, 가장 높은 주사위가 1로 (fx.from 은 타기 전)', () => {
-  const s = coop('dragon', 2, 1);            // 매우 어려움: 2라운드마다
+  const s = coop('dragon', 2, 1);            // 4라운드마다
   s.board = [];
-  s.round = 2; s.events[1] = 'calm';
+  s.round = 4; s.events[3] = 'calm';
   E.drainFx(s);
   E.roll(s);
   const f = E.drainFx(s).find(x => x.skill === 'breath');
@@ -442,6 +455,23 @@ test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀�
   s.players[0].nudge = 1; s.players[0].flip = 1;
   assert.throws(() => E.useNudge(s, 0, s.dice[0] < 6 ? 1 : -1));
   assert.throws(() => E.useFlip(s, 0));
+});
+
+test('상단 보너스: 기준을 넘는 순간 따로 공격 (보스전은 피해 두 번, 전사는 50)', () => {
+  for (const [cls, need] of [['gambler', 63], ['warrior', 50]]) {
+    const s = E.createGame([{ name: 'A', cls }], 4, { mode: 'coop', boss: 'orc', diff: 0 });
+    const p = s.players[0];
+    Object.assign(p.scores, { aces: 3, twos: 6, threes: 9, fours: 12, fives: need === 63 ? 15 : 5 });
+    s.board = [];
+    E.drainFx(s);
+    E.roll(s);
+    s.dice = [6, 6, 6, 6, 1];
+    E.commitScore(s, 'sixes');
+    const list = E.drainFx(s);
+    const up = list.find(f => f.type === 'upper');
+    assert.ok(up && up.amount === E.UPPER_BONUS, cls);
+    assert.deepEqual(list.filter(f => f.type === 'damage').map(f => f.amount), [24, E.UPPER_BONUS]);
+  }
 });
 
 console.log(`\n${passed} 통과, ${failed} 실패`);

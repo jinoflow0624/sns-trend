@@ -693,7 +693,7 @@ export class DiceTray {
 
     // 멈춘 자세에서 위를 향한 면에 엔진 결과를 입힌다
     const last = frames[frames.length - 1];
-    const liveIds = new Set(this.live ? this.live.bodies.map(x => x.i) : []), swaps = [];
+    const liveIds = new Set(this.live ? this.live.bodies.map(x => x.i) : []), swaps = [], pre = [];
     const fastest = k => {
       let best = 0, bf = 0;
       const n = Math.max(2, Math.floor(frames.length * 0.6));
@@ -710,7 +710,7 @@ export class DiceTray {
       const faces = remap(topFace(q), values[i]);
       // 흔들다 이어서 굴린 주사위: 처음부터 보이던 주사위라 윗면을 곧바로 바꾸면 눈이 확 바뀌어 보인다 → 가장 빨리 도는 순간에 바꾼다
       if (liveIds.has(i)) swaps.push({ i, faces, f: fastest(k) });
-      else this.setFaces(this.dice[i], faces);
+      else pre.push({ i, faces });   // 던지는 순간 입힌다 (고정한 주사위가 함으로 가는 동안 제자리에서 눈이 바뀌어 보이지 않게)
       this.dice[i].value = values[i];
       this.dice[i].blank = false;
       this.dice[i].held = false;
@@ -745,9 +745,16 @@ export class DiceTray {
       const wait = boxing ? HOP_MS + 40 : hopLeft ? hopLeft + 40 : 0;
       this.live = null;
       if (boxing || hopLeft) setTimeout(() => this.onBox(), Math.max(0, wait - 80));
-      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, swaps, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
-      if (!wait) this.onThrow();
+      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, swaps, pre, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
+      if (!wait) this.throwNow();
     });
+  }
+
+  // 던지는 순간: 굴리는 주사위에 결과 눈을 입히고 던지는 소리
+  throwNow() {
+    for (const { i, faces } of this.anim?.pre || []) this.setFaces(this.dice[i], faces);
+    this.dirty = true;
+    this.onThrow();
   }
 
   // ── 흔들어 굴리기: 트레이가 요트 주사위 통처럼 흔들린다 ──
@@ -913,7 +920,7 @@ export class DiceTray {
     this.lastDraw = t;
     if (this.live) this.stepLive(t);
     const a = this.anim;
-    if (a && a.phase === 'wait' && t >= a.t0) { a.phase = 'fly'; this.onThrow(); }
+    if (a && a.phase === 'wait' && t >= a.t0) { a.phase = 'fly'; this.throwNow(); }
     if (a && a.phase === 'fly') {
       const f = Math.min(a.frames.length - 1, Math.floor(((t - a.t0) / 1000) * FPS * a.speed));
       a.bodies.forEach(({ i }, k) => {

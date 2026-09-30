@@ -102,21 +102,21 @@ export const classInfo = id => CLASSES.find(c => c.id === id);
 export const PERKS = [
   { id: 'flip',     ko: '뒤집기 두루마리', icon: '🔄', rarity: 1, max: 9, desc: '주사위 1개를 반대 면(7-눈)으로 뒤집는 기술 2회 충전' },
   { id: 'nudge',    ko: '미세 조정',       icon: '🎯', rarity: 1, max: 9, desc: '주사위 1개를 ±1 바꾸는 기술 2회 충전' },
-  { id: 'basic',    ko: '기초 수련',       icon: '🥋', rarity: 1, max: 2, desc: '상단(에이스~식스) 점수 +2 (기록한 칸에도 소급)' },
-  { id: 'choice',   ko: '선택의 달인',     icon: '🍀', rarity: 1, max: 2, desc: '초이스 +8 (기록한 칸에도 소급)' },
+  { id: 'basic',    ko: '기초 수련',       icon: '🥋', rarity: 1, max: 2, desc: '상단(에이스~식스) 점수 ×1.2 (기록한 칸에도 소급)' },
+  { id: 'choice',   ko: '선택의 달인',     icon: '🍀', rarity: 1, max: 2, desc: '초이스 ×1.35 (기록한 칸에도 소급)' },
   { id: 'fame',     ko: '의뢰 전문가',     icon: '📜', rarity: 1, max: 2, desc: '의뢰 보상(뒤집기·조정)이 두 배' },
   { id: 'fast',     ko: '빠른 성장',       icon: '⚡', rarity: 1, max: 2, desc: '얻는 경험치 +25%' },
   { id: 'insure',   ko: '보험',            icon: '🛡️', rarity: 1, max: 1, desc: '0점을 기록하면 경험치 +20, 뒤집기 +1' },
-  { id: 'full',     ko: '풀하우스 장인',   icon: '🏠', rarity: 2, max: 2, desc: '풀하우스 +10 (기록한 칸에도 소급)' },
-  { id: 'straight', ko: '질주',            icon: '🏃', rarity: 2, max: 2, desc: '두 스트레이트 +6 (기록한 칸에도 소급)' },
-  { id: 'fourk',    ko: '사냥 본능',       icon: '🐺', rarity: 2, max: 2, desc: '포카인드 +10 (기록한 칸에도 소급)' },
+  { id: 'full',     ko: '풀하우스 장인',   icon: '🏠', rarity: 2, max: 2, desc: '풀하우스 ×1.5 (기록한 칸에도 소급)' },
+  { id: 'straight', ko: '질주',            icon: '🏃', rarity: 2, max: 2, desc: '두 스트레이트 ×1.3 (기록한 칸에도 소급)' },
+  { id: 'fourk',    ko: '사냥 본능',       icon: '🐺', rarity: 2, max: 2, desc: '포카인드 ×1.5 (기록한 칸에도 소급)' },
   { id: 'reroll',   ko: '재굴림 +1',       icon: '♻️', rarity: 2, max: 2, desc: '매 턴 굴림 기회 +1' },
   { id: 'lucky',    ko: '행운의 부적',     icon: '🧿', rarity: 2, max: 1, desc: '매 굴림에서 나온 1은 한 번 더 굴린다' },
   { id: 'chain',    ko: '연쇄 의뢰',       icon: '⛓️', rarity: 2, max: 1, desc: '한 턴에 퀘스트를 2개까지 깬다' },
   { id: 'scholar',  ko: '현자의 눈',       icon: '👁️', rarity: 2, max: 1, desc: '이후 레벨업 때 카드 4장 중에 고른다' },
   { id: 'sixth',    ko: '여섯 번째 주사위', icon: '🌟', rarity: 3, max: 1, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
   { id: 'midas',    ko: '황금손',          icon: '👑', rarity: 3, max: 1, desc: '내 턴이 시작될 때마다 조정 +1' },
-  { id: 'yacht',    ko: '요트 신봉자',     icon: '⛵', rarity: 3, max: 1, desc: '요트 +20 (기록한 칸에도 소급), 뒤집기 1회 충전' },
+  { id: 'yacht',    ko: '요트 신봉자',     icon: '⛵', rarity: 3, max: 1, desc: '요트 ×1.4 (기록한 칸에도 소급), 뒤집기 1회 충전' },
   // 대체 보상 — 고를 만한 특성이 모자랄 때만 나온다 (보유 목록에 남지 않고 즉시 받는다)
   { id: 'toolkit',  ko: '모험가 공구함',   icon: '🧰', rarity: 1, max: 99, instant: true, filler: true, desc: '뒤집기 1회 + 조정 1회 충전' },
   { id: 'nudgeBag', ko: '조정 꾸러미',     icon: '🎒', rarity: 1, max: 99, instant: true, filler: true, desc: '조정 3회 충전' },
@@ -127,13 +127,17 @@ const PERK_CATS = {
   basic: ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'],
   choice: ['choice'], full: ['full'], straight: ['sstr', 'lstr'], fourk: ['four'], yacht: ['yacht'],
 };
-// 한 장당 칸마다 더하는 점수
-const PERK_AMT = { basic: 2, choice: 8, full: 10, straight: 6, fourk: 10, yacht: 20 };
+// 한 장당 기본 점수에 더하는 배율 (예전 +점수와 평균이 비슷하게: 상단 +2 ≈ ×1.2, 초이스 +8 ≈ ×1.35 …).
+// 같은 카드를 두 장 들면 더해진다 (×1.2 두 장 = ×1.4, 곱하지 않는다)
+export const PERK_MUL = { basic: 0.2, choice: 0.35, full: 0.5, straight: 0.3, fourk: 0.5, yacht: 0.4 };
+const perkMulOf = cat => Object.keys(PERK_CATS).find(id => PERK_CATS[id].includes(cat));
+// 기록한 칸의 기본 점수 (보너스 빼고). 예전 저장 판은 기록된 점수로 대신한다
+const baseOf = (p, c) => p.base?.[c] ?? p.scores[c];
 // 소급 적용이 있어서, 칸이 다 찼어도 점수를 낸 칸이 하나라도 있으면 쓸모가 있다.
 // 해당 칸을 모두 0점으로 버렸을 때만 효과가 없다.
 export const perkUseless = (p, id) => !!PERK_CATS[id] && PERK_CATS[id].every(c => p.scores[c] === 0);
 // 지금 고르면 이미 기록한 칸에 바로 더해질 점수 (카드에 표시)
-export const perkRetro = (p, id) => (PERK_CATS[id] || []).filter(c => p.scores[c] > 0).length * (PERK_AMT[id] || 0);
+export const perkRetro = (p, id) => (PERK_CATS[id] || []).filter(c => p.scores[c] > 0).reduce((a, c) => a + Math.round(baseOf(p, c) * (PERK_MUL[id] || 0)), 0);
 export const perkInfo = id => PERKS.find(p => p.id === id);
 export const RARITY = { 1: { ko: '일반', w: 60 }, 2: { ko: '희귀', w: 30 }, 3: { ko: '전설', w: 10 } };
 
@@ -215,10 +219,10 @@ export const DIFFS = [
 // v0.17: 보유 한도(뒤집기·조정 3개) 도입과 함께 쉬움·보통 체력 ×1.035 (봇 승률 쉬움 약 28%, 보통 약 15%, 어려움 약 10%)
 // (sim/coop.mjs 가 바꿔 가며 잰다)
 export const HP_TUNE = {
-  dragon: [[1.236, 1.183, 1.157, 1.131], [1.107, 1.127, 1.108, 1.089], [1.05, 1.05, 1.058, 1.066]],
-  orc:    [[1.263, 1.202, 1.158, 1.116], [1.208, 1.187, 1.142, 1.096], [1.102, 1.135, 1.11, 1.085]],
-  demon:  [[1.519, 1.396, 1.364, 1.332], [1.349, 1.287, 1.258, 1.228], [1.219, 1.179, 1.147, 1.114]],   // v0.20.2: 패기가 뒤집기·조정만 막도록 바뀌며 다시 맞춤
-  lich:   [[1.233, 1.218, 1.19, 1.162], [1.129, 1.153, 1.132, 1.112], [1.048, 1.115, 1.078, 1.04]],
+  dragon: [[1.272, 1.155, 1.129, 1.103], [1.223, 1.164, 1.151, 1.143], [1.1905, 1.159, 1.144, 1.143]],
+  orc:    [[1.345, 1.146, 1.131, 1.115], [1.247, 1.121, 1.123, 1.124], [1.172, 1.082, 1.09, 1.1]],
+  demon:  [[1.431, 1.322, 1.314, 1.306], [1.213, 1.195, 1.209, 1.222], [1.0937, 1.087, 1.106, 1.1157]],
+  lich:   [[1.289, 1.217, 1.171, 1.125], [1.293, 1.324, 1.301, 1.271], [1.3815, 1.415, 1.416, 1.417]],
 };
 
 export const BOSSES = [
@@ -226,19 +230,19 @@ export const BOSSES = [
     id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
     skills: [
       { id: 'breath', icon: '🔥', ko: '화염 숨결',
-        desc: d => `${[4, 3, 2][d]}라운드마다 모두의 첫 굴림에서 가장 높은 주사위 ${d === 2 ? 2 : 1}개가 1로 타 버린다` },
+        desc: d => `4라운드마다 모두의 첫 굴림에서 가장 높은 주사위 1개가 1로 타 버린다` },
       { id: 'scale', icon: '🛡️', ko: '용린 갑옷',
-        desc: d => `에이스~식스로 주는 피해가 ${[25, 50, 50][d]}% 줄어든다` },
-      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 화염 숨결을 매 라운드 쓴다' : '어려움에서만 쓴다' },
+        desc: d => `에이스~식스로 주는 피해가 25% 줄어든다` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 화염 숨결을 2라운드마다 쓴다' : '어려움에서만 쓴다' },
     ],
   },
   {
     id: 'orc', ko: '오크 대장 그로크', title: '약탈자 군단의 우두머리', color: '#6BBE45', hpMul: [1.26, 1.17, 1.1],
     skills: [
       { id: 'drums', icon: '🥁', ko: '전쟁의 북',
-        desc: d => `${[3, 2, 2][d]}라운드마다 모두의 굴림 기회가 1 줄어든다` },
+        desc: d => '3라운드마다 모두의 굴림 기회가 1 줄어든다' },
       { id: 'plunder', icon: '💰', ko: '약탈',
-        desc: d => `누군가 0점을 기록하면 체력을 ${[10, 20, 30][d]} 회복한다` },
+        desc: d => `누군가 0점을 기록하면 체력을 10 회복한다` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 약탈 회복량이 두 배' : '어려움에서만 쓴다' },
     ],
   },
@@ -248,9 +252,9 @@ export const BOSSES = [
     partyAdj: [[1, 0.95, 0.96, 0.97], [1.01, 0.94, 0.945, 0.95], [1, 0.95, 0.94, 0.93]],
     skills: [
       { id: 'twist', icon: '🌀', ko: '운명 비틀기',
-        desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
+        desc: d => `3라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
       { id: 'bone', icon: '💀', ko: '뼈 방패',
-        desc: d => `${[4, 3, 3][d]}라운드마다 인원 1명당 ${[12, 20, 28][d]}의 보호막을 두른다 (체력보다 먼저 깎임)` },
+        desc: d => `4라운드마다 인원 1명당 12의 보호막을 두른다 (체력보다 먼저 깎임)` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '어려움에서만 쓴다' },
     ],
   },
@@ -276,7 +280,7 @@ const every = (s, k) => s.round % k === 0;
 function bossRollMod(s) {
   const b = s.boss;
   if (!b || b.id !== 'orc') return 0;
-  return every(s, [3, 2, 2][b.diff]) ? -1 : 0;
+  return every(s, 3) ? -1 : 0;
 }
 
 // 굴림 직후 보스 능력 — 화염 숨결은 첫 굴림, 운명 비틀기는 두 번째 굴림.
@@ -285,8 +289,8 @@ function bossAfterRoll(s) {
   const b = s.boss;
   if (!b) return;
   const from = s.dice.slice();
-  const n = b.diff === 2 ? 2 : 1;
-  if (b.id === 'dragon' && s.rollNo === 1 && (every(s, [4, 3, 2][b.diff]) || enraged(s))) {
+  const n = 1;
+  if (b.id === 'dragon' && s.rollNo === 1 && (every(s, enraged(s) ? 2 : 4))) {
     const idx = s.dice.map((v, i) => i).sort((x, y) => s.dice[y] - s.dice[x]).slice(0, n);
     idx.forEach(i => (s.dice[i] = 1));
     log(s, `이그니스의 화염 숨결! 주사위 ${n}개가 1로 탔다`);
@@ -298,7 +302,7 @@ function bossAfterRoll(s) {
     log(s, `마왕의 봉인! 주사위 ${idx.length}개가 봉인됐다`);
     fx(s, { type: 'boss', skill: 'seal', dice: idx });
   }
-  if (b.id === 'lich' && s.rollNo === 2 && every(s, [3, 2, 1][b.diff])) {
+  if (b.id === 'lich' && s.rollNo === 2 && every(s, 3)) {
     const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
     idx.forEach(i => (s.dice[i] = 7 - s.dice[i]));
     log(s, `모르가스가 운명을 비틀었다! 주사위 ${idx.length}개가 뒤집혔다`);
@@ -328,6 +332,7 @@ function dealDamage(s, pIdx, amount, source) {
 // 뒤집기·조정 충전 보상. 둘 다 최대 CHARGE_CAP 개까지만 들고 있을 수 있다.
 // 넘친 충전은 1개당 경험치 SPILL_XP 로 바꿔 두었다가, 다음에 점수를 기록할 때 함께 받는다 (그 턴에 넘친 건 그 자리에서).
 export const CHARGE_CAP = 3, SPILL_XP = 10;
+export const SAVE_XP = 5;        // 남은 굴림 1개당 경험치 (수도승 제외)
 function addCharges(s, p, r, why) {
   const f = r.flip || 0, n = r.nudge || 0;
   const addF = Math.max(0, Math.min(f, CHARGE_CAP - p.flip)), addN = Math.max(0, Math.min(n, CHARGE_CAP - p.nudge));
@@ -547,16 +552,11 @@ export function scoreParts(s, p, cat, d = s.dice) {
   if (base > 0) {
     const ev = event(s);
     const add = (ko, amt) => { if (amt) bonus.push({ ko, amt }); };
-    if (UPPER_IDS.includes(cat)) {
-      add('기초 수련', 2 * perkCount(p, 'basic'));
-      add('풍년', ev === 'harvest' ? 5 : 0);
-    }
-    if (cat === 'choice') add('선택의 달인', 8 * perkCount(p, 'choice'));
-    if (cat === 'full') add('풀하우스 장인', 10 * perkCount(p, 'full'));
-    if (cat === 'sstr' || cat === 'lstr') add('질주', PERK_AMT.straight * perkCount(p, 'straight'));
-    if (cat === 'four') add('사냥 본능', 10 * perkCount(p, 'fourk'));
+    // 칸 강화 특성: 기본 점수 × 배율 (카드 수만큼 더한 배율)
+    const pk = perkMulOf(cat), n = pk ? perkCount(p, pk) : 0;
+    if (n) add(`${perkInfo(pk).ko} ×${+(1 + PERK_MUL[pk] * n).toFixed(2)}`, Math.round(base * PERK_MUL[pk] * n));
+    if (UPPER_IDS.includes(cat)) add('풍년', ev === 'harvest' ? 5 : 0);
     if (cat === 'yacht') {
-      add('요트 신봉자', PERK_AMT.yacht * perkCount(p, 'yacht'));
       add('도박사', p.cls === 'gambler' ? 10 : 0);
       add('요트 잭팟', ev === 'jackpot' ? 50 : 0);
     }
@@ -653,6 +653,7 @@ export function commitScore(s, cat) {
   pts += bardBonus(p, pts, quests);
   const before = cardTotal(p);
   p.scores[cat] = pts;
+  (p.base ||= {})[cat] = scoreParts(s, p, cat).base;
   p.roundScore = pts;
   p.lastSec = secOf(cat);
   const ev = event(s);
@@ -667,23 +668,41 @@ export function commitScore(s, cat) {
   const catName = catInfo(cat).ko;
   log(s, `${p.name} · ${catName} ${pts}점`);
   fx(s, { type: 'score', player: s.turn, cat, pts, bonus, dice: s.dice.slice() });
+  // 상단 보너스: 에이스~식스 합이 기준(63, 전사 50)을 넘는 순간 따로 한 방 더 (보스전 · 대전 모두 별도 공격 연출)
+  const upperHit = UPPER_IDS.includes(cat) && upperSum(p) >= upperNeed(p) && upperSum(p) - pts < upperNeed(p);
   if (s.boss) {
-    // 점수(상단 보너스 달성분 포함)가 곧 피해. 드래곤 갑옷은 상단 피해를 깎는다.
-    let dmg = cardTotal(p) - before;
-    if (s.boss.id === 'dragon' && UPPER_IDS.includes(cat)) dmg *= 1 - [0.25, 0.5, 0.5][s.boss.diff];
-    dealDamage(s, s.turn, Math.round(dmg), cat);
+    // 점수가 곧 피해. 드래곤 갑옷은 상단(보너스 포함) 피해를 깎는다.
+    const armor = s.boss.id === 'dragon' && UPPER_IDS.includes(cat) ? 0.75 : 1;
+    const dmg = cardTotal(p) - before - (upperHit ? UPPER_BONUS : 0);
+    dealDamage(s, s.turn, Math.round(dmg * armor), cat);
+    if (upperHit && !s.ended) {
+      log(s, `${p.name} · 상단 보너스 달성! +${UPPER_BONUS}`);
+      fx(s, { type: 'upper', player: s.turn, amount: UPPER_BONUS });
+      dealDamage(s, s.turn, Math.round(UPPER_BONUS * armor), 'upper');
+    }
     if (pts === 0 && s.boss.id === 'orc' && !s.ended) {
-      const heal = [10, 20, 30][s.boss.diff] * (enraged(s) ? 2 : 1);
+      const heal = 10 * (enraged(s) ? 2 : 1);
       s.boss.hp = Math.min(s.boss.maxHp, s.boss.hp + heal);
       log(s, `그로크의 약탈! 체력 ${heal} 회복`);
       fx(s, { type: 'boss', skill: 'plunder', amount: heal });
     }
+  } else if (upperHit) {
+    log(s, `${p.name} · 상단 보너스 달성! +${UPPER_BONUS}`);
+    fx(s, { type: 'upper', player: s.turn, amount: UPPER_BONUS });
   }
 
   // 수도승: 굴림을 아낀 만큼 조정 충전
   if (p.cls === 'monk' && s.rollsLeft > 0) {
     log(s, `${p.name} · 수도승의 절제! 조정 +${s.rollsLeft}`);
     addCharges(s, p, { nudge: s.rollsLeft }, 'monk');
+  }
+
+  // 굴림 아끼기: 남은 굴림 1개당 경험치 (수도승은 위에서 조정으로 받으니 제외)
+  if (p.cls !== 'monk' && s.rollsLeft > 0) {
+    const bonus = s.rollsLeft * SAVE_XP;
+    log(s, `${p.name} · 굴림 ${s.rollsLeft}번 아낌 → 경험치 +${bonus}`);
+    fx(s, { type: 'save', player: s.turn, n: s.rollsLeft, xp: bonus });
+    xp += bonus;
   }
 
   for (const qid of quests) {
@@ -766,7 +785,7 @@ export function pickPerk(s, perkId) {
   if (PERK_CATS[perkId]) {
     const before = cardTotal(p);
     const cats = PERK_CATS[perkId].filter(c => p.scores[c] > 0);
-    cats.forEach(c => (p.scores[c] += PERK_AMT[perkId]));
+    cats.forEach(c => (p.scores[c] += Math.round(baseOf(p, c) * PERK_MUL[perkId])));
     const gained = cardTotal(p) - before;   // 상단 보너스를 새로 달성하면 그것도 포함
     if (gained > 0) {
       log(s, `${p.name} · 「${k.ko}」 소급 적용 +${gained}`);
@@ -800,8 +819,8 @@ function endTurn(s) {
     }
     if (s.ended) return;
     const b = s.boss;
-    if (b?.id === 'lich' && every(s, [4, 3, 3][b.diff])) {
-      const add = [12, 20, 28][b.diff] * s.players.length;
+    if (b?.id === 'lich' && every(s, 4)) {
+      const add = 12 * s.players.length;
       b.shield += add;
       log(s, `모르가스가 뼈 방패를 둘렀다! 보호막 +${add}`);
       fx(s, { type: 'boss', skill: 'bone', amount: add });
