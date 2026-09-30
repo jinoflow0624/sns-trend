@@ -38,4 +38,9 @@ jobs:
         run: |
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # 서버 함수 배포에 필요한 Google API 를 켜 둔다 (이미 켜져 있으면 그대로). firebase-tools 가 스스로 켜지 않는 것만
+          if [[ ",$TARGETS," == *",functions"* ]] && command -v gcloud >/dev/null; then
+            gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet
+            gcloud services enable cloudbilling.googleapis.com --project diceheroes-4fbbb --quiet || echo '::warning::cloudbilling API 를 켜지 못했습니다'
+          fi
           npx -y firebase-tools@14 deploy --only "$TARGETS" --non-interactive --force

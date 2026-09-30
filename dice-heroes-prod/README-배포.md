@@ -120,7 +120,8 @@ Firebase 콘솔 **사용량 및 결제** 에서 70%를 넘기 시작하면 Blaze
   - 가격·보상 규칙은 게임과 같은 `dice-heroes/wallet-rules.js` 를 `build.mjs` 가 `functions/shared/` 로 복사해 쓴다
   - 함수 위치: `asia-southeast1` (데이터베이스와 같은 싱가포르)
 - **처음 함수를 배포할 때 필요한 권한** (Google Cloud 콘솔 → IAM): 배포용 서비스 계정(`firebase-adminsdk-…@diceheroes-4fbbb.iam.gserviceaccount.com`)에
-  `Cloud Functions 관리자`, `Cloud Run 관리자`, `서비스 계정 사용자`, `Artifact Registry 관리자`, `Cloud Build 편집자`, `서비스 사용량 관리자` 역할.
+  `편집자`, `Cloud Functions 관리자`, `Cloud Run 관리자`, `서비스 계정 사용자` 역할 (https://console.cloud.google.com/iam-admin/iam?project=diceheroes-4fbbb).
+  함수만 먼저 배포(`functions`)해 성공을 확인한 뒤 `hosting,database` 를 배포한다 — 새 앱은 함수가 없으면 보석을 못 불러온다.
 - 에뮬레이터 점검: `firebase emulators:start --only auth,database,functions` 후 `?fbemu=127.0.0.1:9100&fbauth=127.0.0.1:9099&fnemu=127.0.0.1:5001`
 - **구글 계정 연결을 켜려면** Firebase 콘솔 → Authentication → 로그인 방법 → **Google 사용 설정** (지원 이메일 선택 후 저장).
   승인된 도메인에 `diceheroes-4fbbb.web.app` 이 있는지 확인. 켜기 전에는 설정의 '구글 계정 연결'이 오류를 낸다.
