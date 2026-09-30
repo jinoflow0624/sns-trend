@@ -208,6 +208,7 @@ function startShakeRoll(x, y, z) {
   if (tray.live && !motion.rolling) tray.cancelShake();     // 지난 흔들기가 어중간하게 남아 있으면 정리하고 다시
   const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
   if (!tray.startShake(mask)) return;
+  if (tut) motion.tutShook = true;
   sfx.rollPress();
   tray.kick(x, y, z);
   Object.assign(motion, { rolling: true, lastStrong: now, t0: now });
@@ -2076,7 +2077,7 @@ function updateCoach() {
       <div class="scroll-hint" hidden></div>
       <div class="coach-box">
         <img class="spr coach-fairy" src="${spriteURL('fairy', 4)}" alt="">
-        <div class="coach-text"><b>루루</b><p>${br(st.text)}</p>
+        <div class="coach-text"><b>루루</b><p>${br(st.shakeText && SHAKE_OK ? st.shakeText : st.text)}</p>
           ${st.next ? `<button class="pbtn gold small" data-act="coach-next">${st.next}</button>` : ''}
           <span class="coach-step">${tut.step + 1} / ${STEPS.length}</span>
           <button class="coach-skip" data-act="coach-skip">튜토리얼 건너뛰기 ▶▶</button></div>
@@ -2131,6 +2132,7 @@ function advanceTutorial() {
     const st = STEPS[tut.step];
     if (!st || st.next || !st.done || !st.done(S)) break;
     st.after?.(S);
+    if (st.shake) tutShakeDone();
     tut.step++;
     moved = true;
   }
@@ -2156,6 +2158,7 @@ function tutorialAllows(act, t) {
 function endTutorial(skipped) {
   sfx.select();
   tut = null;
+  if (SHAKE_OK) listenShake(!!prefs.shake);
   layer.innerHTML = '';
   markSeen('tutorial');
   track('tutorial_complete');
@@ -2167,11 +2170,30 @@ function endTutorial(skipped) {
   return beginPick('local', opts);
 }
 
+// 튜토리얼의 '흔들어 굴리기' 단계: 설정과 상관없이 잠깐 센서를 켠다.
+// 흔들어서 굴렸으면 마음에 든 것으로 보고 설정을 켜 둔다 (설정에서 끌 수 있다)
+function tutShakeOn() {
+  if (!SHAKE_OK) return;
+  motion.tutShook = false;
+  if (typeof DeviceMotionEvent.requestPermission === 'function') DeviceMotionEvent.requestPermission().catch(() => {});   // 아이폰: 이 터치로 권한을 묻는다
+  listenShake(true);
+}
+function tutShakeDone() {
+  if (!SHAKE_OK) return;
+  if (motion.tutShook && !prefs.shake) {
+    prefs.shake = true;
+    store.set(KEYS.prefs, prefs);
+    toast(ico('die5'), '흔들어 굴리기를 켜 뒀어요', '설정에서 언제든 끌 수 있어요.', 2200);
+  }
+  listenShake(!!prefs.shake);
+}
+
 function coachNext() {
   const st = STEPS[tut.step];
   sfx.select();
   if (st.end) return endTutorial(false);
   tut.step++;
+  if (STEPS[tut.step]?.shake) tutShakeOn();
   advanceTutorial();
   render();
   scrollToTarget();
