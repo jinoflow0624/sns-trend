@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: '배포 대상 (hosting,database 권장. remoteconfig 는 콘솔에서 바꾼 값을 덮어쓰니 처음 한 번만)'
-        default: 'hosting,database'
+        description: '배포 대상 (hosting,database,functions 권장. remoteconfig 는 콘솔에서 바꾼 값을 덮어쓰니 처음 한 번만)'
+        default: 'hosting,database,functions'
         required: true
 
 permissions:
@@ -28,6 +28,8 @@ jobs:
         run: node dice-heroes/test/engine.test.mjs
       - name: 배포판 빌드
         run: node dice-heroes-prod/build.mjs
+      - name: 서버 함수 의존성 설치
+        run: npm ci --prefix dice-heroes-prod/functions --no-audit --no-fund
       - name: Firebase 배포
         working-directory: dice-heroes-prod
         env:
@@ -36,4 +38,4 @@ jobs:
         run: |
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx -y firebase-tools@14 deploy --only "$TARGETS" --non-interactive
+          npx -y firebase-tools@14 deploy --only "$TARGETS" --non-interactive --force

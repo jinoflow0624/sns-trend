@@ -397,10 +397,12 @@ function diffOpen(boss, d) {
   return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
 }
 const clearedAt = (boss, d) => (loadProfile().bosses?.[`${boss}:${d}`]?.wins || 0) > 0;
+// 첫 토벌 보너스를 아직 받을 수 있나 (지갑의 토벌 기록 — 배포판은 서버가 정한다)
+const firstPending = (boss, d) => (Wal.wallet() ? !Wal.wallet().clears?.[`${boss}:${d}`] : !clearedAt(boss, d));
 // 보스 선택: 이 난이도를 아직 못 깼으면 첫 토벌 보너스(보석 ×3)를 알려 준다
 function firstClearNote(o) {
   const base = Math.round(Wal.BOSS_WIN[o.diff] * (Wal.BOSS_MUL[o.boss] || 1));
-  return clearedAt(o.boss, o.diff)
+  return !firstPending(o.boss, o.diff)
     ? `<p class="first-bonus done">${ico('gem', 'xs')} 토벌 보상 보석 ${base}개 <small>(첫 토벌 완료)</small></p>`
     : `<p class="first-bonus">${ico('gem', 'xs')} <b>첫 토벌 보너스!</b> 보석 ${base * Wal.FIRST_CLEAR_MUL}개 <small>(평소 ${base}개의 ${Wal.FIRST_CLEAR_MUL}배)</small></p>`;
 }
@@ -421,7 +423,7 @@ function bossPicker(o) {
     </div>
     <div class="diffs">
       ${E.DIFFS.map(d => diffOpen(o.boss, d.id)
-        ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}${clearedAt(o.boss, d.id) ? '' : `<i class="fc" title="첫 토벌 보석 ×${Wal.FIRST_CLEAR_MUL}">${ico('gem', 'xs')}×${Wal.FIRST_CLEAR_MUL}</i>`}</button>`
+        ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}${!firstPending(o.boss, d.id) ? '' : `<i class="fc" title="첫 토벌 보석 ×${Wal.FIRST_CLEAR_MUL}">${ico('gem', 'xs')}×${Wal.FIRST_CLEAR_MUL}</i>`}</button>`
         : `<button class="diff locked" style="--c:${d.color}" data-act="diff-locked" data-v="${d.id}">${ico('lock')} ${d.ko}</button>`).join('')}
     </div>
     ${firstClearNote(o)}
@@ -1041,6 +1043,7 @@ function startGame(state) {
   layer.innerHTML = '';
   playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
   if (!S.tutorial && (S.round || 1) <= 1) track('game_start', { mode: S.mode, online: online ? 1 : 0, players: S.players.length });
+  if (!S.tutorial && !online) Wal.beginRun({ mode: S.mode, boss: S.boss?.id ?? null, diff: S.boss?.diff ?? null });   // 배포판: 판 시작을 서버에 기록 (온라인 방 판은 방 기록으로 확인)
   step();
 }
 
@@ -2189,9 +2192,8 @@ function recordProfile() {
   if (!prof.best || score > prof.best.score) prof.best = { score, cls: me.cls, mode: S.mode, date: Date.now() };
   prof.classes[me.cls] = (prof.classes[me.cls] || 0) + 1;
   for (const [id, n] of Object.entries(me.perks)) prof.perks[id] = (prof.perks[id] || 0) + n;
-  const firstClear = coop && S.boss.won && !(prof.bosses[`${S.boss.id}:${S.boss.diff}`]?.wins);
-  claimGems({ mode: S.mode, win, online: !!online, humans: S.players.filter(p => !p.bot).length, score, flip: me.flip, nudge: me.nudge,
-    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null, firstClear });
+  claimGems({ mode: S.mode, win, online: !!online, room: online?.code || null, humans: S.players.filter(p => !p.bot).length, score, flip: me.flip, nudge: me.nudge,
+    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null });
   if (coop) {
     const bk = `${S.boss.id}:${S.boss.diff}`;
     const b = prof.bosses[bk] || { tries: 0, wins: 0, grade: null };
