@@ -350,7 +350,16 @@ function modeCards(o) {
   </div>`;
 }
 
+// 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
+function diffOpen(boss, d) {
+  if (d <= 0) return true;
+  return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
+}
+const topOpenDiff = boss => [2, 1, 0].find(d => diffOpen(boss, d));
+function clampDiff(o) { if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss); }
+
 function bossPicker(o) {
+  clampDiff(o);
   return `
   <section class="frame mode-box">
     <div class="bosses">
@@ -360,12 +369,14 @@ function bossPicker(o) {
         </button>`).join('')}
     </div>
     <div class="diffs">
-      ${E.DIFFS.map(d => `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}</button>`).join('')}
+      ${E.DIFFS.map(d => diffOpen(o.boss, d.id)
+        ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}</button>`
+        : `<button class="diff locked" style="--c:${d.color}" data-act="diff-locked" data-v="${d.id}">${ico('lock')} ${d.ko}</button>`).join('')}
     </div>
     <ul class="skills">
       ${E.bossInfo(o.boss).skills.map(k => `<li><span>${skillIco(k.id)}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
     </ul>
-    <p class="hint">의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요.</p>
+    <p class="hint">${!diffOpen(o.boss, 2) ? `${E.DIFFS[diffOpen(o.boss, 1) ? 1 : 0].ko}을 깨면 ${E.DIFFS[diffOpen(o.boss, 1) ? 2 : 1].ko}이 열려요. ` : ''}의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요.</p>
   </section>`;
 }
 
@@ -383,7 +394,7 @@ function optsSummary(o, change = '') {
 
 function onModeAct(act, t, o) {
   if (act === 'mode') o.mode = t.dataset.v;
-  if (act === 'boss') o.boss = t.dataset.v;
+  if (act === 'boss') { o.boss = t.dataset.v; clampDiff(o); }
   if (act === 'diff') o.diff = Number(t.dataset.v);
   sfx.select();
 }
@@ -427,6 +438,7 @@ function showSetup() {
 function pickNext() {
   const steps = pickSteps(), n = steps.indexOf(pick.step);
   if (n < steps.length - 1) { pick.step = steps[n + 1]; return showSetup(); }
+  if (pick.o.mode === 'coop') clampDiff(pick.o);
   if (pick.for === 'create') { saveOpts(); return createRoom(); }
   if (pick.for === 'room' && online) {
     const o = { ...pick.o };
@@ -473,6 +485,11 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
 function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
   if (act === 'pick-back') return pickBack();
+  if (act === 'diff-locked') {
+    sfx.back();
+    const d = Number(t.dataset.v);
+    return toast(ico('lock'), `${E.DIFFS[d].ko}은 잠겨 있어요`, `${E.bossInfo(pick.o.boss).ko}의 ${E.DIFFS[d - 1].ko} 난이도를 한 번 깨면 열려요.`, 2200);
+  }
   if (act === 'pick-next') { sfx.select(); return pickNext(); }
   if (['mode', 'boss', 'diff'].includes(act)) {
     onModeAct(act, t, pick.o);
@@ -489,6 +506,7 @@ function onSetupAct(act, t) {
     setup.push({ name: BOT_NAMES.find(n => !setup.some(p => p.name === n)) || '동료', cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
   }
   if (act === 'start') {
+    if (opts.mode === 'coop') clampDiff(opts);
     setup.forEach((p, k) => { p.name = (p.name || '').trim() || (p.bot ? BOT_NAMES[k] : `영웅${k + 1}`); });
     store.set(KEYS.setup, setup);
     sfx.start();
@@ -1108,9 +1126,9 @@ function render() {
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>
       <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 ? '' : 'disabled'}>
-        ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${cur.flip}</b></button>
+        ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 ? '' : 'disabled'}>
-        ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${cur.nudge}</b></button>
+        ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>
       <button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
         ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
     </section>
@@ -1839,9 +1857,11 @@ async function playOne(f) {
       case 'midas': floatText('황금손 조정 +1', 'gold', -30, 'tray', 'crown'); break;
       case 'duel': sfx.quest(); await toast(ico('trophy'), '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
       case 'charge':
-        if (f.why === 'monk') { sfx.coin(); floatText(`절제 · 조정 +${f.nudge}`, 'mint', -20, 'tray', 'beads'); await wait(300); }
-        else if (f.why !== 'quest') floatText(E.chargeText(f), 'mint', -20);
+        if (f.why === 'monk') { sfx.coin(); if (f.nudge) floatText(`절제 · 조정 +${f.nudge}`, 'mint', -20, 'tray', 'beads'); await wait(300); }
+        else if (f.why !== 'quest' && (f.flip || f.nudge)) floatText(E.chargeText(f), 'mint', -20);
+        if (f.over) { floatText(`보유 한도 ${E.CHARGE_CAP}개 · ${f.over}개 넘침 → 경험치로`, 'dim', 12); await wait(260); }
         break;
+      case 'spill': floatText(`넘친 충전 → 경험치 +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
     }
   }
   ui.hpHold = null;

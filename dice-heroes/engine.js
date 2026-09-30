@@ -133,7 +133,8 @@ export const RARITY = { 1: { ko: '일반', w: 60 }, 2: { ko: '희귀', w: 30 }, 
 
 // ── 퀘스트 (공용 보드, 먼저 깬 사람이 가져간다) ───────────────────────────────
 // test(info, dice) → 조건 충족 여부.  diff = 난이도 점수(보상 등급을 정함), xp = 경험치
-const Q = (id, ko, icon, desc, diff, xp, test) => ({ id, ko, icon, desc, diff, xp, test });
+const Q = (id, ko, icon, desc, diff, xp, test, turn = null) => ({ id, ko, icon, desc, diff, xp, test, turn });
+// turn(s): 주사위 말고 이번 턴의 진행(굴린 횟수·도구 사용)도 보는 의뢰
 export const QUESTS = [
   Q('pairs',   '쌍둥이 사냥',  '👯', '두 쌍 이상',               3, 10, x => x.counts.filter(c => c >= 2).length >= 2),
   Q('triple',  '삼연격',       '⚔️', '같은 눈 3개 이상',         3, 10, x => x.maxCount >= 3),
@@ -150,7 +151,6 @@ export const QUESTS = [
   Q('quad',    '포위 섬멸',    '🏰', '같은 눈 4개 이상',         7, 20, x => x.maxCount >= 4),
   Q('six3',    '럭키 식스',    '🎰', '6이 3개 이상',             6, 18, x => x.counts[6] >= 3),
   Q('one3',    '뱀눈의 저주',  '💀', '1이 3개 이상',             6, 18, x => x.counts[1] >= 3),
-  Q('ends',    '양날의 검',    '🪓', '1과 6이 둘 다 있음',       2,  8, x => x.counts[1] > 0 && x.counts[6] > 0),
   Q('middle',  '중용의 길',    '☯️', '모두 3 또는 4',            7, 20, x => x.counts[3] + x.counts[4] === 5),
   Q('sum20',   '정확한 저울',  '⚖️', '합계가 정확히 20',         4, 12, x => x.sum === 20),
   Q('sum17',   '행운의 17',    '🍀', '합계가 정확히 17',         4, 12, x => x.sum === 17),
@@ -159,11 +159,19 @@ export const QUESTS = [
   Q('big3',    '거인 셋',      '🗿', '5 이상이 3개 이상',        3, 10, x => x.counts[5] + x.counts[6] >= 3),
   Q('small4',  '꼬마 원정대',  '🐭', '3 이하가 4개 이상',        3, 10, x => x.counts[1] + x.counts[2] + x.counts[3] >= 4),
   Q('yacht',   '전설의 항해',  '⛵', '요트 (5개 모두 같음)',     12, 30, x => x.maxCount === 5),
+  // 은퇴한 의뢰: 새 판에는 나오지 않는다 (예전 저장·온라인 방에 남아 있어도 깨지지 않게 정의는 둔다)
+  { ...Q('ends', '양날의 검', '🪓', '1과 6이 둘 다 있음', 2, 8, x => x.counts[1] > 0 && x.counts[6] > 0), retired: true },
+  Q('oneShot', '일격필살',     '⚡', '재굴림 없이 풀하우스·스트레이트·포카인드', 7, 20, x => x.shape === '32' || x.small || x.maxCount >= 4, s => (s.rollNo || 0) <= 1),
+  Q('bare',    '맨손 승부',    '👊', '뒤집기·조정 없이 합계 25 이상', 4, 12, x => x.sum >= 25, s => !s.toolUsed),
+  Q('last',    '막판 역전',    '⏳', '마지막 굴림에서 연속 4개',   5, 15, x => x.small, s => s.rollsLeft === 0),
+  Q('twin',    '쌍둥이 별',    '✨', '5와 6이 각각 2개 이상',      4, 12, x => x.counts[5] >= 2 && x.counts[6] >= 2),
+  Q('sum15',   '절반의 미학',  '🎖️', '합계가 정확히 15',          4, 12, x => x.sum === 15),
 ];
 export const questInfo = id => QUESTS.find(q => q.id === id);
 
-export function questMet(qid, d) {
+export function questMet(qid, d, st = null) {
   const q = questInfo(qid);
+  if (q.turn && (!st || !q.turn(st))) return false;
   return fiveSets(d).some(s => q.test(diceInfo(s), s));
 }
 
@@ -188,19 +196,20 @@ const EVENT_DECK = ['calm', 'festival', 'fog', 'wind', 'bounty', 'zen', 'jackpot
 // ── 협동모드 보스 ────────────────────────────────────────────────────────────
 // 파티 전원이 한 보스를 상대한다. 기록한 점수(상단 보너스 포함)가 곧 피해이고,
 // 의뢰 보상(뒤집기·조정)으로 더 좋은 족보를 만들어 피해를 키운다. 12라운드 안에 쓰러뜨리면 승리.
-// 난이도 d: 0 쉬움 / 1 보통 / 2 매우 어려움.  능력 수치는 [쉬움, 보통, 매우 어려움] 순서.
+// 난이도 d: 0 쉬움 / 1 보통 / 2 어려움.  능력 수치는 [쉬움, 보통, 어려움] 순서.
 export const DIFFS = [
   { id: 0, ko: '쉬움',        hp: 176, color: '#3EE6B4' },
   { id: 1, ko: '보통',        hp: 213, color: '#FFC83D' },
-  { id: 2, ko: '매우 어려움', hp: 244, color: '#E8435A' },
+  { id: 2, ko: '어려움',      hp: 244, color: '#E8435A' },
 ];
 
 // 체력 추가 배율 [보스][난이도][인원-1] — v0.8에서 모든 난이도 승률을 절반으로 낮추며 봇 시뮬레이션으로 맞춘 값.
+// v0.17: 보유 한도(뒤집기·조정 3개) 도입과 함께 쉬움·보통 체력 ×1.035 (봇 승률 쉬움 약 28%, 보통 약 15%, 어려움 약 10%)
 // (sim/coop.mjs 가 바꿔 가며 잰다)
 export const HP_TUNE = {
-  dragon: [[1.194, 1.143, 1.118, 1.093], [1.07, 1.089, 1.071, 1.052], [1.05, 1.05, 1.058, 1.066]],
-  orc:    [[1.22, 1.161, 1.119, 1.078], [1.167, 1.147, 1.103, 1.059], [1.102, 1.135, 1.11, 1.085]],
-  lich:   [[1.191, 1.177, 1.15, 1.123], [1.091, 1.114, 1.094, 1.074], [1.048, 1.115, 1.078, 1.04]],
+  dragon: [[1.236, 1.183, 1.157, 1.131], [1.107, 1.127, 1.108, 1.089], [1.05, 1.05, 1.058, 1.066]],
+  orc:    [[1.263, 1.202, 1.158, 1.116], [1.208, 1.187, 1.142, 1.096], [1.102, 1.135, 1.11, 1.085]],
+  lich:   [[1.233, 1.218, 1.19, 1.162], [1.129, 1.153, 1.132, 1.112], [1.048, 1.115, 1.078, 1.04]],
 };
 
 export const BOSSES = [
@@ -211,7 +220,7 @@ export const BOSSES = [
         desc: d => `${[4, 3, 2][d]}라운드마다 모두의 첫 굴림에서 가장 높은 주사위 ${d === 2 ? 2 : 1}개가 1로 타 버린다` },
       { id: 'scale', icon: '🛡️', ko: '용린 갑옷',
         desc: d => `에이스~식스로 주는 피해가 ${[25, 50, 50][d]}% 줄어든다` },
-      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 화염 숨결을 매 라운드 쓴다' : '매우 어려움에서만 쓴다' },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 화염 숨결을 매 라운드 쓴다' : '어려움에서만 쓴다' },
     ],
   },
   {
@@ -221,7 +230,7 @@ export const BOSSES = [
         desc: d => `${[3, 2, 2][d]}라운드마다 모두의 굴림 기회가 1 줄어든다` },
       { id: 'plunder', icon: '💰', ko: '약탈',
         desc: d => `누군가 0점을 기록하면 체력을 ${[10, 20, 30][d]} 회복한다` },
-      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 약탈 회복량이 두 배' : '매우 어려움에서만 쓴다' },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 약탈 회복량이 두 배' : '어려움에서만 쓴다' },
     ],
   },
   {
@@ -233,7 +242,7 @@ export const BOSSES = [
         desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
       { id: 'bone', icon: '💀', ko: '뼈 방패',
         desc: d => `${[4, 3, 3][d]}라운드마다 인원 1명당 ${[12, 20, 28][d]}의 보호막을 두른다 (체력보다 먼저 깎임)` },
-      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '매우 어려움에서만 쓴다' },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '어려움에서만 쓴다' },
     ],
   },
 ];
@@ -287,11 +296,17 @@ function dealDamage(s, pIdx, amount, source) {
   }
 }
 
-// 뒤집기·조정 충전 보상
+// 뒤집기·조정 충전 보상. 둘 다 최대 CHARGE_CAP 개까지만 들고 있을 수 있다.
+// 넘친 충전은 1개당 경험치 SPILL_XP 로 바꿔 두었다가, 다음에 점수를 기록할 때 함께 받는다 (그 턴에 넘친 건 그 자리에서).
+export const CHARGE_CAP = 3, SPILL_XP = 10;
 function addCharges(s, p, r, why) {
-  p.flip += r.flip || 0;
-  p.nudge += r.nudge || 0;
-  if ((r.flip || 0) + (r.nudge || 0) > 0) fx(s, { type: 'charge', player: s.players.indexOf(p), flip: r.flip || 0, nudge: r.nudge || 0, why });
+  const f = r.flip || 0, n = r.nudge || 0;
+  const addF = Math.max(0, Math.min(f, CHARGE_CAP - p.flip)), addN = Math.max(0, Math.min(n, CHARGE_CAP - p.nudge));
+  p.flip += addF;
+  p.nudge += addN;
+  const over = f - addF + (n - addN);
+  if (over > 0) p.spill = (p.spill || 0) + over;
+  if (f + n > 0) fx(s, { type: 'charge', player: s.players.indexOf(p), flip: addF, nudge: addN, over, why });
 }
 export const chargeText = r => [r.flip ? `뒤집기 +${r.flip}` : '', r.nudge ? `조정 +${r.nudge}` : ''].filter(Boolean).join(' · ');
 
@@ -353,7 +368,7 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
     const hp = Math.round(DIFFS[diff].hp * HP_TUNE[id][diff][players.length - 1] * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
   }
-  s.deck = shuffle(s, QUESTS.map(q => q.id));
+  s.deck = shuffle(s, QUESTS.filter(q => !q.retired).map(q => q.id));
   s.board = s.deck.splice(0, QUEST_SLOTS);
   const rest = shuffle(s, [...EVENT_DECK.filter(e => e !== 'calm'), 'calm']);
   s.events = ['calm', ...rest].slice(0, ROUNDS);
@@ -386,6 +401,7 @@ function startTurn(s) {
   s.held = new Array(diceCount(p)).fill(false);
   s.rollsLeft = maxRolls(s, p);
   s.rollNo = 0;
+  s.toolUsed = false;
   s.rolled = false;
   s.phase = 'roll';
   if (s.turn === 0) {
@@ -396,7 +412,7 @@ function startTurn(s) {
       s.board = [];
       refillBoard(s);
     }
-    if (ev === 'blessing') s.players.forEach(pl => pl.flip++);
+    if (ev === 'blessing') s.players.forEach(pl => addCharges(s, pl, { flip: 1 }, 'blessing'));
     s.players.forEach(pl => (pl.roundScore = 0));
     fx(s, { type: 'round', round: s.round, event: ev });
     if (bossRollMod(s)) {
@@ -405,7 +421,7 @@ function startTurn(s) {
     }
   }
   if (perkCount(p, 'midas')) {
-    p.nudge += 1;
+    addCharges(s, p, { nudge: 1 }, 'midas');
     fx(s, { type: 'midas', player: s.turn });
   }
 }
@@ -457,6 +473,7 @@ export function useFlip(s, i) {
   if (p.flip <= 0) fail('뒤집기 충전이 없습니다.');
   s.dice[i] = 7 - s.dice[i];
   p.flip--;
+  s.toolUsed = true;
 }
 
 export function useNudge(s, i, delta) {
@@ -467,6 +484,7 @@ export function useNudge(s, i, delta) {
   if (v < 1 || v > 6) fail('주사위는 1~6 사이여야 합니다.');
   s.dice[i] = v;
   p.nudge--;
+  s.toolUsed = true;
 }
 
 // 특성·직업·이벤트까지 반영한 항목 점수. 주사위 6개면 가장 좋은 5개 조합.
@@ -515,7 +533,7 @@ const rewardValue = r => r.flip * 8 + r.nudge * 6;
 // 지금 주사위로 깰 수 있는 퀘스트 (보상 큰 순, 연쇄 의뢰면 2개)
 export function claimableQuests(s, p = current(s), d = s.dice) {
   if (!d.length || d.includes(0)) return [];
-  const ok = s.board.filter(q => questMet(q, d))
+  const ok = s.board.filter(q => questMet(q, d, s))
     .sort((a, b) => rewardValue(questReward(s, p, b)) - rewardValue(questReward(s, p, a)) || questInfo(b).xp - questInfo(a).xp);
   return ok.slice(0, perkCount(p, 'chain') ? 2 : 1);
 }
@@ -628,6 +646,13 @@ export function commitScore(s, cat) {
   }
   refillBoard(s);
 
+  // 보유 한도를 넘친 충전 → 경험치
+  if (p.spill) {
+    log(s, `${p.name} · 넘친 충전 ${p.spill}개 → 경험치 +${p.spill * SPILL_XP}`);
+    fx(s, { type: 'spill', player: s.turn, n: p.spill, xp: p.spill * SPILL_XP });
+    xp += p.spill * SPILL_XP;
+    p.spill = 0;
+  }
   const gained = Math.round(xp * xpMultiplier(s, p));
   gainXp(s, p, gained);
 
@@ -676,9 +701,9 @@ export function pickPerk(s, perkId) {
   p.offers.shift();
   const k = perkInfo(perkId);
   if (k.instant) {
-    if (perkId === 'toolkit') { p.flip += 1; p.nudge += 1; }
-    if (perkId === 'nudgeBag') p.nudge += 3;
-    if (perkId === 'bigKit') { p.flip += 2; p.nudge += 2; }
+    if (perkId === 'toolkit') addCharges(s, p, { flip: 1, nudge: 1 }, 'perk');
+    if (perkId === 'nudgeBag') addCharges(s, p, { nudge: 3 }, 'perk');
+    if (perkId === 'bigKit') addCharges(s, p, { flip: 2, nudge: 2 }, 'perk');
     log(s, `${p.name} · 「${k.ko}」 획득`);
     if (!p.offers.length && !s.ended) endTurn(s);
     return;
@@ -697,9 +722,9 @@ export function pickPerk(s, perkId) {
       if (s.ended) return;
     }
   }
-  if (perkId === 'flip') p.flip += 2;
-  if (perkId === 'nudge') p.nudge += 2;
-  if (perkId === 'yacht') p.flip += 1;
+  if (perkId === 'flip') addCharges(s, p, { flip: 2 }, 'perk');
+  if (perkId === 'nudge') addCharges(s, p, { nudge: 2 }, 'perk');
+  if (perkId === 'yacht') addCharges(s, p, { flip: 1 }, 'perk');
   log(s, `${p.name} · 특성 「${perkInfo(perkId).ko}」 획득`);
   if (!p.offers.length) endTurn(s);
 }

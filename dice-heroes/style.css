@@ -1113,3 +1113,6 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 /* 오프라인 */
 .offline-note { margin: 8px 0 0; text-align: center; font-size: 12px; color: var(--mint); }
 .pbtn.off { opacity: .55; }
+.tool b.full { background: var(--gold); color: var(--ink); }
+.diff.locked { opacity: .5; background: #140F36 !important; color: var(--muted) !important; }
+.diff.locked .ico { width: 12px; height: 12px; vertical-align: -1px; }

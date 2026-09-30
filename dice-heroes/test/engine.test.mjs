@@ -360,5 +360,51 @@ test('연결 끊김: 봇 전환과 1대1 기권패', () => {
   assert.equal(E.ranking(t)[0].i, 1);
 });
 
+
+console.log('\n보유 한도 · 새 의뢰 (v0.17)');
+test('뒤집기·조정은 최대 3개, 넘친 만큼은 다음 기록 때 경험치 10씩', () => {
+  const s = E.createGame([{ name: 'M', cls: 'monk' }, { name: 'B', cls: 'mage' }], 21);
+  s.board = []; s.events[0] = 'calm';
+  const p = s.players[0];
+  p.nudge = 2;
+  E.roll(s);                                   // 남은 굴림 2 → 조정 +2 이지만 1개만 들어가고 1개 넘침
+  s.dice = [1, 2, 3, 4, 6];
+  const xp0 = p.stats.xpEarned;
+  E.commitScore(s, 'choice');
+  assert.equal(p.nudge, 3);
+  const fx = E.drainFx(s);
+  assert.ok(fx.some(f => f.type === 'charge' && f.over === 1));
+  assert.ok(fx.some(f => f.type === 'spill' && f.xp === E.SPILL_XP));
+  assert.equal(p.stats.xpEarned - xp0, 16 + E.SPILL_XP);
+  assert.equal(p.spill, 0);
+});
+test('은퇴한 의뢰(양날의 검)는 새 판에 나오지 않고, 새 의뢰 5종은 덱에 있다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'warrior' }], 5);
+  const all = [...s.board, ...s.deck];
+  assert.ok(!all.includes('ends'));
+  for (const id of ['oneShot', 'bare', 'last', 'twin', 'sum15']) assert.ok(all.includes(id), id);
+  assert.ok(E.questInfo('ends'));              // 예전 저장 판을 위해 정의는 남아 있다
+});
+test('일격필살은 첫 굴림만, 맨손 승부는 도구를 안 썼을 때만, 막판 역전은 마지막 굴림에서만', () => {
+  const s = E.createGame([{ name: 'A', cls: 'warrior' }], 6);
+  s.events[0] = 'calm';
+  s.board = ['oneShot', 'bare', 'last'];
+  E.roll(s); s.dice = [2, 2, 2, 5, 5];
+  assert.ok(E.claimableQuests(s).length >= 0);
+  assert.ok(E.questMet('oneShot', s.dice, s));
+  E.roll(s); s.dice = [2, 2, 2, 5, 5];
+  assert.ok(!E.questMet('oneShot', s.dice, s));
+  s.dice = [6, 6, 5, 5, 4];
+  assert.ok(E.questMet('bare', s.dice, s));
+  s.players[0].nudge = 1; E.useNudge(s, 4, 1);
+  assert.ok(!E.questMet('bare', s.dice, s));
+  s.dice = [1, 2, 3, 4, 6];
+  assert.ok(!E.questMet('last', s.dice, s));
+  E.roll(s); s.dice = [1, 2, 3, 4, 6];
+  assert.ok(E.questMet('last', s.dice, s));
+  assert.ok(E.questMet('twin', [5, 5, 6, 6, 1]) && !E.questMet('twin', [5, 6, 6, 6, 1]));
+  assert.ok(E.questMet('sum15', [3, 3, 3, 3, 3]));
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
