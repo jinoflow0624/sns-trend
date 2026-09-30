@@ -422,7 +422,7 @@ test('무희: 다른 구역에 번갈아 적으면 +1, 앙코르는 한 번 굴�
   assert.equal(s.rollsLeft, left + 1);
   assert.throws(() => E.useEncore(s));
 });
-test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀림), 짝수 라운드 패기(굴림 1회·조정 금지)', () => {
+test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀림), 짝수 라운드 패기(뒤집기·조정 금지, 굴림은 그대로)', () => {
   const s = E.createGame([{ name: 'A', cls: 'monk' }], 11, { mode: 'coop', boss: 'demon', diff: 0 });
   assert.ok(s.events.every((e, i) => (i % 2 === 1) === (e === 'haki')));
   E.roll(s);
@@ -438,9 +438,10 @@ test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀�
   assert.equal(s.round, 2);
   assert.equal(E.event(s), 'haki');
   E.roll(s);
-  assert.equal(s.rollsLeft, 0);
-  s.players[0].nudge = 1;
+  assert.ok(s.rollsLeft > 0);                 // 굴림은 그대로
+  s.players[0].nudge = 1; s.players[0].flip = 1;
   assert.throws(() => E.useNudge(s, 0, s.dice[0] < 6 ? 1 : -1));
+  assert.throws(() => E.useFlip(s, 0));
 });
 
 console.log(`\n${passed} 통과, ${failed} 실패`);

@@ -235,7 +235,9 @@ function startShakeRoll(x, y, z) {
   motion.last = now;
   if (!tray?.startShake) return onAct('roll', btn);        // 2D 화면: 바로 굴린다
   if (tray.live && !motion.rolling) tray.cancelShake();     // 지난 흔들기가 어중간하게 남아 있으면 정리하고 다시
-  const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
+  const mask = rollMask();
+  tray.setSealed?.(ui.sealRoll);
+  ui.sealRoll = null;
   if (!tray.startShake(mask)) return;
   if (tut) motion.tutShook = true;
   sfx.rollPress();
@@ -381,18 +383,26 @@ function showDemonUnlock() {
   el.innerHTML = `<div class="dr-cracks"></div>
     <div class="dr-boss">${portrait('demon', 'dr-img')}</div>
     <p class="dr-l1">세 마물이 쓰러지자 봉인이 흔들린다…</p>
-    <h1 class="dr-title">마왕 아스타로트 부활</h1>
+    <h1 class="dr-title">마왕 릴리스 부활</h1>
     <p class="dr-l2">보스 선택에서 마왕에게 도전할 수 있어요</p>
     <button class="pbtn gold dr-ok" data-act="demon-ok">도전을 받아들인다</button>`;
   document.body.appendChild(el);
-  setTimeout(() => { FX().flash('#C21E56', 600, 0.6); sfx.boom(3); }, 1400);
+  setTimeout(() => { FX().flash('#C21E56', 600, 0.6); sfx.boom(3); if (el.isConnected) playBgm('boss_demon'); }, 1400);   // 마왕 테마가 깔린다
   setTimeout(() => sfx.legend(), 2600);
 }
 
 // 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
 function diffOpen(boss, d) {
-  if (d <= 0 || (DEMON_TEST && boss === 'demon')) return true;
+  if (d <= 0) return true;
   return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
+}
+const clearedAt = (boss, d) => (loadProfile().bosses?.[`${boss}:${d}`]?.wins || 0) > 0;
+// 보스 선택: 이 난이도를 아직 못 깼으면 첫 토벌 보너스(보석 ×3)를 알려 준다
+function firstClearNote(o) {
+  const base = Math.round(Wal.BOSS_WIN[o.diff] * (Wal.BOSS_MUL[o.boss] || 1));
+  return clearedAt(o.boss, o.diff)
+    ? `<p class="first-bonus done">${ico('gem', 'xs')} 토벌 보상 보석 ${base}개 <small>(첫 토벌 완료)</small></p>`
+    : `<p class="first-bonus">${ico('gem', 'xs')} <b>첫 토벌 보너스!</b> 보석 ${base * Wal.FIRST_CLEAR_MUL}개 <small>(평소 ${base}개의 ${Wal.FIRST_CLEAR_MUL}배)</small></p>`;
 }
 const topOpenDiff = boss => [2, 1, 0].find(d => diffOpen(boss, d));
 function clampDiff(o) { if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss); }
@@ -411,9 +421,10 @@ function bossPicker(o) {
     </div>
     <div class="diffs">
       ${E.DIFFS.map(d => diffOpen(o.boss, d.id)
-        ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}</button>`
+        ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}${clearedAt(o.boss, d.id) ? '' : `<i class="fc" title="첫 토벌 보석 ×${Wal.FIRST_CLEAR_MUL}">${ico('gem', 'xs')}×${Wal.FIRST_CLEAR_MUL}</i>`}</button>`
         : `<button class="diff locked" style="--c:${d.color}" data-act="diff-locked" data-v="${d.id}">${ico('lock')} ${d.ko}</button>`).join('')}
     </div>
+    ${firstClearNote(o)}
     <ul class="skills">
       ${E.bossInfo(o.boss).skills.map(k => `<li><span>${skillIco(k.id)}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
     </ul>
@@ -889,8 +900,7 @@ async function onRoom(room) {
   const fxList = newFx.flatMap(f => f.list);
   if (rolledNow) {
     const sameTurn = prev.turn === g.turn && prev.round === g.round && prev.rolled;
-    const mask = g.dice.map((_, i) => !(sameTurn && prev.held[i]));
-    await rollAnimated(mask, fxList);
+    await rollAnimated(rollMask(prev, sameTurn, g.dice.length), fxList);
   }
   ui.busy = true;
   ui.dice = pendingDice(fxList);
@@ -1168,7 +1178,7 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ' (봇)' : ''}</span>
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && S.rolled && !ui.busy && cur.cls === 'dancer' && cur.encore > 0 && E.event(S) !== 'haki' ? `<button class="encore-btn" data-act="encore">${ico('sparkle', 'xs')} 앙코르 <small>굴림 +1 · 1회</small></button>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && S.rolled && !ui.busy && cur.cls === 'dancer' && cur.encore > 0 ? `<button class="encore-btn" data-act="encore">${ico('sparkle', 'xs')} 앙코르 <small>굴림 +1 · 1회</small></button>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
@@ -1176,7 +1186,7 @@ function render() {
       <button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>
-      <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 ? '' : 'disabled'}>
+      <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
         ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>
@@ -1325,7 +1335,8 @@ function diceOverlay(myTurn) {
   if (!ovl || !tray || !S) return;
   // 마왕의 봉인: 봉인된 주사위 위에 쇠사슬 문양 (다시 굴리면 풀린다)
   const box0 = document.getElementById('tray').getBoundingClientRect();
-  const seals = S.rolled && S.sealed?.length && !tray.anim ? S.sealed.map(i => {
+  const sealList = ui.sealRoll || S.sealed || [];   // 굴리는 동안에도 봉인 표시는 제자리에 남는다
+  const seals = S.rolled && sealList.length ? sealList.map(i => {
     const p = tray.screenPos(i);
     return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px"><span class="seal-ring"></span>${ico('chain')}</div>`;
   }).join('') : '';
@@ -1857,13 +1868,21 @@ async function skillFx(f) {
   }
   if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
   if (f.skill === 'bone' && bossC) { sfx.twist(); await fx.shield(bossC); return; }
-  if (f.skill === 'seal' && t) {                 // 보랏빛 문양이 조여들고 쇠사슬이 감긴다
-    sfx.twist(); buzz(60);
-    await fx.seal(pts, ms);
+  if (f.skill === 'seal' && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
+    sfx.seal();
+    shake(app.querySelector('.game'), 0.6);
+    setTimeout(() => shake(app.querySelector('.game'), 1.3), (ui.fast ? 600 : 1000) / fx.speed);
+    await fx.seal(pts, ui.fast ? 800 : 1300);
     render();
     return;
   }
-  if (f.skill === 'unseal') { if (t) pts.forEach(p => fx.burst(p.x, p.y, { n: 14, pal: ['#FFFFFF', '#C9B8FF', '#7A4BFF'], speed: [60, 180], life: [0.3, 0.5] })); return; }
+  if (f.skill === 'unseal') {                    // 사슬이 달아올라 산산조각, 빛기둥이 솟구친다
+    if (!t) return;
+    sfx.unseal();
+    floatText('봉인 해제!', 'gold', -30, 'tray');
+    await fx.unseal(pts, ui.fast ? 600 : 900);
+    return;
+  }
   sfx.zero();
 }
 
@@ -1877,7 +1896,7 @@ async function hakiFx() {
   shake(app.querySelector('.game'), 3);
   const el = document.createElement('div');
   el.className = 'haki-banner';
-  el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 재굴림 · 조정 금지</small>`;
+  el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
   document.body.appendChild(el);
   await wait(ui.fast ? 900 : 1600);
   el.classList.add('out');
@@ -2625,13 +2644,23 @@ async function step() {
   else turnAlert();
 }
 
+// 이번 굴림에서 굴리지 않는 주사위: 고정한 것 + 마왕에게 봉인된 것.
+// 봉인된 주사위는 굴리는 동안 트레이 제자리에서 반투명해지고 쇠사슬 표시는 그대로 남는다 (ui.sealRoll)
+function rollMask(g = S, same = g.rolled, n = g.dice.length) {
+  ui.sealRoll = same ? (g.sealed || []).slice() : [];
+  return Array.from({ length: n }, (_, i) => !(same && (g.held[i] || ui.sealRoll.includes(i))));
+}
+
 async function rollAnimated(mask, list = S.fx) {
   const t = await ensureTray();
   ui.busy = true;
   ui.sheet = false;
   ui.dice = pendingDice(list);
+  t.setSealed?.(ui.sealRoll || []);
   render();
   await t.roll(ui.dice || S.dice, mask, (ui.fast && E.current(S).bot ? 2.2 : 1) * (prefs.fx === 'min' ? 1.6 : prefs.fx === 'fast' ? 1.3 : 1));
+  ui.sealRoll = null;
+  t.setSealed?.([]);
   ui.busy = false;
 }
 
@@ -2646,7 +2675,7 @@ async function botStep() {
     await wait(ui.fast ? 150 : 500);
   }
   if (act.type === 'roll' || act.type === 'reroll') {
-    const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
+    const mask = rollMask();
     E.applyBot(S, act);
     await rollAnimated(mask);
     return step();
@@ -2748,7 +2777,7 @@ async function onGameAct(act, t) {
     motion.rolling = false;
     ui.tool = null;
     ui.zeroArm = null;
-    const mask = S.dice.map((_, i) => !(S.rolled && S.held[i]));
+    const mask = rollMask();
     if (online) return onlineAct(g => E.roll(g));
     if (!tryAct(() => E.roll(S))) { tray?.cancelShake?.(); return; }
     await rollAnimated(mask);
