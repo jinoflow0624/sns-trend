@@ -1023,12 +1023,12 @@ function render() {
     ${coop ? bossPanel() : ''}
 
     <div class="party" style="--n:${S.players.length}">
-      ${(() => { if (!ui.crownFreeze) crownShown = leaders(); return ''; })()}
+      ${(() => { if (!ui.crownFreeze) crownShown = leaders(); lastPts = S.players.map((_, i) => shownPts(i)); return ''; })()}
       ${S.players.map((p, i) => `
         <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">
           <div class="m-por">${portrait(p.cls)}<span class="lv">${p.level}</span>${crownShown.includes(i) ? `<span class="crown">${ico('crown', 'xs')}</span>` : ''}</div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ' (나)' : ''}</span>
-            <b class="pts">${coop ? `${ico('sword', 'xs')}${Math.round(S.boss.dmg[i] || 0)}` : E.finalScore(p)}</b></div>
+            <b class="pts">${ptsHTML(i)}</b></div>
           ${online && !p.bot && !alive(p.token) ? `<span class="off">끊김 ${Math.ceil(dropLeft(p.token) / 1000)}초</span>` : ''}
         </button>`).join('')}
     </div>
@@ -1505,7 +1505,36 @@ const FX_SLOW = new URLSearchParams(location.search).has('slowfx') ? 0.25 : 1;
 //   보스 스킬 → 스킬이 바꾸기 전 눈으로 굴러 멈춘 뒤 불타거나 뒤집힌다
 //   점수 기록 → 다음 턴으로 넘어가도 기록한 주사위가 에너지로 모일 때까지 남아 있다
 // 공격이 날아가는 동안은 보스 체력을 맞기 전 값으로 보여 준다 (명중하는 순간 깎인다)
+// ── 점수 표시: 주사위 에너지가 캐릭터(협동은 보스)에 닿는 순간 오르고, 오를 때 크게 튀어 강조 ──
+// 연출이 시작되면 참가자 점수를 직전 값으로 잡아 두고(ui.pts), 에너지가 닿을 때마다 올린다. 연출이 끝나면 실제 값으로.
+const truePts = i => (S.boss ? Math.round(S.boss.dmg[i] || 0) : E.finalScore(S.players[i]));
+const shownPts = i => (ui.pts?.[i] ?? truePts(i));
+const ptsHTML = i => `${S.boss ? ico('sword', 'xs') : ''}${shownPts(i)}`;
+let lastPts = [];                              // 마지막으로 화면에 그린 점수 (다음 연출의 '직전 값')
+function holdPts(list) {
+  const who = new Set(list.filter(f => ['score', 'damage', 'levelup', 'retro'].includes(f.type) && f.player != null).map(f => f.player));
+  if (!who.size) { ui.pts = null; return; }
+  ui.pts = {};
+  for (const i of who) if (lastPts[i] != null && lastPts[i] <= truePts(i)) ui.pts[i] = lastPts[i];
+}
+// 점수를 add 만큼 올려 보여 주고 톡 튀게 한다 (실제 값을 넘지 않게)
+function bumpPts(i, add) {
+  if (ui.pts?.[i] != null) ui.pts[i] = Math.min(truePts(i), ui.pts[i] + add);
+  const el = document.querySelector(`.member[data-i="${i}"] .pts`);
+  if (!el) return;
+  el.innerHTML = ptsHTML(i);
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  lastPts[i] = shownPts(i);
+}
+function releasePts() {
+  if (!ui.pts) return;
+  const held = ui.pts;
+  ui.pts = null;
+  for (const k of Object.keys(held)) if (held[k] !== truePts(+k)) bumpPts(+k, 0);   // 남은 차이(보너스 등)는 끝에서 한 번에
+}
+
 function holdHp(list) {
+  holdPts(list);
   if (S && !S.boss && list.some(f => f.type === 'score')) ui.crownFreeze = true;   // 점수 연출이 끝날 때 왕관을 옮긴다
   if (!S?.boss) { ui.hpHold = null; return; }
   const dealt = list.filter(f => f.type === 'damage').reduce((a, f) => a + f.amount - (f.blocked || 0), 0);
@@ -1538,6 +1567,7 @@ async function attackFx(f) {
     const r = el?.getBoundingClientRect();
     if (r) FX().impact(r.left + r.width / 2, r.top + r.height / 2, attackStyle(f.pts, f.cat).pal, 1);
     sfx.boom(1);
+    if (!S.boss) bumpPts(f.player, scoreGain(f));
     ui.dice = null;
     render();
     return;
@@ -1555,7 +1585,7 @@ async function attackFx(f) {
     pal: style.pal, power: style.power,
     onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); },
     onLaunch: () => sfx.whoosh(),
-    onImpact: () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); },
+    onImpact: () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); },
   });
   ui.dice = null;
   render();
@@ -1565,6 +1595,8 @@ async function attackFx(f) {
 // ── 대전: 점수 = 공격 ────────────────────────────────────────────────────────
 // 점수를 적으면 주사위 에너지를 받은 내 영웅이 직업 기술로 나를 뺀 모두를 친다 (점수는 그대로 내 것 — 연출만).
 // 역전해서 1등이 되면 왕관이 옛 1등에게서 튕겨 나와 나에게 온다.
+// 이번 점수로 오르는 양 (칸 점수 + 함께 붙은 보너스)
+const scoreGain = f => f.pts + (f.bonus || []).reduce((a, b) => a + (b.amt || 0), 0);
 function duelTarget(me) {
   let best = -1, bs = -Infinity;
   S.players.forEach((p, i) => { if (i !== me && E.finalScore(p) > bs) { bs = E.finalScore(p); best = i; } });
@@ -1601,6 +1633,7 @@ async function duelFx(f) {
     if (big) shake(app.querySelector('.party'), Math.min(2, style.power));
   };
   if (prefs.fx === 'min') {                 // 연출 최소: 기술은 건너뛰고 명중만
+    bumpPts(me, scoreGain(f));
     foes.forEach(foe => { fx.impact(porPos(foe).x, porPos(foe).y, style.pal, 1); hitFoe(foe, true); });
   } else {
     fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
@@ -1609,6 +1642,7 @@ async function duelFx(f) {
     const o = await fx.gather(from, { pal: style.pal, power: style.power, onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); } });
     tray.restore();
     await fx.flyOrb(o, porPos(me), { pal: style.pal, power: style.power, ms: 240, shrink: 0.7 });
+    bumpPts(me, scoreGain(f));                // 에너지가 내 영웅에게 닿는 순간 점수가 오른다
     fx.burst(porPos(me).x, porPos(me).y, { n: 18, pal: style.pal, speed: [60, 200], life: [0.3, 0.6] });
     memberFx(me, 'atk', 620);
     sfx.whoosh();
@@ -1694,6 +1728,7 @@ async function playFx(list) {
   }
   ui.hpHold = null;
   ui.crownFreeze = false;
+  releasePts();
 }
 
 async function playOne(f) {
@@ -1725,6 +1760,7 @@ async function playOne(f) {
         break;
       case 'damage':
         sfx.clack(12); buzz(30);
+        bumpPts(f.player, f.amount);
         if (ui.hpHold != null) ui.hpHold = ui.hpHold - (f.amount - (f.blocked || 0)) <= S.boss.hp ? null : ui.hpHold - (f.amount - (f.blocked || 0));
         render(); hitBoss(f.amount, f.blocked);
         if (S.boss.hp <= 0 && ui.hpHold == null && !ui.bossGone) { await wait(260); await bossDeath(); }
@@ -1744,10 +1780,12 @@ async function playOne(f) {
       case 'xp': sfx.coin(); floatText(`+${f.amount} EXP`, 'mint', 38); await wait(320); break;
       case 'levelup':
         sfx.levelup();
+        if (!S.boss) bumpPts(f.player, E.LEVEL_POINTS);
         if (!(online ? p.token === online.token : !p.bot)) await toast(ico('up'), `${p.name} 레벨 ${f.level}!`, '특성 카드를 고르는 중…', 1300);
         break;
       case 'retro':
         sfx.quest();
+        if (!S.boss) bumpPts(f.player, f.amount);
         floatText(`${E.perkInfo(f.perk).ko} 소급 +${f.amount}`, 'gold', 0);
         await wait(500);
         break;
