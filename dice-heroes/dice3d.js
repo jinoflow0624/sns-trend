@@ -338,6 +338,7 @@ export class DiceTray {
         if (p.clear) { m.transparent = true; m.depthWrite = false; m.side = THREE.DoubleSide; }   // 투명: 반대편 눈까지 비친다
         m.userData.baseTransparent = !!p.clear;
         this.faceMats[v] = m;
+        if (this.ghostMats) this.ghostMats[v] = null;    // 스킨이 바뀌면 봉인용 반투명 재질도 새로
         if (old) { old.map?.dispose(); if (old.emissiveMap !== old.map) old.emissiveMap?.dispose(); old.bumpMap?.dispose(); old.dispose(); }
       }
       this.outlineOn = !!p.outline;
@@ -510,6 +511,17 @@ export class DiceTray {
     this.refreshGlow();
   }
 
+  // 마왕의 봉인: 봉인된 주사위는 굴리지도 함으로 옮기지도 않고 트레이 제자리에 둔다.
+  // 다른 주사위가 구르는 동안은 반투명해져(물리에도 넣지 않는다) 장애물이 되지 않고 그대로 통과한다
+  setSealed(idx = []) {
+    this.sealed = new Set(idx);
+    this.dirty = true;
+  }
+  ghostMat(v) {
+    this.ghostMats ||= {};
+    return (this.ghostMats[v] ||= Object.assign(this.faceMats[v].clone(), { transparent: true, opacity: 0.28, depthWrite: false }));
+  }
+
   homeZ(d) { return d.boxed ? BOX_Z : ROW_Z; }
 
   // 트레이 ↔ 주사위 함 사이를 포물선으로 폴짝 옮긴다
@@ -600,6 +612,7 @@ export class DiceTray {
     const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
     this.dice.forEach((d, i) => {
       if (!rolling[i]) {
+        if (this.sealed?.has(i)) return;           // 봉인된 주사위: 제자리에서 반투명 (frame 참고)
         // 고정한 주사위는 주사위 함으로 옮긴다 → 트레이가 비어 굴리는 주사위를 막지 않는다
         if (!d.blank && !d.boxed) { this.hop(d, true, HOP_MS); boxing = true; }
         return;
@@ -747,7 +760,7 @@ export class DiceTray {
     const bodies = [];
     let lastHit = 0;
     this.dice.forEach((d, i) => {
-      if (!rolling[i]) { if (!d.blank && !d.boxed) this.hop(d, true); return; }
+      if (!rolling[i]) { if (!d.blank && !d.boxed && !this.sealed?.has(i)) this.hop(d, true); return; }
       d.boxed = false; d.hop = null; d.lift = 0;
       const b = new CANNON.Body({ mass: 1, material: dieMat, shape });
       b.allowSleep = false;
@@ -935,6 +948,7 @@ export class DiceTray {
       });
       if (k >= 1) {
         this.anim = null;
+        this.dirty = true;                          // 반투명했던 봉인 주사위를 되돌린다
         a.resolve();
       }
     }
@@ -976,7 +990,18 @@ export class DiceTray {
       d.aura.position.copy(d.mesh.position);
       d.aura.quaternion.copy(d.mesh.quaternion);
       d.aura.scale.setScalar(1.14 * scale);
-      d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank || !!m.userData.baseTransparent; });
+      const ghost = !!(this.sealed?.has(i) && (this.anim || this.live) && !d.blank);
+      if (ghost !== !!d.ghost) {
+        d.ghost = ghost;
+        d.mesh.material = ghost ? d.faces.map(v => this.ghostMat(v)) : d.faces.map(v => this.faceMats[v]);
+        d.outline.visible = !ghost && !!this.outlineOn;
+        d.core.visible = !ghost && !!this.coreOn;
+        d.mesh.castShadow = !ghost && !this.faceMats[1].userData.baseTransparent;
+      }
+      if (ghost) {                                  // 봉인의 보랏빛이 은은하게 맥박친다
+        d.aura.material.color.set(0x9A5BFF);
+        d.auraI = Math.max(d.auraI, 0.55 + Math.sin(t / 140) * 0.2);
+      } else d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank || !!m.userData.baseTransparent; });
     });
     const jo = this.live?.jolt;
     if (jo) this.camera.position.set(this.camBase.x + jo.x, this.camBase.y, this.camBase.z - jo.y);

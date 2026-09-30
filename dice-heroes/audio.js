@@ -643,6 +643,41 @@ export const sfx = {
     voice(sfxGain, { type: 'p12', f: 900, slide: 200, t, dur: 0.5, vol: 0.1, vib: 3 });
     voice(sfxGain, { type: 'p25', f: 300, slide: 1200, t: t + 0.1, dur: 0.45, vol: 0.06 });
   },
+  // 마왕의 봉인 (약 1.3초, fx.seal 과 박자를 맞춤): 낮게 깔리는 어둠 → 사방에서 쇠사슬이 날아와 철컥철컥 →
+  // 사슬이 끼익 조여들고 → 쾅! 자물쇠가 잠긴다
+  seal() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 70, slide: 38, t, dur: 1.3, vol: 0.3 });
+    voice(sfxGain, { type: 'p50', f: 55, slide: 41, t, dur: 1.1, vol: 0.05, vib: 2 });
+    noise(sfxGain, { t, dur: 0.5, vol: 0.06, hp: 150, lp: 900 });
+    const clank = (tt, f, v = 1) => {           // 쇠사슬 고리 부딪히는 소리: 짧은 잡음 + 어긋난 금속 배음
+      noise(sfxGain, { t: tt, dur: 0.02, vol: 0.14 * v, hp: 2500, lp: 11000 });
+      ping(sfxGain, { f, t: tt, dur: 0.22, vol: 0.06 * v, type: 'square' });
+      ping(sfxGain, { f: f * 2.76, t: tt, dur: 0.12, vol: 0.04 * v });
+      ping(sfxGain, { f: f * 1.007, t: tt, dur: 0.2, vol: 0.03 * v });
+    };
+    [0.36, 0.43, 0.5, 0.57].forEach((d, i) => { clank(t + d, 1100 + i * 170); clank(t + d + 0.03, 1700 + i * 90, 0.5); });
+    voice(sfxGain, { type: 'p12', f: 1100, slide: 140, t: t + 0.62, dur: 0.38, vol: 0.07, vib: 4 });   // 끼이익 조여든다
+    for (let i = 0; i < 5; i++) clank(t + 0.66 + i * 0.05, 900 + Math.random() * 600, 0.45);
+    voice(sfxGain, { type: 'tri', f: 170, slide: 28, t: t + 1.0, dur: 0.6, vol: 0.4 });            // 쾅
+    noise(sfxGain, { t: t + 1.0, dur: 0.45, vol: 0.2, hp: 80, lp: 2400 });
+    clank(t + 1.0, 620, 1.4);
+    clank(t + 1.06, 930, 0.7);
+    buzz(90); setTimeout(() => buzz(220), 1000);
+  },
+  // 봉인이 풀린다: 사슬이 떨리다 산산조각 → 유리처럼 부서지는 소리 + 밝게 솟구치는 화음
+  unseal() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    for (let i = 0; i < 6; i++) noise(sfxGain, { t: t + i * 0.035, dur: 0.02, vol: 0.05 + i * 0.02, hp: 3000, lp: 10000 });
+    noise(sfxGain, { t: t + 0.22, dur: 0.35, vol: 0.2, hp: 3500, lp: 12000 });
+    voice(sfxGain, { type: 'tri', f: 120, slide: 40, t: t + 0.22, dur: 0.35, vol: 0.25 });
+    for (let i = 0; i < 9; i++) ping(sfxGain, { f: 2000 + Math.random() * 2600, t: t + 0.22 + Math.random() * 0.25, dur: 0.25, vol: 0.04 });
+    voice(sfxGain, { type: 'p25', f: 300, slide: 1800, t: t + 0.24, dur: 0.35, vol: 0.06 });
+    ['C6', 'E6', 'G6', 'C7', 'E7'].forEach((n, i) => ping(sfxGain, { f: freq(n), t: t + 0.36 + i * 0.05, dur: 0.5, vol: 0.05, type: 'triangle' }));
+    buzz(120);
+  },
   drum() {
     if (!unlock()) return;
     const t = ctx.currentTime;
