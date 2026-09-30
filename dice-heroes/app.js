@@ -2293,7 +2293,8 @@ function showDashboard() {
 // 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
 let heartT = 0;
 function diceHit(v, i, t) {
-  const skin = diceSkin(prefs.diceSkin);
+  // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
+  const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : prefs.diceSkin);
   sfx.hit(skin.sound, v);
   if (v > 3.5) rumble(v);   // 던지는 동안·흔드는 동안 부딪힐 때마다 진동
   if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
@@ -3043,13 +3044,9 @@ addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: 
 // 설치형 앱(PWA)으로 쓸 때 오프라인 캐시
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai')) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
-  // 예전(캐시 우선) 서비스 워커가 새 것으로 바뀌면 한 번 새로고침해서 최신 파일로 연다
-  let reloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded || screen === 'game' || screen === 'lobby') return;
-    reloaded = true;
-    location.reload();
-  });
+  // 새 서비스 워커로 바뀌어도(새 버전 배포 뒤 첫 실행 · 처음 방문) 새로고침하지 않는다.
+  // 서비스 워커는 네트워크 우선이라 이미 최신 파일로 떠 있다 — 예전엔 여기서 새로고침해서
+  // 게임을 켜고 몇 초 뒤 갑자기 처음부터 다시 시작되는 일이 있었다.
 }
 
 // ?demo 봇 대결, ?skip 타이틀로 바로, ?demon 마왕 바로 열기 (화면 점검용)

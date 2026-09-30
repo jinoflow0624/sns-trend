@@ -247,8 +247,8 @@ test('드래곤 용린 갑옷: 상단 피해 감소', () => {
   E.roll(s);
   s.dice = [6, 6, 6, 1, 2];
   const hp0 = s.boss.hp;
-  E.commitScore(s, 'sixes');                 // 18 × 50%
-  assert.equal(hp0 - s.boss.hp, 9);
+  E.commitScore(s, 'sixes');                 // 18 × 65% (보통: 35% 감소)
+  assert.equal(hp0 - s.boss.hp, 12);
 });
 test('오크 약탈: 0점이면 회복, 전쟁의 북: 굴림 -1', () => {
   const s = coop('orc', 1);
@@ -307,7 +307,8 @@ test('수도승: 남은 굴림 1회당 조정 +1', () => {
   assert.equal(s.players[1].nudge, 0);
 });
 test('운명 비틀기는 두 번째 굴림 직후, fx에 바뀌기 전 눈', () => {
-  const s = coop('lich', 2, 1);              // 매우 어려움: 매 라운드
+  const s = coop('lich', 2, 1);              // 어려움: 2라운드마다
+  s.round = 2;
   s.board = [];
   E.drainFx(s);
   E.roll(s);

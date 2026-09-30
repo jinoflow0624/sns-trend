@@ -226,9 +226,9 @@ export const BOSSES = [
     id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
     skills: [
       { id: 'breath', icon: '🔥', ko: '화염 숨결',
-        desc: d => `${[4, 3, 2][d]}라운드마다 모두의 첫 굴림에서 가장 높은 주사위 ${d === 2 ? 2 : 1}개가 1로 타 버린다` },
+        desc: d => `${[4, 3, 2][d]}라운드마다 모두의 첫 굴림에서 가장 높은 주사위 1개가 1로 타 버린다` },
       { id: 'scale', icon: '🛡️', ko: '용린 갑옷',
-        desc: d => `에이스~식스로 주는 피해가 ${[25, 50, 50][d]}% 줄어든다` },
+        desc: d => `에이스~식스로 주는 피해가 ${[25, 35, 45][d]}% 줄어든다` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 화염 숨결을 매 라운드 쓴다' : '어려움에서만 쓴다' },
     ],
   },
@@ -238,7 +238,7 @@ export const BOSSES = [
       { id: 'drums', icon: '🥁', ko: '전쟁의 북',
         desc: d => `${[3, 2, 2][d]}라운드마다 모두의 굴림 기회가 1 줄어든다` },
       { id: 'plunder', icon: '💰', ko: '약탈',
-        desc: d => `누군가 0점을 기록하면 체력을 ${[10, 20, 30][d]} 회복한다` },
+        desc: d => `누군가 0점을 기록하면 체력을 ${[10, 20, 25][d]} 회복한다` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 약탈 회복량이 두 배' : '어려움에서만 쓴다' },
     ],
   },
@@ -248,9 +248,9 @@ export const BOSSES = [
     partyAdj: [[1, 0.95, 0.96, 0.97], [1.01, 0.94, 0.945, 0.95], [1, 0.95, 0.94, 0.93]],
     skills: [
       { id: 'twist', icon: '🌀', ko: '운명 비틀기',
-        desc: d => `${[3, 2, 1][d] === 1 ? '매' : [3, 2, 1][d]} 라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
+        desc: d => `${[3, 2, 2][d]}라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
       { id: 'bone', icon: '💀', ko: '뼈 방패',
-        desc: d => `${[4, 3, 3][d]}라운드마다 인원 1명당 ${[12, 20, 28][d]}의 보호막을 두른다 (체력보다 먼저 깎임)` },
+        desc: d => `${[4, 3, 3][d]}라운드마다 인원 1명당 ${[12, 16, 24][d]}의 보호막을 두른다 (체력보다 먼저 깎임)` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '어려움에서만 쓴다' },
     ],
   },
@@ -285,7 +285,7 @@ function bossAfterRoll(s) {
   const b = s.boss;
   if (!b) return;
   const from = s.dice.slice();
-  const n = b.diff === 2 ? 2 : 1;
+  const n = 1;
   if (b.id === 'dragon' && s.rollNo === 1 && (every(s, [4, 3, 2][b.diff]) || enraged(s))) {
     const idx = s.dice.map((v, i) => i).sort((x, y) => s.dice[y] - s.dice[x]).slice(0, n);
     idx.forEach(i => (s.dice[i] = 1));
@@ -298,7 +298,7 @@ function bossAfterRoll(s) {
     log(s, `마왕의 봉인! 주사위 ${idx.length}개가 봉인됐다`);
     fx(s, { type: 'boss', skill: 'seal', dice: idx });
   }
-  if (b.id === 'lich' && s.rollNo === 2 && every(s, [3, 2, 1][b.diff])) {
+  if (b.id === 'lich' && s.rollNo === 2 && every(s, [3, 2, 2][b.diff])) {
     const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
     idx.forEach(i => (s.dice[i] = 7 - s.dice[i]));
     log(s, `모르가스가 운명을 비틀었다! 주사위 ${idx.length}개가 뒤집혔다`);
@@ -670,10 +670,10 @@ export function commitScore(s, cat) {
   if (s.boss) {
     // 점수(상단 보너스 달성분 포함)가 곧 피해. 드래곤 갑옷은 상단 피해를 깎는다.
     let dmg = cardTotal(p) - before;
-    if (s.boss.id === 'dragon' && UPPER_IDS.includes(cat)) dmg *= 1 - [0.25, 0.5, 0.5][s.boss.diff];
+    if (s.boss.id === 'dragon' && UPPER_IDS.includes(cat)) dmg *= 1 - [0.25, 0.35, 0.45][s.boss.diff];
     dealDamage(s, s.turn, Math.round(dmg), cat);
     if (pts === 0 && s.boss.id === 'orc' && !s.ended) {
-      const heal = [10, 20, 30][s.boss.diff] * (enraged(s) ? 2 : 1);
+      const heal = [10, 20, 25][s.boss.diff] * (enraged(s) ? 2 : 1);
       s.boss.hp = Math.min(s.boss.maxHp, s.boss.hp + heal);
       log(s, `그로크의 약탈! 체력 ${heal} 회복`);
       fx(s, { type: 'boss', skill: 'plunder', amount: heal });
@@ -801,7 +801,7 @@ function endTurn(s) {
     if (s.ended) return;
     const b = s.boss;
     if (b?.id === 'lich' && every(s, [4, 3, 3][b.diff])) {
-      const add = [12, 20, 28][b.diff] * s.players.length;
+      const add = [12, 16, 24][b.diff] * s.players.length;
       b.shield += add;
       log(s, `모르가스가 뼈 방패를 둘렀다! 보호막 +${add}`);
       fx(s, { type: 'boss', skill: 'bone', amount: add });
