@@ -9,7 +9,7 @@ import { titleScene, storyScene, STORY } from './scenes.js';
 import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
-import { FX, attackStyle, RAGE, shake } from './fx.js';
+import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
@@ -1816,6 +1816,48 @@ async function duelFx(f) {
   render();
   tray.restore();
 }
+// 상단 보너스 달성 (에이스~식스 합 63, 전사 50): 점수 공격과 따로 한 방 더.
+// 내 영웅에게 황금 빛기둥이 내리꽂히고 → 보스전은 황금 구체가 보스에게, 대전은 직업 기술이 나를 뺀 모두에게
+async function upperFx(f) {
+  const me = f.player, fx = FX();
+  sfx.quest(); buzz(80);
+  floatText(`상단 보너스 달성! +${f.amount}`, 'gold', -10, 'tray', 'sparkle');
+  if (prefs.fx === 'min') { if (!S.boss) bumpPts(me, f.amount); return; }
+  fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
+  const pal = PALETTES.gold, src = porPos(me);
+  // 1) 황금 빛기둥 + 고리
+  fx.flash('#FFD24A', 280, 0.3);
+  await fx.add((g, k) => {
+    const w = 26 * (1 - k * 0.6);
+    g.globalAlpha = 0.55 * (1 - k);
+    g.fillStyle = '#FFD24A'; g.fillRect(Math.round(src.x - w), 0, Math.round(w * 2), Math.round(src.y + 20));
+    g.globalAlpha = 0.9 * (1 - k);
+    g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(src.x - 4), 0, 8, Math.round(src.y + 20));
+    g.globalAlpha = 1;
+  }, 420);
+  fx.ring(src.x, src.y, { color: '#FFD24A', r0: 8, r1: 90, dur: 520, width: 6 });
+  fx.burst(src.x, src.y, { n: 36, pal, speed: [80, 260], life: [0.4, 0.8] });
+  memberFx(me, 'atk', 620);
+  sfx.whoosh();
+  // 2) 공격
+  if (S.boss) {
+    const r = document.getElementById('boss-art')?.getBoundingClientRect();
+    const tgt = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 120 };
+    await fx.flyOrb({ cx: src.x, cy: src.y, R: 16, tt: 0 }, tgt, { pal, power: 2.4, ms: 380, shrink: 0.8 });
+    fx.impact(tgt.x, tgt.y, pal, 2.4);
+    sfx.boom(2.4); shake(app.querySelector('.game'), 2);
+  } else {
+    const foes = S.players.map((_, i) => i).filter(i => i !== me);
+    const cls = S.players[me].cls;
+    await Promise.all(foes.map((foe, k) => wait(k * 70 / fx.speed)
+      .then(() => fx.strike(cls, src, porPos(foe), { pal, power: 2.2, onHit: () => { memberFx(foe, 'hurt', 520); sfx.boom(2); } }))
+      .then(() => fx.impact(porPos(foe).x, porPos(foe).y, pal, 1.6))));
+    bumpPts(me, f.amount);
+    shake(app.querySelector('.party'), 1.6);
+    await crownCheck(me);
+  }
+}
+
 // 1등이 바뀌었으면 왕관을 옮긴다 (점수 연출이 끝날 때까지 왕관은 옛 자리에 둔다)
 async function crownCheck(me) {
   const now = leaders();
@@ -1951,6 +1993,7 @@ async function playOne(f) {
           await wait(380);
         }
         break;
+      case 'upper': await upperFx(f); break;
       case 'damage':
         sfx.clack(12); buzz(30);
         bumpPts(f.player, f.amount);
@@ -1995,6 +2038,7 @@ async function playOne(f) {
         break;
       case 'encore': sfx.card(); danceFx(f.player); floatText(`${p.name} 앙코르! 굴림 +1`, 'gold', -20, 'tray', 'up'); await wait(400); break;
       case 'spill': floatText(`넘친 충전 → 경험치 +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
+      case 'save': floatText(`굴림 ${f.n}번 아낌 → 경험치 +${f.xp}`, 'mint', 74, 'tray', 'up'); await wait(300); break;
     }
   }
   ui.hpHold = null;

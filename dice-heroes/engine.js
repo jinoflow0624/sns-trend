@@ -328,6 +328,7 @@ function dealDamage(s, pIdx, amount, source) {
 // 뒤집기·조정 충전 보상. 둘 다 최대 CHARGE_CAP 개까지만 들고 있을 수 있다.
 // 넘친 충전은 1개당 경험치 SPILL_XP 로 바꿔 두었다가, 다음에 점수를 기록할 때 함께 받는다 (그 턴에 넘친 건 그 자리에서).
 export const CHARGE_CAP = 3, SPILL_XP = 10;
+export const SAVE_XP = 5;        // 남은 굴림 1개당 경험치 (수도승 제외)
 function addCharges(s, p, r, why) {
   const f = r.flip || 0, n = r.nudge || 0;
   const addF = Math.max(0, Math.min(f, CHARGE_CAP - p.flip)), addN = Math.max(0, Math.min(n, CHARGE_CAP - p.nudge));
@@ -667,23 +668,41 @@ export function commitScore(s, cat) {
   const catName = catInfo(cat).ko;
   log(s, `${p.name} · ${catName} ${pts}점`);
   fx(s, { type: 'score', player: s.turn, cat, pts, bonus, dice: s.dice.slice() });
+  // 상단 보너스: 에이스~식스 합이 기준(63, 전사 50)을 넘는 순간 따로 한 방 더 (보스전 · 대전 모두 별도 공격 연출)
+  const upperHit = UPPER_IDS.includes(cat) && upperSum(p) >= upperNeed(p) && upperSum(p) - pts < upperNeed(p);
   if (s.boss) {
-    // 점수(상단 보너스 달성분 포함)가 곧 피해. 드래곤 갑옷은 상단 피해를 깎는다.
-    let dmg = cardTotal(p) - before;
-    if (s.boss.id === 'dragon' && UPPER_IDS.includes(cat)) dmg *= 1 - [0.25, 0.3, 0.35][s.boss.diff];
-    dealDamage(s, s.turn, Math.round(dmg), cat);
+    // 점수가 곧 피해. 드래곤 갑옷은 상단(보너스 포함) 피해를 깎는다.
+    const armor = s.boss.id === 'dragon' && UPPER_IDS.includes(cat) ? 1 - [0.25, 0.3, 0.35][s.boss.diff] : 1;
+    const dmg = cardTotal(p) - before - (upperHit ? UPPER_BONUS : 0);
+    dealDamage(s, s.turn, Math.round(dmg * armor), cat);
+    if (upperHit && !s.ended) {
+      log(s, `${p.name} · 상단 보너스 달성! +${UPPER_BONUS}`);
+      fx(s, { type: 'upper', player: s.turn, amount: UPPER_BONUS });
+      dealDamage(s, s.turn, Math.round(UPPER_BONUS * armor), 'upper');
+    }
     if (pts === 0 && s.boss.id === 'orc' && !s.ended) {
       const heal = [10, 15, 20][s.boss.diff] * (enraged(s) ? 2 : 1);
       s.boss.hp = Math.min(s.boss.maxHp, s.boss.hp + heal);
       log(s, `그로크의 약탈! 체력 ${heal} 회복`);
       fx(s, { type: 'boss', skill: 'plunder', amount: heal });
     }
+  } else if (upperHit) {
+    log(s, `${p.name} · 상단 보너스 달성! +${UPPER_BONUS}`);
+    fx(s, { type: 'upper', player: s.turn, amount: UPPER_BONUS });
   }
 
   // 수도승: 굴림을 아낀 만큼 조정 충전
   if (p.cls === 'monk' && s.rollsLeft > 0) {
     log(s, `${p.name} · 수도승의 절제! 조정 +${s.rollsLeft}`);
     addCharges(s, p, { nudge: s.rollsLeft }, 'monk');
+  }
+
+  // 굴림 아끼기: 남은 굴림 1개당 경험치 (수도승은 위에서 조정으로 받으니 제외)
+  if (p.cls !== 'monk' && s.rollsLeft > 0) {
+    const bonus = s.rollsLeft * SAVE_XP;
+    log(s, `${p.name} · 굴림 ${s.rollsLeft}번 아낌 → 경험치 +${bonus}`);
+    fx(s, { type: 'save', player: s.turn, n: s.rollsLeft, xp: bonus });
+    xp += bonus;
   }
 
   for (const qid of quests) {

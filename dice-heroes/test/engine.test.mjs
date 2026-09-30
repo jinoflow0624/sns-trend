@@ -79,10 +79,10 @@ test('점수만큼 경험치, 문턱을 넘으면 레벨업 카드 3장', () => 
   E.roll(s);
   s.dice = [6, 6, 6, 5, 5];
   s.board = [];                 // 퀘스트 영향 제거
-  E.commitScore(s, 'choice');   // 28점 → 28xp → Lv2 (25 필요), 남은 3
+  E.commitScore(s, 'choice');   // 28점 + 굴림 2번 아낌(×5) → 38xp → Lv2 (25 필요), 남은 13
   const p = s.players[0];
   assert.equal(p.level, 2);
-  assert.equal(p.xp, 3);
+  assert.equal(p.xp, 13);
   assert.equal(s.phase, 'levelup');
   assert.equal(p.offers[0].length, 3);
   assert.equal(new Set(p.offers[0]).size, 3);
@@ -96,7 +96,19 @@ test('0점을 기록하면 위로 경험치', () => {
   s.dice = [1, 2, 3, 5, 6];
   s.board = [];
   E.commitScore(s, 'yacht');
-  assert.equal(s.players[0].xp, E.ZERO_XP);
+  assert.equal(s.players[0].xp, E.ZERO_XP + 2 * E.SAVE_XP);   // 굴림 2번 아낀 경험치도 함께
+});
+test('굴림 아끼기: 남은 굴림 1개당 경험치 5, 수도승은 조정으로만', () => {
+  for (const cls of ['gambler', 'monk']) {
+    const s = E.createGame([{ name: 'A', cls }, { name: 'B', cls: 'gambler' }], 3);
+    s.board = [];
+    E.roll(s);
+    s.dice = [1, 2, 3, 5, 6];
+    E.commitScore(s, 'yacht');
+    const p = s.players[0];
+    assert.equal(p.xp, E.ZERO_XP + (cls === 'monk' ? 0 : 2 * E.SAVE_XP));
+    assert.ok(E.drainFx(s).some(f => f.type === 'save') === (cls !== 'monk'));
+  }
 });
 test('의뢰를 깨면 난이도별 뒤집기·조정과 경험치를 얻고 보드가 다시 채워진다', () => {
   const s = game();
@@ -443,6 +455,23 @@ test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀�
   s.players[0].nudge = 1; s.players[0].flip = 1;
   assert.throws(() => E.useNudge(s, 0, s.dice[0] < 6 ? 1 : -1));
   assert.throws(() => E.useFlip(s, 0));
+});
+
+test('상단 보너스: 기준을 넘는 순간 따로 공격 (보스전은 피해 두 번, 전사는 50)', () => {
+  for (const [cls, need] of [['gambler', 63], ['warrior', 50]]) {
+    const s = E.createGame([{ name: 'A', cls }], 4, { mode: 'coop', boss: 'orc', diff: 0 });
+    const p = s.players[0];
+    Object.assign(p.scores, { aces: 3, twos: 6, threes: 9, fours: 12, fives: need === 63 ? 15 : 5 });
+    s.board = [];
+    E.drainFx(s);
+    E.roll(s);
+    s.dice = [6, 6, 6, 6, 1];
+    E.commitScore(s, 'sixes');
+    const list = E.drainFx(s);
+    const up = list.find(f => f.type === 'upper');
+    assert.ok(up && up.amount === E.UPPER_BONUS, cls);
+    assert.deepEqual(list.filter(f => f.type === 'damage').map(f => f.amount), [24, E.UPPER_BONUS]);
+  }
 });
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
