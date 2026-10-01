@@ -1,4 +1,4 @@
-// 다이스 히어로즈 룰 엔진 테스트 — node test/engine.test.mjs
+// 요트 히어로즈 룰 엔진 테스트 — node test/engine.test.mjs
 import assert from 'node:assert/strict';
 import * as E from '../engine.js';
 
