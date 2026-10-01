@@ -1227,6 +1227,21 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .shake-guide .sg-r { right: -34px; animation-delay: .25s; }
 @media (prefers-reduced-motion: reduce) { .tap-ring, .tap-hand, .sg-phone, .sg-phone i { animation: none; } }
 
+/* 무희 춤사위 · 도박사 배팅 */
+.dance-btn { background: #6A1E52 !important; border-color: #FF9AD0 !important; }
+.bet-badge { position: absolute; left: 8px; bottom: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 11px; color: #3B2300; background: var(--gold); border: 2px solid var(--ink); pointer-events: none; }
+.bet-badge .ico { width: 12px; height: 12px; }
+.bet-pick .bet-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 10px 0; }
+.bet-pick .bet-cat { display: grid; justify-items: start; gap: 2px; padding: 8px 10px; text-align: left; }
+.bet-pick .bet-cat small { font-size: 10px; color: var(--muted); }
+.pbtn.roll.bet-go { animation: pulseGold 1.2s ease-in-out infinite; }
+@keyframes pulseGold { 50% { box-shadow: 0 0 0 3px var(--gold), 0 0 14px 4px rgba(255, 210, 74, .7); } }
+/* 상단 보너스: 화면 가운데 큰 +35 */
+.upper-burst { position: fixed; left: 50%; top: 45%; transform: translate(-50%, -50%); z-index: 60; display: grid; justify-items: center; pointer-events: none; animation: upperBurst 1.4s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+.upper-burst b { font-size: 64px; color: #FFF0A8; text-shadow: 0 0 16px #FFD24A, 4px 4px 0 #8A4A00, -2px -2px 0 #FF9A1F; letter-spacing: 2px; }
+.upper-burst small { font-size: 16px; font-weight: 700; color: #3B2300; background: var(--gold); padding: 2px 10px; border: 3px solid var(--ink); }
+@keyframes upperBurst { 0% { transform: translate(-50%, -50%) scale(.2); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; } 35% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { transform: translate(-50%, -80%) scale(.9); opacity: 0; } }
+
 /* ── 큰 영웅 (연출 동안 주사위판 왼쪽 아래) ─ 기운 받기 · 공격 · 피격 ─────────────── */
 /* .actor 위치·등장/퇴장 › .actor-body 좌우 뒤집기 › .actor-fig 동작(transform) › img + 번쩍임 판(.af, opacity).
    폰에서 버벅이지 않게 transform·opacity 만 움직인다 (filter 애니메이션은 매 프레임 다시 그린다). --dur 는 JS 가 연출 속도에 맞춰 넣는다 */

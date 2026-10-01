@@ -99,8 +99,8 @@ test('0점을 기록하면 위로 경험치', () => {
   assert.equal(s.players[0].xp, E.ZERO_XP + 2 * E.SAVE_XP);   // 굴림 2번 아낀 경험치도 함께
 });
 test('굴림 아끼기: 남은 굴림 1개당 경험치 5, 수도승은 조정으로만', () => {
-  for (const cls of ['gambler', 'monk']) {
-    const s = E.createGame([{ name: 'A', cls }, { name: 'B', cls: 'gambler' }], 3);
+  for (const cls of ['bard', 'monk']) {
+    const s = E.createGame([{ name: 'A', cls }, { name: 'B', cls: 'bard' }], 3);
     s.board = [];
     E.roll(s);
     s.dice = [1, 2, 3, 5, 6];
@@ -166,6 +166,7 @@ test('칸 점수 = 기본 점수 + 보너스 합 (보너스는 모두 이름이 
         const p = E.current(s);
         for (const r of E.preview(s)) {
           if (r.taken) continue;
+          if (p.cls === 'gambler' && p.bet && r.id !== p.bet) { assert.equal(r.pts, 0); continue; }   // 배팅 안 한 칸은 0점
           const base = Math.max(0, ...E.fiveSets(s.dice).map(d => E.baseScore(r.id, d)));
           assert.equal(r.pts, base + r.bonus.reduce((a, b) => a + b.amt, 0), `${r.id} ${s.dice}`);
           if (!base) assert.equal(r.pts, 0);
@@ -418,22 +419,42 @@ test('일격필살은 첫 굴림만, 맨손 승부는 도구를 안 썼을 때�
   assert.ok(E.questMet('twin', [5, 5, 6, 6, 1]) && !E.questMet('twin', [5, 6, 6, 6, 1]));
   assert.ok(E.questMet('sum15', [3, 3, 3, 3, 3]));
 });
-test('무희: 다른 구역에 번갈아 적으면 +1, 앙코르는 한 번 굴림 +1', () => {
+test('무희 춤사위: 큰 점수를 적으면 버프(쌓임), 쓰면 모든 주사위 +1 (6 유지) · 라운드당 1번', () => {
   const s = E.createGame([{ name: 'D', cls: 'dancer' }], 9);
   s.board = []; s.events = s.events.map(() => 'calm');
   const p = s.players[0];
-  E.roll(s); s.dice = [1, 2, 3, 4, 6];
-  assert.equal(E.catScore(s, p, 'choice'), 16);            // 첫 기록은 보너스 없음
-  E.commitScore(s, 'choice'); E.drainFx(s);
+  E.roll(s); s.dice = [6, 6, 5, 5, 4];
+  E.commitScore(s, 'choice');                               // 26점 ≥ 기준 → 버프 1
+  assert.equal(p.dance, 1);
+  assert.ok(E.drainFx(s).some(f => f.type === 'danceGain'));
   while (s.phase === 'levelup') E.pickPerk(s, p.offers[0][0]);
-  E.roll(s); s.dice = [6, 6, 6, 2, 3];
-  assert.equal(E.catScore(s, p, 'sixes'), 18 + E.DANCE_BONUS);   // 아래 칸 → 위 칸
-  assert.equal(E.catScore(s, p, 'full'), 0);
-  assert.equal(p.encore, 1);
-  const left = s.rollsLeft;
-  E.useEncore(s);
-  assert.equal(s.rollsLeft, left + 1);
-  assert.throws(() => E.useEncore(s));
+  assert.throws(() => E.useDance(s));                      // 굴리기 전엔 못 쓴다
+  E.roll(s); s.dice = [1, 2, 6, 3, 5];
+  E.useDance(s);
+  assert.deepEqual(s.dice, [2, 3, 6, 4, 6]);
+  assert.equal(p.dance, 0);
+  p.dance = 2;
+  assert.throws(() => E.useDance(s));                      // 같은 라운드에 두 번은 안 된다
+  E.roll(s); s.dice = [1, 1, 1, 1, 2];
+  E.commitScore(s, 'ones');                                 // 4점 < 기준 → 버프 없음
+  assert.equal(p.dance, 2);
+});
+test('도박사 배팅: 굴리기 전 필수, 고른 족보는 ×배율, 다른 칸·0점은 점수 없음', () => {
+  const s = E.createGame([{ name: 'G', cls: 'gambler' }], 9);
+  s.board = []; s.events = s.events.map(() => 'calm');
+  const p = s.players[0];
+  assert.throws(() => E.roll(s));                           // 배팅 전엔 굴릴 수 없다
+  E.placeBet(s, 'sixes');
+  E.roll(s);
+  assert.throws(() => E.placeBet(s, 'choice'));             // 굴린 뒤엔 못 바꾼다
+  s.dice = [6, 6, 6, 2, 3];
+  assert.equal(E.catScore(s, p, 'sixes'), Math.round(18 * E.CLASS_TUNE.betMul));
+  assert.equal(E.catScore(s, p, 'choice'), 0);              // 배팅 안 한 칸은 0
+  E.commitScore(s, 'choice');
+  assert.equal(p.scores.choice, 0);
+  while (s.phase === 'levelup') E.pickPerk(s, p.offers[0][0]);
+  assert.equal(p.bet, null);                                // 다음 라운드엔 새로 배팅
+  assert.equal(E.botAction(s).type, 'bet');                 // 봇도 먼저 배팅한다
 });
 test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀림), 짝수 라운드 패기(뒤집기·조정 금지, 굴림은 그대로)', () => {
   const s = E.createGame([{ name: 'A', cls: 'monk' }], 11, { mode: 'coop', boss: 'demon', diff: 0 });
@@ -458,7 +479,7 @@ test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀�
 });
 
 test('상단 보너스: 기준을 넘는 순간 따로 공격 (보스전은 피해 두 번, 전사는 50)', () => {
-  for (const [cls, need] of [['gambler', 63], ['warrior', 50]]) {
+  for (const [cls, need] of [['bard', 63], ['warrior', 50]]) {
     const s = E.createGame([{ name: 'A', cls }], 4, { mode: 'coop', boss: 'orc', diff: 0 });
     const p = s.players[0];
     Object.assign(p.scores, { aces: 3, twos: 6, threes: 9, fours: 12, fives: need === 63 ? 15 : 5 });
