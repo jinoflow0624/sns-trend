@@ -68,7 +68,10 @@ const urlRoom = Net.normalizeCode(new URLSearchParams(location.search).get('room
 // ── 도우미 ───────────────────────────────────────────────────────────────────
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // 온라인에서 뒤에 새 상태가 밀려 있으면 연출을 빨리 넘긴다 (다른 사람 행동을 따라잡느라 내 차례가 늦어지지 않게)
-const rushing = () => !!online && online.latest !== undefined;
+// 온라인: 더 새 게임 상태(새 연출)가 기다리고 있으면 연출을 빨리 감아 따라잡는다.
+// 접속 신호(seen)·반응만 바뀐 소식은 세지 않는다 — 예전엔 Firebase 의 접속 신호 때문에 시작하자마자
+// 보스 등장·라운드 배너가 4배 빨리 지나가 안 보였다
+const rushing = () => !!online && online.latest != null && (online.latest.fxId || 0) > online.fxSeen;
 const wait = ms => new Promise(r => setTimeout(r, (rushing() ? ms * 0.25 : ms) / fxRate()));
 const br = s => esc(s).replace(/\n/g, '<br>');
 // 보스 그림: 마왕은 어려움에서 분노하면(체력 절반 아래) 분노한 모습으로
@@ -124,6 +127,7 @@ function showSplash() {
 // ── 타이틀 · 메뉴 ────────────────────────────────────────────────────────────
 function showTitle() {
   screen = 'title';
+  clearActors();
   Wal.loadWallet().then(syncOwned, () => {});
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
@@ -412,6 +416,7 @@ function onModeAct(act, t, o) {
 
 function showSetup() {
   screen = 'setup';
+  clearActors();
   if (pick.for !== 'room') setStage(null);
   layer.innerHTML = '';
   playBgm('title');
@@ -691,6 +696,7 @@ const alive = token => token === online?.token || (!!online?.room?.seen?.[token]
 const needReady = room => room.seats.filter(s => !s.bot && s.token !== room.host);
 function showLobby() {
   screen = 'lobby';
+  clearActors();
   const room = online.room;
   const host = isHost();
   const link = Net.inviteLink(online.code);
@@ -1504,7 +1510,7 @@ async function bossBanner() {
   layer.innerHTML = `<div class="overlay boss-intro" data-act="skip-banner" style="--c:${b.color}">
     <div class="bi-band"><i></i></div>
     <div class="bi-band thin"></div>
-    <img class="spr bi-boss" src="${spriteURL(b.id, 12)}" alt="">
+    <img class="spr bi-boss${isImgSprite(b.id) ? ' spr-hi' : ''}" src="${spriteURL(b.id, 12)}" alt="">
     <div class="bi-name"><small>${esc(b.ko.slice(0, cut))}</small><b>${esc(b.ko.slice(cut + 1))}</b></div>
     <div class="bi-flash"></div>
   </div>`;
@@ -1686,12 +1692,15 @@ function actorSpot() {
 }
 const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });
 function actorIn(cls, face = null) {
-  document.querySelectorAll('.actor').forEach(el => el.remove());
+  clearActors();
   const at = actorSpot(), spd = FX().speed || 1;
   const el = document.createElement('div');
   el.className = 'actor in';
   el.style.cssText = `left:${at.x}px;top:${at.y}px;--sz:${at.sz}px;--c:${E.classInfo(cls).color};--spd:${spd}`;
-  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${spriteURL(cls, 4)}" alt=""></div>`;
+  // 동작은 transform 과 opacity 만 움직인다 (필터 애니메이션은 폰에서 매 프레임 다시 그려 버벅였다).
+  // 번쩍임·붉게 깜빡임은 그림 모양으로 오린 색 판(mask)을 겹쳐 투명도만 바꾼다
+  const src = spriteURL(cls, 4);
+  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')"><img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i></div></div>`;
   document.body.appendChild(el);
   const a = { el, cls, ...at, img: el.querySelector('img') };
   if (face) actorFace(a, face);
@@ -1706,21 +1715,24 @@ function actorFace(a, tgt) {
 }
 // 동작 하나 (ms 뒤 끝난다). 동작 그림이 있으면 그동안 그 그림으로
 function actorPose(a, pose, ms) {
-  if (!a?.el.isConnected) return Promise.resolve();
+  if (!a?.el.isConnected || screen !== 'game') { a?.el.remove(); return Promise.resolve(); }
   const spd = FX().speed || 1, dur = ms / spd;
-  const url = heroPoseURL(a.cls, pose), base = spriteURL(a.cls, 4);
-  if (url && isImgSprite(`${a.cls}_${pose}`)) a.img.src = spriteURL(`${a.cls}_${pose}`, 4);
+  const posed = isImgSprite(`${a.cls}_${pose}`) && heroPoseURL(a.cls, pose);
+  if (posed) a.img.src = posed;
   a.el.classList.remove('in', 'charge', 'attack', 'hurt');
   void a.el.offsetWidth;
   a.el.style.setProperty('--dur', `${dur}ms`);
   a.el.classList.add(pose);
-  return new Promise(r => setTimeout(() => { if (a.img.src !== base) a.img.src = base; r(); }, dur));
+  return new Promise(r => setTimeout(() => { if (posed) a.img.src = spriteURL(a.cls, 4); r(); }, dur));
 }
 function actorOut(a, delay = 0) {
   if (!a) return;
   setTimeout(() => { a.el.classList.add('out'); setTimeout(() => a.el.remove(), 260); }, delay / (FX().speed || 1));
+  if (screen !== 'game') a.el.remove();
 }
-const bigActor = () => prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const bigActor = () => screen === 'game' && prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+// 게임을 나가면 연출 중이던 큰 영웅도 지운다 (예전엔 메인 메뉴에 남았다)
+function clearActors() { document.querySelectorAll('.actor').forEach(el => el.remove()); }
 
 // 보스에게 맞는 동작: 큰 영웅이 나와 움찔 밀려난다 (스킬 연출과 함께)
 function actorHurtFx(i, delay = 260) {
@@ -2836,6 +2848,7 @@ function coachNext() {
 
 // ── 진행 루프 (한 기기) ──────────────────────────────────────────────────────
 async function step() {
+  if (!S) return;
   ui.busy = true;
   const fx = E.drainFx(S);
   if (!S.ended && !S.tutorial) store.set(KEYS.save, S);
@@ -2884,12 +2897,13 @@ async function botStep() {
     tray?.setHeld(S.held);
     sfx.hold();
     await wait(ui.fast ? 150 : 500);
+    if (!S || screen !== 'game') return;   // 기다리는 사이 메인 메뉴로 나갔으면 그만
   }
   if (act.type === 'roll' || act.type === 'reroll') {
     const mask = rollMask();
     E.applyBot(S, act);
     await rollAnimated(mask);
-    return step();
+    return S && step();
   }
   if (act.type === 'flip' || act.type === 'nudge') sfx.select();
   if (act.type === 'perk') {

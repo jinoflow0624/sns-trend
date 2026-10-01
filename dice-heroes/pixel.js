@@ -315,9 +315,9 @@ export function preloadSprites() {
     const im = new Image();
     im.onload = () => {
       for (const key of [...cache.keys()]) if (key.startsWith(k + ':')) cache.delete(key);   // 대신 그린 도트는 지운다
-      // 그림이 오기 전에 이미 그려 둔 초상화(<img data-spr>)도 새 그림으로 바꾼다
-      if (typeof document !== 'undefined') document.querySelectorAll(`img[data-spr="${k}"]`).forEach(el => { el.src = spriteURL(k, +el.dataset.sc || 4); el.classList.add('spr-hi'); });
+      im.decode?.().catch(() => {});   // 처음 화면에 나올 때 압축을 푸느라 멈칫하지 않게 미리 풀어 둔다
     };
+    im.decoding = 'async';
     im.src = url;
     imgs[k] = im;
   }
@@ -363,8 +363,14 @@ export function spriteCanvas(name, scale = 4, flip = false) {
   return c;
 }
 
+// <img src> 용 주소. 그림 파일은 파일 주소 그대로 (브라우저가 한 번 풀어 두고 다시 쓴다).
+// 예전엔 화면을 다시 그릴 때마다 256~512px 캔버스를 PNG 글자로 다시 만들어(toDataURL) 폰에서 버벅였다 — 도트도 한 번만 만든다
+const urls = new Map();
 export function spriteURL(name, scale = 4) {
-  return spriteCanvas(name, scale).toDataURL();
+  if (IMG_SPRITES[name]) return IMG_SPRITES[name];
+  const key = `${name}:${scale}`;
+  if (!urls.has(key)) urls.set(key, spriteCanvas(name, scale).toDataURL());
+  return urls.get(key);
 }
 
 export function drawSprite(g, name, x, y, scale = 4, flip = false) {
