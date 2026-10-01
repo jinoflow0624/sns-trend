@@ -290,8 +290,22 @@ const OWN = {"warrior": {"a": "#D9463E", "A": "#8E2226", "h": "#6B3E26"}, "rogue
 
 const cache = new Map();
 
-// 그림 파일로 된 스프라이트 — 마왕 릴리스 (512px 도트 그림: 평소 · 분노). 파일을 받기 전에는 위의 도트(demon)로 대신 그린다
-const IMG_SPRITES = { demon: 'assets/boss/demon.png', demon_rage: 'assets/boss/demon_rage.png' };
+// 직업 그림 — 'v2' 새 그림(assets/heroes, tools/make_hero_sprites.py) · 'v1' 예전 16×16 도트(위의 SPRITES).
+// 예전 그림으로 되돌리려면 이 줄만 'v1' 로 바꾼다. 주소에 ?art=v1 을 붙이면 그 기기에서만 잠깐 예전 그림으로 볼 수 있다.
+const HERO_ART_DEFAULT = 'v2';
+export const HERO_ART = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('art')) || HERO_ART_DEFAULT;
+export const HERO_IDS = ['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer'];
+// 직업별 동작 그림(선택): 'assets/heroes/<직업>_<charge|attack|hurt>.webp' 를 넣고 여기에 적으면 그 동작에서 그 그림으로 바뀐다.
+// 없으면 기본 그림 하나를 움직여 동작을 만든다 (style.css 의 .actor).
+export const HERO_POSES = {};   // 예: { warrior: ['attack', 'hurt'] }
+
+// 그림 파일로 된 스프라이트 — 마왕 릴리스 (512px 도트 그림: 평소 · 분노) · 새 직업 그림. 파일을 받기 전에는 위의 도트로 대신 그린다
+const IMG_SPRITES = {
+  demon: 'assets/boss/demon.png', demon_rage: 'assets/boss/demon_rage.png',
+  ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp`],
+    ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp`])]))),
+};
+export const heroPoseURL = (id, pose) => (IMG_SPRITES[`${id}_${pose}`] || IMG_SPRITES[id] || null);
 const imgs = {};
 export const isImgSprite = name => !!IMG_SPRITES[name];
 export function preloadSprites() {
@@ -299,7 +313,11 @@ export function preloadSprites() {
   for (const [k, url] of Object.entries(IMG_SPRITES)) {
     if (imgs[k]) continue;
     const im = new Image();
-    im.onload = () => { for (const key of [...cache.keys()]) if (key.startsWith(k + ':')) cache.delete(key); };   // 대신 그린 도트는 지운다
+    im.onload = () => {
+      for (const key of [...cache.keys()]) if (key.startsWith(k + ':')) cache.delete(key);   // 대신 그린 도트는 지운다
+      im.decode?.().catch(() => {});   // 처음 화면에 나올 때 압축을 푸느라 멈칫하지 않게 미리 풀어 둔다
+    };
+    im.decoding = 'async';
     im.src = url;
     imgs[k] = im;
   }
@@ -328,7 +346,7 @@ export function spriteCanvas(name, scale = 4, flip = false) {
   if (IMG_SPRITES[name]) {
     const c = imgCanvas(name, scale, flip);
     if (c) { cache.set(key, c); return c; }
-    if (!SPRITES[name]) return spriteCanvas('demon', scale, flip);   // 분노 그림을 받기 전: 평소 도트로
+    if (!SPRITES[name]) return spriteCanvas(name.startsWith('demon') ? 'demon' : name.split('_')[0], scale, flip);   // 분노·동작 그림을 받기 전: 평소 도트로
   }
   const rows = SPRITES[name];
   const pal = { ...PALETTE, ...(OWN[name] || {}) };
@@ -345,8 +363,14 @@ export function spriteCanvas(name, scale = 4, flip = false) {
   return c;
 }
 
+// <img src> 용 주소. 그림 파일은 파일 주소 그대로 (브라우저가 한 번 풀어 두고 다시 쓴다).
+// 예전엔 화면을 다시 그릴 때마다 256~512px 캔버스를 PNG 글자로 다시 만들어(toDataURL) 폰에서 버벅였다 — 도트도 한 번만 만든다
+const urls = new Map();
 export function spriteURL(name, scale = 4) {
-  return spriteCanvas(name, scale).toDataURL();
+  if (IMG_SPRITES[name]) return IMG_SPRITES[name];
+  const key = `${name}:${scale}`;
+  if (!urls.has(key)) urls.set(key, spriteCanvas(name, scale).toDataURL());
+  return urls.get(key);
 }
 
 export function drawSprite(g, name, x, y, scale = 4, flip = false) {

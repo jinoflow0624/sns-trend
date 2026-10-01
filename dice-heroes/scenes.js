@@ -1,6 +1,5 @@
-// 도트 배경 장면 — 타이틀 화면과 스토리 인트로.
+// 도트 배경 장면 — 타이틀 화면.
 // 낮은 해상도(가로 약 160~200px)로 그린 뒤 정수 배율로 키워 진짜 도트처럼 보이게 한다.
-import { drawSprite } from './pixel.js';
 
 const PIPS = { 1: [[1, 1]], 2: [[0, 0], [2, 2]], 3: [[0, 0], [1, 1], [2, 2]], 4: [[0, 0], [2, 0], [0, 2], [2, 2]],
   5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]], 6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]] };
@@ -110,8 +109,6 @@ function ground(g, w, h, y) {
 }
 
 // ── 타이틀 ───────────────────────────────────────────────────────────────────
-const HEROES = ['warrior', 'rogue', 'mage', 'bard', 'gambler'];
-
 export function titleScene(canvas) {
   return new PixelStage(canvas, (g, w, h, t) => {
     sky(g, w, h);
@@ -131,80 +128,6 @@ export function titleScene(canvas) {
       pixelDie(g, x, y, v, Math.abs(Math.cos(t * 3 + i)));
       g.fillStyle = 'rgba(255, 200, 61, .5)';
       g.fillRect(x + 4, y - 6, 1, 4);
-    }
-    // 영웅들이 언덕 위에서 들썩인다
-    const n = HEROES.length, gap = Math.min(30, Math.floor((w - 20) / n));
-    const x0 = Math.floor((w - gap * (n - 1) - 16) / 2);
-    HEROES.forEach((id, i) => {
-      const bob = Math.floor(Math.abs(Math.sin(t * 4 + i * 1.3)) * 2);
-      g.fillStyle = 'rgba(0,0,0,.35)';
-      g.fillRect(x0 + i * gap + 3, gy + 1, 10, 2);
-      drawSprite(g, id, x0 + i * gap, gy - 15 - bob, 1);
-    });
-  });
-}
-
-// ── 스토리 인트로 ────────────────────────────────────────────────────────────
-export const STORY = [
-  { scene: 'sky',    text: '천 년에 한 번,\n하늘에서 운명의 주사위 다섯 개가 떨어진다.' },
-  { scene: 'board',  text: '주사위를 굴리는 자는 의뢰를 해결하고,\n운명을 비트는 힘을 얻어 점점 더 강해진다.' },
-  { scene: 'heroes', text: '전사, 도적, 마법사, 음유시인, 도박사.\n다섯 영웅이 그 주사위를 노린다.' },
-  { scene: 'fairy',  text: '그리고 나는 길잡이 요정 루루!\n열두 번의 굴림 안에 전설이 되는 법을 알려 줄게.' },
-];
-
-export function storyScene(canvas, getPanel) {
-  return new PixelStage(canvas, (g, w, h, t) => {
-    const p = STORY[getPanel()]?.scene || 'sky';
-    const gy = Math.floor(h * 0.62);
-    if (p === 'sky') {
-      sky(g, w, h, '#05031A', '#1A1150', '#3B2476');
-      stars(g, w, h, t, 21);
-      for (let i = 0; i < 5; i++) {
-        const x = Math.floor(w * (0.2 + i * 0.15)), y = Math.floor(((t * 20 + i * 18) % (gy + 20)) - 20);
-        g.fillStyle = 'rgba(255, 220, 120, .45)';
-        g.fillRect(x + 4, y - 14, 1, 12);
-        pixelDie(g, x, y, 1 + ((i + Math.floor(t * 5)) % 6), Math.abs(Math.cos(t * 2 + i)));
-      }
-      ridge(g, w, gy + 10, 24, 5, '#1B1242', 9);
-    } else if (p === 'board') {
-      sky(g, w, h, '#1E2A5E', '#6A4C9C', '#E08A6A');
-      ridge(g, w, gy, 20, 6, '#3A2A6A', 4);
-      ground(g, w, h, gy);
-      // 의뢰 게시판
-      const bx = Math.floor(w / 2) - 30, by = gy - 44;
-      g.fillStyle = '#4A2A14'; g.fillRect(bx + 4, by + 30, 4, 16); g.fillRect(bx + 52, by + 30, 4, 16);
-      g.fillStyle = '#1A1030'; g.fillRect(bx - 1, by - 1, 62, 34);
-      g.fillStyle = '#8A5A2A'; g.fillRect(bx, by, 60, 32);
-      g.fillStyle = '#B07A3E'; g.fillRect(bx, by, 60, 3);
-      [[6, 7], [24, 5], [42, 8]].forEach(([dx, dy], i) => {
-        const sway = Math.round(Math.sin(t * 2 + i));
-        g.fillStyle = '#F5E3B8'; g.fillRect(bx + dx, by + dy + sway, 13, 17);
-        g.fillStyle = '#C79B5A'; for (let k = 0; k < 4; k++) g.fillRect(bx + dx + 2, by + dy + 4 + k * 3 + sway, 9, 1);
-        g.fillStyle = '#E8435A'; g.fillRect(bx + dx + 5, by + dy - 1 + sway, 3, 2);
-      });
-      drawSprite(g, 'warrior', bx - 22, gy - 16, 1);
-      drawSprite(g, 'mage', bx + 66, gy - 16, 1, true);
-    } else if (p === 'heroes') {
-      sky(g, w, h, '#150B3A', '#5B2A7A', '#E0664A');
-      ridge(g, w, gy, 26, 6, '#40205E', 12, t * 4);
-      ground(g, w, h, gy);
-      const n = HEROES.length, gap = Math.min(30, Math.floor((w - 16) / n));
-      const x0 = Math.floor((w - gap * (n - 1) - 32) / 2);
-      HEROES.forEach((id, i) => {
-        const jump = Math.max(0, Math.sin(t * 5 - i * 0.7)) * 6;
-        drawSprite(g, id, x0 + i * gap, gy - 32 - Math.floor(jump), 2);
-      });
-    } else {
-      sky(g, w, h, '#0E1A4A', '#2A4C9C', '#7AC4E0');
-      stars(g, w, h * 0.5, t, 33);
-      ground(g, w, h, gy);
-      const fy = gy - 60 + Math.floor(Math.sin(t * 3) * 4);
-      g.fillStyle = 'rgba(156, 242, 255, .25)';
-      g.fillRect(Math.floor(w / 2) - 24, fy - 4, 48, 56);
-      drawSprite(g, 'fairy', Math.floor(w / 2) - 24, fy, 3);
-      const r = rng(Math.floor(t * 8));
-      g.fillStyle = '#FFF3A0';
-      for (let i = 0; i < 8; i++) g.fillRect(Math.floor(w / 2 - 30 + r() * 60), Math.floor(fy + r() * 50), 1, 1);
     }
   });
 }
