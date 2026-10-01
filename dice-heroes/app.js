@@ -1,11 +1,11 @@
-// 화면 흐름: 스플래시 → 타이틀(터치) → [첫 실행: 스토리 → 튜토리얼] → 메뉴
+// 화면 흐름: 스플래시 → 타이틀(터치) → [첫 실행: 튜토리얼] → 메뉴
 //   메뉴 → 파티 편성(대전/협동) → 게임 → 결과
 //   메뉴 → 온라인 방(만들기/참가) → 로비 → 게임 → 결과
 // 룰은 engine.js, 온라인은 net.js, 3D 주사위는 dice3d.js, 소리는 audio.js, 도트 그림은 pixel.js · scenes.js.
 import * as E from './engine.js';
 import { GAME } from './config.js';
-import { spriteURL, isImgSprite } from './pixel.js';
-import { titleScene, storyScene, STORY } from './scenes.js';
+import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
+import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
@@ -54,7 +54,7 @@ let setup = store.get(KEYS.setup) || [
 let opts = { mode: 'versus', boss: 'dragon', diff: 1, ...(store.get(KEYS.opts) || {}) };
 let myName = store.get(KEYS.name) || setup.find(p => !p.bot)?.name || '모험가';
 
-let screen = null;          // 'splash' | 'title' | 'story' | 'setup' | 'online' | 'lobby' | 'game'
+let screen = null;          // 'splash' | 'title' | 'setup' | 'online' | 'lobby' | 'game'
 let stage = null;           // 도트 배경 애니메이션
 let S = null;               // 게임 상태
 let tray = null;            // 3D 주사위
@@ -73,7 +73,7 @@ const wait = ms => new Promise(r => setTimeout(r, (rushing() ? ms * 0.25 : ms) /
 const br = s => esc(s).replace(/\n/g, '<br>');
 // 보스 그림: 마왕은 어려움에서 분노하면(체력 절반 아래) 분노한 모습으로
 const bossArt = () => (S?.boss?.id === 'demon' && S.boss.diff === 2 && S.boss.hp * 2 < S.boss.maxHp && S.boss.hp > 0 ? 'demon_rage' : S?.boss?.id);
-const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
+const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
 const eventIco = (id, cls) => ico(EVENT_ICON[id], cls);
@@ -291,57 +291,6 @@ if (SHAKE_OK && prefs.shake) {
     const ask = () => { removeEventListener('pointerup', ask, true); DeviceMotionEvent.requestPermission().catch(() => {}); };
     addEventListener('pointerup', ask, true);
   }
-}
-
-// ── 스토리 ───────────────────────────────────────────────────────────────────
-let story = { i: 0, shown: 0, timer: null, then: null };
-function showStory(then) {
-  screen = 'story';
-  story = { i: 0, shown: 0, timer: null, then };
-  app.innerHTML = `
-  <div class="screen story" data-act="story-next">
-    <canvas class="scene" aria-hidden="true"></canvas>
-    <button class="skip" data-act="story-skip">건너뛰기 ▶▶</button>
-    <div class="dialog">
-      <span class="speaker"></span>
-      <p class="line"></p>
-      <span class="more">▼</span>
-    </div>
-  </div>`;
-  setStage(storyScene(app.querySelector('.scene'), () => story.i));
-  typeLine();
-}
-function typeLine() {
-  const line = STORY[story.i].text;
-  const el = app.querySelector('.line');
-  app.querySelector('.speaker').textContent = story.i === STORY.length - 1 ? '루루' : '나레이션';
-  story.shown = 0;
-  clearInterval(story.timer);
-  story.timer = setInterval(() => {
-    story.shown++;
-    el.innerHTML = br(line.slice(0, story.shown));
-    if (story.shown % 2) sfx.tap();
-    if (story.shown >= line.length) clearInterval(story.timer);
-  }, 42);
-}
-function storyNext() {
-  const line = STORY[story.i].text;
-  if (story.shown < line.length) {
-    story.shown = line.length;
-    clearInterval(story.timer);
-    app.querySelector('.line').innerHTML = br(line);
-    return;
-  }
-  sfx.select();
-  if (story.i < STORY.length - 1) { story.i++; typeLine(); return; }
-  endStory();
-}
-function endStory() {
-  clearInterval(story.timer);
-  markSeen('story');
-  const then = story.then;
-  setStage(null);
-  then ? then() : showTitle();
 }
 
 // ── 게임 준비: 모드 → 보스(협동만) → 캐릭터, 단계별 화면 ─────────────────────
@@ -1727,6 +1676,64 @@ async function trayReady() {
   return t;
 }
 
+// ── 큰 영웅: 기운 받기 · 공격 · 피격 동작 ─────────────────────────────────────
+// 게임 화면의 초상화는 28~32px 라 동작이 안 보인다 → 연출 동안 주사위판 왼쪽 아래에 영웅을 크게 세워 움직인다.
+// 동작은 기본 그림 하나를 늘이고 기울여 만든다 (style.css .actor). pixel.js HERO_POSES 에 동작 그림을 적으면 그 그림으로 바뀐다.
+function actorSpot() {
+  const r = document.getElementById('tray')?.getBoundingClientRect();
+  const sz = Math.round(Math.min(120, Math.max(84, (r?.width || 360) * 0.27)));
+  return r ? { x: r.left + sz * 0.62, y: r.bottom - 8, sz } : { x: innerWidth * 0.25, y: innerHeight * 0.62, sz };
+}
+const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });
+function actorIn(cls, face = null) {
+  document.querySelectorAll('.actor').forEach(el => el.remove());
+  const at = actorSpot(), spd = FX().speed || 1;
+  const el = document.createElement('div');
+  el.className = 'actor in';
+  el.style.cssText = `left:${at.x}px;top:${at.y}px;--sz:${at.sz}px;--c:${E.classInfo(cls).color};--spd:${spd}`;
+  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${spriteURL(cls, 4)}" alt=""></div>`;
+  document.body.appendChild(el);
+  const a = { el, cls, ...at, img: el.querySelector('img') };
+  if (face) actorFace(a, face);
+  return a;
+}
+// 목표 쪽을 보게 하고(그림은 오른쪽을 본다), 덤벼드는 방향을 정한다
+function actorFace(a, tgt) {
+  const c = actorCenter(a), dx = tgt.x - c.x, dy = tgt.y - c.y, d = Math.hypot(dx, dy) || 1;
+  a.el.style.setProperty('--fx', dx < -10 ? -1 : 1);
+  a.el.style.setProperty('--lx', `${Math.round((Math.abs(dx) / d) * a.sz * 0.22)}px`);   // 몸이 뒤집히므로 가로는 늘 앞쪽(+)
+  a.el.style.setProperty('--ly', `${Math.round((dy / d) * a.sz * 0.22)}px`);
+}
+// 동작 하나 (ms 뒤 끝난다). 동작 그림이 있으면 그동안 그 그림으로
+function actorPose(a, pose, ms) {
+  if (!a?.el.isConnected) return Promise.resolve();
+  const spd = FX().speed || 1, dur = ms / spd;
+  const url = heroPoseURL(a.cls, pose), base = spriteURL(a.cls, 4);
+  if (url && isImgSprite(`${a.cls}_${pose}`)) a.img.src = spriteURL(`${a.cls}_${pose}`, 4);
+  a.el.classList.remove('in', 'charge', 'attack', 'hurt');
+  void a.el.offsetWidth;
+  a.el.style.setProperty('--dur', `${dur}ms`);
+  a.el.classList.add(pose);
+  return new Promise(r => setTimeout(() => { if (a.img.src !== base) a.img.src = base; r(); }, dur));
+}
+function actorOut(a, delay = 0) {
+  if (!a) return;
+  setTimeout(() => { a.el.classList.add('out'); setTimeout(() => a.el.remove(), 260); }, delay / (FX().speed || 1));
+}
+const bigActor = () => prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 보스에게 맞는 동작: 큰 영웅이 나와 움찔 밀려난다 (스킬 연출과 함께)
+function actorHurtFx(i, delay = 260) {
+  const p = S.players[i];
+  if (!p || !bigActor()) return;
+  const a = actorIn(p.cls, (() => { const r = document.getElementById('boss-art')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 60 }; })());
+  setTimeout(() => {
+    actorPose(a, 'hurt', 560).then(() => actorOut(a, 120));
+    memberFx(i, 'hurt', 520);
+    buzz(40);
+  }, delay / (FX().speed || 1));
+}
+
 async function attackFx(f) {
   if (!(await trayReady())) { ui.dice = null; return; }
   if (!S.boss && duelTarget(f.player) >= 0) return duelFx(f);
@@ -1749,12 +1756,36 @@ async function attackFx(f) {
     const r = el?.getBoundingClientRect();
     return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 80 };
   };
-  await fx.energy(from, target, {
-    pal: style.pal, power: style.power,
-    onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); },
-    onLaunch: () => sfx.whoosh(),
-    onImpact: () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); },
-  });
+  const onImpact = () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); };
+  const cls = S.players[f.player]?.cls;
+  if (S.boss && cls && bigActor()) {
+    // 1) 영웅 등장 + 주사위가 기운으로 뭉친다 → 2) 기운이 영웅에게 스며든다(기운 받기) → 3) 직업 기술로 보스를 친다(공격)
+    const tgt = target();
+    const a = actorIn(cls, tgt);
+    const o = await fx.gather(from, { pal: style.pal, power: style.power, onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); } });
+    tray.restore();
+    await fx.flyOrb(o, actorCenter(a), { pal: style.pal, power: style.power, ms: 240, shrink: 0.7 });
+    fx.burst(actorCenter(a).x, actorCenter(a).y, { n: 22, pal: style.pal, speed: [60, 200], life: [0.3, 0.6] });
+    fx.ring(actorCenter(a).x, actorCenter(a).y, { color: style.pal[1] || '#FFFFFF', r0: a.sz * 0.9, r1: a.sz * 0.25, dur: 380, width: 4 });
+    await actorPose(a, 'charge', 420);
+    const swing = actorPose(a, 'attack', 520);
+    await wait(150);
+    sfx.whoosh();
+    const hand = { x: a.x + a.sz * 0.25 * (tgt.x < a.x ? -1 : 1), y: a.y - a.sz * 0.6 };
+    await fx.strike(cls, hand, target(), { pal: style.pal, power: style.power, onHit: big => { if (big) shake(app.querySelector('.game'), Math.min(2, style.power)); } });
+    const t2 = target();
+    fx.impact(t2.x, t2.y, style.pal, style.power);
+    onImpact();
+    await swing;
+    actorOut(a, 80);
+  } else {
+    await fx.energy(from, target, {
+      pal: style.pal, power: style.power,
+      onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); },
+      onLaunch: () => sfx.whoosh(),
+      onImpact,
+    });
+  }
   ui.dice = null;
   render();
   tray.restore();
@@ -1815,17 +1846,29 @@ async function duelFx(f) {
     fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
     const from = (f.dice || S.dice).map((_, i) => tray.screenPos(i));
     // 1) 주사위가 에너지로 뭉친다 → 2) 내 영웅에게 스며든다 → 3) 영웅이 뛰어올라 기술 발사 → 4) 상대 모두 명중
+    // 큰 영웅이 있으면 기운이 그 영웅에게 모이고(기운 받기) 거기서 기술이 나간다(공격). 없으면 초상화에서
+    const a = bigActor() ? actorIn(cls, porPos(foes[0])) : null;
     const o = await fx.gather(from, { pal: style.pal, power: style.power, onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); } });
     tray.restore();
-    await fx.flyOrb(o, porPos(me), { pal: style.pal, power: style.power, ms: 240, shrink: 0.7 });
+    const src = a ? actorCenter(a) : porPos(me);
+    await fx.flyOrb(o, src, { pal: style.pal, power: style.power, ms: 240, shrink: 0.7 });
     bumpPts(me, scoreGain(f));                // 에너지가 내 영웅에게 닿는 순간 점수가 오른다
-    fx.burst(porPos(me).x, porPos(me).y, { n: 18, pal: style.pal, speed: [60, 200], life: [0.3, 0.6] });
+    fx.burst(src.x, src.y, { n: 18, pal: style.pal, speed: [60, 200], life: [0.3, 0.6] });
     memberFx(me, 'atk', 620);
+    let swing = null;
+    if (a) {
+      fx.ring(src.x, src.y, { color: style.pal[1] || '#FFFFFF', r0: a.sz * 0.9, r1: a.sz * 0.25, dur: 380, width: 4 });
+      await actorPose(a, 'charge', 420);
+      swing = actorPose(a, 'attack', 520);
+      await wait(150);
+    }
     sfx.whoosh();
-    await wait(140);
+    if (!a) await wait(140);
+    const from2 = a ? { x: a.x + a.sz * 0.25 * (porPos(foes[0]).x < a.x ? -1 : 1), y: a.y - a.sz * 0.6 } : porPos(me);
     await Promise.all(foes.map((foe, k) => wait(k * 70 / fx.speed)
-      .then(() => fx.strike(cls, porPos(me), porPos(foe), { pal: style.pal, power: style.power, onHit: big => hitFoe(foe, big) }))
+      .then(() => fx.strike(cls, from2, porPos(foe), { pal: style.pal, power: style.power, onHit: big => hitFoe(foe, big) }))
       .then(() => fx.impact(porPos(foe).x, porPos(foe).y, style.pal, style.power * (foes.length > 1 ? 0.6 : 0.8)))));
+    if (swing) { await swing; actorOut(a, 60); }
     if (f.cat === 'yacht') { fx.flash('#FFFFFF', 320, 0.5); shake(app.querySelector('.game'), 2.5); }
   }
   ui.dice = null;
@@ -2027,6 +2070,7 @@ async function playOne(f) {
         if (f.skill === 'unseal') { await skillFx(f); break; }
         const b = E.bossInfo(S.boss.id);
         const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
+        if (f.skill !== 'bone') actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;
         break;
@@ -2531,7 +2575,7 @@ function showSettings(inGame = false) {
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
-        '<button class="pbtn" data-act="story">스토리 다시 보기</button><button class="pbtn" data-act="tutorial">튜토리얼 다시 보기</button><button class="pbtn gold" data-act="close">닫기</button>'}
+        '<button class="pbtn" data-act="tutorial">튜토리얼 다시 보기</button><button class="pbtn gold" data-act="close">닫기</button>'}
     </div>
   </div></div>`;
 }
@@ -3013,12 +3057,11 @@ function onAct(act, t) {
   if (act === 'touch') {
     unlock(); unlocked = true; sfx.start();
     if (urlRoom) return joinRoom(urlRoom);
-    if (!seen.story) return showStory(() => (seen.tutorial ? showTitle() : startTutorial()));
+    // 첫 실행이면 튜토리얼부터 (예전엔 스토리 인트로를 먼저 봤다 — 'story' 표시는 '첫 실행을 지났다'는 뜻으로 그대로 쓴다)
+    if (!seen.story) { markSeen('story'); if (!seen.tutorial) return startTutorial(); }
     return showTitle();
   }
   if (act === 'skip-splash') return showTitle();
-  if (act === 'story-skip') return endStory();
-  if (act === 'story-next') return storyNext();
   if (act === 'noop') return;
   if (act === 'close' || act === 'close-bg') { sfx.back(); closeSkinPreview(); layer.innerHTML = ''; return; }
   if (act === 'skins') { sfx.select(); return showSkins('dice'); }
@@ -3082,7 +3125,6 @@ function onAct(act, t) {
     } catch { return toast(ico('warn'), '백업 코드가 올바르지 않아요', '처음부터 끝까지 빠짐없이 붙여 넣었는지 확인해 주세요.', 2200); }
   }
   if (act === 'rejoin') { sfx.select(); if (!navigator.onLine) return offlineToast(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
-  if (act === 'story') { sfx.select(); layer.innerHTML = ''; return showStory(() => showTitle()); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
   if (act === 'new') { sfx.select(); return beginPick('local', opts); }
   if (act === 'online') {
@@ -3149,7 +3191,6 @@ function handleBack() {
     sfx.select(); showSettings(true); return true;                     // 게임 중엔 일시정지 메뉴
   }
   if (screen === 'lobby') { onAct('room-leave', {}); return true; }
-  if (screen === 'story') { endStory(); return true; }
   if (screen === 'setup') { pickBack(); return true; }
   if (['online', 'dashboard'].includes(screen)) { sfx.back(); showTitle(); return true; }
   return false;
