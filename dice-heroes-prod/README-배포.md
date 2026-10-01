@@ -1,18 +1,18 @@
-# 다이스 히어로즈 배포판 (Firebase + 구글 플레이)
+# 요트 히어로즈 배포판 (Firebase + 구글 플레이)
 
 게임 소스는 하나(`../dice-heroes`)이고, 빌드할 때 **테스트판**과 **배포판**으로 나뉩니다.
 
 | | 테스트판 | 배포판 |
 |---|---|---|
 | 주소 | GitHub Pages `…/sns-trend/dice-heroes/` | Firebase Hosting `https://diceheroes-4fbbb.web.app` |
-| Firebase | 아콰이어와 같이 쓰는 프로젝트 (`acquire-950a0`) | **다이스 히어로즈 전용 프로젝트** |
+| Firebase | 아콰이어와 같이 쓰는 프로젝트 (`acquire-950a0`) | **요트 히어로즈 전용 프로젝트** |
 | 로그인 | 없음 (기기 토큰) | 익명 로그인 (가입 없이 기기마다 고유 번호) |
 | DB 보안 규칙 | 열려 있음 (시험용) | `database.rules.json` — 방 구성원만 게임 상태를 바꾼다 |
 | App Check | 없음 | reCAPTCHA v3 (사이트 키를 넣으면 켜짐) |
 | 공지·점검·최소 버전 | 없음 | Remote Config (`notice` · `maintenance` · `min_version`) |
 | 사용 통계 | 없음 | Analytics — 설정에서 **동의한 사람만** (기본 꺼짐) |
 | 오래된 방 청소 | 없음 | 6시간 지난 방을 방 만들 때마다 5개씩 지움 |
-| 반영 | `main` 에 합치면 바로 | Actions 에서 “Dice Heroes 배포판 배포” 실행 |
+| 반영 | `main` 에 합치면 바로 | Actions 에서 “Yacht Heroes 배포판 배포” 실행 |
 
 모두 **무료 요금제(Spark)** 로 동작합니다. 정식 출시 뒤 동접 100명을 넘길 즈음 Blaze(종량제)로 바꾸면 됩니다.
 
@@ -49,7 +49,7 @@ dice-heroes-prod/
 1. Firebase **프로젝트 설정 → 서비스 계정 → 새 비공개 키 생성** → JSON 다운로드
 2. GitHub 저장소 **Settings → Secrets and variables → Actions → New secret**
    이름 `FIREBASE_SERVICE_ACCOUNT_DICEHEROES`, 값은 JSON 파일 내용 전체
-3. **Actions → Dice Heroes 배포판 배포 → Run workflow**
+3. **Actions → Yacht Heroes 배포판 배포 → Run workflow**
    - 처음 한 번은 대상에 `hosting,database,remoteconfig` 입력 (Remote Config 매개변수 생성)
    - 그다음부터는 기본값 `hosting,database` (콘솔에서 바꾼 공지를 덮어쓰지 않게)
 

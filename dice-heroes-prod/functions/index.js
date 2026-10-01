@@ -1,4 +1,4 @@
-// 다이스 히어로즈 서버 — 보석 정산 · 구매 (Firebase Cloud Functions, Blaze 요금제)
+// 요트 히어로즈 서버 — 보석 정산 · 구매 (Firebase Cloud Functions, Blaze 요금제)
 //
 // 앱은 지갑(wallets/<uid>)을 읽기만 하고, 보석을 늘리거나 줄이는 일은 모두 여기서 한다 (database.rules.json 이 막는다).
 //   wallet    지갑을 불러온다 (없으면 기본 보석으로 만든다)

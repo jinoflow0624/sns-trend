@@ -1,4 +1,4 @@
-# 🎲⚔️ 다이스 히어로즈 (v0.4 · 가제)
+# 🎲⚔️ 요트 히어로즈 (옛 이름: 다이스 히어로즈)
 
 - 접속 주소 (GitHub Pages): `https://jinoflow0624.github.io/sns-trend/dice-heroes/`
 - 초대 링크: `…/dice-heroes/?room=방코드` — 링크를 누르면 바로 그 방 대기실로 들어갑니다.
@@ -254,7 +254,7 @@ export const BGM_FILES = { title: 'assets/bgm/title.ogg', adventure: 'assets/bgm
 | `pixel.js` · `scenes.js` | 스프라이트(그림 파일 · 예전 도트)와 타이틀 장면 |
 | `tutorial.js` | 튜토리얼 대본(단계·강조 대상·허용 동작·완료 조건) |
 | `style.css` | 도트 프레임 · 픽셀 서체 스타일 |
-| `manifest.webmanifest` · `sw.js` · `icons/` | 설치형 앱(PWA/TWA) |
+| `manifest.webmanifest` · `sw.js` · `icons/` | 설치형 앱(PWA/TWA). 앱 아이콘은 `python3 tools/make_icons.py build 1 <Galmuri11-Bold.ttf>` 로 만든다 (후보 6종 · `sheet` 로 모아 보기, 지금은 1번 「영웅의 일격」) |
 | `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT), Firebase Database SDK 번들 (테스트판), Firebase 전체 번들 `firebase-full.js` 12.19 (배포판: DB·Auth·App Check·Remote Config·Analytics) |
 | `fonts/` | 갈무리11 (SIL OFL 1.1) |
 | `test/engine.test.mjs` | 엔진 테스트 |

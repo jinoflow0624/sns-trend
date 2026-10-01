@@ -1,6 +1,6 @@
 {
-  "name": "다이스 히어로즈",
-  "short_name": "다이스히어로즈",
+  "name": "요트 히어로즈",
+  "short_name": "요트히어로즈",
   "description": "요트 주사위로 영웅을 키우는 도트 RPG 보드게임",
   "lang": "ko",
   "start_url": "./",

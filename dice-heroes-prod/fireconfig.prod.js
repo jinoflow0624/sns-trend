@@ -1,4 +1,4 @@
-// 배포판 Firebase 설정 — 다이스 히어로즈 전용 프로젝트.
+// 배포판 Firebase 설정 — 요트 히어로즈 전용 프로젝트.
 // Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹) → SDK 설정 및 구성 → '구성' 값을 그대로 붙여 넣는다.
 // ⚠ 비밀이 아니다(공개 식별자). 접근 제어는 database.rules.json 과 App Check 가 맡는다.
 export const firebaseConfig = {
