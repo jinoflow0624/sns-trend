@@ -1228,55 +1228,68 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 @media (prefers-reduced-motion: reduce) { .tap-ring, .tap-hand, .sg-phone, .sg-phone i { animation: none; } }
 
 /* ── 큰 영웅 (연출 동안 주사위판 왼쪽 아래) ─ 기운 받기 · 공격 · 피격 ─────────────── */
-/* .actor 위치·등장/퇴장 › .actor-body 좌우 뒤집기 › img 동작. --dur 는 연출 속도에 맞춰 JS 가 넣는다 */
-.actor { position: fixed; z-index: 29; width: var(--sz); height: var(--sz); margin: calc(var(--sz) * -1) 0 0 calc(var(--sz) / -2); pointer-events: none; transform-origin: 50% 100%; }
+/* .actor 위치·등장/퇴장 › .actor-body 좌우 뒤집기 › .actor-fig 동작(transform) › img + 번쩍임 판(.af, opacity).
+   폰에서 버벅이지 않게 transform·opacity 만 움직인다 (filter 애니메이션은 매 프레임 다시 그린다). --dur 는 JS 가 연출 속도에 맞춰 넣는다 */
+.actor { position: fixed; z-index: 29; width: var(--sz); height: var(--sz); margin: calc(var(--sz) * -1) 0 0 calc(var(--sz) / -2); pointer-events: none; transform-origin: 50% 100%; will-change: transform, opacity; contain: layout style; }
 .actor::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: -3px; height: 8px; border-radius: 50%; background: rgba(0,0,0,.45); z-index: -1; }
 .actor-body { width: 100%; height: 100%; transform: scaleX(var(--fx, 1)); }
-.actor img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; filter: drop-shadow(0 0 1px #06041A) drop-shadow(0 2px 0 rgba(6,4,26,.6)); }
-.actor-aura { position: absolute; inset: 8% 4% 0; border-radius: 50%; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c) 70%, #fff) 0%, color-mix(in srgb, var(--c) 40%, transparent) 40%, transparent 70%); opacity: 0; transform: scale(.6); }
+.actor-fig { position: relative; width: 100%; height: 100%; transform-origin: 50% 100%; will-change: transform; }
+.actor-fig img { width: 100%; height: 100%; display: block; }
+.actor .af { position: absolute; inset: 0; opacity: 0; will-change: opacity; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+.actor .af.w { background: #FFFFFF; }
+.actor .af.r { background: #FF2A4A; }
+.actor-aura { position: absolute; inset: 8% 4% 0; border-radius: 50%; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c) 70%, #fff) 0%, color-mix(in srgb, var(--c) 40%, transparent) 40%, transparent 70%); opacity: 0; transform: scale(.6); will-change: transform, opacity; }
 .actor.in { animation: actorIn calc(260ms / var(--spd, 1)) cubic-bezier(.2, 1.4, .5, 1) both; }
-.actor.in img, .actor.out img { animation: actorIdle .5s steps(2, jump-none) infinite; }
+.actor.in .actor-fig, .actor.out .actor-fig { animation: actorIdle .5s steps(2, jump-none) infinite; }
 .actor.out { animation: actorOut .24s ease-in both; }
 @keyframes actorIn { 0% { transform: translateY(30px) scale(.3); opacity: 0; } 70% { transform: translateY(-6px) scale(1.06); opacity: 1; } 100% { transform: none; opacity: 1; } }
 @keyframes actorOut { to { transform: translateY(16px) scale(.5); opacity: 0; } }
 @keyframes actorIdle { 50% { transform: translateY(-2px); } }
 
-/* 기운 받기: 몸을 웅크리며 부르르 · 몸이 달아오르고 둘레가 빛난다 */
-.actor.charge img { animation: actorCharge var(--dur) steps(8, jump-none) both; }
+/* 기운 받기: 몸을 웅크리며 부르르 · 하얗게 달아오르고 둘레가 빛난다 */
+.actor.charge .actor-fig { animation: actorCharge var(--dur) steps(8, jump-none) both; }
+.actor.charge .af.w { animation: actorGlow var(--dur) steps(8, jump-none) both; }
 .actor.charge .actor-aura { animation: actorAura var(--dur) ease-out both; }
 @keyframes actorCharge {
-  0% { transform: none; filter: drop-shadow(0 0 1px #06041A); }
-  20% { transform: scale(1.08, .88) translateX(-1px); filter: brightness(1.3) drop-shadow(0 0 6px var(--c)); }
-  40% { transform: scale(1.1, .86) translateX(1px); filter: brightness(1.15) drop-shadow(0 0 8px var(--c)); }
-  60% { transform: scale(1.1, .86) translateX(-1px); filter: brightness(1.5) drop-shadow(0 0 10px #fff); }
-  80% { transform: scale(1.12, .84) translateX(1px); filter: brightness(1.7) drop-shadow(0 0 12px var(--c)); }
-  100% { transform: scale(.96, 1.08) translateY(-4px); filter: brightness(2) drop-shadow(0 0 14px #fff); }
+  0% { transform: none; }
+  20% { transform: scale(1.08, .88) translateX(-1px); }
+  40% { transform: scale(1.1, .86) translateX(1px); }
+  60% { transform: scale(1.1, .86) translateX(-1px); }
+  80% { transform: scale(1.12, .84) translateX(1px); }
+  100% { transform: scale(.96, 1.08) translateY(-4px); }
 }
+@keyframes actorGlow { 0% { opacity: 0; } 20% { opacity: .25; } 40% { opacity: .1; } 60% { opacity: .4; } 80% { opacity: .3; } 100% { opacity: .6; } }
 @keyframes actorAura { 0% { opacity: 0; transform: scale(.5); } 50% { opacity: .9; transform: scale(1.05); } 100% { opacity: 1; transform: scale(1.25); } }
 
 /* 공격: 살짝 뒤로 젖혔다가(예비 동작) 목표 쪽으로 덤벼들고 돌아온다 */
-.actor.attack img { animation: actorAttack var(--dur) cubic-bezier(.3, 0, .2, 1) both; }
+.actor.attack .actor-fig { animation: actorAttack var(--dur) cubic-bezier(.3, 0, .2, 1) both; }
+.actor.attack .af.w { animation: actorFlashOut var(--dur) ease-out both; }
 .actor.attack .actor-aura { animation: actorAuraOut var(--dur) ease-out both; }
 @keyframes actorAttack {
-  0% { transform: scale(.96, 1.08) translateY(-4px); filter: brightness(1.8); }
-  22% { transform: translate(-8px, 2px) scale(.92, 1.04) skewX(8deg); filter: brightness(1.3); }
-  42% { transform: translate(var(--lx), var(--ly)) scale(1.14, .94) skewX(-12deg); filter: brightness(1.6) drop-shadow(0 0 8px var(--c)); }
-  66% { transform: translate(calc(var(--lx) * .8), calc(var(--ly) * .8)) scale(1.06, .98) skewX(-6deg); filter: none; }
-  100% { transform: none; filter: drop-shadow(0 0 1px #06041A); }
+  0% { transform: scale(.96, 1.08) translateY(-4px); }
+  22% { transform: translate(-8px, 2px) scale(.92, 1.04) skewX(8deg); }
+  42% { transform: translate(var(--lx), var(--ly)) scale(1.14, .94) skewX(-12deg); }
+  66% { transform: translate(calc(var(--lx) * .8), calc(var(--ly) * .8)) scale(1.06, .98) skewX(-6deg); }
+  100% { transform: none; }
 }
+@keyframes actorFlashOut { 0% { opacity: .6; } 42% { opacity: .35; } 70%, 100% { opacity: 0; } }
 @keyframes actorAuraOut { 0% { opacity: 1; transform: scale(1.25); } 40% { opacity: .8; transform: scale(1.6); } 100% { opacity: 0; transform: scale(1.8); } }
 
 /* 피격: 하얗게 번쩍 → 뒤로 튕겨 기울며 붉게 깜빡 → 부르르 떨다 제자리 */
-.actor.hurt img { animation: actorHurt var(--dur) linear both; }
+.actor.hurt .actor-fig { animation: actorHurt var(--dur) linear both; }
+.actor.hurt .af.w { animation: actorHurtW var(--dur) steps(1, end) both; }
+.actor.hurt .af.r { animation: actorHurtR var(--dur) steps(1, end) both; }
 @keyframes actorHurt {
-  0% { transform: none; filter: brightness(4) saturate(0); }
-  10% { transform: translateX(-14px) rotate(-10deg) scale(1.04, .96); filter: brightness(4) saturate(0); }
-  22% { transform: translateX(-12px) rotate(-9deg); filter: sepia(1) saturate(6) hue-rotate(-40deg) brightness(.9); }
-  34% { transform: translateX(-8px) rotate(-6deg); filter: none; }
-  46% { transform: translateX(-10px) rotate(-7deg); filter: sepia(1) saturate(6) hue-rotate(-40deg) brightness(.9); }
-  58% { transform: translateX(-4px) rotate(-3deg); filter: none; }
+  0% { transform: none; }
+  10% { transform: translateX(-14px) rotate(-10deg) scale(1.04, .96); }
+  22% { transform: translateX(-12px) rotate(-9deg); }
+  34% { transform: translateX(-8px) rotate(-6deg); }
+  46% { transform: translateX(-10px) rotate(-7deg); }
+  58% { transform: translateX(-4px) rotate(-3deg); }
   70% { transform: translateX(-6px) rotate(-2deg); }
   82% { transform: translateX(-1px) rotate(1deg); }
-  100% { transform: none; filter: none; }
+  100% { transform: none; }
 }
-@media (prefers-reduced-motion: reduce) { .actor, .actor img, .actor-aura { animation: none !important; } }
+@keyframes actorHurtW { 0% { opacity: .95; } 20%, 100% { opacity: 0; } }
+@keyframes actorHurtR { 0%, 20% { opacity: 0; } 22% { opacity: .55; } 34% { opacity: 0; } 46% { opacity: .55; } 58%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .actor, .actor-fig, .actor .af, .actor-aura { animation: none !important; } }

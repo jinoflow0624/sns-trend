@@ -390,13 +390,18 @@ export class DiceTray {
     this.resizeObs.unobserve(this.host);
     this.host = host;
     host.appendChild(this.renderer.domElement);
+    // 크기는 ResizeObserver 가 레이아웃 뒤에 알려 준다 (여기서 바로 재면 innerHTML 직후라 강제 레이아웃이 생긴다)
     this.resizeObs.observe(host);
-    this.resize();
+    this.dirty = true;
   }
 
   resize() {
     const w = this.host.clientWidth || 360;
     const h = this.host.clientHeight || 240;
+    // 화면을 다시 그릴 때마다 붙여 넣으며 불린다 — 크기가 같으면 버퍼를 새로 잡지 않는다
+    // (setSize 는 캔버스 크기를 다시 넣어 WebGL 버퍼를 비우고 새로 잡아서 폰에서 멈칫했다)
+    if (w === this.lastW && h === this.lastH) { this.dirty = true; return; }
+    this.lastW = w; this.lastH = h;
     this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
