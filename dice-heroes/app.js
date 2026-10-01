@@ -1140,6 +1140,7 @@ function render() {
   const need = E.xpToNext(cur.level);
   const xpPct = cur.level >= E.MAX_LEVEL ? 100 : Math.min(100, (cur.xp / need) * 100);
   const canRoll = myTurn && S.rollsLeft > 0 && !(S.rolled && S.held.every(Boolean));
+  const needBet = myTurn && cur.cls === 'gambler' && !cur.bet && !S.rolled;   // 도박사: 굴리기 전에 배팅
   const coop = S.mode === 'coop';
   const absent = online && !cur.bot && !mine && !alive(cur.token);
   const last = S.log[S.log.length - 1];
@@ -1189,14 +1190,14 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ' (봇)' : ''}</span>
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && S.rolled && !ui.busy && cur.cls === 'dancer' && cur.encore > 0 ? `<button class="encore-btn" data-act="encore">${ico('sparkle', 'xs')} 앙코르 <small>굴림 +1 · 1회</small></button>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && !ui.busy && E.canDance(S) ? `<button class="encore-btn dance-btn" data-act="dance">${ico('sparkle', 'xs')} 춤사위 ×${cur.dance} <small>모든 주사위 +1</small></button>` : ''}${cur.cls === 'gambler' && cur.bet ? `<div class="bet-badge">${ico('coins', 'xs')} 배팅 <b>${E.catInfo(cur.bet).ko}</b> ×${E.CLASS_TUNE.betMul}</div>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
     <section class="controls">
-      <button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
+      ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
-      </button>
+      </button>`}
       <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
@@ -1787,6 +1788,30 @@ const memberFx = (i, cls, ms) => {
   el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
   setTimeout(() => el.classList.remove(cls), ms);
 };
+// 무희 춤사위 버프: 꽃잎이 트레이로 쏟아지며 모든 주사위가 한 칸씩 올라간다
+async function danceBuffFx(i) {
+  sfx.legend(); buzz(60);
+  danceFx(i);
+  floatText('춤사위! 모든 주사위 +1', 'gold', -20, 'tray', 'sparkle');
+  const fx = FX(), r = document.getElementById('tray')?.getBoundingClientRect();
+  if (r && prefs.fx !== 'min') {
+    for (let k = 0; k < 5; k++) setTimeout(() => fx.burst(r.left + r.width * (0.15 + k * 0.175), r.top + r.height * 0.45,
+      { n: 16, pal: ['#FFFFFF', '#FF9AD0', '#E84FA0', '#FFC83D'], speed: [40, 150], grav: 120, life: [0.5, 0.9], size: [3, 6] }), k * 70);
+  }
+  ui.dice = null;
+  await wait(ui.fast ? 250 : 550);
+}
+// 도박사 배팅: 이번 라운드에 노릴 족보 고르기
+function showBetPicker() {
+  const p = E.current(S);
+  const open = E.CATS.filter(c => p.scores[c.id] === null);
+  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame bet-pick" data-act="noop">
+    <h2>${ico('coins')} 배팅</h2>
+    <p class="hint">이번 라운드에 노릴 족보를 고르세요. 그 족보에 적으면 점수 <b>×${E.CLASS_TUNE.betMul}</b>, 다른 칸에 적거나 0점이면 <b>점수 없음</b>.</p>
+    <div class="bet-grid">${open.map(c => `<button class="pbtn bet-cat" data-act="bet" data-cat="${c.id}"><b>${c.ko}</b><small>${CAT_HELP[c.id].rule}</small></button>`).join('')}</div>
+    <button class="pbtn small" data-act="close">닫기</button>
+  </div></div>`;
+}
 // 무희가 춤출 때: 초상화 둘레로 꽃잎·리본이 돈다
 function danceFx(i) {
   memberFx(i, 'dance', 900);
@@ -1837,41 +1862,63 @@ async function duelFx(f) {
 // 내 영웅에게 황금 빛기둥이 내리꽂히고 → 보스전은 황금 구체가 보스에게, 대전은 직업 기술이 나를 뺀 모두에게
 async function upperFx(f) {
   const me = f.player, fx = FX();
-  sfx.quest(); buzz(80);
   const who = S.players[me];   // 누구의 보너스인지 (전사는 50점, 나머지는 63점부터)
-  floatText(`${who.name} · 상단 보너스 (${E.upperNeed(who)}점↑) +${f.amount}`, 'gold', -10, 'tray', 'sparkle');
-  if (prefs.fx === 'min') { if (!S.boss) bumpPts(me, f.amount); return; }
+  sfx.quest(); buzz(80);
+  if (prefs.fx === 'min') { floatText(`${who.name} · 상단 보너스 (${E.upperNeed(who)}점↑) +${f.amount}`, 'gold', -10, 'tray', 'sparkle'); if (!S.boss) bumpPts(me, f.amount); return; }
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
   const pal = PALETTES.gold, src = porPos(me);
-  // 1) 황금 빛기둥 + 고리
-  fx.flash('#FFD24A', 280, 0.3);
-  await fx.add((g, k) => {
-    const w = 26 * (1 - k * 0.6);
-    g.globalAlpha = 0.55 * (1 - k);
-    g.fillStyle = '#FFD24A'; g.fillRect(Math.round(src.x - w), 0, Math.round(w * 2), Math.round(src.y + 20));
-    g.globalAlpha = 0.9 * (1 - k);
-    g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(src.x - 4), 0, 8, Math.round(src.y + 20));
+  const C = { x: innerWidth / 2, y: innerHeight * 0.45 };
+  // 1) 화면 정중앙: 황금 폭발 — 섬광 · 세 겹 고리 · 사방으로 뻗는 빛줄기 · 큰 +35
+  sfx.boom(2.4); shake(app.querySelector('.game'), 2);
+  fx.flash('#FFD24A', 420, 0.45);
+  fx.ring(C.x, C.y, { color: '#FFFFFF', r0: 10, r1: innerWidth * 0.7, dur: 650, width: 10 });
+  fx.ring(C.x, C.y, { color: '#FFD24A', r0: 20, r1: innerWidth * 0.5, dur: 800, width: 7 });
+  fx.ring(C.x, C.y, { color: '#FF9A1F', r0: 30, r1: innerWidth * 0.35, dur: 950, width: 4 });
+  fx.burst(C.x, C.y, { n: 70, pal: ['#FFFFFF', '#FFF0A8', '#FFD24A', '#FF9A1F'], speed: [120, 420], life: [0.5, 1.1], size: [3, 7] });
+  const big = document.createElement('div');
+  big.className = 'upper-burst';
+  big.innerHTML = `<b>+${f.amount}</b><small>${esc(who.name)} · 상단 보너스 (${E.upperNeed(who)}점↑)</small>`;
+  document.body.appendChild(big);
+  setTimeout(() => big.remove(), 1500 / fx.speed);
+  await fx.add((g, k) => {                       // 사방으로 뻗는 빛줄기 8갈래
+    g.globalAlpha = 0.7 * (1 - k);
+    g.fillStyle = '#FFF0A8';
+    for (let q = 0; q < 8; q++) {
+      const a = q * Math.PI / 4 + k * 0.6, L = 40 + k * innerWidth * 0.6;
+      g.save(); g.translate(C.x, C.y); g.rotate(a); g.fillRect(0, -3, L, 6); g.restore();
+    }
     g.globalAlpha = 1;
-  }, 420);
-  fx.ring(src.x, src.y, { color: '#FFD24A', r0: 8, r1: 90, dur: 520, width: 6 });
-  fx.burst(src.x, src.y, { n: 36, pal, speed: [80, 260], life: [0.4, 0.8] });
+  }, 620);
+  // 2) 모인 에너지가 내 영웅에게 날아가 충전 → 황금 빛기둥
+  await fx.flyOrb({ cx: C.x, cy: C.y, R: 18, tt: 0 }, src, { pal, power: 2.6, ms: 360, shrink: 0.7 });
+  fx.ring(src.x, src.y, { color: '#FFD24A', r0: 8, r1: 80, dur: 480, width: 6 });
+  fx.burst(src.x, src.y, { n: 30, pal, speed: [80, 240], life: [0.4, 0.8] });
+  await fx.add((g, k) => {
+    const w = 24 * (1 - k * 0.6);
+    g.globalAlpha = 0.55 * (1 - k); g.fillStyle = '#FFD24A'; g.fillRect(Math.round(src.x - w), 0, Math.round(w * 2), Math.round(src.y + 20));
+    g.globalAlpha = 0.9 * (1 - k); g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(src.x - 4), 0, 8, Math.round(src.y + 20));
+    g.globalAlpha = 1;
+  }, 360);
   memberFx(me, 'atk', 620);
   sfx.whoosh();
-  // 2) 공격
+  // 3) 공격: 보스전은 거대한 황금 혜성, 대전은 직업 기술이 나를 뺀 모두에게 (강하게)
   if (S.boss) {
     const r = document.getElementById('boss-art')?.getBoundingClientRect();
     const tgt = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 120 };
-    await fx.flyOrb({ cx: src.x, cy: src.y, R: 16, tt: 0 }, tgt, { pal, power: 2.4, ms: 380, shrink: 0.8 });
-    fx.impact(tgt.x, tgt.y, pal, 2.4);
-    sfx.boom(2.4); shake(app.querySelector('.game'), 2);
+    await fx.flyOrb({ cx: src.x, cy: src.y, R: 22, tt: 0 }, tgt, { pal: ['#FFFFFF', '#FFF0A8', '#FFD24A', '#FF9A1F', '#E8435A'], power: 3, ms: 420, shrink: 0.9 });
+    fx.impact(tgt.x, tgt.y, pal, 3);
+    fx.flash('#FFFFFF', 260, 0.4);
+    fx.ring(tgt.x, tgt.y, { color: '#FFD24A', r0: 12, r1: 140, dur: 600, width: 8 });
+    sfx.boom(3); shake(app.querySelector('.game'), 3);
   } else {
     const foes = S.players.map((_, i) => i).filter(i => i !== me);
     const cls = S.players[me].cls;
     await Promise.all(foes.map((foe, k) => wait(k * 70 / fx.speed)
-      .then(() => fx.strike(cls, src, porPos(foe), { pal, power: 2.2, onHit: () => { memberFx(foe, 'hurt', 520); sfx.boom(2); } }))
-      .then(() => fx.impact(porPos(foe).x, porPos(foe).y, pal, 1.6))));
+      .then(() => fx.strike(cls, src, porPos(foe), { pal, power: 3, onHit: () => { memberFx(foe, 'hurt', 520); sfx.boom(2.4); } }))
+      .then(() => { fx.impact(porPos(foe).x, porPos(foe).y, pal, 2); fx.ring(porPos(foe).x, porPos(foe).y, { color: '#FFD24A', r0: 6, r1: 60, dur: 420, width: 5 }); })));
     bumpPts(me, f.amount);
-    shake(app.querySelector('.party'), 1.6);
+    fx.flash('#FFD24A', 220, 0.3);
+    shake(app.querySelector('.party'), 2.2);
     await crownCheck(me);
   }
 }
@@ -1999,7 +2046,6 @@ async function playOne(f) {
           floatText(`${E.catInfo(f.cat).ko} +${f.pts}`, 'gold');
           stamp(f.pts, f.cat);
           if (f.bonus?.length) floatText(f.bonus.map(b => `${b.ko} +${b.amt}`).join(' · '), 'mint', 30);
-          if (f.bonus?.some(b => b.ko === '춤사위') && !S.boss) danceFx(f.player);
           await attackFx(f);
           sfx.score();
         } else {
@@ -2057,7 +2103,9 @@ async function playOne(f) {
         else if (f.why !== 'quest' && (f.flip || f.nudge)) floatText(E.chargeText(f), 'mint', -20);
         if (f.over) { floatText(`보유 한도 ${E.CHARGE_CAP}개 · ${f.over}개 넘침 → 경험치로`, 'dim', 12); await wait(260); }
         break;
-      case 'encore': sfx.card(); danceFx(f.player); floatText(`${p.name} 앙코르! 굴림 +1`, 'gold', -20, 'tray', 'up'); await wait(400); break;
+      case 'dance': await danceBuffFx(f.player); break;
+      case 'danceGain': sfx.card(); danceFx(f.player); floatText(`${p.name} · 춤사위 버프 +1 (${f.n}개)`, 'mint', 54, 'tray', 'sparkle'); await wait(350); break;
+      case 'bet': sfx.coin(); floatText(`${p.name} · ${E.catInfo(f.cat).ko}에 배팅! ×${E.CLASS_TUNE.betMul}`, 'gold', -20, 'tray', 'coins'); await wait(500); break;
       case 'spill': floatText(`넘친 충전 → 경험치 +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
       case 'save': floatText(`굴림 ${f.n}번 아낌 → 경험치 +${f.xp}`, 'mint', 74, 'tray', 'up'); await wait(300); break;
     }
@@ -2808,7 +2856,15 @@ async function step() {
   if (S.phase === 'levelup' && !cur.bot) showLevelUp();
   advanceTutorial();
   if (cur.bot) botStep();
-  else turnAlert();
+  else {
+    turnAlert();
+    // 내 도박사 차례: 굴리기 전에 배팅 창을 띄운다 (라운드마다 한 번, 닫아도 '배팅하기' 버튼으로 다시)
+    const key = `${S.seed}:${S.round}:${S.turn}`;
+    if (cur.cls === 'gambler' && !cur.bet && !S.rolled && S.phase === 'roll' && (!online || cur.token === online.token) && ui.betAsked !== key) {
+      ui.betAsked = key;
+      setTimeout(() => { if (screen === 'game' && !layer.querySelector('.overlay')) showBetPicker(); }, 700);
+    }
+  }
 }
 
 // 이번 굴림에서 굴리지 않는 주사위: 고정한 것 + 마왕에게 봉인된 것.
@@ -2951,11 +3007,16 @@ async function onGameAct(act, t) {
     step();
     return;
   }
-  if (act === 'encore') {                     // 무희: 게임 중 한 번, 이번 턴 굴림 +1
-    if (!(await doAct(g => E.useEncore(g)))) return;
-    sfx.card(); buzz(40);
-    danceFx(S.turn);
-    if (!online) { E.drainFx(S); floatText('앙코르! 굴림 +1', 'gold', -20, 'tray', 'up'); render(); }
+  if (act === 'dance') {                      // 무희 춤사위: 모든 주사위 +1 (라운드당 1번)
+    if (!(await doAct(g => E.useDance(g)))) return;
+    if (!online) { await playFx(E.drainFx(S)); render(); }
+    return;
+  }
+  if (act === 'bet-open') { sfx.select(); return showBetPicker(); }
+  if (act === 'bet') {                        // 도박사 배팅
+    layer.innerHTML = '';
+    if (!(await doAct(g => E.placeBet(g, t.dataset.cat)))) return;
+    if (!online) { await playFx(E.drainFx(S)); render(); }
     return;
   }
   if (act === 'tool') {

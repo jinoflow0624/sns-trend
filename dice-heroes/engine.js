@@ -75,6 +75,10 @@ export function fiveSets(d) {
 }
 
 // ── 직업 ─────────────────────────────────────────────────────────────────────
+// 직업 수치 (봇 1대1 시뮬레이션으로 다른 직업과 승률이 비슷하게 맞춘 값 — big/classes 시뮬레이션)
+//   danceNeed: 무희 춤사위 버프를 얻는 기록 점수 (25 → 승률 약 50%)
+//   betMul: 도박사 배팅 성공 배율 (×1.45 → 승률 약 47%, ×1.5 는 약 56%)
+export const CLASS_TUNE = { danceNeed: 25, betMul: 1.45 };
 export const CLASSES = [
   { id: 'warrior', ko: '전사',     icon: '🗡️', color: '#FF6B5B',
     desc: '상단 보너스 조건이 63 → 50점으로 쉬워진다' },
@@ -85,16 +89,12 @@ export const CLASSES = [
   { id: 'bard',    ko: '음유시인', icon: '🎻', color: '#4FB3FF',
     desc: '의뢰를 깬 턴에 기록하는 점수 +1, 의뢰 보상 조정 +1' },
   { id: 'gambler', ko: '도박사',   icon: '🎲', color: '#FFC83D',
-    desc: '요트 +10점' },
+    desc: `배팅: 매 라운드 굴리기 전에 족보 하나를 고른다. 그 족보에 적으면 점수 ×${CLASS_TUNE.betMul}, 다른 칸에 적거나 0점이면 점수 없음` },
   { id: 'monk',    ko: '수도승',   icon: '📿', color: '#FF9A1F',
     desc: '점수를 기록할 때 남은 굴림 1회당 조정 +1' },
   { id: 'dancer',  ko: '무희',     icon: '💃', color: '#FF6FB5',
-    desc: '춤사위: 직전 기록과 다른 구역(위 칸↔아래 칸)에 적으면 +1 · 앙코르: 게임 중 1번, 그 턴 굴림 +1' },
+    desc: `춤사위: ${CLASS_TUNE.danceNeed}점 이상 기록하면 버프 1개 (쌓임). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로) · 라운드당 1번` },
 ];
-export const DANCE_BONUS = 1;   // 봇 1대1 시뮬레이션: +1 → 승률 52% (+2 58% · +3 69% · +4 70%)
-const secOf = cat => (UPPER_IDS.includes(cat) ? 'up' : 'low');
-// 무희 춤사위: 직전에 적은 칸과 다른 구역에 적으면 보너스 (첫 기록은 없음)
-export const danceStep = (p, cat) => p.cls === 'dancer' && !!p.lastSec && p.lastSec !== secOf(cat);
 export const classInfo = id => CLASSES.find(c => c.id === id);
 
 // ── 특성 카드 (레벨업 보상) ──────────────────────────────────────────────────
@@ -382,7 +382,7 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
         name: p.name, cls, bot: !!p.bot,
         scores: Object.fromEntries(CAT_IDS.map(id => [id, null])),
         xp: 0, level: 1, perks: {},
-        flip: cls === 'rogue' ? 1 : 0, nudge: 0, encore: cls === 'dancer' ? 1 : 0,
+        flip: cls === 'rogue' ? 1 : 0, nudge: 0, dance: 0, danceRound: 0, bet: null,
         offers: [], questsDone: [], roundScore: 0,
         stats: { xpEarned: 0, zeros: 0 },
       };
@@ -440,6 +440,7 @@ function startTurn(s) {
   s.sealed = [];
   s.rolled = false;
   s.phase = 'roll';
+  p.bet = null;                 // 도박사: 라운드마다 새로 배팅
   if (s.turn === 0) {
     // 라운드 시작 처리
     const ev = event(s);
@@ -481,6 +482,7 @@ export function roll(s) {
   if (s.rollsLeft <= 0) fail('굴림 기회를 다 썼습니다.');
   if (s.rolled && s.held.every(Boolean)) fail('모든 주사위를 잡고 있습니다.');
   const p = current(s);
+  if (p.cls === 'gambler' && !p.bet && !s.rolled) fail('먼저 이번 라운드에 배팅할 족보를 고르세요.');
   // 튜토리얼처럼 결과를 미리 정해 둔 굴림 (s.script = [[눈...], ...])
   const forced = s.script?.length ? s.script.shift() : null;
   s.dice = s.dice.map((v, i) => {
@@ -519,15 +521,34 @@ export function useFlip(s, i) {
   s.toolUsed = true;
 }
 
-// 무희 앙코르: 게임 중 한 번, 이번 턴 굴림 +1
-export function useEncore(s) {
+// 무희 춤사위 버프: 모아 둔 버프 1개로 모든 주사위 눈 +1 (6은 그대로, 봉인된 주사위 제외). 라운드당 1번
+export const canDance = s => {
+  const p = current(s);
+  return p.cls === 'dancer' && p.dance > 0 && p.danceRound !== s.round && s.phase === 'roll' && s.rolled && !haki(s);
+};
+export function useDance(s) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
-  if (p.cls !== 'dancer' || !(p.encore > 0)) fail('앙코르를 쓸 수 없습니다.');
-  p.encore--;
-  s.rollsLeft++;
-  log(s, `${p.name} · 앙코르! 굴림 +1`);
-  fx(s, { type: 'encore', player: s.turn });
+  if (p.cls !== 'dancer' || !(p.dance > 0)) fail('춤사위 버프가 없습니다.');
+  if (p.danceRound === s.round) fail('춤사위는 라운드당 한 번만 쓸 수 있어요.');
+  if (haki(s)) fail('마왕의 패기! 이번 라운드는 주사위 눈을 바꿀 수 없어요.');
+  s.dice = s.dice.map((v, i) => (isSealed(s, i) ? v : Math.min(6, v + 1)));
+  p.dance--;
+  p.danceRound = s.round;
+  s.toolUsed = true;
+  log(s, `${p.name} · 춤사위! 모든 주사위 +1`);
+  fx(s, { type: 'dance', player: s.turn });
+}
+
+// 도박사 배팅: 굴리기 전에 이번 라운드에 노릴 족보를 고른다
+export function placeBet(s, cat) {
+  const p = current(s);
+  if (p.cls !== 'gambler') fail('도박사만 배팅할 수 있어요.');
+  if (s.phase !== 'roll' || s.rolled) fail('배팅은 굴리기 전에만 할 수 있어요.');
+  if (!(cat in p.scores) || p.scores[cat] !== null) fail('이미 기록한 족보예요.');
+  p.bet = cat;
+  log(s, `${p.name} · ${catInfo(cat).ko}에 배팅!`);
+  fx(s, { type: 'bet', player: s.turn, cat });
 }
 
 export function useNudge(s, i, delta) {
@@ -556,13 +577,19 @@ export function scoreParts(s, p, cat, d = s.dice) {
     const pk = perkMulOf(cat), n = pk ? perkCount(p, pk) : 0;
     if (n) add(`${perkInfo(pk).ko} ×${+(1 + PERK_MUL[pk] * n).toFixed(2)}`, Math.round(base * PERK_MUL[pk] * n));
     if (UPPER_IDS.includes(cat)) add('풍년', ev === 'harvest' ? 5 : 0);
-    if (cat === 'yacht') {
-      add('도박사', p.cls === 'gambler' ? 10 : 0);
-      add('요트 잭팟', ev === 'jackpot' ? 50 : 0);
-    }
-    add('춤사위', danceStep(p, cat) ? DANCE_BONUS : 0);
+    if (cat === 'yacht') add('요트 잭팟', ev === 'jackpot' ? 50 : 0);
   }
-  return { base, bonus, total: base + bonus.reduce((a, b) => a + b.amt, 0) };
+  let total = base + bonus.reduce((a, b) => a + b.amt, 0);
+  // 도박사 배팅: 고른 족보면 ×배율, 다른 칸이면 점수 없음
+  if (p.cls === 'gambler' && p.bet) {
+    if (cat !== p.bet) return { base: 0, bonus: [], total: 0, betMiss: true };
+    if (total > 0) {
+      const extra = Math.round(total * (CLASS_TUNE.betMul - 1));
+      bonus.push({ ko: `배팅 ×${CLASS_TUNE.betMul}`, amt: extra });
+      total += extra;
+    }
+  }
+  return { base, bonus, total };
 }
 
 // 특성·직업·이벤트까지 반영한 항목 점수
@@ -655,7 +682,11 @@ export function commitScore(s, cat) {
   p.scores[cat] = pts;
   (p.base ||= {})[cat] = scoreParts(s, p, cat).base;
   p.roundScore = pts;
-  p.lastSec = secOf(cat);
+  if (p.cls === 'dancer' && pts >= CLASS_TUNE.danceNeed) {   // 무희: 큰 점수를 적으면 춤사위 버프
+    p.dance++;
+    log(s, `${p.name} · 춤사위 버프 획득 (${p.dance}개)`);
+    fx(s, { type: 'danceGain', player: s.turn, n: p.dance });
+  }
   const ev = event(s);
 
   let xp = pts;
@@ -911,6 +942,7 @@ export function botAction(s, rng = Math.random, samples = 24) {
   if (s.phase === 'levelup') {
     return { type: 'perk', id: botPickPerk(p, p.offers[0], rng) };
   }
+  if (p.cls === 'gambler' && !p.bet && !s.rolled) return { type: 'bet', cat: botBet(s, p, rng) };
   if (!s.rolled) return { type: 'roll' };
 
   const n = s.dice.length;
@@ -937,11 +969,11 @@ export function botAction(s, rng = Math.random, samples = 24) {
     if (bestAct && (s.rollsLeft === 0 || bestGain > 12)) return bestAct;
   }
 
-  if (p.cls === 'dancer' && p.encore > 0 && s.rollsLeft === 0 && s.round >= 4) {
-    const all = (1 << n) - 1, now = valueOf(s, p, s.dice);
-    let best = now;
-    for (let mask = 0; mask < all; mask++) best = Math.max(best, holdValue(s, p, mask, samples, rng));
-    if (best > now + 8) return { type: 'encore' };
+  // 무희: 모든 주사위 +1 이 이득이면 쓴다 (마지막 굴림이면 조금만 좋아져도)
+  if (canDance(s)) {
+    const now = valueOf(s, p, s.dice);
+    const up = valueOf(s, p, s.dice.map((v, i) => (isSealed(s, i) ? v : Math.min(6, v + 1))));
+    if (up - now > 4 || (s.rollsLeft === 0 && up > now)) return { type: 'dance' };
   }
   if (s.rollsLeft > 0) {
     const all = (1 << n) - 1;
@@ -968,6 +1000,20 @@ export function botAction(s, rng = Math.random, samples = 24) {
   return { type: 'score', cat: bestCat };
 }
 
+// 도박사 봇의 배팅: 굴림 3번으로 노렸을 때의 기대 점수 × 배율 - 그 칸의 평소 기대 점수 가 큰 족보
+const AIM = { ones: 2.1, twos: 4.2, threes: 6.3, fours: 8.4, fives: 10.5, sixes: 12.6,
+              choice: 23, four: 6, full: 7, sstr: 9, lstr: 8, yacht: 2.5 };
+function botBet(s, p, rng) {
+  const left = CAT_IDS.filter(id => p.scores[id] === null);
+  const late = left.length <= 3;
+  let best = left[0], bv = -Infinity;
+  for (const id of left) {
+    const v = AIM[id] * CLASS_TUNE.betMul - (late ? 0 : EXPECT[id]) + rng() * 2;
+    if (v > bv) { bv = v; best = id; }
+  }
+  return best;
+}
+
 // 기본은 희귀도 높은 카드 선호. 시뮬레이션에서는 random=true 로 편향 없이 고른다.
 export function botPickPerk(p, offer, rng = Math.random, random = false) {
   if (random) return offer[Math.floor(rng() * offer.length)];
@@ -981,7 +1027,8 @@ export function applyBot(s, act) {
     case 'reroll': s.held = act.hold.slice(); return roll(s);
     case 'flip': return useFlip(s, act.i);
     case 'nudge': return useNudge(s, act.i, act.d);
-    case 'encore': return useEncore(s);
+    case 'dance': return useDance(s);
+    case 'bet': return placeBet(s, act.cat);
     case 'score': return commitScore(s, act.cat);
     case 'perk': return pickPerk(s, act.id);
   }
