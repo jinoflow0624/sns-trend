@@ -1150,6 +1150,7 @@ function render() {
 
     ${coop ? bossPanel() : ''}
 
+    ${coop ? '' : `<div class="towers${S.classic ? ' tall' : ''}" style="--n:${S.players.length}" aria-hidden="true">${S.players.map((p, i) => `<div class="tower${i === S.turn ? ' turn' : ''}" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">${towerInner(i)}</div>`).join('')}</div>`}
     <div class="party" style="--n:${S.players.length}">
       ${(() => { if (!ui.crownFreeze) crownShown = leaders(); lastPts = S.players.map((_, i) => shownPts(i)); return ''; })()}
       ${S.players.map((p, i) => `
@@ -1188,7 +1189,7 @@ function render() {
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
-    <section class="controls">
+    <section class="controls${S.classic ? ' two' : ''}">
       ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>`}
@@ -1725,6 +1726,44 @@ function bumpPts(i, add) {
   el.innerHTML = ptsHTML(i);
   el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
   lastPts[i] = shownPts(i);
+  if (!S.boss) towerLand(i);
+}
+// ── 대전 탑 쌓기: 기록한 점수가 블록이 되어 아래부터 쌓인다 (상단 보너스 = 금 블록, 레벨 = 보라 블록) ──
+const TOWER_COLOR = { ones: '#4FB3FF', twos: '#4FB3FF', threes: '#4FB3FF', fours: '#4FB3FF', fives: '#4FB3FF', sixes: '#4FB3FF',
+  choice: '#3EE6B4', four: '#FF9A1F', full: '#FF6B5B', sstr: '#7ED957', lstr: '#4FD67A', yacht: '#FFD24A', upper: '#FFE27A', lv: '#B36BFF' };
+function towerBlocks(p) {
+  const order = (p.order || E.CAT_IDS.filter(c => p.scores[c] !== null)).filter(k => k === 'upper' || k === 'lv' || p.scores[k] !== null);
+  // 레벨 점수는 맨 아래 받침돌 하나로 (레벨이 오를수록 두꺼워진다)
+  const out = [{ k: 'lv', pts: (p.level - 1) * E.LEVEL_POINTS }, ...order.filter(k => k !== 'lv').map(k => ({ k, pts: k === 'upper' ? E.UPPER_BONUS : p.scores[k] }))];
+  // 예전 저장 · 특성 소급으로 생긴 상단 보너스가 순서에 없으면 끝에 붙인다
+  if (E.upperSum(p) >= E.upperNeed(p) && !order.includes('upper')) out.push({ k: 'upper', pts: E.UPPER_BONUS });
+  return out.filter(b => b.pts > 0);
+}
+const TOWER_MIN = 120;                         // 이 점수까지는 탑 칸을 다 채우지 않는다 (초반에 블록 하나가 꼭대기까지 닿지 않게)
+function towerInner(i) {
+  const top = Math.max(TOWER_MIN, ...S.players.map((_, k) => truePts(k))) * 1.1;   // 블록 최소 두께만큼 여유
+  let left = shownPts(i);
+  const blocks = [];
+  for (const b of towerBlocks(S.players[i])) {
+    if (left <= 0) break;
+    const v = Math.min(b.pts, left); left -= v;
+    blocks.push(`<i class="tb tb-${b.k}" style="--h:${(v / top * 100).toFixed(2)}%;--bc:${TOWER_COLOR[b.k] || '#8A90A8'}"></i>`);
+  }
+  return blocks.join('');
+}
+const towerTop = i => {
+  const t = document.querySelector(`.tower[data-i="${i}"]`);
+  if (!t) return porPos(i);
+  const r = t.getBoundingClientRect(), last = t.lastElementChild?.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: (last ? last.top : r.bottom) - 4 };
+};
+function towerLand(i) {
+  const t = document.querySelector(`.tower[data-i="${i}"]`);
+  if (!t) return;
+  const n = t.children.length;
+  t.innerHTML = towerInner(i);
+  const last = t.lastElementChild;
+  if (last && t.children.length >= n) { last.classList.add('land'); sfx.box(); }
 }
 function releasePts() {
   if (!ui.pts) return;
@@ -1976,10 +2015,9 @@ async function duelFx(f) {
     // 1) 주사위가 에너지로 뭉친다 → 2) 내 영웅에게 날아가 스며든다 → 3) 영웅이 강화된다
     const o = await fx.gather(from, { pal: style.pal, power: style.power, onCharge: () => { sfx.charge(style.power); tray.absorb(380 / fx.speed); } });
     tray.restore();
-    const src = porPos(me);
-    await fx.flyOrb(o, src, { pal: style.pal, power: style.power, ms: 260, shrink: 0.5 });
+    await fx.flyOrb(o, towerTop(me), { pal: style.pal, power: style.power, ms: 280, shrink: 0.5 });
+    bumpPts(me, scoreGain(f));              // 에너지가 내 탑에 닿는 순간 블록이 쿵 얹히고 점수가 오른다
     await powerFx(me, style.pal, style.power);
-    bumpPts(me, scoreGain(f));              // 에너지가 내 영웅에게 스며드는 순간 점수가 오른다
     if (f.cat === 'yacht') { fx.flash('#FFFFFF', 320, 0.5); shake(app.querySelector('.party'), 1.5); }
   }
   ui.dice = null;
@@ -1989,7 +2027,7 @@ async function duelFx(f) {
 }
 // 강화 연출: 영웅 둘레로 고리가 안쪽으로 조여들고, 발밑에서 빛 기둥과 불씨가 솟는다
 async function powerFx(me, pal, power) {
-  const fx = FX(), c = porPos(me);
+  const fx = FX(), c = towerTop(me);
   sfx.powerUp(power);
   memberFx(me, 'power', 760);
   fx.ring(c.x, c.y, { color: pal[1] || '#FFFFFF', r0: 46 + power * 8, r1: 10, dur: 360, width: 4 });
@@ -2012,7 +2050,7 @@ async function upperFx(f) {
   sfx.quest(); buzz(80);
   if (prefs.fx === 'min') { floatText(`${who.name} · 상단 보너스 (${E.upperNeed(who)}점↑) +${f.amount}`, 'gold', -10, 'tray', 'sparkle'); if (!S.boss) bumpPts(me, f.amount); return; }
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
-  const pal = PALETTES.gold, src = porPos(me);
+  const pal = PALETTES.gold, src = S.boss ? porPos(me) : towerTop(me);
   const C = { x: innerWidth / 2, y: innerHeight * 0.45 };
   // 1) 화면 정중앙: 황금 폭발 — 섬광 · 세 겹 고리 · 사방으로 뻗는 빛줄기 · 큰 +35
   sfx.boom(2.4); shake(app.querySelector('.game'), 2);
@@ -2056,8 +2094,8 @@ async function upperFx(f) {
     fx.ring(tgt.x, tgt.y, { color: '#FFD24A', r0: 12, r1: 140, dur: 600, width: 8 });
     sfx.boom(3); shake(app.querySelector('.game'), 3);
   } else {
-    await powerFx(me, pal, 3);              // 대전: 공격 대신 크게 강화
-    bumpPts(me, f.amount);
+    bumpPts(me, f.amount);                  // 대전: 공격 대신 금 블록이 얹히며 크게 강화
+    await powerFx(me, pal, 3);
     fx.flash('#FFD24A', 220, 0.3);
     await crownCheck(me);
   }
