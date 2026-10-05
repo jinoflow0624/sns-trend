@@ -175,7 +175,7 @@ export async function earn(info) {
 
 // ── 도전과제 ──
 export const ach = () => W?.ach || null;
-export const achClaimable = () => AC.achClaimable(W?.ach);
+export const achClaimable = open => AC.achClaimable(W?.ach, open);
 export async function claimAch(id) {
   try { await loadWallet(); } catch { return { ok: false, why: '인터넷 연결이 필요해요.' }; }
   if (PROD) {

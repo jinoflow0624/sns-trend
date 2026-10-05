@@ -2462,9 +2462,9 @@ let gemResult = null;
 async function claimGems(info) {
   gemResult = { pending: true };
   paintGems();
-  const before = new Set(Wal.achClaimable().map(a => a.id));
+  const before = new Set(Wal.achClaimable(achOpen()).map(a => a.id));
   const r = await Wal.earn(info).catch(err => ({ ok: false, why: err?.message || '서버 오류' }));
-  r.newAch = r.ok ? Wal.achClaimable().filter(a => !before.has(a.id)) : [];   // 이번 판으로 새로 달성한 도전과제
+  r.newAch = r.ok ? Wal.achClaimable(achOpen()).filter(a => !before.has(a.id)) : [];   // 이번 판으로 새로 달성한 도전과제
   gemResult = r;
   if (r.newAch.length) setTimeout(() => sfx.legend(), 500);
   paintGems();
@@ -2489,54 +2489,61 @@ function gemInner() {
 // ── 도전과제 화면 ──────────────────────────────────────────────────────────────
 let achTab = 'combo';
 function achBtn() {
-  const n = Wal.achClaimable().length;
+  const n = Wal.achClaimable(achOpen()).length;
   return `<button id="ach-btn" class="pbtn" data-act="ach">${ico('trophy', 'xs')} 도전과제 <small>${n ? `받을 보상 ${n}개!` : '족보 · 보스 · 대전'}</small>${n ? `<i class="daily-dot"></i>` : ''}</button>`;
 }
 function showAchievements() {
   screen = 'ach';
   setStage(null);
   layer.innerHTML = '';
-  const ach = Wal.ach();
-  const all = AC.ACHIEVEMENTS, done = all.filter(a => ach?.got?.[a.id]).length;
-  const list = all.filter(a => a.cat === achTab)
-    .map(a => ({ a, got: !!ach?.got?.[a.id], ok: AC.achDone(a, ach), v: AC.achProgress(a, ach) }))
-    .sort((x, y) => (y.ok && !y.got) - (x.ok && !x.got) || x.got - y.got || x.a.tier - y.a.tier);
-  const badge = cat => all.filter(a => a.cat === cat && AC.achDone(a, ach) && !ach?.got?.[a.id]).length;
+  const ach = Wal.ach(), open = achOpen();
+  const shown = AC.ACHIEVEMENTS.filter(a => AC.achShown(a, open));
+  const done = shown.filter(a => ach?.got?.[a.id]).length;
+  const ready = a => AC.achDone(a, ach) && !ach?.got?.[a.id];
+  const blocks = AC.achBlocks(ach, open).filter(b => b.a.cat === achTab)
+    .map(b => ({ ...b, got: !!ach?.got?.[b.a.id], ok: AC.achDone(b.a, ach), v: AC.achProgress(b.a, ach) }))
+    .sort((x, y) => (y.ok && !y.got) - (x.ok && !x.got) || x.got - y.got);
+  const badge = cat => shown.filter(a => a.cat === cat && ready(a)).length;
   app.innerHTML = `
   <div class="screen page ach-page">
     <header class="page-head">
       <button class="icon-btn" data-act="home" aria-label="뒤로">◀</button>
       <h2>도전과제</h2>
-      <span class="count">${done} / ${all.length}</span>
+      <span class="count">${done} / ${shown.length}</span>
     </header>
     <div class="wrap">
       <div class="seg ach-tabs" role="tablist">${AC.ACH_CATS.map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
       ${Wal.wallet() ? '' : '<p class="hint">지갑을 불러오는 중… (인터넷 연결이 필요해요)</p>'}
       <div class="ach-list">
-      ${list.map(({ a, got, ok, v }) => {
+      ${blocks.map(({ a, steps, step, got, ok, v }) => {
         const t = AC.TIER[a.tier];
-        return `<div class="ach-card${got ? ' got' : ok ? ' ready' : ''}" style="--tc:${t.color}">
-          <span class="ach-tier">${t.ko}</span>
-          <div class="ach-body"><b>${esc(a.ko)}</b><small>${esc(a.desc)}</small>
+        // 단계 표시: 받은 단계는 채운 칸, 지금 단계는 테두리
+        const pips = steps.length > 1 ? `<span class="ach-steps">${steps.map((x, k) => `<i class="${ach?.got?.[x.id] ? 'on' : k === step ? 'now' : ''}" style="--tc:${AC.TIER[x.tier].color}" title="${AC.TIER[x.tier].ko}"></i>`).join('')}</span>` : '';
+        return `<div class="ach-card${got ? ' got' : ok ? ' ready' : ''}" data-k="${a.series || a.id}" style="--tc:${t.color}">
+          <span class="ach-tier">${t.ko}${steps.length > 1 ? ` ${step + 1}/${steps.length}` : ''}</span>
+          <div class="ach-body"><b>${esc(a.ko)}${pips}</b><small>${esc(a.desc)}</small>
             ${a.goal > 1 && !a.nobar ? `<div class="ach-bar" style="--w:${(v / a.goal) * 100}%"><i></i><em>${v.toLocaleString()} / ${a.goal.toLocaleString()}</em></div>` : ''}</div>
-          ${got ? `<span class="ach-done">${ico('sparkle', 'xs')} 완료</span>`
+          ${got ? `<span class="ach-done">${ico('sparkle', 'xs')} ${steps.length > 1 ? '모두 완료' : '완료'}</span>`
             : `<button class="pbtn small${ok ? ' gold' : ''}" data-act="ach-claim" data-id="${a.id}" ${ok ? '' : 'disabled'}>${ico('gem', 'xs')}${AC.achGems(a)}</button>`}
         </div>`;
       }).join('')}
       </div>
-      <p class="hint">보석을 받은 판(인터넷 연결 · 1분 이상)만 진행도에 쌓여요. 보스 등급은 보통 이상 난이도 기준.</p>
+      <p class="hint">단계가 있는 과제는 보상을 받으면 다음 단계로 바뀌어요. 보석을 받은 판(인터넷 연결 · 1분 이상)만 진행도에 쌓여요. 보스 등급은 보통 이상 난이도 기준.</p>
     </div>
   </div>`;
 }
+// 비밀 도전과제가 열렸나: 마왕은 봉인이 풀린 뒤에만 보인다
+const achOpen = () => ({ demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()) });
 async function claimAchUI(id, btn) {
   if (btn) btn.disabled = true;
   const r = await Wal.claimAch(id);
   if (!r.ok) { sfx.back(); toast(ico('warn'), '받지 못했어요', r.why || '', 1800); if (btn) btn.disabled = false; return; }
   sfx.coin(); buzz(40);
   const a = AC.achInfo(id);
-  toast(ico('trophy'), `${a.ko} 달성!`, `보석 +${r.gems}`, 1600);
+  const next = AC.achBlocks(Wal.ach(), achOpen()).find(b => b.steps.includes(a));
+  toast(ico('trophy'), `${a.ko} 달성!`, next && next.a !== a ? `보석 +${r.gems} · 다음 목표: ${next.a.ko}` : `보석 +${r.gems}`, 1800);
   if (btn) { const c = btn.getBoundingClientRect(); FX().burst(c.left + c.width / 2, c.top + c.height / 2, { n: 24, pal: PALETTES.gold, speed: [60, 220], life: [0.3, 0.7] }); }
-  if (screen === 'ach') showAchievements();
+  if (screen === 'ach') { showAchievements(); document.querySelector(`.ach-card[data-k="${a.series || a.id}"]`)?.classList.add('step-up'); }
 }
 function paintGems() { const el = document.getElementById('gem-res'); if (el) el.innerHTML = gemInner(); }
 
