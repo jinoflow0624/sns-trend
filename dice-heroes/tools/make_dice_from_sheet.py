@@ -34,7 +34,7 @@ SKINS = {   # rim: 테두리를 대칭으로 만들 때 쓸 1/4 ('tl' 왼쪽 위
     'minimal':   dict(cy=435, side=108, rim='bl'),
     'gold':      dict(cy=556, side=108, rim='bl'),
     'cosmic':    dict(cy=676, side=112),
-    'black':     dict(cy=799, side=110),
+    'black':     dict(cy=799, side=110, finish='obsidian'),
     'openheart': dict(cy=938, side=120),
 }
 
@@ -89,8 +89,8 @@ def crop_face(sheet, arr, name, c):
         crop = big.crop(tuple(round((v - o) * SCALE) for v, o in zip(box, (x0, y0, x0, y0))))
         if p.get('redraw'):
             return symmetric_rim(redraw_pips(name, crop, c + 1, sheet, arr), p.get('rim', 'tl'), t)
-        face = crop.resize((SIZE, SIZE), Image.LANCZOS)
-        return symmetric_rim(face, p.get('rim', 'tl'), t)
+        face = symmetric_rim(crop.resize((SIZE, SIZE), Image.LANCZOS), p.get('rim', 'tl'), t)
+        return obsidian(face) if p.get('finish') == 'obsidian' else face
     face = sheet.crop(tuple(int(round(v)) for v in box)).resize((SIZE, SIZE), Image.LANCZOS)
     face = symmetric_rim(face, p.get('rim', 'tl'), t)
     return face.filter(ImageFilter.UnsharpMask(radius=1.4, percent=60, threshold=2))
@@ -143,6 +143,25 @@ def redraw_pips(name, crop, v, sheet, arr):
     for fx, fy in PIP_POS[v]:
         base.paste(sp, (int(round(fx * SIZE - S2 / 2)), int(round(fy * SIZE - S2 / 2))), sp)
     return base
+
+
+def obsidian(face):
+    """블랙: 시안의 하얀 유리 테두리를 흑요석처럼 — 테두리 띠는 거의 검게 눌러 아주 옅은 푸른 광택만 남기고,
+    가장자리 안쪽에 가는 광택선 하나를 그어 각진 돌 느낌을 낸다. 바탕은 조금 더 어둡게, 하얀 눈은 그대로"""
+    a = np.asarray(face).astype(np.float32)
+    n = a.shape[0]
+    i = np.arange(n); d = np.minimum(i, n - 1 - i) / n
+    dist = np.minimum(d[:, None], d[None, :])
+    rim = np.clip((0.15 - dist) / 0.03, 0, 1)[..., None]          # 0.12 안쪽은 테두리, 0.15 까지 섞임
+    lum = a.mean(2, keepdims=True)
+    dark = np.concatenate([lum * 0.16 + 6, lum * 0.17 + 7, lum * 0.20 + 10], 2)   # 검정 + 아주 옅은 남색 광
+    body = a * 0.82                                                # 바탕 대리석 결도 조금 더 깊게
+    white = (a.min(2, keepdims=True) > 175).astype(np.float32)     # 눈(하얀 구슬)은 그대로
+    out = body * (1 - rim) + dark * rim
+    out = out * (1 - white * (1 - rim)) + a * white * (1 - rim)
+    line = np.exp(-((dist - 0.035) / 0.006) ** 2)[..., None]       # 가는 광택선
+    out = out + line * np.array([24, 26, 34], np.float32)
+    return Image.fromarray(out.clip(0, 255).astype(np.uint8))
 
 
 RIM, RIM_SOFT, CORNER = 0.12, 0.05, 0.13     # 테두리 띠 폭 · 섞이는 폭 · 모서리 둥글기 (한 변 대비)
