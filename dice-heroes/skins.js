@@ -6,13 +6,13 @@
 // sound: 굴릴 때 부딪히는 소리 (audio.js sfx.hit)
 export const DICE_SKINS = [
   { id: 'classic', name: '기본', desc: '상아색 기본 주사위', tier: 'free', sound: 'classic' },
-  { id: 'openheart', name: '오픈하츠', desc: '톱니가 비치는 구리 스켈레톤 · 숫자 눈 · 은빛 찰캉 소리', tier: 'special', sound: 'silver' },
+  { id: 'openheart', name: '오픈하츠', desc: '톱니바퀴가 맞물린 구리 시계 · 빛나는 눈 · 은빛 찰캉 소리', tier: 'special', sound: 'silver' },
   { id: 'gold', name: '황금', desc: '온통 순금 · 새겨진 눈 · 금화 소리', tier: 'special', sound: 'coin' },
-  { id: 'minimal', name: '미니멀', desc: '굵은 선의 만화풍 · 톡톡 소리', tier: 'special', sound: 'soft' },
+  { id: 'minimal', name: '미니멀', desc: '매끈하게 윤나는 하얀 주사위 · 톡톡 소리', tier: 'special', sound: 'soft' },
   { id: 'cosmic', name: '우주', desc: '은하수가 반짝이는 밤하늘 · 반짝 소리', tier: 'special', sound: 'twinkle' },
   { id: 'black', name: '블랙', desc: '기본 주사위의 흑백 반전', tier: 'special', sound: 'classic' },
-  { id: 'clear', name: '투명', desc: '추억의 투명 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
-  { id: 'heart', name: '하트', desc: '연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
+  { id: 'clear', name: '투명', desc: '무지갯빛이 번지는 유리 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
+  { id: 'heart', name: '하트', desc: '반짝이는 연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
   { id: 'keycap', name: '키캡', desc: '기계식 키보드 키캡 · 도각 소리', tier: 'special', sound: 'key' },
 ];
 
@@ -49,15 +49,16 @@ const PIP_POS = {
 //   upright: 숫자 눈 — 굴린 뒤 윗면 숫자의 머리가 화면 위쪽을 향하게 세운다
 const DIE_MAT = {
   classic: { roughness: 0.32, metalness: 0.02 },
-  // image: 디자인 렌더로 만든 면 그림(assets/dice/<스킨>/1~6.webp, tools/make_dice_textures.py). 그림에 음영이 이미 들어 있다
-  openheart: { roughness: 0.4, metalness: 0.45, env: 0.8, image: true, upright: true },
+  // image: 디자인 시트에서 오려 낸 면 그림(assets/dice/<스킨>/1~6.webp, tools/make_dice_from_sheet.py). 그림에 음영이 이미 들어 있다
+// 기본(classic)만 코드로 그린다. 예전 코드 그림(하트·키캡·투명·미니멀)은 drawDieFace 에 그대로 남아 있다 — image 줄만 지우면 되돌아간다
+  openheart: { roughness: 0.4, metalness: 0.45, env: 0.8, image: true },
   gold: { roughness: 0.28, metalness: 0.35, env: 0.9, image: true },
-  minimal: { toon: true, outline: true },
+  minimal: { roughness: 0.3, metalness: 0.0, env: 0.35, image: true },
   cosmic: { roughness: 0.25, metalness: 0.1, env: 0.5, image: true, selfGlow: 0.35, twinkle: true },
   black: { roughness: 0.28, metalness: 0.1, env: 0.6, image: true },
-  clear: { roughness: 0.04, metalness: 0.0, env: 1.1, clear: true },
-  heart: { roughness: 0.24, metalness: 0.0, env: 0.35 },
-  keycap: { roughness: 0.7, metalness: 0.0, env: 0.15, upright: true },
+  clear: { roughness: 0.12, metalness: 0.0, env: 0.9, image: true, selfGlow: 0.18 },
+  heart: { roughness: 0.3, metalness: 0.0, env: 0.4, image: true },
+  keycap: { roughness: 0.6, metalness: 0.0, env: 0.2, image: true },
 };
 export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;
