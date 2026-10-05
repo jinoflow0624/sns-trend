@@ -1,4 +1,5 @@
 // 꾸미기 — 주사위 스킨 · 트레이 스킨.
+import { GAME } from './config.js';
 // 그림은 모두 캔버스로 그린다(이미지 파일 없음). three.js 에 의존하지 않아서 목록 미리보기(2D)에도 같은 그림을 쓴다.
 //
 // 각 스킨의 tier ('free' | 'special'). 스페셜 스킨은 보석으로 산다 (가격·보유 여부는 wallet.js).
@@ -63,7 +64,10 @@ const DIE_MAT = {
 };
 export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;
-export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp` : null);
+// 그림 주소 끝에 게임 버전을 붙인다 — 오프라인 캐시(sw.js)가 주소가 같으면 저장해 둔 그림을 먼저 쓰기 때문에,
+// 파일 이름이 그대로면 새 버전에서도 예전 그림이 계속 보였다 (주사위 모서리가 검던 예전 그림 등)
+const AV = `?v=${GAME.version}`;
+export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 
 // 면 그림을 미리 받아 둔다 (꾸미기에서 고르면 바로 바뀌게). 받은 그림은 READY 에 남는다
 const IMGS = new Map();
@@ -374,7 +378,7 @@ const IMAGE_TRAY = {
 };
 export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
-export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp` : null);
+export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 
 // 트레이 바닥 (512×512). glowOnly: 빛나는 부분(마법진·용암·별)만 그린 발광 지도
 export function drawTrayFloor(c, id = 'classic', glowOnly = false) {
