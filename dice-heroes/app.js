@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
 import { titleScene } from './scenes.js';
-import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
+import { sfx, playBgm, preloadBgm, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
@@ -16,6 +16,7 @@ import { liveConfig, older, setAnalytics, track } from './live.js';
 import { webglOK, DiceTray2D } from './dice2d.js';
 import * as Wal from './wallet.js';
 import * as AC from './achievements.js';
+import * as Ads from './ads.js';
 import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice } from './skins.js';
 
 const app = document.getElementById('app');
@@ -31,12 +32,18 @@ const store = {
 };
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
-const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
+const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, adsPersonal: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
 preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
-let live = { notice: '', maintenance: false, min_version: '' };
-liveConfig().then(v => { live = v; if (screen === 'title') showLiveBar(); });
+let live = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 2 };
+// 광고: 테스트판은 늘 테스트 광고, 배포판은 Remote Config ads_enabled 가 켜졌을 때만. 광고 제거 권리 = 지갑 owned.pass.no_ads
+const adsOn = () => (PROD ? !!live.ads_enabled : true);
+liveConfig().then(v => {
+  live = v;
+  if (screen === 'title') showLiveBar();
+  Ads.initAds({ enabled: adsOn(), test: !PROD, every: v.ads_every, personalized: !!prefs.adsPersonal, adFree: () => !!Wal.wallet()?.owned?.pass?.no_ads, onPause: pauseAudio });
+});
 const FX_RATE = { normal: 1, fast: 1.8, min: 3 };
 const fxRate = () => FX_RATE[prefs.fx] || 1;
 function applyPrefs() {
@@ -2390,6 +2397,7 @@ function showResults() {
   stopBgm();
   FX().rage(false);
   recordProfile();
+  if (!S.tutorial) Ads.gameOver(key);
   // 내가 졌으면 패배 곡, 이겼으면(또는 한 기기에서 여럿이 한 판) 승리 팡파레 뒤 승리 곡
   if (lostGame()) { sfx.lose(); setTimeout(() => playBgm('title'), 2300); }
   else { sfx.win(); setTimeout(() => playBgm('victory'), 1500); }
@@ -2831,6 +2839,7 @@ function showSettings(inGame = false) {
     <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
+    ${adsOn() ? `<label class="set-row">맞춤형 광고 <small>끄면 관심사와 상관없는 광고</small><input id="set-adp" type="checkbox" ${prefs.adsPersonal ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
     <button class="pbtn small guide-btn" data-act="class-guide" data-in="${inGame ? 1 : ''}">${ico('scroll', 'xs')} 직업 안내 <small>스킬 · 특징</small></button>
@@ -3530,6 +3539,10 @@ function onAct(act, t) {
     saved.fx = [{ type: 'round', round: saved.round, event: E.event(saved) }];
     return startGame(saved);
   }
+  // 결과 화면에서 넘어갈 때만 (차례면) 광고 한 번 — 게임 도중엔 절대 없음
+  if ((act === 'home' || act === 'again') && !t.dataset?.adDone && layer.querySelector('.results')) {
+    return Ads.breakThen(() => onAct(act, { dataset: { ...t.dataset, adDone: '1' } }));
+  }
   if (act === 'home' || act === 'quit') {
     sfx.back();
     tut = null; coachEl.innerHTML = '';
@@ -3597,6 +3610,7 @@ document.addEventListener('input', e => {
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') { setAudio({ vibrate: e.target.checked }); buzz(80); }   // 켜면 바로 한 번 떨어서 확인
   if (id === 'set-shake') setShake(e.target.checked, e.target);
+  if (id === 'set-adp') { prefs.adsPersonal = e.target.checked; store.set(KEYS.prefs, prefs); Ads.setPersonalized(prefs.adsPersonal); }
   if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
     if (id === 'set-big') prefs.bigText = e.target.checked;
@@ -3649,4 +3663,4 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
-if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox() };
+if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox(), results: () => showResults() };

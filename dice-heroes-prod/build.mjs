@@ -8,7 +8,7 @@
 //   3. 서비스 워커의 Firebase 번들 이름을 전체판(firebase-full.js)으로 바꾼다
 //   4. twa/assetlinks.json 이 있으면 .well-known/ 에 넣는다 (구글 플레이 앱 ↔ 사이트 연결)
 //   5. 서버(functions/shared/)에 보상 규칙 · 엔진 사본을 넣는다
-//   6. 애드센스: 사이트 소유 확인용 메타 태그와 ads.txt 를 넣는다 (광고 스크립트는 넣지 않는다 — 광고는 아직 꺼져 있음)
+//   6. 애드센스: 사이트 소유 확인용 메타 태그와 ads.txt 를 넣는다 (광고 스크립트는 게임이 필요할 때만 불러온다)
 import { cpSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,8 +54,9 @@ mkdirSync(shared, { recursive: true });
 for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js']) cpSync(join(src, f), join(shared, f));
 writeFileSync(join(shared, 'package.json'), '{ "type": "module" }\n');
 
-// 6. 애드센스 게시자 ID (비밀 값 아님). 사이트 소유 확인 + ads.txt 용. 광고를 실제로 띄우는 코드는 별도 작업.
-const ADSENSE_PUB = 'pub-1731682355545536';
+// 6. 애드센스 게시자 ID (비밀 값 아님) — 게임의 ads.js 와 같은 값을 쓴다. 사이트 소유 확인 + ads.txt 용.
+//    광고 자체는 게임(ads.js)이 Remote Config ads_enabled 가 켜졌을 때만 불러온다.
+const ADSENSE_PUB = /ADS_CLIENT = 'ca-(pub-\d+)'/.exec(readFileSync(join(src, 'ads.js'), 'utf8'))[1];
 const html = join(out, 'index.html');
 writeFileSync(html, readFileSync(html, 'utf8').replace('</head>', `<meta name="google-adsense-account" content="ca-${ADSENSE_PUB}">\n</head>`));
 writeFileSync(join(out, 'ads.txt'), `google.com, ${ADSENSE_PUB}, DIRECT, f08c47fec0942fa0\n`);

@@ -4,7 +4,7 @@
   "type": "module",
   "description": "요트 주사위 + 성장형 RPG 보드게임 (엔진 테스트·시뮬레이션을 위한 ESM 선언)",
   "scripts": {
-    "test": "node test/engine.test.mjs",
+    "test": "node test/engine.test.mjs && node test/ads.test.mjs",
     "sim": "node sim/simulate.mjs"
   }
 }
