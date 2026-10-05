@@ -2723,6 +2723,7 @@ function showSettings(inGame = false) {
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
+    <button class="pbtn small guide-btn" data-act="class-guide" data-in="${inGame ? 1 : ''}">${ico('scroll', 'xs')} 직업 안내 <small>스킬 · 특징</small></button>
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
@@ -2730,6 +2731,36 @@ function showSettings(inGame = false) {
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
         '<button class="pbtn" data-act="tutorial">튜토리얼 다시 보기</button><button class="pbtn gold" data-act="close">닫기</button>'}
     </div>
+  </div></div>`;
+}
+// 직업 안내: 이번 판에 나온 직업을 먼저, 나머지는 그 뒤에
+const CLASS_TIP = {
+  warrior: '상단 6칸만 잘 모아도 보너스 35점. 에이스~식스를 꾸준히 채우세요',
+  rogue: '첫 턴부터 뒤집기로 아쉬운 주사위 하나를 살릴 수 있어요',
+  mage: '레벨이 빨리 올라 특성 카드를 더 많이 고릅니다',
+  bard: '의뢰를 깰수록 점수와 조정이 함께 늘어나요',
+  gambler: '노릴 족보를 미리 걸어야 해요. 확률 높은 족보부터',
+  monk: '일찍 적을수록 조정이 쌓입니다. 좋은 패가 나오면 바로 기록',
+  dancer: '큰 점수를 적어 버프를 모았다가, 스트레이트 · 요트 직전에 +1',
+  outlaw: '첫 굴림에 족보가 보이면 망설이지 말고 바로 적으세요',
+  sharper: '한 개만 모자랄 때 밑장빼기로 완성. 대신 그 기록은 경험치가 없어요',
+};
+function showClassGuide(inGame) {
+  const inGameCls = inGame && S ? S.players.map(p => p.cls) : [];
+  const order = [...new Set(inGameCls), ...E.CLASSES.map(c => c.id).filter(id => !inGameCls.includes(id))];
+  const rows = order.map(id => {
+    const c = E.classInfo(id);
+    const who = inGame && S ? S.players.filter(p => p.cls === id).map(p => esc(p.name)) : [];
+    return `<div class="cg-row${who.length ? ' here' : ''}" style="--c:${c.color}">
+      ${portrait(id, 'mini')}
+      <div class="cg-body"><b>${c.ko}</b>${who.length ? `<span class="cg-who">${who.join(' · ')}</span>` : ''}
+        <p>${c.desc}</p>${CLASS_TIP[id] ? `<small>${CLASS_TIP[id]}</small>` : ''}</div>
+    </div>`;
+  }).join('');
+  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame class-guide" data-act="noop">
+    <h2>직업 안내</h2>
+    <div class="cg-list">${rows}</div>
+    <div class="modal-actions"><button class="pbtn" data-act="guide-back" data-in="${inGame ? 1 : ''}">뒤로</button><button class="pbtn gold" data-act="close">${inGame ? '계속하기' : '닫기'}</button></div>
   </div></div>`;
 }
 // 설정의 계정 줄: 게스트면 '구글 계정 연결' 버튼
@@ -3306,6 +3337,8 @@ function onAct(act, t) {
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
   if (act === 'settings') { sfx.select(); showSettings(false); return paintAccount(); }
+  if (act === 'class-guide') { sfx.select(); return showClassGuide(!!t.dataset.in); }
+  if (act === 'guide-back') { sfx.back(); if (t.dataset.in) return showSettings(true); showSettings(false); return paintAccount(); }
   if (act === 'link-google') {
     sfx.select();
     t.disabled = true;

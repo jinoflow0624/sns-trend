@@ -1366,3 +1366,15 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .deal-pick button:not(:disabled):active { transform: scale(.9); }
 .rush-badge { background: #E08A3C; color: #2A1200; }
 .deal-badge { background: #4FD6C8; color: #06241F; }
+
+/* 직업 안내 */
+.guide-btn { width: 100%; margin-top: 8px; }
+.class-guide { max-height: 86vh; display: flex; flex-direction: column; }
+.cg-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; padding-right: 2px; }
+.cg-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px; background: rgba(0, 0, 0, .25); border-left: 4px solid var(--c); text-align: left; }
+.cg-row.here { background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 2px var(--c); }
+.cg-row img.mini { width: 40px; height: 40px; flex: none; }
+.cg-body b { color: var(--c); font-size: 15px; }
+.cg-who { margin-left: 6px; font-size: 11px; padding: 1px 6px; background: var(--c); color: var(--ink); font-weight: 700; }
+.cg-body p { margin: 3px 0 2px; font-size: 13px; line-height: 1.4; }
+.cg-body small { display: block; font-size: 11px; color: var(--muted); line-height: 1.4; }
