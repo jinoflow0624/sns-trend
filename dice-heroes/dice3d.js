@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, drawBoxFloor } from './skins.js';
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -355,10 +355,12 @@ export class DiceTray {
       const st = trayStyle(trayId);
       const fm = this.floorMesh.material;
       fm.map?.dispose(); fm.emissiveMap?.dispose();
-      fm.map = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
+      // 그림 트레이는 파일(바닥·발광 지도), 나머지는 캔버스로 그린 바닥
+      const img = kind => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind));
+      fm.map = img('floor') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
       if (trayGlows(trayId)) {
         fm.emissive = new THREE.Color(0xFFFFFF);
-        fm.emissiveMap = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
+        fm.emissiveMap = img('glow') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
         fm.emissiveIntensity = st.glow;
       } else { fm.emissive = new THREE.Color(0); fm.emissiveMap = null; }
       fm.needsUpdate = true;
@@ -370,7 +372,7 @@ export class DiceTray {
       this.trimMat.needsUpdate = true;
       const bm = this.boxFloor.material;
       bm.map?.dispose();
-      bm.map = this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
+      bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
     }
   }

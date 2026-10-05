@@ -14,7 +14,8 @@ const FILES = [
   'assets/boss/demon.png', 'assets/boss/demon_rage.png',
   ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
   // 그림 주사위 스킨 (오프라인에서 꾸미기를 바꿔도 보이게)
-  ...['openheart', 'gold', 'cosmic', 'black'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp`)),
+  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry'].flatMap(k => ['floor', 'glow', 'box', 'thumb'].map(f => `assets/trays/${k}/${f}.webp`)),
+  ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp`)),
 ];
 const NET_WAIT = 4000;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로
 let slowUntil = 0;       // 방금 네트워크가 느렸으면 30초 동안은 캐시부터 (파일마다 4초씩 기다리지 않게)
