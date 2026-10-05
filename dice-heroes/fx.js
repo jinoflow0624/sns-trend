@@ -337,17 +337,29 @@ class FxLayer {
       }, (k, i) => line(k, (i - (shots - 1) / 2) * 6));
       this.burst(b.x, b.y, { n: 14, pal: ['#C8C0B0', '#8A8070', '#FFE27A'], speed: [30, 120], grav: -60, life: [0.4, 0.8], size: [3, 6] });   // 화약 연기
     } else if (cls === 'sharper') {
-      // 화투 패 날리기: 빨간 화투가 손목 스냅으로 휘어 날아가 꽂힌다
+      // 스페이드 에이스 날리기: 손목 스냅으로 휘어 날아가 꽂힌다
+      const spade = (g, z, c) => {   // z = 반폭
+        g.fillStyle = c; g.beginPath();
+        g.moveTo(0, -z * 1.25); g.lineTo(z, z * 0.05); g.lineTo(-z, z * 0.05); g.fill();   // 위 뾰족
+        g.beginPath(); g.arc(-z * 0.5, z * 0.15, z * 0.55, 0, TAU); g.arc(z * 0.5, z * 0.15, z * 0.55, 0, TAU); g.fill();
+        g.beginPath(); g.moveTo(0, z * 0.2); g.lineTo(z * 0.4, z * 1.15); g.lineTo(-z * 0.4, z * 1.15); g.fill();   // 줄기
+      };
       await volley(shots, 85, 300, (g, p, k, i) => {
-        const w = 11 * S, h = 17 * S, spin = k * 10 + i;
+        const w = 16 * S, h = 22 * S, spin = k * 5 + i * 0.7;
         g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(ang + spin);
-        g.fillStyle = '#06041A'; g.fillRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4);
+        g.globalCompositeOperation = 'source-over';   // 층 전체가 더하기 섞기라 검은 문양이 사라진다
+        g.fillStyle = '#14101E'; g.fillRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4);
         g.fillStyle = '#FFF6E8'; g.fillRect(-w / 2, -h / 2, w, h);
-        g.fillStyle = '#D9263E'; g.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
-        g.fillStyle = i % 2 ? '#FFC83D' : '#4FD6C8'; g.beginPath(); g.arc(0, -h * 0.12, w * 0.22, 0, TAU); g.fill();
+        spade(g, w * 0.34, '#14101E');
         g.restore();
-        trail(p.x, p.y, 1, [2, 3], ['#4FD6C8', '#FFFFFF', '#D9263E']);
+        trail(p.x, p.y, 1, [2, 3], ['#4FD6C8', '#FFFFFF', '#14101E']);
       }, (k, i) => line(ease(k), (i % 2 ? 1 : -1) * (16 + i * 4) * Math.sin(k * Math.PI)));
+      // 꽂힌 자리에 스페이드 문양이 번쩍
+      await this.add((g, k) => {
+        g.save(); g.translate(Math.round(b.x), Math.round(b.y - 6 * S)); g.globalAlpha = 1 - k; g.globalCompositeOperation = 'source-over';
+        spade(g, (10 + k * 10) * S, '#FFFFFF'); spade(g, (7 + k * 8) * S, '#14101E');
+        g.restore();
+      }, 260);
     } else if (cls === 'gambler') {
       // 카드 날리기: 빙글빙글 도는 카드
       await volley(shots, 100, 320, (g, p, k, i) => {
