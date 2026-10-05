@@ -735,6 +735,10 @@ export function commitScore(s, cat) {
   (p.order ||= []).push(cat);                 // 기록한 순서 (대전 탑 쌓기: 아래부터 이 순서로 블록)
   (p.base ||= {})[cat] = scoreParts(s, p, cat).base;
   p.roundScore = pts;
+  if (cat === 'yacht' && pts > 0) {           // 도전과제: 어떤 눈으로 요트를 했나
+    const face = [1, 2, 3, 4, 5, 6].find(v => s.dice.filter(x => x === v).length >= 5);
+    if (face) (p.stats.yacht ||= []).push(face);
+  }
   if (ab(p) === 'dancer' && pts >= CLASS_TUNE.danceNeed) {   // 무희: 큰 점수를 적으면 춤사위 버프
     p.dance++;
     log(s, `${p.name} · 춤사위 버프 획득 (${p.dance}개)`);
@@ -960,6 +964,29 @@ export function forfeit(s, loser) {
   s.forfeit = loser;
   log(s, `${s.players[loser].name} 연결 끊김 — 기권패`);
   fx(s, { type: 'over', won: false, forfeit: loser });
+}
+
+// 도전과제용 한 판 기록 (achievements.js 의 키). 끝난 판, idx 번째 선수 기준
+export function statsOf(s, idx, { online = false } = {}) {
+  const p = s.players[idx];
+  const sc = id => p.scores[id];
+  const st = { games: 1, quests: p.questsDone?.length || 0, level: s.classic ? 0 : p.level };
+  for (const c of ['four', 'full', 'sstr', 'lstr', 'yacht']) st[`c_${c}`] = sc(c) > 0 ? 1 : 0;
+  st.upper = upperSum(p) >= upperNeed(p) ? 1 : 0;
+  st.clean = CAT_IDS.every(id => sc(id) > 0) ? 1 : 0;
+  st.collect = ['yacht', 'lstr', 'full', 'four'].every(id => sc(id) > 0) ? 1 : 0;
+  st.y6 = (p.stats.yacht || []).includes(6) ? 1 : 0;
+  st.y1 = (p.stats.yacht || []).includes(1) ? 1 : 0;
+  if (s.mode === 'coop') {
+    const g = coopGrade(s);
+    if (s.boss?.won) { st.coopWin = 1; st[`b:${s.boss.id}:${s.boss.diff}`] = { B: 1, A: 2, S: 3 }[g] || 0; }
+  } else {
+    const top = ranking(s)[0];
+    const win = s.players.length > 1 && (top.i === idx || (top.total === finalScore(p) && s.forfeit !== idx));
+    st[s.classic ? 'clScore' : 'score'] = finalScore(p);
+    if (win) { st.vsWin = 1; if (s.classic) st.clWin = 1; if (online && s.players.filter(q => !q.bot).length > 1) st.onWin = 1; }
+  }
+  return st;
 }
 
 export function ranking(s) {

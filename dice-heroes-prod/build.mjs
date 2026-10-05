@@ -50,7 +50,7 @@ if (existsSync(links)) {
 const shared = join(here, 'functions', 'shared');
 rmSync(shared, { recursive: true, force: true });
 mkdirSync(shared, { recursive: true });
-for (const f of ['wallet-rules.js', 'engine.js']) cpSync(join(src, f), join(shared, f));
+for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js']) cpSync(join(src, f), join(shared, f));
 writeFileSync(join(shared, 'package.json'), '{ "type": "module" }\n');
 
 const version = /version:\s*'([^']+)'/.exec(readFileSync(join(src, 'config.js'), 'utf8'))?.[1];

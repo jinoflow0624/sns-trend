@@ -15,6 +15,7 @@ import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
 import { webglOK, DiceTray2D } from './dice2d.js';
 import * as Wal from './wallet.js';
+import * as AC from './achievements.js';
 import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice } from './skins.js';
 
 const app = document.getElementById('app');
@@ -157,6 +158,7 @@ function showTitle() {
         <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
         <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
+        ${achBtn()}
         <div class="menu-row">
           <button class="pbtn small" data-act="dashboard">대시보드</button>
           <button class="pbtn small" data-act="tutorial">튜토리얼</button>
@@ -178,6 +180,8 @@ function showTitle() {
 Wal.onWallet(w => {
   const el = document.getElementById('gem-count'); if (el) el.textContent = Wal.gems().toLocaleString();
   const db = document.getElementById('daily-btn'); if (db && !layer.querySelector('.daily')) db.outerHTML = dailyBtn();
+  const ab = document.getElementById('ach-btn'); if (ab) ab.outerHTML = achBtn();
+  if (screen === 'ach' && !document.querySelector('[data-act=ach-claim]:disabled:focus')) showAchievements();
   if (w) syncOwned();
 });
 // 일일 보상 버튼: 받을 수 있으면 반짝인다
@@ -2458,8 +2462,11 @@ let gemResult = null;
 async function claimGems(info) {
   gemResult = { pending: true };
   paintGems();
+  const before = new Set(Wal.achClaimable().map(a => a.id));
   const r = await Wal.earn(info).catch(err => ({ ok: false, why: err?.message || '서버 오류' }));
+  r.newAch = r.ok ? Wal.achClaimable().filter(a => !before.has(a.id)) : [];   // 이번 판으로 새로 달성한 도전과제
   gemResult = r;
+  if (r.newAch.length) setTimeout(() => sfx.legend(), 500);
   paintGems();
   if (r.ok && r.total) { sfx.coin(); }
 }
@@ -2472,10 +2479,64 @@ function gemInner() {
   if (!r || r.pending) return `<span class="hint">${ico('gem')} 보석 정산 중…</span>`;
   if (r.offline) return `<span class="hint">${ico('gem')} 오프라인이라 이번 판은 보석을 받지 못했어요</span>`;
   if (!r.ok) return `<span class="hint">${ico('gem')} 보석을 받지 못했어요 · ${esc(r.why || '')}</span>`;
-  if (!r.total) return `<span class="hint">${ico('gem')} 이번 판 보석 없음 (점수 100점마다 5개)</span>`;
+  const achLine = r.newAch?.length ? `<div class="ach-new">${ico('trophy', 'xs')} 도전과제 달성! ${r.newAch.map(a => `「${esc(a.ko)}」`).join(' ')}<small>메인 화면 도전과제에서 보석을 받으세요</small></div>` : '';
+  if (!r.total) return `<span class="hint">${ico('gem')} 이번 판 보석 없음 (점수 100점마다 5개)</span>${achLine}`;
   return `<b class="gem-total">${ico('gem')} +${r.total}</b>
     <span class="gem-parts">${r.parts.filter(p => p.gems || p.id === 'win').map(p => `${esc(p.ko)} ${p.gems ? '+' + p.gems : ''}`).join(' · ')}</span>
-    <small class="hint">보유 ${Wal.gems().toLocaleString()} · 오늘 대전 승리 보상 ${Wal.VS_DAILY - Wal.vsLeftToday()}/${Wal.VS_DAILY}</small>`;
+    <small class="hint">보유 ${Wal.gems().toLocaleString()} · 오늘 대전 승리 보상 ${Wal.VS_DAILY - Wal.vsLeftToday()}/${Wal.VS_DAILY}</small>${achLine}`;
+}
+
+// ── 도전과제 화면 ──────────────────────────────────────────────────────────────
+let achTab = 'combo';
+function achBtn() {
+  const n = Wal.achClaimable().length;
+  return `<button id="ach-btn" class="pbtn" data-act="ach">${ico('trophy', 'xs')} 도전과제 <small>${n ? `받을 보상 ${n}개!` : '족보 · 보스 · 대전'}</small>${n ? `<i class="daily-dot"></i>` : ''}</button>`;
+}
+function showAchievements() {
+  screen = 'ach';
+  setStage(null);
+  layer.innerHTML = '';
+  const ach = Wal.ach();
+  const all = AC.ACHIEVEMENTS, done = all.filter(a => ach?.got?.[a.id]).length;
+  const list = all.filter(a => a.cat === achTab)
+    .map(a => ({ a, got: !!ach?.got?.[a.id], ok: AC.achDone(a, ach), v: AC.achProgress(a, ach) }))
+    .sort((x, y) => (y.ok && !y.got) - (x.ok && !x.got) || x.got - y.got || x.a.tier - y.a.tier);
+  const badge = cat => all.filter(a => a.cat === cat && AC.achDone(a, ach) && !ach?.got?.[a.id]).length;
+  app.innerHTML = `
+  <div class="screen page ach-page">
+    <header class="page-head">
+      <button class="icon-btn" data-act="home" aria-label="뒤로">◀</button>
+      <h2>도전과제</h2>
+      <span class="count">${done} / ${all.length}</span>
+    </header>
+    <div class="wrap">
+      <div class="seg ach-tabs" role="tablist">${AC.ACH_CATS.map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
+      ${Wal.wallet() ? '' : '<p class="hint">지갑을 불러오는 중… (인터넷 연결이 필요해요)</p>'}
+      <div class="ach-list">
+      ${list.map(({ a, got, ok, v }) => {
+        const t = AC.TIER[a.tier];
+        return `<div class="ach-card${got ? ' got' : ok ? ' ready' : ''}" style="--tc:${t.color}">
+          <span class="ach-tier">${t.ko}</span>
+          <div class="ach-body"><b>${esc(a.ko)}</b><small>${esc(a.desc)}</small>
+            ${a.goal > 1 && !a.nobar ? `<div class="ach-bar" style="--w:${(v / a.goal) * 100}%"><i></i><em>${v.toLocaleString()} / ${a.goal.toLocaleString()}</em></div>` : ''}</div>
+          ${got ? `<span class="ach-done">${ico('sparkle', 'xs')} 완료</span>`
+            : `<button class="pbtn small${ok ? ' gold' : ''}" data-act="ach-claim" data-id="${a.id}" ${ok ? '' : 'disabled'}>${ico('gem', 'xs')}${AC.achGems(a)}</button>`}
+        </div>`;
+      }).join('')}
+      </div>
+      <p class="hint">보석을 받은 판(인터넷 연결 · 1분 이상)만 진행도에 쌓여요. 보스 등급은 보통 이상 난이도 기준.</p>
+    </div>
+  </div>`;
+}
+async function claimAchUI(id, btn) {
+  if (btn) btn.disabled = true;
+  const r = await Wal.claimAch(id);
+  if (!r.ok) { sfx.back(); toast(ico('warn'), '받지 못했어요', r.why || '', 1800); if (btn) btn.disabled = false; return; }
+  sfx.coin(); buzz(40);
+  const a = AC.achInfo(id);
+  toast(ico('trophy'), `${a.ko} 달성!`, `보석 +${r.gems}`, 1600);
+  if (btn) { const c = btn.getBoundingClientRect(); FX().burst(c.left + c.width / 2, c.top + c.height / 2, { n: 24, pal: PALETTES.gold, speed: [60, 220], life: [0.3, 0.7] }); }
+  if (screen === 'ach') showAchievements();
 }
 function paintGems() { const el = document.getElementById('gem-res'); if (el) el.innerHTML = gemInner(); }
 
@@ -2499,7 +2560,7 @@ function recordProfile() {
   prof.classes[me.cls] = (prof.classes[me.cls] || 0) + 1;
   for (const [id, n] of Object.entries(me.perks)) prof.perks[id] = (prof.perks[id] || 0) + n;
   claimGems({ mode: S.mode, win, online: !!online, room: online?.code || null, humans: S.players.filter(p => !p.bot).length, score, flip: me.flip, nudge: me.nudge,
-    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null });
+    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null, st: E.statsOf(S, idx, { online: !!online }) });
   if (coop) {
     const bk = `${S.boss.id}:${S.boss.diff}`;
     const b = prof.bosses[bk] || { tries: 0, wins: 0, grade: null };
@@ -3374,6 +3435,9 @@ function onAct(act, t) {
   if (act === 'noop') return;
   if (act === 'close' || act === 'close-bg') { sfx.back(); closeSkinPreview(); layer.innerHTML = ''; return; }
   if (act === 'skins') { sfx.select(); return showSkins('dice'); }
+  if (act === 'ach') { sfx.select(); return showAchievements(); }
+  if (act === 'ach-tab') { sfx.tap(); achTab = t.dataset.v; return showAchievements(); }
+  if (act === 'ach-claim') return claimAchUI(t.dataset.id, t);
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
   if (act === 'skin-roll') return rollPreview();
@@ -3505,7 +3569,7 @@ function handleBack() {
   }
   if (screen === 'lobby') { onAct('room-leave', {}); return true; }
   if (screen === 'setup') { pickBack(); return true; }
-  if (['online', 'dashboard'].includes(screen)) { sfx.back(); showTitle(); return true; }
+  if (['online', 'dashboard', 'ach'].includes(screen)) { sfx.back(); showTitle(); return true; }
   return false;
 }
 addEventListener('popstate', () => {
