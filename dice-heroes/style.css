@@ -1383,3 +1383,21 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .cg-who { margin-left: 6px; font-size: 11px; padding: 1px 6px; background: var(--c); color: var(--ink); font-weight: 700; }
 .cg-body p { margin: 3px 0 2px; font-size: 13px; line-height: 1.4; }
 .cg-body small { display: block; font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+/* ── 대전 탑 쌓기: 점수 카드 위에 선 탑. 기록한 점수만큼 블록이 아래부터 쌓인다 ── */
+.towers { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 6px; height: 46px; margin-bottom: -6px; }
+.towers.tall { height: 72px; }
+@media (max-height: 700px) { .towers { height: 34px; } .towers.tall { height: 52px; } }
+.tower { position: relative; display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; height: 100%;
+  background: linear-gradient(to top, rgba(255, 255, 255, .06), transparent 70%); border-bottom: 3px solid var(--ink); }
+.tower::before { content: ''; position: absolute; inset: auto 18% 0; height: 100%; border-inline: 1px dashed rgba(255, 255, 255, .08); pointer-events: none; }
+.tower.turn { background: linear-gradient(to top, color-mix(in srgb, var(--c) 22%, transparent), transparent 80%); }
+.tb { display: block; width: 58%; height: var(--h); min-height: 3px; flex: none; background: var(--bc);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .45), inset 0 -2px 0 rgba(0, 0, 0, .35), inset 2px 0 0 rgba(255, 255, 255, .15), inset -2px 0 0 rgba(0, 0, 0, .2);
+  outline: 1px solid var(--ink); }
+.tb-upper, .tb-yacht { width: 66%; background: linear-gradient(90deg, #FFB31A, #FFF0A8 45%, #FFD24A); }
+.tb-lv { width: 74%; background: repeating-linear-gradient(90deg, #8A5AD6 0 6px, #B36BFF 6px 12px); }
+.tb.land { animation: towerLand .42s cubic-bezier(.3, 1.6, .5, 1); transform-origin: bottom; }
+@keyframes towerLand { 0% { transform: translateY(-26px) scaleY(1.2); opacity: 0; filter: brightness(2.2); } 55% { transform: translateY(0) scaleY(.82, 1); opacity: 1; } 75% { transform: scaleY(1.06); } 100% { transform: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .tb.land { animation: none; } }
+.controls.two { grid-template-columns: 1.4fr 1fr !important; }

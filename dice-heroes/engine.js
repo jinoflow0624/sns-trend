@@ -732,6 +732,7 @@ export function commitScore(s, cat) {
   pts += bardBonus(p, pts, quests);
   const before = cardTotal(p);
   p.scores[cat] = pts;
+  (p.order ||= []).push(cat);                 // 기록한 순서 (대전 탑 쌓기: 아래부터 이 순서로 블록)
   (p.base ||= {})[cat] = scoreParts(s, p, cat).base;
   p.roundScore = pts;
   if (ab(p) === 'dancer' && pts >= CLASS_TUNE.danceNeed) {   // 무희: 큰 점수를 적으면 춤사위 버프
@@ -753,6 +754,7 @@ export function commitScore(s, cat) {
   fx(s, { type: 'score', player: s.turn, cat, pts, bonus, dice: s.dice.slice() });
   // 상단 보너스: 에이스~식스 합이 기준(63, 전사 50)을 넘는 순간 따로 한 방 더 (보스전 · 대전 모두 별도 공격 연출)
   const upperHit = UPPER_IDS.includes(cat) && upperSum(p) >= upperNeed(p) && upperSum(p) - pts < upperNeed(p);
+  if (upperHit) p.order.push('upper');
   if (s.boss) {
     // 점수가 곧 피해. 드래곤 갑옷은 상단(보너스 포함) 피해를 깎는다.
     const armor = s.boss.id === 'dragon' && UPPER_IDS.includes(cat) ? 0.75 : 1;
@@ -831,6 +833,7 @@ function gainXp(s, p, amount) {
   while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
     p.xp -= xpToNext(p.level);
     p.level++;
+    (p.order ||= []).push('lv');
     p.offers.push(makeOffer(s, p));
     log(s, `${p.name} · 레벨 ${p.level} 달성!`);
     fx(s, { type: 'levelup', player: s.players.indexOf(p), level: p.level });
