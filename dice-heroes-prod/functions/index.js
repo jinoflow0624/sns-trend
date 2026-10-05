@@ -7,12 +7,14 @@
 //             · 온라인 방 판: 방에 남은 게임 기록(rooms/DH-<코드>/state)을 서버가 직접 읽어 승패·점수·남은 기술을 확인한다
 //             · 오프라인(봇전·한 기기) 판: 서버가 볼 수 없으니 시작 기록 + 최소 1분 + 하루 15판 + 점수 상한으로 막는다
 //   buy       직업 · 주사위 · 트레이 사기
+//   dailyRoll 일일 보상 — 하루(한국 자정 기준) 한 번, 서버가 주사위 5개를 굴려 합만큼 (요트면 10배)
 //
 // 가격 · 보상 규칙은 게임과 같은 파일(dice-heroes/wallet-rules.js)을 build.mjs 가 shared/ 로 복사해 쓴다.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { initializeApp } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { randomInt } from 'node:crypto';
 import * as R from './shared/wallet-rules.js';
 import * as E from './shared/engine.js';
 
@@ -36,7 +38,7 @@ function fix(w, now) {
   if (w.daily?.day !== today) w.daily = { day: today, n: 0 };
   return w;
 }
-const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily });
+const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null });
 
 // 지갑을 바꾼다. mutate 가 문자열을 돌려주면 그 이유로 취소
 async function change(uid, mutate) {
@@ -157,4 +159,18 @@ export const buy = onCall(async req => {
     return null;
   });
   return { wallet };
+});
+
+// 일일 보상: 주사위는 서버가 굴린다 (트랜잭션이 다시 불려도 같은 눈이 나오게 한 번만 굴려 둔다)
+export const dailyRoll = onCall(async req => {
+  const uid = needUser(req);
+  const dice = Array.from({ length: 5 }, () => randomInt(1, 7));
+  const { wallet, out } = await change(uid, (w, now) => {
+    if (w.bonus?.day === R.dayOf(now)) return '오늘 보상은 이미 받았어요. 내일 다시 와 주세요!';
+    const g = R.dailyGems(dice);
+    w.gems += g.gems;
+    w.bonus = { day: R.dayOf(now), dice };
+    return g;
+  });
+  return { wallet, dice, ...out };
 });

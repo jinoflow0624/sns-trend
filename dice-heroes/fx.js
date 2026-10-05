@@ -323,6 +323,31 @@ class FxLayer {
         g.restore();
         this.spawn({ x: p.x, y: p.y, vx: rnd(-30, 30), vy: rnd(-40, 10), life: rnd(0.3, 0.6), size: rnd(2, 4), color: pick(petals), drag: 2 });
       }, (k, i) => line(k, Math.sin(k * TAU + i * 1.3) * 26));
+    } else if (cls === 'outlaw') {
+      // 속사: 총구 섬광과 함께 노란 예광탄이 일직선으로 꽂힌다
+      const rad = Math.max(3, 4 * S);
+      await volley(shots, 70, 150, (g, p, k) => {
+        g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(ang);
+        g.fillStyle = '#FFE27A'; g.fillRect(-26 * S, -1, 26 * S, 2);              // 궤적
+        g.fillStyle = '#FFFFFF'; g.fillRect(-rad, -rad / 2, rad * 2.4, rad);      // 탄두
+        g.fillStyle = '#FF8A1A'; g.fillRect(-rad * 2, -rad / 2, rad, rad);
+        g.restore();
+        if (k < 0.15) { g.fillStyle = '#FFF3B0'; g.beginPath(); g.arc(a.x, a.y, 12 * S * (1 - k * 5), 0, TAU); g.fill(); }   // 총구 섬광
+        trail(p.x, p.y, 1, [2, 3], ['#FFE27A', '#FF8A1A']);
+      }, (k, i) => line(k, (i - (shots - 1) / 2) * 6));
+      this.burst(b.x, b.y, { n: 14, pal: ['#C8C0B0', '#8A8070', '#FFE27A'], speed: [30, 120], grav: -60, life: [0.4, 0.8], size: [3, 6] });   // 화약 연기
+    } else if (cls === 'sharper') {
+      // 화투 패 날리기: 빨간 화투가 손목 스냅으로 휘어 날아가 꽂힌다
+      await volley(shots, 85, 300, (g, p, k, i) => {
+        const w = 11 * S, h = 17 * S, spin = k * 10 + i;
+        g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(ang + spin);
+        g.fillStyle = '#06041A'; g.fillRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4);
+        g.fillStyle = '#FFF6E8'; g.fillRect(-w / 2, -h / 2, w, h);
+        g.fillStyle = '#D9263E'; g.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+        g.fillStyle = i % 2 ? '#FFC83D' : '#4FD6C8'; g.beginPath(); g.arc(0, -h * 0.12, w * 0.22, 0, TAU); g.fill();
+        g.restore();
+        trail(p.x, p.y, 1, [2, 3], ['#4FD6C8', '#FFFFFF', '#D9263E']);
+      }, (k, i) => line(ease(k), (i % 2 ? 1 : -1) * (16 + i * 4) * Math.sin(k * Math.PI)));
     } else if (cls === 'gambler') {
       // 카드 날리기: 빙글빙글 도는 카드
       await volley(shots, 100, 320, (g, p, k, i) => {

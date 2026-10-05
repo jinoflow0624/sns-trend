@@ -495,5 +495,48 @@ test('상단 보너스: 기준을 넘는 순간 따로 공격 (보스전은 피�
   }
 });
 
+console.log('\n새 직업 · 재접속 · 일일 보상');
+test('무법자 속전속결: 첫 굴림 족보는 ×배율, 다시 굴리면 없음', () => {
+  const s = E.createGame([{ name: 'A', cls: 'outlaw' }, { name: 'B', cls: 'monk' }], 3);
+  const p = s.players[0];
+  E.roll(s); s.dice = [2, 2, 2, 5, 5];
+  assert.equal(E.catScore(s, p, 'full'), Math.round(16 * E.CLASS_TUNE.rushMul));
+  assert.equal(E.catScore(s, p, 'choice'), 16);           // 초이스는 족보가 아니다
+  assert.equal(E.catScore(s, p, 'twos'), 6);              // 상단도 아니다
+  s.held = [true, true, true, true, true]; s.held[4] = false; E.roll(s); s.dice = [2, 2, 2, 5, 5];
+  assert.equal(E.catScore(s, p, 'full'), 16);
+});
+test('타짜 밑장빼기: 주사위 1개를 원하는 눈으로, 라운드당 1번, 이번 기록 경험치 0', () => {
+  const s = E.createGame([{ name: 'A', cls: 'sharper' }, { name: 'B', cls: 'monk' }], 3);
+  const p = s.players[0];
+  assert.throws(() => E.useDeal(s, 0, 6));               // 굴리기 전엔 안 된다
+  E.roll(s); s.dice = [6, 6, 6, 6, 1]; s.board = [];
+  assert.ok(E.canDeal(s));
+  E.useDeal(s, 4, 6);
+  assert.deepEqual(s.dice, [6, 6, 6, 6, 6]);
+  assert.ok(!E.canDeal(s));
+  assert.throws(() => E.useDeal(s, 0, 1));
+  assert.equal(E.preview(s).find(r => r.id === 'yacht').xp, 0);
+  const xp0 = p.stats.xpEarned;
+  E.commitScore(s, 'yacht');
+  assert.equal(p.scores.yacht, 50);
+  assert.equal(p.stats.xpEarned, xp0);
+  assert.ok(E.drainFx(s).some(f => f.type === 'dealCost'));
+});
+test('타짜 · 무법자 봇이 끝까지 둔다', () => {
+  let seed = 5; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const s = E.createGame([{ name: 'A', cls: 'sharper', bot: true }, { name: 'B', cls: 'outlaw', bot: true }], 9);
+  let n = 0; while (!s.ended && n++ < 5000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
+  assert.ok(s.ended);
+});
+test('재접속: 봇이 대신하던 자리를 사람에게 돌려준다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }, { name: 'B', cls: 'monk' }, { name: 'C', cls: 'monk' }], 3);
+  E.dropToBot(s, 1);
+  assert.ok(s.players[1].bot && s.players[1].dropped);
+  assert.ok(E.rejoin(s, 1));
+  assert.ok(!s.players[1].bot && !s.players[1].dropped);
+  assert.ok(!E.rejoin(s, 1));
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

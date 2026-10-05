@@ -78,7 +78,9 @@ export function fiveSets(d) {
 // 직업 수치 (봇 1대1 시뮬레이션으로 다른 직업과 승률이 비슷하게 맞춘 값 — big/classes 시뮬레이션)
 //   danceNeed: 무희 춤사위 버프를 얻는 기록 점수 (25 → 승률 약 50%)
 //   betMul: 도박사 배팅 성공 배율 (×1.45 → 승률 약 47%, ×1.5 는 약 56%)
-export const CLASS_TUNE = { danceNeed: 25, betMul: 1.45 };
+//   rushMul: 무법자 속전속결 배율 (첫 굴림에 족보를 완성해 바로 적으면 점수 ×배율 · ×1.4 → 승률 약 50%, ×1.5 는 약 56%)
+//   dealMin / dealMinEarly: 타짜 봇이 밑장빼기를 쓰는 최소 이득 (마지막 굴림 / 굴림이 남았을 때)
+export const CLASS_TUNE = { danceNeed: 25, betMul: 1.45, rushMul: 1.4, dealMin: 6, dealMinEarly: 15 };
 export const CLASSES = [
   { id: 'warrior', ko: '전사',     icon: '🗡️', color: '#FF6B5B',
     desc: '상단 보너스 조건이 63 → 50점으로 쉬워진다' },
@@ -94,8 +96,19 @@ export const CLASSES = [
     desc: '점수를 기록할 때 남은 굴림 1회당 조정 +1' },
   { id: 'dancer',  ko: '무희',     icon: '💃', color: '#FF6FB5',
     desc: `춤사위: ${CLASS_TUNE.danceNeed}점 이상 기록하면 버프 1개 (쌓임). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로) · 라운드당 1번` },
+  { id: 'outlaw',  ko: '무법자',   icon: '🤠', color: '#E08A3C',
+    get desc() { return `속전속결: 딱 한 번만 굴리고 족보를 완성해 바로 적으면 점수 ×${CLASS_TUNE.rushMul}`; } },
+  { id: 'sharper', ko: '타짜',     icon: '🃏', color: '#4FD6C8',
+    desc: '밑장빼기: 굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다 (라운드당 1번). 대신 이번에 적는 족보로는 경험치를 못 얻는다' },
 ];
 export const classInfo = id => CLASSES.find(c => c.id === id);
+
+// 족보 완성 (무법자 속전속결): 포카인드 · 풀하우스 · 스트레이트 · 요트 처럼 모양이 맞아야 점수가 나는 칸
+export const RUSH_CATS = ['four', 'full', 'sstr', 'lstr', 'yacht'];
+export function isCombo(cat, d) {
+  if (!RUSH_CATS.includes(cat) || !d.length || d.includes(0)) return false;
+  return fiveSets(d).some(set => baseScore(cat, set) > 0);
+}
 
 // ── 특성 카드 (레벨업 보상) ──────────────────────────────────────────────────
 // rarity: 1 일반 / 2 희귀 / 3 전설.  max: 중복 획득 한도
@@ -441,6 +454,7 @@ function startTurn(s) {
   s.rolled = false;
   s.phase = 'roll';
   p.bet = null;                 // 도박사: 라운드마다 새로 배팅
+  s.dealt = false;              // 타짜: 이번 차례에 밑장빼기를 했나
   if (s.turn === 0) {
     // 라운드 시작 처리
     const ev = event(s);
@@ -551,6 +565,29 @@ export function placeBet(s, cat) {
   fx(s, { type: 'bet', player: s.turn, cat });
 }
 
+// 타짜 밑장빼기: 주사위 1개를 원하는 눈으로 (라운드당 1번). 이번에 적는 족보로는 경험치 없음
+export const canDeal = s => {
+  const p = current(s);
+  return p.cls === 'sharper' && !s.dealt && s.phase === 'roll' && s.rolled && !haki(s);
+};
+export function useDeal(s, i, v) {
+  const p = current(s);
+  if (p.cls !== 'sharper') fail('타짜만 밑장빼기를 할 수 있어요.');
+  if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
+  if (s.dealt) fail('밑장빼기는 라운드당 한 번만 할 수 있어요.');
+  if (haki(s)) fail('마왕의 패기! 이번 라운드는 주사위 눈을 바꿀 수 없어요.');
+  if (i < 0 || i >= s.dice.length) fail('없는 주사위입니다.');
+  if (isSealed(s, i)) fail('봉인된 주사위는 바꿀 수 없어요. 다시 굴리면 풀려요.');
+  v = Math.floor(Number(v));
+  if (!(v >= 1 && v <= 6)) fail('주사위는 1~6 사이여야 합니다.');
+  const from = s.dice[i];
+  s.dice[i] = v;
+  s.dealt = true;
+  s.toolUsed = true;
+  log(s, `${p.name} · 밑장빼기! ${from} → ${v}`);
+  fx(s, { type: 'deal', player: s.turn, i, from, v });
+}
+
 export function useNudge(s, i, delta) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
@@ -567,7 +604,7 @@ export function useNudge(s, i, delta) {
 // 특성·직업·이벤트까지 반영한 항목 점수. 주사위 6개면 가장 좋은 5개 조합.
 // 칸 점수를 '기본 점수 + 보너스 목록'으로 나눠 돌려준다 (화면에 어디서 몇 점 붙었는지 보여 주려고).
 // 보너스는 기본 점수가 0보다 클 때만 붙는다. 주사위 6개면 기본 점수가 가장 큰 5개 조합.
-export function scoreParts(s, p, cat, d = s.dice) {
+export function scoreParts(s, p, cat, d = s.dice, rollNo = s.rollNo) {
   const base = Math.max(0, ...fiveSets(d).map(set => baseScore(cat, set)));
   const bonus = [];
   if (base > 0) {
@@ -589,12 +626,18 @@ export function scoreParts(s, p, cat, d = s.dice) {
       total += extra;
     }
   }
+  // 무법자 속전속결: 첫 굴림 그대로 족보를 완성해 적으면 ×배율
+  if (p.cls === 'outlaw' && rollNo === 1 && total > 0 && isCombo(cat, d)) {
+    const extra = Math.round(total * (CLASS_TUNE.rushMul - 1));
+    bonus.push({ ko: `속전속결 ×${CLASS_TUNE.rushMul}`, amt: extra });
+    total += extra;
+  }
   return { base, bonus, total };
 }
 
 // 특성·직업·이벤트까지 반영한 항목 점수
-export function catScore(s, p, cat, d = s.dice) {
-  return scoreParts(s, p, cat, d).total;
+export function catScore(s, p, cat, d = s.dice, rollNo = s.rollNo) {
+  return scoreParts(s, p, cat, d, rollNo).total;
 }
 
 // 의뢰 보상 — 난이도가 높을수록 뒤집기·조정을 더 준다
@@ -644,7 +687,7 @@ export function preview(s) {
     pts += bardBonus(p, pts, quests);
     const bonus = bonusList(s, p, c.id, quests);
     let xp = pts > 0 ? pts : ZERO_XP + (perkCount(p, 'insure') ? 20 : 0) + (event(s) === 'zen' ? 20 : 0);
-    xp = Math.round((xp + qXp) * xpMultiplier(s, p));
+    xp = s.dealt ? 0 : Math.round((xp + qXp) * xpMultiplier(s, p));   // 타짜 밑장빼기: 경험치 없음
     return { id: c.id, pts, xp, bonus, taken: false };
   });
 }
@@ -756,7 +799,12 @@ export function commitScore(s, cat) {
     xp += p.spill * SPILL_XP;
     p.spill = 0;
   }
-  const gained = Math.round(xp * xpMultiplier(s, p));
+  let gained = Math.round(xp * xpMultiplier(s, p));
+  if (s.dealt && gained > 0) {                 // 타짜 밑장빼기의 대가
+    log(s, `${p.name} · 밑장빼기의 대가 — 경험치 없음`);
+    fx(s, { type: 'dealCost', player: s.turn, xp: gained });
+    gained = 0;
+  }
   gainXp(s, p, gained);
 
   if (s.ended) return;          // 보스를 쓰러뜨리면 그 자리에서 끝
@@ -880,6 +928,16 @@ export function dropToBot(s, i) {
   log(s, `${p.name} 연결 끊김 — 봇이 대신 진행한다`);
   fx(s, { type: 'dropped', player: i });
 }
+// 봇이 대신하던 사람이 다시 들어오면 주도권을 돌려준다
+export function rejoin(s, i) {
+  const p = s.players[i];
+  if (!p?.dropped || s.ended) return false;
+  p.bot = false;
+  p.dropped = false;
+  log(s, `${p.name} 다시 접속 — 직접 진행한다`);
+  fx(s, { type: 'rejoined', player: i });
+  return true;
+}
 // 1대1 대전에서 상대가 1분 안에 돌아오지 않으면 기권패
 export function forfeit(s, loser) {
   if (s.ended) return;
@@ -909,12 +967,12 @@ export function drainFx(s) {
 const EXPECT = { ones: 2, twos: 5, threes: 8, fours: 11, fives: 14, sixes: 17,
                  choice: 21, four: 10, full: 12, sstr: 10, lstr: 11, yacht: 9 };
 
-function valueOf(s, p, d) {
+function valueOf(s, p, d, rollNo = s.rollNo) {
   let best = -Infinity;
   const left = CAT_IDS.filter(id => p.scores[id] === null);
   const late = left.length <= 3;   // 막판엔 기회비용이 의미가 없다
   for (const id of left) {
-    const pts = catScore(s, p, id, d);
+    const pts = catScore(s, p, id, d, rollNo);
     let v = pts - (late ? 0 : EXPECT[id]);
     const up = catInfo(id).up;
     if (up && pts > 0) v += (pts - 3 * up) * 0.6;  // 상단 보너스 진척
@@ -931,7 +989,7 @@ function holdValue(s, p, mask, samples, rng) {
   let total = 0;
   for (let k = 0; k < samples; k++) {
     const nd = d.map((v, i) => (mask & (1 << i) ? v : 1 + Math.floor(rng() * 6)));
-    total += valueOf(s, p, nd);
+    total += valueOf(s, p, nd, (s.rollNo || 0) + 1);
   }
   return total / samples;
 }
@@ -969,6 +1027,21 @@ export function botAction(s, rng = Math.random, samples = 24) {
     if (bestAct && (s.rollsLeft === 0 || bestGain > 12)) return bestAct;
   }
 
+  // 타짜: 밑장빼기로 크게 좋아지면 쓴다 (경험치를 잃으니 굴림이 남았으면 아주 클 때만)
+  if (canDeal(s)) {
+    const now = valueOf(s, p, s.dice);
+    let bg = -Infinity, ba = null;
+    for (let i = 0; i < n; i++) {
+      if (isSealed(s, i)) continue;
+      for (let v = 1; v <= 6; v++) {
+        if (v === s.dice[i]) continue;
+        const nd = s.dice.slice(); nd[i] = v;
+        const g = valueOf(s, p, nd) - now;
+        if (g > bg) { bg = g; ba = { type: 'deal', i, v }; }
+      }
+    }
+    if (ba && bg > (s.rollsLeft === 0 ? CLASS_TUNE.dealMin : CLASS_TUNE.dealMinEarly)) return ba;
+  }
   // 무희: 모든 주사위 +1 이 이득이면 쓴다 (마지막 굴림이면 조금만 좋아져도)
   if (canDance(s)) {
     const now = valueOf(s, p, s.dice);
@@ -1028,6 +1101,7 @@ export function applyBot(s, act) {
     case 'flip': return useFlip(s, act.i);
     case 'nudge': return useNudge(s, act.i, act.d);
     case 'dance': return useDance(s);
+    case 'deal': return useDeal(s, act.i, act.v);
     case 'bet': return placeBet(s, act.cat);
     case 'score': return commitScore(s, act.cat);
     case 'perk': return pickPerk(s, act.id);
