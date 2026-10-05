@@ -97,7 +97,7 @@ export const CLASSES = [
   { id: 'dancer',  ko: '무희',     icon: '💃', color: '#FF6FB5',
     desc: `춤사위: ${CLASS_TUNE.danceNeed}점 이상 기록하면 버프 1개 (쌓임). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로) · 라운드당 1번` },
   { id: 'outlaw',  ko: '무법자',   icon: '🤠', color: '#E08A3C',
-    get desc() { return `속전속결: 딱 한 번만 굴리고 족보를 완성해 바로 적으면 점수 ×${CLASS_TUNE.rushMul}`; } },
+    get desc() { return `속전속결: 첫 굴림 그대로(다시 굴리지 않고) 포카인드 · 풀하우스 · 스몰/라지 스트레이트 · 요트 중 하나를 완성해 적으면 그 점수 ×${CLASS_TUNE.rushMul}. 다른 칸은 효과 없음`; } },
   { id: 'sharper', ko: '타짜',     icon: '🃏', color: '#4FD6C8',
     desc: '밑장빼기: 굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다 (라운드당 1번). 대신 이번에 적는 족보로는 경험치를 못 얻는다' },
 ];

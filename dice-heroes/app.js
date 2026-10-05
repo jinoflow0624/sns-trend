@@ -1167,7 +1167,7 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ' (봇)' : ''}</span>
       </div>
       <div class="rolls-left" title="남은 굴림">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && !ui.busy && E.canDance(S) ? `<button class="encore-btn dance-btn" data-act="dance">${ico('sparkle', 'xs')} 춤사위 ×${cur.dance} <small>모든 주사위 +1</small></button>` : ''}${myTurn && !ui.busy && E.canDeal(S) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : '밑장빼기'} <small>경험치 포기</small></button>` : ''}${cur.cls === 'sharper' && S.dealt ? `<div class="bet-badge deal-badge">${ico('card', 'xs')} 밑장빼기 · 이번 기록 경험치 0</div>` : ''}${cur.cls === 'outlaw' && (!S.rolled || S.rollNo === 1) && S.phase === 'roll' ? `<div class="bet-badge rush-badge">${ico('bolt', 'xs')} 속전속결 ×${E.CLASS_TUNE.rushMul}${S.rolled ? ' · 지금 족보를 적으면!' : ' · 첫 굴림 족보'}</div>` : ''}${cur.cls === 'gambler' && cur.bet ? `<div class="bet-badge">${ico('coins', 'xs')} 배팅 <b>${E.catInfo(cur.bet).ko}</b> ×${E.CLASS_TUNE.betMul}</div>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && !ui.busy && E.canDance(S) ? `<button class="encore-btn dance-btn" data-act="dance">${ico('sparkle', 'xs')} 춤사위 ×${cur.dance} <small>모든 주사위 +1</small></button>` : ''}${myTurn && !ui.busy && E.canDeal(S) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : '밑장빼기'} <small>경험치 포기</small></button>` : ''}${cur.cls === 'sharper' && S.dealt ? `<div class="bet-badge deal-badge">${ico('card', 'xs')} 밑장빼기 · 이번 기록 경험치 0</div>` : ''}${cur.cls === 'outlaw' && S.phase === 'roll' && (!S.rolled || (S.rollNo === 1 && E.RUSH_CATS.some(c => E.isCombo(c, S.dice)))) ? `<div class="bet-badge rush-badge">${ico('bolt', 'xs')} 속전속결 ×${E.CLASS_TUNE.rushMul}${S.rolled ? ` · 지금 ${E.RUSH_CATS.filter(c => E.isCombo(c, S.dice)).map(c => E.catInfo(c).ko).join(' · ')}에 적으면!` : ' · 첫 굴림 포카인드 · 풀하우스 · 스트레이트 · 요트'}</div>` : ''}${cur.cls === 'gambler' && cur.bet ? `<div class="bet-badge">${ico('coins', 'xs')} 배팅 <b>${E.catInfo(cur.bet).ko}</b> ×${E.CLASS_TUNE.betMul}</div>` : ''}${tray ? '' : '<p class="tray-loading">주사위 준비 중…</p>'}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="반응 보내기">${ico('party', 'xs')}반응</button>` : ''}
     </section>
 
@@ -2742,7 +2742,7 @@ const CLASS_TIP = {
   gambler: '노릴 족보를 미리 걸어야 해요. 확률 높은 족보부터',
   monk: '일찍 적을수록 조정이 쌓입니다. 좋은 패가 나오면 바로 기록',
   dancer: '큰 점수를 적어 버프를 모았다가, 스트레이트 · 요트 직전에 +1',
-  outlaw: '첫 굴림에 족보가 보이면 망설이지 말고 바로 적으세요',
+  outlaw: '첫 굴림에 포카인드 · 풀하우스 · 스트레이트 · 요트가 보이면 다시 굴리지 말고 바로 적으세요',
   sharper: '한 개만 모자랄 때 밑장빼기로 완성. 대신 그 기록은 경험치가 없어요',
 };
 function showClassGuide(inGame) {
