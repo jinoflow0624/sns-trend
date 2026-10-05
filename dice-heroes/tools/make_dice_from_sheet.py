@@ -43,7 +43,8 @@ SKINS = {   # rim: 테두리를 대칭으로 만들 때 쓸 1/4 ('tl' 왼쪽 위
 def pip_mask(name, b):
     r, g, bl = b[..., 0], b[..., 1], b[..., 2]
     s, mn = r + g + bl, np.minimum(np.minimum(r, g), bl)
-    return {'heart': (r > 150) & (g < 90) & (bl < 120), 'keycap': s < 160, 'minimal': s < 160, 'clear': mn > 215,
+    return {'heart': (r > 150) & (g < 90) & (bl < 120), 'keycap': s < 160, 'minimal': s < 160,
+            'clear': (r > 165) & (g > 175) & (bl > 190),     # 유리구슬 전체 (반사광만 잡으면 중심이 왼쪽 위로 쏠렸다)
             'cosmic': mn > 205, 'black': mn > 190, 'gold': (s < 260) & (r < 140),
             'openheart': (r > 235) & (g > 205) & (bl > 150)}[name]
 
@@ -52,8 +53,11 @@ def face_center(arr, name, c):
     """눈 v개(가장 큰 덩어리 v개 — 반사광·리벳은 작아서 빠진다)의 가운데. 못 찾으면 칸의 기본 위치"""
     cx, cy, R = CX[c], SKINS[name]['cy'], 40
     m = pip_mask(name, arr[cy - R:cy + R, cx - R:cx + R]).astype(np.uint8)
+    if name == 'clear': m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))   # 구슬 안 무늬로 구멍 난 곳을 메운다
     k, _, st, cen = cv2.connectedComponentsWithStats(m)
-    blobs = sorted(((st[i, 4], cen[i]) for i in range(1, k) if st[i, 4] >= 25), key=lambda t: -t[0])[:c + 1]
+    # 투명: 둥근 덩어리만 (가로세로 비슷하고 상자를 꽤 채우는 것) — 유리 테두리의 반사광 줄무늬는 빠진다
+    round_ = lambda i: st[i, 4] >= 25 and (name != 'clear' or (0.6 < st[i, 2] / max(1, st[i, 3]) < 1.6 and st[i, 4] / (st[i, 2] * st[i, 3]) > 0.5))
+    blobs = sorted(((st[i, 4], cen[i]) for i in range(1, k) if round_(i)), key=lambda t: -t[0])[:c + 1]
     if len(blobs) < c + 1: return cx, cy
     return (float(np.mean([p[0] for _, p in blobs])) + cx - R, float(np.mean([p[1] for _, p in blobs])) + cy - R)
 
