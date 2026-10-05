@@ -67,30 +67,36 @@ def cell_box(name, c):
     return (cx - CELL, cy - CELL, cx + CELL, cy + CELL)
 
 
+# 바깥쪽 어두운 띠(시안 렌더의 외곽선 · 모서리 그림자)를 이만큼(한 변 대비) 안쪽으로 잘라 낸다.
+# 이 띠가 남아 있으면 3D 주사위의 둥근 모서리에 감겨 검은 테두리처럼 보였다 (모서리 음영은 3D 가 직접 만든다)
+TRIM = {'heart': 0.055, 'clear': 0.055, 'minimal': 0.035, 'gold': 0.065, 'cosmic': 0.04, 'black': 0.035, 'openheart': 0.03, 'keycap': 0.0}
+
+
 def crop_face(sheet, arr, name, c):
     p = SKINS[name]
     cx, cy = face_center(arr, name, c)
+    t = TRIM.get(name, 0.0)
     if 'box' in p:
-        l, t, r, b = p['box']
-        box = (cx + l, cy + t, cx + r, cy + b)
+        l, tp, r, b = p['box']
+        box = (cx + l, cy + tp, cx + r, cy + b)
     else:
-        h = p['side'] / 2
+        h = p['side'] / 2 * (1 - 2 * t)
         box = (cx - h, cy - h, cx + h, cy + h)
     hi = os.path.join(HIRES, f'{name}_{c + 1}.webp')
     if os.path.exists(hi):                                   # 4배 키운 칸에서 같은 자리를 오린다
         x0, y0, _, _ = cell_box(name, c)
         big = Image.open(hi).convert('RGB')
         face = big.crop(tuple(round((v - o) * SCALE) for v, o in zip(box, (x0, y0, x0, y0)))).resize((SIZE, SIZE), Image.LANCZOS)
-        return symmetric_rim(face, p.get('rim', 'tl'))
+        return symmetric_rim(face, p.get('rim', 'tl'), t)
     face = sheet.crop(tuple(int(round(v)) for v in box)).resize((SIZE, SIZE), Image.LANCZOS)
-    face = symmetric_rim(face, p.get('rim', 'tl'))
+    face = symmetric_rim(face, p.get('rim', 'tl'), t)
     return face.filter(ImageFilter.UnsharpMask(radius=1.4, percent=60, threshold=2))
 
 
 RIM, RIM_SOFT, CORNER = 0.12, 0.05, 0.13     # 테두리 띠 폭 · 섞이는 폭 · 모서리 둥글기 (한 변 대비)
 
 
-def symmetric_rim(face, src='tl'):
+def symmetric_rim(face, src='tl', trim=0.0):
     """시트의 주사위는 살짝 비스듬해서 테두리 광택·두께가 한쪽으로 쏠려 있다.
     바깥 테두리 띠만 왼쪽 위 1/4 을 상하좌우로 뒤집어 붙여 대칭으로 만든다 (평균을 내면 테두리선이 두 겹으로 흐려졌다) (눈이 있는 안쪽은 그대로 —
     눈은 가장자리에서 한 변의 0.19 안쪽부터라 띠와 겹치지 않는다).
@@ -106,7 +112,9 @@ def symmetric_rim(face, src='tl'):
     i = np.arange(n)
     d = np.minimum(i, n - 1 - i) / n                                  # 가장자리까지 거리
     dist = np.minimum(d[:, None], d[None, :])
-    m = np.clip((RIM + RIM_SOFT - dist) / RIM_SOFT, 0, 1)[..., None]
+    # 바깥 어두운 띠를 잘라 낸 만큼(trim) 같은 테두리가 그림에서 차지하는 비율도 달라진다 → 띠 폭을 맞춰 줄인다 (눈과 겹치지 않게)
+    rim, soft = (RIM - trim) / (1 - 2 * trim), RIM_SOFT / (1 - 2 * trim)
+    m = np.clip((rim + soft - dist) / soft, 0, 1)[..., None]
     out = (a * (1 - m) + sym * m).clip(0, 255).astype(np.uint8)
     r = int(n * CORNER)
     hole = np.zeros((n, n), np.uint8)
