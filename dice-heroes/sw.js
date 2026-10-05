@@ -14,6 +14,7 @@ const FILES = [
   'assets/boss/demon.png', 'assets/boss/demon_rage.png',
   ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
   // 그림 주사위 스킨 (오프라인에서 꾸미기를 바꿔도 보이게)
+  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry'].flatMap(k => ['floor', 'glow', 'box', 'thumb'].map(f => `assets/trays/${k}/${f}.webp`)),
   ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp`)),
 ];
 const NET_WAIT = 4000;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로

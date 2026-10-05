@@ -18,12 +18,13 @@ export const DICE_SKINS = [
 
 export const TRAY_SKINS = [
   { id: 'classic', name: '기본', desc: '초록 펠트 · 나무 테두리', tier: 'free' },
-  { id: 'royal', name: '왕실', desc: '진홍 벨벳 · 금 장식', tier: 'special' },
-  { id: 'deepsea', name: '심해', desc: '물결치는 바다 · 은빛 테두리', tier: 'special' },
-  { id: 'demon', name: '마왕성', desc: '돌바닥에 빛나는 마법진', tier: 'special' },
-  { id: 'sakura', name: '벚꽃', desc: '꽃잎이 흩날리는 분홍 펠트', tier: 'special' },
-  { id: 'lava', name: '용암', desc: '갈라진 현무암 · 끓는 용암', tier: 'special' },
-  { id: 'starry', name: '은하', desc: '우주 바닥 · 네온 테두리', tier: 'special' },
+  { id: 'marble', name: '클래식', desc: '상아빛 대리석 · 빛나는 황금 나침반', tier: 'special' },
+  { id: 'royal', name: '왕실', desc: '진홍 벨벳에 황금 왕관', tier: 'special' },
+  { id: 'deepsea', name: '심해', desc: '일렁이는 물빛 · 산호와 별 나침반', tier: 'special' },
+  { id: 'demon', name: '마왕성', desc: '검은 돌바닥에 타오르는 삼지창 문장', tier: 'special' },
+  { id: 'sakura', name: '벚꽃', desc: '연분홍 바닥에 피어난 벚꽃 문양', tier: 'special' },
+  { id: 'lava', name: '용암', desc: '갈라진 현무암 사이로 끓는 용암', tier: 'special' },
+  { id: 'starry', name: '은하', desc: '밤하늘 초승달 · 반짝이는 별자리', tier: 'special' },
 ];
 
 export const diceSkin = id => DICE_SKINS.find(s => s.id === id) || DICE_SKINS[0];
@@ -359,7 +360,21 @@ const TRAY_STYLE = {
   lava: { floor: ['#3B2A22', '#120A08'], line: 'rgba(255, 140, 40, .35)', rail: 0x3A3533, trim: 0xFF7A1A, trimGlow: true, box: '#2A1E18', cracks: true, glow: 1.2 },
   starry: { floor: ['#1E1650', '#03020C'], line: 'rgba(90, 240, 255, .55)', rail: 0x0E0C18, trim: 0x3EF0FF, trimGlow: true, box: '#1A1628', stars: true, glow: 0.8 },
 };
-export const trayStyle = id => TRAY_STYLE[id] || TRAY_STYLE.classic;
+// 그림 트레이 (v0.30, 디자인 시트에서 오림 · tools/make_trays_from_sheet.py): 바닥 · 발광 지도 · 함 바닥 · 목록 그림을
+// assets/trays/<스킨>/ 의 파일로 쓰고, 테두리(rail)·장식(trim) 색만 여기서 정한다. glow: 바닥 발광 세기.
+// 예전 코드 그림 트레이는 TRAY_STYLE 에 그대로 있다 — IMAGE_TRAY 에서 빼면 되돌아간다
+const IMAGE_TRAY = {
+  marble: { rail: 0xE9DFCB, trim: 0xD4A443, trimEnv: true, glow: 0.3 },
+  royal: { rail: 0x7E1222, trim: 0xFFC83D, trimEnv: true, glow: 0.35 },
+  deepsea: { rail: 0x1E4A52, trim: 0xD8B45A, trimEnv: true, glow: 0.55 },
+  demon: { rail: 0x231417, trim: 0xFF3B22, trimGlow: true, glow: 0.9 },
+  sakura: { rail: 0xA8744A, trim: 0xF5A8C0, trimEnv: true, glow: 0.35 },
+  lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1 },
+  starry: { rail: 0x161C52, trim: 0xE6C35C, trimEnv: true, glow: 0.8 },
+};
+export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
+// 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
+export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp` : null);
 
 // 트레이 바닥 (512×512). glowOnly: 빛나는 부분(마법진·용암·별)만 그린 발광 지도
 export function drawTrayFloor(c, id = 'classic', glowOnly = false) {
@@ -524,6 +539,7 @@ function drawDiceThumb(id) {
   return c.toDataURL();
 }
 function drawTrayThumb(id) {
+  if (trayImage(id, 'thumb')) return trayImage(id, 'thumb');
   const st = trayStyle(id);
   const floor = drawTrayFloor(document.createElement('canvas'), id);
   const c = document.createElement('canvas');
