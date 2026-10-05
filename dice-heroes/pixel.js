@@ -1,3 +1,4 @@
+import { GAME } from './config.js';
 // 도트 그림 — 스프라이트를 문자 격자로 적어 두고 캔버스로 그린다(이미지 파일 없음).
 // 영웅·요정은 16×16, 보스는 32×32.
 // 글자 하나가 픽셀 하나, '.'는 투명. 색은 PALETTE(공용) + 스프라이트별 색으로 정한다.
@@ -336,10 +337,12 @@ export const HERO_IDS = ['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 
 export const HERO_POSES = {};   // 예: { warrior: ['attack', 'hurt'] }
 
 // 그림 파일로 된 스프라이트 — 마왕 릴리스 (512px 도트 그림: 평소 · 분노) · 새 직업 그림. 파일을 받기 전에는 위의 도트로 대신 그린다
+// 주소 끝 ?v=게임 버전: 그림을 바꿔 배포하면 오프라인 캐시에 남은 예전 그림 대신 바로 새 그림을 받는다 (sw.js)
+const AV = `?v=${GAME.version}`;
 const IMG_SPRITES = {
-  demon: 'assets/boss/demon.png', demon_rage: 'assets/boss/demon_rage.png',
-  ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp`],
-    ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp`])]))),
+  demon: `assets/boss/demon.png${AV}`, demon_rage: `assets/boss/demon_rage.png${AV}`,
+  ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp${AV}`],
+    ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp${AV}`])]))),
 };
 export const heroPoseURL = (id, pose) => (IMG_SPRITES[`${id}_${pose}`] || IMG_SPRITES[id] || null);
 const imgs = {};
