@@ -1,10 +1,10 @@
 """주사위 스킨 면 텍스처 — 디자인 시트 한 장(tools/dice-src/sheet-v2.webp)에서 오려 낸다.
 
-  python3 tools/make_dice_from_sheet.py        →  assets/dice/<스킨>/<1~6>.webp (256×256)
+  python3 tools/make_dice_from_sheet.py        →  assets/dice/<스킨>/<1~6>.webp (512×512)
   필요: pip install pillow numpy opencv-python-headless
 
-시트는 1536×1024, 8줄(스킨) × 6칸(1~6면). 칸마다 주사위 앞면의 가운데를 정사각형으로 오려
-256px 로 키운다(시트 한 칸이 약 110px 라 조금 부드럽다). 그림에 음영·반사가 이미 들어 있어서 따로 손대지 않는다.
+시트는 1536×1024, 8줄(스킨) × 6칸(1~6면). 칸마다 주사위 앞면의 가운데를 정사각형으로 오려 512px 로 만든다.
+시트 한 칸이 약 110px 라 먼저 upscale_dice_sheet.py 로 4배 키운 칸(tools/dice-src/dice-hires/)에서 오린다 (없으면 시트에서 바로). 그림에 음영·반사가 이미 들어 있어서 따로 손대지 않는다.
 키캡은 사다리꼴 옆면을 빼고 눈이 있는 윗면(오목한 판)만 쓴다.
 
 가운데는 칸마다 눈(점)의 무게중심으로 잡는다 — 시트의 주사위가 칸마다 몇 px 씩 어긋나 있어서, 같은 좌표로 자르면
@@ -18,7 +18,10 @@ from PIL import Image, ImageFilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHEET = os.path.join(HERE, 'dice-src', 'sheet-v2.webp')
 OUT = os.path.join(HERE, '..', 'assets', 'dice')
-SIZE = 256
+HIRES = os.path.join(HERE, 'dice-src', 'dice-hires')   # upscale_dice_sheet.py 로 4배 키운 칸 (있으면 이걸 쓴다)
+SCALE = 4
+CELL = 74                     # 칸의 기본 가운데에서 둘레로 이만큼 (키워 둘 영역)
+SIZE = 512
 
 # 칸의 가운데 x (1~6면). 시트의 격자는 간격이 조금씩 달라서 실측했다
 CX = [553, 714, 876, 1041, 1207, 1369]
@@ -55,6 +58,11 @@ def face_center(arr, name, c):
     return (float(np.mean([p[0] for _, p in blobs])) + cx - R, float(np.mean([p[1] for _, p in blobs])) + cy - R)
 
 
+def cell_box(name, c):
+    cx, cy = CX[c], SKINS[name]['cy']
+    return (cx - CELL, cy - CELL, cx + CELL, cy + CELL)
+
+
 def crop_face(sheet, arr, name, c):
     p = SKINS[name]
     cx, cy = face_center(arr, name, c)
@@ -64,6 +72,12 @@ def crop_face(sheet, arr, name, c):
     else:
         h = p['side'] / 2
         box = (cx - h, cy - h, cx + h, cy + h)
+    hi = os.path.join(HIRES, f'{name}_{c + 1}.webp')
+    if os.path.exists(hi):                                   # 4배 키운 칸에서 같은 자리를 오린다
+        x0, y0, _, _ = cell_box(name, c)
+        big = Image.open(hi).convert('RGB')
+        face = big.crop(tuple(round((v - o) * SCALE) for v, o in zip(box, (x0, y0, x0, y0)))).resize((SIZE, SIZE), Image.LANCZOS)
+        return symmetric_rim(face, p.get('rim', 'tl'))
     face = sheet.crop(tuple(int(round(v)) for v in box)).resize((SIZE, SIZE), Image.LANCZOS)
     face = symmetric_rim(face, p.get('rim', 'tl'))
     return face.filter(ImageFilter.UnsharpMask(radius=1.4, percent=60, threshold=2))
