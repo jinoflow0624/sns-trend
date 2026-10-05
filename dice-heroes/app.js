@@ -317,25 +317,34 @@ if (SHAKE_OK && prefs.shake) {
 // pick.for: 'local' 한 기기 · 'create' 온라인 방 만들기 전 · 'room' 대기실에서 방장이 바꾸기
 let pick = { for: 'local', step: 'mode', o: null };
 const pickSteps = () => {
-  const coop = pick.o.mode === 'coop';
-  if (pick.for === 'local') return coop ? ['mode', 'boss', 'party'] : ['mode', 'party'];
-  return coop ? ['mode', 'boss'] : ['mode'];
+  const mid = pick.o.mode === 'coop' ? 'boss' : 'rule';   // 협동은 보스, 대전은 규칙(일반 · 클래식 야추)
+  return pick.for === 'local' ? ['mode', mid, 'party'] : ['mode', mid];
 };
-const STEP_TITLE = { mode: '모드 선택', boss: '보스 선택', party: '캐릭터 선택' };
+const STEP_TITLE = { mode: '모드 선택', boss: '보스 선택', rule: '규칙 선택', party: '캐릭터 선택' };
 
 function beginPick(kind, o) {
   pick = { for: kind, step: 'mode', o };
   showSetup();
 }
 
+// 대전의 규칙: 일반(직업 · 의뢰 · 레벨업) / 클래식 야추(순수 야추)
+function ruleCards(o) {
+  return `
+  <div class="mode-cards">
+    <button class="mode-card${o.rule !== 'classic' ? ' on' : ''}" data-act="rule" data-v="normal">
+      ${ico('swords')}<b>일반 대전</b><small>직업 능력 · 뒤집기 · 조정 · 의뢰 · 레벨업 · 라운드 이벤트로 성장하며 겨루기</small>
+    </button>
+    <button class="mode-card${o.rule === 'classic' ? ' on' : ''}" data-act="rule" data-v="classic">
+      ${ico('sheet')}<b>클래식 야추</b><small>순수 야추. 굴림 3번 · 12칸 · 상단 보너스만. 뒤집기 · 조정 · 직업 능력 · 의뢰 · 레벨업 · 이벤트 없음 (캐릭터는 겉모습만)</small>
+    </button>
+  </div>`;
+}
+
 function modeCards(o) {
   return `
   <div class="mode-cards">
-    <button class="mode-card${o.mode === 'versus' && o.rule !== 'classic' ? ' on' : ''}" data-act="mode" data-v="versus">
-      ${ico('swords')}<b>대전</b><small>12라운드 동안 점수표를 채우고 의뢰·레벨업으로 성장해 최종 점수가 가장 높은 영웅이 승리</small>
-    </button>
-    <button class="mode-card${o.mode === 'versus' && o.rule === 'classic' ? ' on' : ''}" data-act="mode" data-v="classic">
-      ${ico('sheet')}<b>클래식 야추</b><small>순수 야추 대전. 굴림 3번 · 12칸 · 상단 보너스만. 뒤집기 · 조정 · 직업 능력 · 의뢰 · 레벨업 · 이벤트 없음 (캐릭터는 겉모습만)</small>
+    <button class="mode-card${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus">
+      ${ico('swords')}<b>대전</b><small>12라운드 동안 점수표를 채워 최종 점수가 가장 높은 영웅이 승리. 성장하는 일반 대전과 순수한 클래식 야추 중에서 골라요</small>
     </button>
     <button class="mode-card${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop">
       ${ico('shield')}<b>협동</b><small>다 함께 보스 토벌. 점수를 적으면 그만큼 보스에게 피해, 12라운드 안에 쓰러뜨리면 승리</small>
@@ -428,7 +437,8 @@ function optsSummary(o, change = '') {
 }
 
 function onModeAct(act, t, o) {
-  if (act === 'mode') { o.mode = t.dataset.v === 'classic' ? 'versus' : t.dataset.v; o.rule = t.dataset.v === 'classic' ? 'classic' : null; }
+  if (act === 'mode') { o.mode = t.dataset.v; if (o.mode !== 'versus') o.rule = null; }
+  if (act === 'rule') o.rule = t.dataset.v === 'classic' ? 'classic' : null;
   if (act === 'boss') { o.boss = t.dataset.v; clampDiff(o); }
   if (act === 'diff') o.diff = Number(t.dataset.v);
   sfx.select();
@@ -446,10 +456,11 @@ function showSetup() {
   const n = steps.indexOf(pick.step);
   const last = n === steps.length - 1;
   // 모드를 고르기 전엔 협동 기준으로 단계를 보여 준다 (대전을 고르면 보스 단계가 빠진다)
-  const shown = pick.step === 'mode' && pick.for === 'local' ? ['mode', 'boss', 'party'] : pick.step === 'mode' ? ['mode', 'boss'] : steps;
+  const shown = steps;
   const o = pick.o;
   let body = '';
   if (pick.step === 'mode') body = `${modeCards(o)}<p class="hint">모드를 누르면 다음 단계로 넘어가요.</p>`;
+  if (pick.step === 'rule') body = `${ruleCards(o)}<p class="hint">규칙을 누르면 다음 단계로 넘어가요.</p>`;
   if (pick.step === 'boss') body = `${bossPicker(o)}
       <button class="pbtn gold big" data-act="pick-next">${last ? (pick.for === 'create' ? '방 만들기' : '완료') : '다음 ▶'}</button>`;
   if (pick.step === 'party') body = `
@@ -532,10 +543,10 @@ function onSetupAct(act, t) {
     return toast(ico('lock'), `${E.DIFFS[d].ko}은 잠겨 있어요`, `${E.bossInfo(pick.o.boss).ko}의 ${E.DIFFS[d - 1].ko} 난이도를 한 번 깨면 열려요.`, 2200);
   }
   if (act === 'pick-next') { sfx.select(); return pickNext(); }
-  if (['mode', 'boss', 'diff'].includes(act)) {
+  if (['mode', 'rule', 'boss', 'diff'].includes(act)) {
     onModeAct(act, t, pick.o);
     if (pick.for === 'local') saveOpts();
-    return act === 'mode' ? pickNext() : showSetup();
+    return act === 'mode' || act === 'rule' ? pickNext() : showSetup();
   }
   if (pick.for !== 'local') return;
   if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; store.set(KEYS.setup, setup); showSetup(); });
