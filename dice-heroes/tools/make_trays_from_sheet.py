@@ -1,9 +1,10 @@
 """트레이 스킨 그림 — 디자인 시트 한 장(tools/dice-src/tray-sheet-v2.webp)에서 오려 게임 트레이 모양에 맞춘다.
 
   python3 tools/make_trays_from_sheet.py     →  assets/trays/<스킨>/{floor,glow,box,thumb}.webp
-  필요: pip install pillow numpy
+  필요: pip install pillow numpy opencv-python-headless
 
 시트는 7칸(CLASSIC · ROYAL · DEEPSEA · DEMON · SAKURA · LAVA · STARRY) × (바닥 · 발광 지도 · 주사위 함 바닥).
+시트 한 칸이 약 200px 라서 먼저 upscale_tray_sheet.py 로 4배 키운 그림(tools/dice-src/tray-hires/)을 쓴다 (없으면 시트에서 바로).
 게임 트레이 바닥은 정사각이 아니라 10 : 6.4 라서
   바닥·발광: 그림 전체를 가로로 늘린 위에, 가운데 문양만 원래 비율로 다시 얹는다 (문양이 납작해지지 않게, 둘레는 부드럽게 섞음)
   함 바닥:   양 끝 장식과 가운데 장식은 그대로 두고 그 사이 테두리만 늘린다 (11 : 1.9)
@@ -12,34 +13,52 @@
 """
 import os
 import numpy as np
+import cv2
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHEET = os.path.join(HERE, 'dice-src', 'tray-sheet-v2.webp')
 OUT = os.path.join(HERE, '..', 'assets', 'trays')
+HIRES = os.path.join(HERE, 'dice-src', 'tray-hires')   # upscale_tray_sheet.py 로 4배 키운 칸 (있으면 이걸 쓴다)
 
 IDS = ['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry']
 # 칸마다 실측한 위치 (x0, y0, 한 변) — 바닥 · 발광 지도는 정사각, 함 바닥은 (x0, y0, x1, y1)
 FLOOR = [(14, 373, 197), (259, 375, 194), (479, 375, 193), (694, 375, 193), (909, 373, 195), (1122, 375, 193), (1336, 375, 194)]
 GLOW = [(20, 612, 200), (258, 616, 194), (479, 615, 194), (693, 615, 195), (910, 614, 195), (1122, 616, 193), (1336, 616, 193)]
 BOX = [(10, 872, 230, 949), (259, 870, 454, 951), (479, 873, 670, 948), (693, 869, 885, 952), (908, 872, 1100, 949), (1122, 873, 1312, 949), (1335, 873, 1527, 948)]
-FW, FH = 800, 512          # 바닥 (10 : 6.4)
-BW, BH = 1024, 176         # 함 바닥 (11 : 1.9)
+FW, FH = 1200, 768         # 바닥 (10 : 6.4)
+BW, BH = 1536, 264         # 함 바닥 (11 : 1.9)
 EMBLEM = 0.27              # 가운데 문양 반지름 (한 변 대비)
 # 목록 미리보기 테두리 색 (skins.js TRAY_STYLE 의 rail · trim 과 같게)
 FRAME = {'marble': ('#E9DFCB', '#D4A443'), 'royal': ('#7E1222', '#FFC83D'), 'deepsea': ('#1E4A52', '#D8B45A'), 'demon': ('#15101C', '#B36BFF'),
          'sakura': ('#A8744A', '#F5A8C0'), 'lava': ('#2B2422', '#FF7A1A'), 'starry': ('#161C52', '#E6C35C')}
 
 
-def floor_fit(sq):
-    base = sq.resize((FW, FH), Image.LANCZOS)                     # 전체를 가로로 늘림 (둘레 링은 타원이 된다)
+# 가운데 문양 반지름 (한 변 대비) — 바늘이 긴 나침반·별은 넓게
+EMBLEM_R = {'marble': 0.40, 'deepsea': 0.37}
+
+
+def floor_fit(sq, er=EMBLEM):
+    """1) 정사각 그림에서 가운데 문양을 지운 바탕을 만든다 (작게 줄여 inpaint → 다시 키움: 부드러운 바탕)
+    2) 그 바탕을 가로로 늘리고 (둘레 링은 타원이 된다) 3) 문양을 원래 비율로 다시 얹는다.
+    문양까지 같이 늘리면 원래 문양 양옆에 늘어난 문양의 잔상(왕관 날개 · 달 그림자)이 비쳤다."""
+    n = 256
+    small = np.asarray(sq.resize((n, n), Image.LANCZOS)).copy()
+    hole = np.zeros((n, n), np.uint8)
+    cv2.circle(hole, (n // 2, n // 2), int(n * (er + 0.03)), 255, -1)
+    fill = Image.fromarray(cv2.inpaint(small, hole, 9, cv2.INPAINT_TELEA)).resize(sq.size, Image.BICUBIC)
+    c, r = sq.width // 2, int(sq.width * (er + 0.03))
+    mm = Image.new('L', sq.size, 0)
+    ImageDraw.Draw(mm).ellipse([c - r, c - r, c + r, c + r], fill=255)
+    clean = sq.copy(); clean.paste(fill, (0, 0), mm.filter(ImageFilter.GaussianBlur(r * 0.15)))
+    base = clean.resize((FW, FH), Image.LANCZOS)
     mid = sq.resize((FH, FH), Image.LANCZOS)                      # 원래 비율
-    r = int(FH * EMBLEM)
+    r = int(FH * er)
     m = Image.new('L', (FH, FH), 0)
     ImageDraw.Draw(m).ellipse([FH // 2 - r, FH // 2 - r, FH // 2 + r, FH // 2 + r], fill=255)
     m = m.filter(ImageFilter.GaussianBlur(r * 0.22))
     base.paste(mid, ((FW - FH) // 2, 0), m)
-    return base.filter(ImageFilter.UnsharpMask(radius=1.2, percent=50, threshold=2))
+    return base
 
 
 # 함 바닥 사이 무늬 잇는 법: 'mirror' 좌우로 번갈아 뒤집기 (테두리·꽃 장식이 대칭이라 자연스럽다)
@@ -48,7 +67,7 @@ def floor_fit(sq):
 BOX_JOIN = {'deepsea': ('band', 0.70), 'lava': ('band', 0.08)}
 
 
-def box_band(strip, floor, yf, edge=0.085, feather=34):
+def box_band(strip, floor, yf, edge=0.085, feather=50):
     s = strip.resize((round(strip.width * BH / strip.height), BH), Image.LANCZOS)
     W = s.width
     bh = round(FW * BH / BW)                                   # 바닥에서 떼어 낼 띠 높이 (가로 800 → 1024 비율)
@@ -81,7 +100,7 @@ def box_fit(strip, join='mirror'):
     parts = [s.crop((round(cut[i] * W), 0, round(cut[i + 1] * W), BH)) for i in range(5)]
     fixed = parts[0].width + parts[2].width + parts[4].width
     fills = [(BW - fixed) // 2, BW - fixed - (BW - fixed) // 2]
-    def tile_blend(seg, F, ov=24):
+    def tile_blend(seg, F, ov=36):
         # 조각을 겹쳐(ov px) 이어 붙이고 겹친 곳은 서서히 섞는다. 첫 조각은 왼쪽 이웃과, 마지막은 오른쪽 이웃과 이어지게
         out = Image.new('RGB', (F, BH)); step = seg.width - ov
         n = max(1, -(-(F - ov) // step))
@@ -125,11 +144,12 @@ RECOLOR = {'demon': (192, 0.9)}
 
 
 def thumb(floor, id_):
+    # 목록 그림 256×192 (폰 화면에서 또렷하게 — 화면에는 그 절반 크기로 보인다)
     rail, trim = FRAME[id_]
-    c = Image.new('RGB', (128, 96), rail)
+    c = Image.new('RGB', (256, 192), rail)
     d = ImageDraw.Draw(c)
-    d.rectangle([3, 3, 124, 92], fill=trim); d.rectangle([6, 6, 121, 89], fill=rail)
-    c.paste(floor.resize((108, 76), Image.LANCZOS), (10, 10))
+    d.rectangle([6, 6, 249, 185], fill=trim); d.rectangle([12, 12, 243, 179], fill=rail)
+    c.paste(floor.resize((216, 152), Image.LANCZOS), (20, 20))
     return c
 
 
@@ -137,10 +157,14 @@ def main():
     sheet = Image.open(SHEET).convert('RGB')
     for i, id_ in enumerate(IDS):
         d = os.path.join(OUT, id_); os.makedirs(d, exist_ok=True)
-        x, y, s = FLOOR[i]; fl = floor_fit(sheet.crop((x, y, x + s, y + s)))
-        x, y, s = GLOW[i]; gl = floor_fit(sheet.crop((x, y, x + s, y + s)))
+        def src(kind, box):
+            f = os.path.join(HIRES, f'{id_}_{kind}.webp')
+            return Image.open(f).convert('RGB') if os.path.exists(f) else sheet.crop(box)
+        er = EMBLEM_R.get(id_, EMBLEM)
+        x, y, s = FLOOR[i]; fl = floor_fit(src('floor', (x, y, x + s, y + s)), er)
+        x, y, s = GLOW[i]; gl = floor_fit(src('glow', (x, y, x + s, y + s)), er)
         j = BOX_JOIN.get(id_, 'mirror')
-        bx = box_band(sheet.crop(BOX[i]), fl, j[1]) if isinstance(j, tuple) else box_fit(sheet.crop(BOX[i]), j)
+        bx = box_band(src('box', BOX[i]), fl, j[1]) if isinstance(j, tuple) else box_fit(src('box', BOX[i]), j)
         if id_ in RECOLOR:
             fl, gl, bx = (recolor(im, *RECOLOR[id_]) for im in (fl, gl, bx))
         fl.save(os.path.join(d, 'floor.webp'), quality=90, method=6)
