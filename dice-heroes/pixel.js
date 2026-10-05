@@ -129,6 +129,42 @@ export const SPRITES = {
     "......kdk.......",
     ".....kdk........"
   ],
+  "outlaw": [
+    "................",
+    "......kkkk......",
+    ".....kHHHHk.....",
+    "..kkkHHHHHHkkk..",
+    ".kHHHHHHHHHHHHk.",
+    "..kkkssssssskk..",
+    "....kseksesk....",
+    "....krrrrrrrk...",
+    "....kkrrrrrkk...",
+    "..kooooooooook..",
+    ".kooyyyyyyyyook.",
+    ".kooooooooooooks",
+    "..kOOOOOOOOOOk.k",
+    "...kjjjk.kjjjk..",
+    "...kddk...kddk..",
+    "...kkkk...kkkk.."
+  ],
+  "sharper": [
+    "................",
+    "....kkkkkkkk....",
+    "...khhhhhhhhk...",
+    "...khhhhhhhhk...",
+    "...ksssssssssk..",
+    "...kKKKsKKKsk...",
+    "...ksssssSssk...",
+    "....kksssskk....",
+    "..kkjjmrmjjkk...",
+    "kwkjjjmrmjjjkwk.",
+    "krkjjjmmmjjjkrk.",
+    "kwkjjjmmmjjjkwk.",
+    "..kjjjjjjjjjk...",
+    "...kjjjkjjjk....",
+    "...kjjk..kjjk...",
+    "...kkkk..kkkk..."
+  ],
   "demon": [
     "................................",
     "....kkkkkkkkkkkkkkkkkkkkkkkk....",
@@ -286,7 +322,7 @@ export const SPRITES = {
 };
 
 const PALETTE = {"k": "#1A1030", "s": "#F7C9A0", "S": "#DE9A74", "e": "#1A1030", "w": "#FFFFFF", "g": "#FFC83D", "d": "#5A3A2A", "b": "#D8ECFF", "h": "#6B3E26", "r": "#E8435A", "y": "#C9A36B", "o": "#E9B04E", "t": "#9CF2FF"};
-const OWN = {"warrior": {"a": "#D9463E", "A": "#8E2226", "h": "#6B3E26"}, "rogue": {"m": "#2F8F6E", "h": "#2B2440"}, "mage": {"p": "#7B4BD6", "y": "#C9A36B"}, "bard": {"c": "#2F7FD6", "h": "#E3A546"}, "gambler": {"j": "#3A2E5C", "h": "#2B2440"}, "monk": {"o": "#E07A1F", "O": "#A34F12", "n": "#8E2226"}, "dancer": {"v": "#E84FA0", "V": "#9E2F72", "l": "#FFC83D", "h": "#3A1E2E", "r": "#FF5A6A"}, "fairy": {"y": "#FFE27A"}, "demon": {"k": "#12081E", "T": "#5A5064", "u": "#3A0E22", "C": "#D8D4E4", "c": "#6A6478", "r": "#FF2A6A", "h": "#ECE8F4", "H": "#A8A2BC", "s": "#F4E4EA", "S": "#D2B8C6", "e": "#A8102C", "E": "#FF3050", "m": "#B0305A", "d": "#2A2036", "D": "#150E1E", "l": "#9A94A8", "w": "#F0ECF8"}, "dragon": {"m": "#7A1E3A", "M": "#4A0E24", "b": "#E8B87A", "B": "#B8864A", "r": "#D9463E", "R": "#8E2226", "y": "#FFB34D", "Y": "#D9822A", "w": "#FFF3D6", "W": "#CFC0A0", "e": "#FFE24A", "E": "#FF8A1A", "f": "#FF5A1F", "F": "#FFD24A", "K": "#1A1030", "k": "#1A1030"}, "orc": {"g": "#6BBE45", "G": "#3F7F2A", "a": "#5A5F78", "A": "#373A50", "m": "#8A90A8", "M": "#5A5F78", "w": "#F2EEDD", "W": "#C9C2A6", "f": "#7A4A2A", "F": "#4A2A14", "y": "#FFC83D", "Y": "#B8801A", "d": "#5A3A2A", "D": "#3A2414", "e": "#FF3B3B", "r": "#E8435A", "R": "#9C1C33", "s": "#D8E4F0", "S": "#8A9AB0", "K": "#1A1030", "k": "#1A1030"}, "lich": {"q": "#4A3290", "Q": "#3A2474", "p": "#5A3AA0", "P": "#3A2470", "w": "#EEE6D0", "W": "#B8AE92", "y": "#FFC83D", "Y": "#B8801A", "c": "#7CF2FF", "C": "#2FB8D8", "r": "#E8435A", "d": "#6B4A2A", "D": "#3A2414", "K": "#1A1030", "k": "#1A1030"}};
+const OWN = {"warrior": {"a": "#D9463E", "A": "#8E2226", "h": "#6B3E26"}, "rogue": {"m": "#2F8F6E", "h": "#2B2440"}, "mage": {"p": "#7B4BD6", "y": "#C9A36B"}, "bard": {"c": "#2F7FD6", "h": "#E3A546"}, "gambler": {"j": "#3A2E5C", "h": "#2B2440"}, "monk": {"o": "#E07A1F", "O": "#A34F12", "n": "#8E2226"}, "dancer": {"v": "#E84FA0", "V": "#9E2F72", "l": "#FFC83D", "h": "#3A1E2E", "r": "#FF5A6A"}, "outlaw": {"H": "#9A6232", "r": "#D9463E", "o": "#E08A3C", "O": "#A85A1E", "y": "#FFC83D", "j": "#3A4A7A", "d": "#6B3E26"}, "sharper": {"h": "#14101E", "K": "#0A0812", "j": "#1E2A3A", "m": "#4FD6C8", "r": "#D9263E", "w": "#FFF6E8"}, "fairy": {"y": "#FFE27A"}, "demon": {"k": "#12081E", "T": "#5A5064", "u": "#3A0E22", "C": "#D8D4E4", "c": "#6A6478", "r": "#FF2A6A", "h": "#ECE8F4", "H": "#A8A2BC", "s": "#F4E4EA", "S": "#D2B8C6", "e": "#A8102C", "E": "#FF3050", "m": "#B0305A", "d": "#2A2036", "D": "#150E1E", "l": "#9A94A8", "w": "#F0ECF8"}, "dragon": {"m": "#7A1E3A", "M": "#4A0E24", "b": "#E8B87A", "B": "#B8864A", "r": "#D9463E", "R": "#8E2226", "y": "#FFB34D", "Y": "#D9822A", "w": "#FFF3D6", "W": "#CFC0A0", "e": "#FFE24A", "E": "#FF8A1A", "f": "#FF5A1F", "F": "#FFD24A", "K": "#1A1030", "k": "#1A1030"}, "orc": {"g": "#6BBE45", "G": "#3F7F2A", "a": "#5A5F78", "A": "#373A50", "m": "#8A90A8", "M": "#5A5F78", "w": "#F2EEDD", "W": "#C9C2A6", "f": "#7A4A2A", "F": "#4A2A14", "y": "#FFC83D", "Y": "#B8801A", "d": "#5A3A2A", "D": "#3A2414", "e": "#FF3B3B", "r": "#E8435A", "R": "#9C1C33", "s": "#D8E4F0", "S": "#8A9AB0", "K": "#1A1030", "k": "#1A1030"}, "lich": {"q": "#4A3290", "Q": "#3A2474", "p": "#5A3AA0", "P": "#3A2470", "w": "#EEE6D0", "W": "#B8AE92", "y": "#FFC83D", "Y": "#B8801A", "c": "#7CF2FF", "C": "#2FB8D8", "r": "#E8435A", "d": "#6B4A2A", "D": "#3A2414", "K": "#1A1030", "k": "#1A1030"}};
 
 const cache = new Map();
 
@@ -294,7 +330,7 @@ const cache = new Map();
 // 예전 그림으로 되돌리려면 이 줄만 'v1' 로 바꾼다. 주소에 ?art=v1 을 붙이면 그 기기에서만 잠깐 예전 그림으로 볼 수 있다.
 const HERO_ART_DEFAULT = 'v2';
 export const HERO_ART = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('art')) || HERO_ART_DEFAULT;
-export const HERO_IDS = ['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer'];
+export const HERO_IDS = ['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'];
 // 직업별 동작 그림(선택): 'assets/heroes/<직업>_<charge|attack|hurt>.webp' 를 넣고 여기에 적으면 그 동작에서 그 그림으로 바뀐다.
 // 없으면 기본 그림 하나를 움직여 동작을 만든다 (style.css 의 .actor).
 export const HERO_POSES = {};   // 예: { warrior: ['attack', 'hurt'] }

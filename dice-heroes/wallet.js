@@ -87,6 +87,31 @@ function changeLocal(mutate) {
   return { ok: true, out: r };
 }
 
+// 일일 보상: 오늘(서버 시간 · 한국 자정 기준) 아직 안 받았나
+export const dailyGemsOf = dice => R.dailyGems(dice);
+export const DAILY_YACHT_MUL = R.DAILY_YACHT_MUL;
+export const dailyReady = () => !!W && W.bonus?.day !== today();
+// 일일 보상 받기 — 배포판은 서버가 주사위를 굴린다
+export async function claimDaily() {
+  try { await loadWallet(); } catch { return { ok: false, why: '인터넷 연결이 필요해요.' }; }
+  if (PROD) {
+    try {
+      const r = await callServer('dailyRoll');
+      set(r.wallet);
+      return { ok: true, dice: r.dice, ...R.dailyGems(r.dice) };
+    } catch (err) { return { ok: false, why: why(err) }; }
+  }
+  const r = changeLocal(w => {
+    if (w.bonus?.day === today()) return '오늘 보상은 이미 받았어요. 내일 다시 와 주세요!';
+    const dice = Array.from({ length: 5 }, () => 1 + Math.floor(Math.random() * 6));
+    const out = R.dailyGems(dice);
+    w.gems += out.gems;
+    w.bonus = { day: today(), dice };
+    return { dice, ...out };
+  });
+  return r.ok ? { ok: true, ...r.out } : r;
+}
+
 // 내 데이터 지우기: 서버의 지갑도 지운다
 export async function deleteWallet() {
   try { localStorage.removeItem(LOCAL); } catch { /* 무시 */ }
