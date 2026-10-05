@@ -1423,3 +1423,10 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .ach-done { font-size: 11px; color: var(--gold); white-space: nowrap; }
 .ach-new { display: grid; margin-top: 6px; padding: 6px 8px; font-size: 13px; color: var(--gold); background: rgba(255, 210, 74, .1); border: 2px dashed var(--gold); }
 .ach-new small { color: var(--muted); font-size: 11px; }
+
+.ach-steps { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.ach-steps i { width: 9px; height: 9px; border: 2px solid var(--ink); background: #0A0820; box-shadow: inset 0 0 0 1px var(--tc); }
+.ach-steps i.on { background: var(--tc); }
+.ach-steps i.now { box-shadow: 0 0 0 1px var(--tc); }
+.ach-card.step-up { animation: achStepUp .6s ease-out; }
+@keyframes achStepUp { 0% { transform: scale(.94); filter: brightness(2); } 100% { transform: none; filter: none; } }
