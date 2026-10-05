@@ -144,7 +144,7 @@ function showTitle() {
   <div class="screen title-screen">
     <canvas class="scene" aria-hidden="true"></canvas>
     <div class="title-ui">
-      ${unlocked ? `<button class="gem-chip title-gems" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button>` : ''}
+      ${unlocked ? `<div class="title-top">${dailyBtn()}<button class="gem-chip" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button></div>` : ''}
       <div class="logo">
         <span class="logo-sub">운명의 주사위 RPG</span>
         <h1 class="logo-main">${esc(GAME.name)}</h1>
@@ -156,7 +156,6 @@ function showTitle() {
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
         <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
         <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
-        ${dailyBtn()}
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
         <div class="menu-row">
           <button class="pbtn small" data-act="dashboard">대시보드</button>
@@ -184,7 +183,7 @@ Wal.onWallet(w => {
 // 일일 보상 버튼: 받을 수 있으면 반짝인다
 function dailyBtn() {
   const ready = Wal.dailyReady();
-  return `<button id="daily-btn" class="pbtn daily-btn${ready ? ' ready' : ''}" data-act="daily">${ico('gem', 'xs')} 일일 보상 <small>${ready ? '오늘 보상 받기!' : Wal.wallet() ? '내일 0시에 또 받아요' : '불러오는 중…'}</small></button>`;
+  return `<button id="daily-btn" class="gem-chip daily-btn${ready ? ' ready' : ''}" data-act="daily" aria-label="일일 보상${ready ? ' 받기' : ' (내일 0시에 또 받아요)'}">${ico('party', 'xs')}<b>일일 보상</b>${ready ? '<i class="daily-dot"></i>' : ''}</button>`;
 }
 function syncOwned() {
   if (!Wal.wallet()) return;
