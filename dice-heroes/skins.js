@@ -21,7 +21,7 @@ export const TRAY_SKINS = [
   { id: 'marble', name: '클래식', desc: '상아빛 대리석 · 빛나는 황금 나침반', tier: 'special' },
   { id: 'royal', name: '왕실', desc: '진홍 벨벳에 황금 왕관', tier: 'special' },
   { id: 'deepsea', name: '심해', desc: '일렁이는 물빛 · 산호와 별 나침반', tier: 'special' },
-  { id: 'demon', name: '마왕성', desc: '검은 돌바닥에 타오르는 삼지창 문장', tier: 'special' },
+  { id: 'demon', name: '마왕성', desc: '검은 돌바닥에 보랏빛으로 타오르는 삼지창 문장', tier: 'special' },
   { id: 'sakura', name: '벚꽃', desc: '연분홍 바닥에 피어난 벚꽃 문양', tier: 'special' },
   { id: 'lava', name: '용암', desc: '갈라진 현무암 사이로 끓는 용암', tier: 'special' },
   { id: 'starry', name: '은하', desc: '밤하늘 초승달 · 반짝이는 별자리', tier: 'special' },
@@ -367,7 +367,7 @@ const IMAGE_TRAY = {
   marble: { rail: 0xE9DFCB, trim: 0xD4A443, trimEnv: true, glow: 0.3 },
   royal: { rail: 0x7E1222, trim: 0xFFC83D, trimEnv: true, glow: 0.35 },
   deepsea: { rail: 0x1E4A52, trim: 0xD8B45A, trimEnv: true, glow: 0.55 },
-  demon: { rail: 0x231417, trim: 0xFF3B22, trimGlow: true, glow: 0.9 },
+  demon: { rail: 0x15101C, trim: 0xB36BFF, trimGlow: true, glow: 0.9 },   // 보라 · 검정 테마
   sakura: { rail: 0xA8744A, trim: 0xF5A8C0, trimEnv: true, glow: 0.35 },
   lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1 },
   starry: { rail: 0x161C52, trim: 0xE6C35C, trimEnv: true, glow: 0.8 },
