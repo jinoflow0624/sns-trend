@@ -2728,7 +2728,7 @@ async function showSkins(tab = 'dice') {
     const open = Wal.owns(tab, k.id);
     const trying = skinTry?.kind === tab && skinTry.id === k.id;
     return `<button class="skin-card${k.id === cur ? ' on' : ''}${open ? '' : ' locked'}${trying ? ' trying' : ''}" data-act="skin-pick" data-kind="${tab}" data-id="${k.id}">
-      <img src="${thumb(k.id)}" alt="">
+      <img${tab === 'dice' ? ' class="die-th"' : ''} src="${thumb(k.id)}" alt="">
       <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
       ${open ? (k.tier === 'special' ? '<span class="skin-tag">보유</span>' : '') : `<span class="skin-tag price">${ico('gem', 'xs')}${Wal.priceOf(tab, k.id).toLocaleString()}</span>`}
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
