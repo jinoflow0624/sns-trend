@@ -125,3 +125,10 @@ Firebase 콘솔 **사용량 및 결제** 에서 70%를 넘기 시작하면 Blaze
 - 에뮬레이터 점검: `firebase emulators:start --only auth,database,functions` 후 `?fbemu=127.0.0.1:9100&fbauth=127.0.0.1:9099&fnemu=127.0.0.1:5001`
 - **구글 계정 연결을 켜려면** Firebase 콘솔 → Authentication → 로그인 방법 → **Google 사용 설정** (지원 이메일 선택 후 저장).
   승인된 도메인에 `diceheroes-4fbbb.web.app` 이 있는지 확인. 켜기 전에는 설정의 '구글 계정 연결'이 오류를 낸다.
+
+## 7. 광고 (애드센스)
+
+- 게시자 ID `pub-1731682355545536` 는 `build.mjs` 의 `ADSENSE_PUB` 에 있다 (비밀 값 아님).
+- 빌드하면 `index.html` 에 사이트 소유 확인용 `<meta name="google-adsense-account">` 가 들어가고, 사이트 루트에 `ads.txt` 가 생긴다 → https://diceheroes-4fbbb.web.app/ads.txt
+- 광고 스크립트(adsbygoogle.js)는 아직 넣지 않는다. 동의 창(CMP) · 빈도 제한 · 광고 제거 권리 연결이 끝난 뒤 별도 작업으로 켠다.
+- 애드센스의 **자동 광고는 꺼 둔다** (게임 도중 광고 금지 원칙).
