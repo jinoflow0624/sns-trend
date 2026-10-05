@@ -6,7 +6,7 @@
 const CACHE = 'dh-cache';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
-  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'fireconfig.js', 'fire.js', 'live.js', 'env.js', 'privacy.html', 'manifest.webmanifest',
+  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'env.js', 'privacy.html', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
   'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'assets/bgm/title.ogg', 'assets/bgm/versus.ogg',

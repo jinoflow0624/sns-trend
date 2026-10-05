@@ -1401,3 +1401,25 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 @keyframes towerLand { 0% { transform: translateY(-26px) scaleY(1.2); opacity: 0; filter: brightness(2.2); } 55% { transform: translateY(0) scaleY(.82, 1); opacity: 1; } 75% { transform: scaleY(1.06); } 100% { transform: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) { .tb.land { animation: none; } }
 .controls.two { grid-template-columns: 1.4fr 1fr !important; }
+
+/* ── 도전과제 ── */
+#ach-btn { position: relative; }
+.ach-tabs { display: grid; grid-template-columns: repeat(5, 1fr); margin-bottom: 10px; }
+.ach-tabs button { position: relative; font-size: 13px; padding-inline: 2px; }
+.ach-tabs .daily-dot { top: -3px; right: -3px; width: 8px; height: 8px; }
+.ach-list { display: grid; gap: 6px; }
+.ach-card { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 10px 8px; background: #140F36;
+  border: 3px solid var(--ink); box-shadow: inset 4px 0 0 var(--tc), inset 0 0 0 2px #2A2270; }
+.ach-card.ready { background: #2A2150; box-shadow: inset 4px 0 0 var(--tc), inset 0 0 0 2px var(--gold); animation: glowGold 1.4s ease-in-out infinite; }
+.ach-card.got { opacity: .55; }
+.ach-tier { position: absolute; top: -8px; left: 10px; font-size: 10px; font-weight: 700; padding: 0 5px; background: var(--tc); color: var(--ink); border: 2px solid var(--ink); }
+.ach-body { display: grid; gap: 2px; min-width: 0; }
+.ach-body b { font-size: 14px; }
+.ach-body small { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.ach-bar { position: relative; height: 12px; margin-top: 3px; background: #0A0820; border: 2px solid var(--ink); }
+.ach-bar i { position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--tc); }
+.ach-bar em { position: absolute; inset: 0; font-size: 9px; line-height: 8px; text-align: center; font-style: normal; color: #fff; text-shadow: 0 1px 0 var(--ink); }
+.ach-card .pbtn.small { min-width: 64px; }
+.ach-done { font-size: 11px; color: var(--gold); white-space: nowrap; }
+.ach-new { display: grid; margin-top: 6px; padding: 6px 8px; font-size: 13px; color: var(--gold); background: rgba(255, 210, 74, .1); border: 2px dashed var(--gold); }
+.ach-new small { color: var(--muted); font-size: 11px; }

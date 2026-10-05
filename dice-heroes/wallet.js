@@ -11,6 +11,7 @@
 // 가격 · 보상 규칙은 wallet-rules.js (서버와 같은 파일)
 import { PROD, fireApp, myUid, callServer } from './fire.js';
 import * as R from './wallet-rules.js';
+import * as AC from './achievements.js';
 
 export * from './wallet-rules.js';
 
@@ -154,7 +155,7 @@ export async function earn(info) {
     run = null;
     if (!info.room && !rid) return { ok: false, why: '판 시작 기록이 없어요 (시작할 때 인터넷이 끊겼거나 이어하기한 판).', parts: [], total: 0 };
     try {
-      const r = await callServer('claimRun', info.room ? { room: info.room } : { rid, win: info.win, score: info.score, flip: info.flip, nudge: info.nudge });
+      const r = await callServer('claimRun', info.room ? { room: info.room } : { rid, win: info.win, score: info.score, flip: info.flip, nudge: info.nudge, st: info.st });
       set(r.wallet);
       if (r.capped) return { ok: false, why: `오프라인 판 보상은 하루 ${R.UNVERIFIED_DAILY}판까지예요.`, parts: [], total: 0 };
       return { ok: true, parts: r.parts, total: r.total };
@@ -166,7 +167,30 @@ export async function earn(info) {
     w.gems += result.total;
     if (result.parts.some(p => p.vs)) w.vs.n++;
     if (key && info.win) w.clears[key] = true;
+    if (info.st) AC.mergeAch(w, info.st);
     return result;
   });
   return { ok: true, ...r.out };
+}
+
+// ── 도전과제 ──
+export const ach = () => W?.ach || null;
+export const achClaimable = () => AC.achClaimable(W?.ach);
+export async function claimAch(id) {
+  try { await loadWallet(); } catch { return { ok: false, why: '인터넷 연결이 필요해요.' }; }
+  if (PROD) {
+    try { const r = await callServer('claimAch', { id }); set(r.wallet); return { ok: true, gems: r.gems }; }
+    catch (err) { return { ok: false, why: why(err) }; }
+  }
+  const a = AC.achInfo(id);
+  const r = changeLocal(w => {
+    w.ach ||= {}; w.ach.got ||= {};
+    if (!a) return '없는 도전과제예요.';
+    if (w.ach.got[id]) return '이미 받은 보상이에요.';
+    if (!AC.achDone(a, w.ach)) return '아직 달성하지 못했어요.';
+    w.gems += AC.achGems(a);
+    w.ach.got[id] = Date.now();
+    return { gems: AC.achGems(a) };
+  });
+  return r.ok ? { ok: true, ...r.out } : r;
 }

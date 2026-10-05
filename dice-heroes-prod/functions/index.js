@@ -7,6 +7,7 @@
 //             · 온라인 방 판: 방에 남은 게임 기록(rooms/DH-<코드>/state)을 서버가 직접 읽어 승패·점수·남은 기술을 확인한다
 //             · 오프라인(봇전·한 기기) 판: 서버가 볼 수 없으니 시작 기록 + 최소 1분 + 하루 15판 + 점수 상한으로 막는다
 //   buy       직업 · 주사위 · 트레이 사기
+//   claimAch  도전과제 보상 받기 — 진행도(지갑 ach)는 claimRun 이 판마다 쌓는다
 //   dailyRoll 일일 보상 — 하루(한국 자정 기준) 한 번, 서버가 주사위 5개를 굴려 합만큼 (요트면 10배)
 //
 // 가격 · 보상 규칙은 게임과 같은 파일(dice-heroes/wallet-rules.js)을 build.mjs 가 shared/ 로 복사해 쓴다.
@@ -17,6 +18,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { randomInt } from 'node:crypto';
 import * as R from './shared/wallet-rules.js';
 import * as E from './shared/engine.js';
+import * as AC from './shared/achievements.js';
 
 // 데이터베이스는 싱가포르(asia-southeast1) — 함수도 같은 곳에 둔다 (한국에서도 가깝다)
 const DB_URL = 'https://diceheroes-4fbbb-default-rtdb.asia-southeast1.firebasedatabase.app';
@@ -38,7 +40,7 @@ function fix(w, now) {
   if (w.daily?.day !== today) w.daily = { day: today, n: 0 };
   return w;
 }
-const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null });
+const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null, ach: w.ach || null });
 
 // 지갑을 바꾼다. mutate 가 문자열을 돌려주면 그 이유로 취소
 async function change(uid, mutate) {
@@ -102,6 +104,7 @@ async function fromRoom(uid, code) {
   const win = coop ? !!g.boss?.won : top.i === idx || (top.total === score && g.forfeit !== idx);
   return {
     key: `${code}:${g.seed}`,
+    st: E.statsOf(g, idx, { online: true }),
     info: { mode: coop ? 'coop' : 'versus', win, online: true, humans: g.players.filter(p => !p.bot).length, score, flip: me.flip, nudge: me.nudge,
       boss: coop ? g.boss.id : null, diff: coop ? g.boss.diff : null },
   };
@@ -111,12 +114,12 @@ export const claimRun = onCall(async req => {
   const uid = needUser(req);
   const d = req.data || {};
   const now = Date.now();
-  let info, verified;
+  let info, verified, st = {};
   if (d.room) {
     const r = await fromRoom(uid, d.room);
     const claimed = await db().ref(`claims/${uid}/${r.key}`).transaction(cur => (cur ? undefined : now));
     if (!claimed.committed) fail('이미 정산한 판이에요.', 'already-exists');
-    info = r.info; verified = true;
+    info = r.info; verified = true; st = r.st;
   } else {
     if (typeof d.rid !== 'string' || !/^[-\w]{10,40}$/.test(d.rid)) fail('시작 기록이 없어 보석을 받을 수 없어요.', 'invalid-argument');
     const runRef = db().ref(`runs/${uid}/${d.rid}`);
@@ -132,6 +135,7 @@ export const claimRun = onCall(async req => {
       boss: run.boss ?? null, diff: run.diff ?? null,
     };
     verified = false;
+    st = AC.cleanStats(d.st, info);
   }
   const { wallet, out } = await change(uid, w => {
     if (!verified && w.daily.n >= R.UNVERIFIED_DAILY) return { parts: [], total: 0, capped: true };
@@ -141,6 +145,7 @@ export const claimRun = onCall(async req => {
     if (result.parts.some(p => p.vs)) w.vs.n++;
     if (clearKey && info.win) w.clears[clearKey] = true;
     if (!verified) w.daily.n++;
+    AC.mergeAch(w, st);                       // 도전과제 진행도
     return result;
   });
   return { ...out, wallet };
@@ -173,4 +178,21 @@ export const dailyRoll = onCall(async req => {
     return g;
   });
   return { wallet, dice, ...out };
+});
+
+// 도전과제 보상: 진행도가 목표에 닿았고 아직 안 받았으면 난이도별 보석
+export const claimAch = onCall(async req => {
+  const uid = needUser(req);
+  const a = AC.achInfo(req.data?.id);
+  if (!a) fail('없는 도전과제예요.', 'invalid-argument');
+  const { wallet, out } = await change(uid, (w, now) => {
+    w.ach ||= {}; w.ach.got ||= {};
+    if (w.ach.got[a.id]) return '이미 받은 보상이에요.';
+    if (!AC.achDone(a, w.ach)) return '아직 달성하지 못했어요.';
+    const gems = AC.achGems(a);
+    w.gems += gems;
+    w.ach.got[a.id] = now;
+    return { gems };
+  });
+  return { wallet, ...out };
 });

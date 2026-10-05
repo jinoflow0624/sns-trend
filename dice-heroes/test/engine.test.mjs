@@ -560,6 +560,17 @@ test('클래식 야추: 봇끼리 끝까지, 레벨 1 · 특성 0', () => {
   assert.ok(s.ended);
   s.players.forEach(p => { assert.equal(p.level, 1); assert.equal(Object.keys(p.perks).length, 0); assert.equal(p.flip + p.nudge, 0); assert.ok(E.finalScore(p) <= 375); });
 });
+test('도전과제 기록: 족보 · 요트 눈 · 승리 · 보스 등급', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }, { name: 'B', cls: 'monk' }], 2, { rule: 'classic' });
+  E.roll(s); s.dice = [6, 6, 6, 6, 6]; E.commitScore(s, 'yacht');
+  const st = E.statsOf(s, 0);
+  assert.equal(st.c_yacht, 1); assert.equal(st.y6, 1); assert.equal(st.y1, 0); assert.equal(st.games, 1);
+  assert.equal(st.clScore, 50); assert.equal(st.vsWin, 1); assert.equal(st.clWin, 1);
+  const c = E.createGame([{ name: 'A', cls: 'monk' }], 3, { mode: 'coop', boss: 'orc', diff: 1 });
+  c.boss.won = true; c.round = 8; c.ended = true;
+  const cs = E.statsOf(c, 0);
+  assert.equal(cs['b:orc:1'], 3); assert.equal(cs.coopWin, 1);
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
