@@ -537,6 +537,29 @@ test('재접속: 봇이 대신하던 자리를 사람에게 돌려준다', () =>
   assert.ok(!s.players[1].bot && !s.players[1].dropped);
   assert.ok(!E.rejoin(s, 1));
 });
+test('클래식 야추: 직업 능력 · 의뢰 · 레벨업 · 이벤트 · 충전 없음', () => {
+  const s = E.createGame([{ name: 'A', cls: 'warrior' }, { name: 'B', cls: 'rogue' }], 4, { mode: 'versus', rule: 'classic' });
+  assert.ok(s.classic);
+  assert.equal(s.board.length, 0);
+  assert.ok(s.events.every(e => e === 'calm'));
+  assert.equal(s.players[1].flip, 0);
+  assert.equal(E.upperNeed(s.players[0]), 63);
+  E.roll(s); s.dice = [6, 6, 6, 6, 6];
+  assert.equal(E.preview(s).find(r => r.id === 'yacht').xp, 0);
+  E.commitScore(s, 'yacht');
+  assert.equal(s.players[0].stats.xpEarned, 0);
+  assert.equal(s.turn, 1);
+  assert.equal(s.phase, 'roll');
+  // 협동에서는 클래식을 무시
+  assert.ok(!E.createGame([{ name: 'A', cls: 'monk' }], 1, { mode: 'coop', rule: 'classic' }).classic);
+});
+test('클래식 야추: 봇끼리 끝까지, 레벨 1 · 특성 0', () => {
+  let seed = 7; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const s = E.createGame(['gambler', 'dancer', 'sharper', 'outlaw'].map(cls => ({ name: cls, cls, bot: true })), 11, { rule: 'classic' });
+  let n = 0; while (!s.ended && n++ < 5000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
+  assert.ok(s.ended);
+  s.players.forEach(p => { assert.equal(p.level, 1); assert.equal(Object.keys(p.perks).length, 0); assert.equal(p.flip + p.nudge, 0); assert.ok(E.finalScore(p) <= 375); });
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

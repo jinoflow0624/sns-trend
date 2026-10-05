@@ -102,6 +102,8 @@ export const CLASSES = [
     desc: '밑장빼기: 굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다 (라운드당 1번). 대신 이번에 적는 족보로는 경험치를 못 얻는다' },
 ];
 export const classInfo = id => CLASSES.find(c => c.id === id);
+// 직업 능력: 클래식 야추에서는 직업이 겉모습뿐이라 능력이 없다
+export const ab = p => (p.plain ? null : p.cls);
 
 // 족보 완성 (무법자 속전속결): 포카인드 · 풀하우스 · 스트레이트 · 요트 처럼 모양이 맞아야 점수가 나는 칸
 export const RUSH_CATS = ['four', 'full', 'sstr', 'lstr', 'yacht'];
@@ -395,7 +397,8 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
         name: p.name, cls, bot: !!p.bot,
         scores: Object.fromEntries(CAT_IDS.map(id => [id, null])),
         xp: 0, level: 1, perks: {},
-        flip: cls === 'rogue' ? 1 : 0, nudge: 0, dance: 0, danceRound: 0, bet: null,
+        plain: opts.rule === 'classic' || undefined,
+        flip: cls === 'rogue' && opts.rule !== 'classic' ? 1 : 0, nudge: 0, dance: 0, danceRound: 0, bet: null,
         offers: [], questsDone: [], roundScore: 0,
         stats: { xpEarned: 0, zeros: 0 },
       };
@@ -405,6 +408,8 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
     events: [], log: [], fx: [], ended: false,
     mode: opts.mode === 'coop' ? 'coop' : 'versus', boss: null,
   };
+  // 클래식 야추 (대전 전용): 굴림 3번 · 점수표 12칸 · 상단 보너스만. 뒤집기·조정 · 직업 능력 · 의뢰 · 레벨업 · 이벤트 없음
+  if (opts.rule === 'classic' && s.mode === 'versus') s.classic = true;
   if (s.mode === 'coop') {
     const id = bossInfo(opts.boss) ? opts.boss : 'dragon';
     const diff = Math.min(2, Math.max(0, opts.diff | 0));
@@ -415,10 +420,14 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
     const hp = Math.round(DIFFS[diff].hp * HP_TUNE[id][diff][players.length - 1] * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
   }
-  s.deck = shuffle(s, QUESTS.filter(q => !q.retired).map(q => q.id));
-  s.board = s.deck.splice(0, QUEST_SLOTS);
-  const rest = shuffle(s, [...EVENT_DECK.filter(e => e !== 'calm'), 'calm']);
-  s.events = ['calm', ...rest].slice(0, ROUNDS);
+  if (s.classic) {
+    s.events = new Array(ROUNDS).fill('calm');
+  } else {
+    s.deck = shuffle(s, QUESTS.filter(q => !q.retired).map(q => q.id));
+    s.board = s.deck.splice(0, QUEST_SLOTS);
+    const rest = shuffle(s, [...EVENT_DECK.filter(e => e !== 'calm'), 'calm']);
+    s.events = ['calm', ...rest].slice(0, ROUNDS);
+  }
   if (s.boss?.id === 'demon') s.events = s.events.map((e, i) => (i % 2 === 1 ? 'haki' : e));
   startTurn(s);
   return s;
@@ -496,7 +505,7 @@ export function roll(s) {
   if (s.rollsLeft <= 0) fail('굴림 기회를 다 썼습니다.');
   if (s.rolled && s.held.every(Boolean)) fail('모든 주사위를 잡고 있습니다.');
   const p = current(s);
-  if (p.cls === 'gambler' && !p.bet && !s.rolled) fail('먼저 이번 라운드에 배팅할 족보를 고르세요.');
+  if (ab(p) === 'gambler' && !p.bet && !s.rolled) fail('먼저 이번 라운드에 배팅할 족보를 고르세요.');
   // 튜토리얼처럼 결과를 미리 정해 둔 굴림 (s.script = [[눈...], ...])
   const forced = s.script?.length ? s.script.shift() : null;
   s.dice = s.dice.map((v, i) => {
@@ -538,12 +547,12 @@ export function useFlip(s, i) {
 // 무희 춤사위 버프: 모아 둔 버프 1개로 모든 주사위 눈 +1 (6은 그대로, 봉인된 주사위 제외). 라운드당 1번
 export const canDance = s => {
   const p = current(s);
-  return p.cls === 'dancer' && p.dance > 0 && p.danceRound !== s.round && s.phase === 'roll' && s.rolled && !haki(s);
+  return ab(p) === 'dancer' && p.dance > 0 && p.danceRound !== s.round && s.phase === 'roll' && s.rolled && !haki(s);
 };
 export function useDance(s) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
-  if (p.cls !== 'dancer' || !(p.dance > 0)) fail('춤사위 버프가 없습니다.');
+  if (ab(p) !== 'dancer' || !(p.dance > 0)) fail('춤사위 버프가 없습니다.');
   if (p.danceRound === s.round) fail('춤사위는 라운드당 한 번만 쓸 수 있어요.');
   if (haki(s)) fail('마왕의 패기! 이번 라운드는 주사위 눈을 바꿀 수 없어요.');
   s.dice = s.dice.map((v, i) => (isSealed(s, i) ? v : Math.min(6, v + 1)));
@@ -557,7 +566,7 @@ export function useDance(s) {
 // 도박사 배팅: 굴리기 전에 이번 라운드에 노릴 족보를 고른다
 export function placeBet(s, cat) {
   const p = current(s);
-  if (p.cls !== 'gambler') fail('도박사만 배팅할 수 있어요.');
+  if (ab(p) !== 'gambler') fail('도박사만 배팅할 수 있어요.');
   if (s.phase !== 'roll' || s.rolled) fail('배팅은 굴리기 전에만 할 수 있어요.');
   if (!(cat in p.scores) || p.scores[cat] !== null) fail('이미 기록한 족보예요.');
   p.bet = cat;
@@ -568,11 +577,11 @@ export function placeBet(s, cat) {
 // 타짜 밑장빼기: 주사위 1개를 원하는 눈으로 (라운드당 1번). 이번에 적는 족보로는 경험치 없음
 export const canDeal = s => {
   const p = current(s);
-  return p.cls === 'sharper' && !s.dealt && s.phase === 'roll' && s.rolled && !haki(s);
+  return ab(p) === 'sharper' && !s.dealt && s.phase === 'roll' && s.rolled && !haki(s);
 };
 export function useDeal(s, i, v) {
   const p = current(s);
-  if (p.cls !== 'sharper') fail('타짜만 밑장빼기를 할 수 있어요.');
+  if (ab(p) !== 'sharper') fail('타짜만 밑장빼기를 할 수 있어요.');
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (s.dealt) fail('밑장빼기는 라운드당 한 번만 할 수 있어요.');
   if (haki(s)) fail('마왕의 패기! 이번 라운드는 주사위 눈을 바꿀 수 없어요.');
@@ -618,7 +627,7 @@ export function scoreParts(s, p, cat, d = s.dice, rollNo = s.rollNo) {
   }
   let total = base + bonus.reduce((a, b) => a + b.amt, 0);
   // 도박사 배팅: 고른 족보면 ×배율, 다른 칸이면 점수 없음
-  if (p.cls === 'gambler' && p.bet) {
+  if (ab(p) === 'gambler' && p.bet) {
     if (cat !== p.bet) return { base: 0, bonus: [], total: 0, betMiss: true };
     if (total > 0) {
       const extra = Math.round(total * (CLASS_TUNE.betMul - 1));
@@ -627,7 +636,7 @@ export function scoreParts(s, p, cat, d = s.dice, rollNo = s.rollNo) {
     }
   }
   // 무법자 속전속결: 첫 굴림 그대로 족보를 완성해 적으면 ×배율
-  if (p.cls === 'outlaw' && rollNo === 1 && total > 0 && isCombo(cat, d)) {
+  if (ab(p) === 'outlaw' && rollNo === 1 && total > 0 && isCombo(cat, d)) {
     const extra = Math.round(total * (CLASS_TUNE.rushMul - 1));
     bonus.push({ ko: `속전속결 ×${CLASS_TUNE.rushMul}`, amt: extra });
     total += extra;
@@ -645,7 +654,7 @@ export function questReward(s, p, qid) {
   const d = questInfo(qid).diff;
   const r = d >= 8 ? { flip: 2, nudge: 2 } : d >= 6 ? { flip: 1, nudge: 1 } : d >= 4 ? { flip: 1, nudge: 0 } : { flip: 0, nudge: 1 };
   r.flip += perkCount(p, 'fame');
-  if (p.cls === 'bard') r.nudge += 1;
+  if (ab(p) === 'bard') r.nudge += 1;
   const mul = event(s) === 'bounty' ? 2 : 1;
   r.flip *= mul; r.nudge *= mul;
   return r;
@@ -661,14 +670,14 @@ export function claimableQuests(s, p = current(s), d = s.dice) {
 }
 
 export function xpMultiplier(s, p) {
-  let m = 1 + 0.25 * perkCount(p, 'fast') + (p.cls === 'mage' ? 0.3 : 0);
+  let m = 1 + 0.25 * perkCount(p, 'fast') + (ab(p) === 'mage' ? 0.3 : 0);
   if (event(s) === 'festival') m *= 2;
   return m;
 }
 
 // 점수 칸마다 미리보기 (UI와 봇이 함께 쓴다)
 export const BARD_BONUS = 1;
-const bardBonus = (p, pts, quests) => (p.cls === 'bard' && quests.length && pts > 0 ? BARD_BONUS : 0);
+const bardBonus = (p, pts, quests) => (ab(p) === 'bard' && quests.length && pts > 0 ? BARD_BONUS : 0);
 
 // 점수표 미리보기·기록 알림용: 음유시인 보너스까지 합친 보너스 목록
 export function bonusList(s, p, cat, quests = claimableQuests(s, p)) {
@@ -687,7 +696,7 @@ export function preview(s) {
     pts += bardBonus(p, pts, quests);
     const bonus = bonusList(s, p, c.id, quests);
     let xp = pts > 0 ? pts : ZERO_XP + (perkCount(p, 'insure') ? 20 : 0) + (event(s) === 'zen' ? 20 : 0);
-    xp = s.dealt ? 0 : Math.round((xp + qXp) * xpMultiplier(s, p));   // 타짜 밑장빼기: 경험치 없음
+    xp = s.dealt || s.classic ? 0 : Math.round((xp + qXp) * xpMultiplier(s, p));   // 타짜 밑장빼기: 경험치 없음
     return { id: c.id, pts, xp, bonus, taken: false };
   });
 }
@@ -695,7 +704,7 @@ export function preview(s) {
 export function upperSum(p) {
   return UPPER_IDS.reduce((a, id) => a + (p.scores[id] || 0), 0);
 }
-export const upperNeed = p => (p.cls === 'warrior' ? 50 : UPPER_NEED);
+export const upperNeed = p => (ab(p) === 'warrior' ? 50 : UPPER_NEED);
 export function cardTotal(p) {
   const all = CAT_IDS.reduce((a, id) => a + (p.scores[id] || 0), 0);
   return all + (upperSum(p) >= upperNeed(p) ? UPPER_BONUS : 0);
@@ -725,7 +734,7 @@ export function commitScore(s, cat) {
   p.scores[cat] = pts;
   (p.base ||= {})[cat] = scoreParts(s, p, cat).base;
   p.roundScore = pts;
-  if (p.cls === 'dancer' && pts >= CLASS_TUNE.danceNeed) {   // 무희: 큰 점수를 적으면 춤사위 버프
+  if (ab(p) === 'dancer' && pts >= CLASS_TUNE.danceNeed) {   // 무희: 큰 점수를 적으면 춤사위 버프
     p.dance++;
     log(s, `${p.name} · 춤사위 버프 획득 (${p.dance}개)`);
     fx(s, { type: 'danceGain', player: s.turn, n: p.dance });
@@ -765,14 +774,16 @@ export function commitScore(s, cat) {
     fx(s, { type: 'upper', player: s.turn, amount: UPPER_BONUS });
   }
 
+  if (s.classic) { endTurn(s); return; }   // 클래식: 경험치 · 의뢰 · 충전 없음
+
   // 수도승: 굴림을 아낀 만큼 조정 충전
-  if (p.cls === 'monk' && s.rollsLeft > 0) {
+  if (ab(p) === 'monk' && s.rollsLeft > 0) {
     log(s, `${p.name} · 수도승의 절제! 조정 +${s.rollsLeft}`);
     addCharges(s, p, { nudge: s.rollsLeft }, 'monk');
   }
 
   // 굴림 아끼기: 남은 굴림 1개당 경험치 (수도승은 위에서 조정으로 받으니 제외)
-  if (p.cls !== 'monk' && s.rollsLeft > 0) {
+  if (ab(p) !== 'monk' && s.rollsLeft > 0) {
     const bonus = s.rollsLeft * SAVE_XP;
     log(s, `${p.name} · 굴림 ${s.rollsLeft}번 아낌 → 경험치 +${bonus}`);
     fx(s, { type: 'save', player: s.turn, n: s.rollsLeft, xp: bonus });
@@ -1000,7 +1011,7 @@ export function botAction(s, rng = Math.random, samples = 24) {
   if (s.phase === 'levelup') {
     return { type: 'perk', id: botPickPerk(p, p.offers[0], rng) };
   }
-  if (p.cls === 'gambler' && !p.bet && !s.rolled) return { type: 'bet', cat: botBet(s, p, rng) };
+  if (ab(p) === 'gambler' && !p.bet && !s.rolled) return { type: 'bet', cat: botBet(s, p, rng) };
   if (!s.rolled) return { type: 'roll' };
 
   const n = s.dice.length;
