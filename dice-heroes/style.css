@@ -1078,7 +1078,12 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 @keyframes duelHurtImg { 0%, 60% { filter: brightness(2.5) sepia(1) hue-rotate(-40deg) saturate(5); } 100% { filter: none; } }
 .member.dodge .m-por { animation: duelDodge .55s ease-out; }
 @keyframes duelDodge { 30% { transform: translateX(12px) rotate(8deg); opacity: .6; } 60% { transform: translateX(6px); opacity: 1; } 100% { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .member.atk .m-por, .member.hurt, .member.hurt .m-por img, .member.dodge .m-por, .m-por .crown { animation: none; } }
+/* 대전 강화: 에너지를 받아 빛나며 한 번 커진다 */
+.member.power { animation: duelPowerCard .76s ease-out; }
+@keyframes duelPowerCard { 0% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px var(--c), 0 0 18px 4px var(--c); } 100% { box-shadow: none; } }
+.member.power .m-por { animation: duelPower .76s ease-out; }
+@keyframes duelPower { 0% { transform: none; } 30% { transform: scale(1.28); filter: brightness(2) drop-shadow(0 0 8px var(--c)); } 55% { transform: scale(1.12); filter: brightness(1.4); } 100% { transform: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .member.power, .member.power .m-por, .member.atk .m-por, .member.hurt, .member.hurt .m-por img, .member.dodge .m-por, .m-por .crown { animation: none; } }
 
 /* 점수가 오르는 순간: 톡 커졌다 돌아오며 반짝 */
 .member .pts { display: inline-block; transform-origin: 30% 60%; position: relative; z-index: 1; }
