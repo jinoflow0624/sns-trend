@@ -11,7 +11,7 @@ export const DICE_SKINS = [
   { id: 'gold', name: '황금', desc: '온통 순금 · 새겨진 눈 · 금화 소리', tier: 'special', sound: 'coin' },
   { id: 'minimal', name: '미니멀', desc: '매끈하게 윤나는 하얀 주사위 · 톡톡 소리', tier: 'special', sound: 'soft' },
   { id: 'cosmic', name: '우주', desc: '은하수가 반짝이는 밤하늘 · 반짝 소리', tier: 'special', sound: 'twinkle' },
-  { id: 'black', name: '블랙', desc: '기본 주사위의 흑백 반전', tier: 'special', sound: 'classic' },
+  { id: 'black', name: '블랙', desc: '흑요석처럼 깊고 윤나는 검정 · 하얀 눈', tier: 'special', sound: 'classic' },
   { id: 'clear', name: '투명', desc: '무지갯빛이 번지는 유리 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
   { id: 'heart', name: '하트', desc: '반짝이는 연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
   { id: 'keycap', name: '키캡', desc: '기계식 키보드 키캡 · 도각 소리', tier: 'special', sound: 'key' },
