@@ -1,4 +1,4 @@
-// 다이스 히어로즈 룰 엔진 테스트 — node test/engine.test.mjs
+// 요트 히어로즈 룰 엔진 테스트 — node test/engine.test.mjs
 import assert from 'node:assert/strict';
 import * as E from '../engine.js';
 
@@ -99,8 +99,8 @@ test('0점을 기록하면 위로 경험치', () => {
   assert.equal(s.players[0].xp, E.ZERO_XP + 2 * E.SAVE_XP);   // 굴림 2번 아낀 경험치도 함께
 });
 test('굴림 아끼기: 남은 굴림 1개당 경험치 5, 수도승은 조정으로만', () => {
-  for (const cls of ['gambler', 'monk']) {
-    const s = E.createGame([{ name: 'A', cls }, { name: 'B', cls: 'gambler' }], 3);
+  for (const cls of ['bard', 'monk']) {
+    const s = E.createGame([{ name: 'A', cls }, { name: 'B', cls: 'bard' }], 3);
     s.board = [];
     E.roll(s);
     s.dice = [1, 2, 3, 5, 6];
@@ -166,6 +166,7 @@ test('칸 점수 = 기본 점수 + 보너스 합 (보너스는 모두 이름이 
         const p = E.current(s);
         for (const r of E.preview(s)) {
           if (r.taken) continue;
+          if (p.cls === 'gambler' && p.bet && r.id !== p.bet) { assert.equal(r.pts, 0); continue; }   // 배팅 안 한 칸은 0점
           const base = Math.max(0, ...E.fiveSets(s.dice).map(d => E.baseScore(r.id, d)));
           assert.equal(r.pts, base + r.bonus.reduce((a, b) => a + b.amt, 0), `${r.id} ${s.dice}`);
           if (!base) assert.equal(r.pts, 0);
@@ -418,22 +419,42 @@ test('일격필살은 첫 굴림만, 맨손 승부는 도구를 안 썼을 때�
   assert.ok(E.questMet('twin', [5, 5, 6, 6, 1]) && !E.questMet('twin', [5, 6, 6, 6, 1]));
   assert.ok(E.questMet('sum15', [3, 3, 3, 3, 3]));
 });
-test('무희: 다른 구역에 번갈아 적으면 +1, 앙코르는 한 번 굴림 +1', () => {
+test('무희 춤사위: 큰 점수를 적으면 버프(쌓임), 쓰면 모든 주사위 +1 (6 유지) · 라운드당 1번', () => {
   const s = E.createGame([{ name: 'D', cls: 'dancer' }], 9);
   s.board = []; s.events = s.events.map(() => 'calm');
   const p = s.players[0];
-  E.roll(s); s.dice = [1, 2, 3, 4, 6];
-  assert.equal(E.catScore(s, p, 'choice'), 16);            // 첫 기록은 보너스 없음
-  E.commitScore(s, 'choice'); E.drainFx(s);
+  E.roll(s); s.dice = [6, 6, 5, 5, 4];
+  E.commitScore(s, 'choice');                               // 26점 ≥ 기준 → 버프 1
+  assert.equal(p.dance, 1);
+  assert.ok(E.drainFx(s).some(f => f.type === 'danceGain'));
   while (s.phase === 'levelup') E.pickPerk(s, p.offers[0][0]);
-  E.roll(s); s.dice = [6, 6, 6, 2, 3];
-  assert.equal(E.catScore(s, p, 'sixes'), 18 + E.DANCE_BONUS);   // 아래 칸 → 위 칸
-  assert.equal(E.catScore(s, p, 'full'), 0);
-  assert.equal(p.encore, 1);
-  const left = s.rollsLeft;
-  E.useEncore(s);
-  assert.equal(s.rollsLeft, left + 1);
-  assert.throws(() => E.useEncore(s));
+  assert.throws(() => E.useDance(s));                      // 굴리기 전엔 못 쓴다
+  E.roll(s); s.dice = [1, 2, 6, 3, 5];
+  E.useDance(s);
+  assert.deepEqual(s.dice, [2, 3, 6, 4, 6]);
+  assert.equal(p.dance, 0);
+  p.dance = 2;
+  assert.throws(() => E.useDance(s));                      // 같은 라운드에 두 번은 안 된다
+  E.roll(s); s.dice = [1, 1, 1, 1, 2];
+  E.commitScore(s, 'ones');                                 // 4점 < 기준 → 버프 없음
+  assert.equal(p.dance, 2);
+});
+test('도박사 배팅: 굴리기 전 필수, 고른 족보는 ×배율, 다른 칸·0점은 점수 없음', () => {
+  const s = E.createGame([{ name: 'G', cls: 'gambler' }], 9);
+  s.board = []; s.events = s.events.map(() => 'calm');
+  const p = s.players[0];
+  assert.throws(() => E.roll(s));                           // 배팅 전엔 굴릴 수 없다
+  E.placeBet(s, 'sixes');
+  E.roll(s);
+  assert.throws(() => E.placeBet(s, 'choice'));             // 굴린 뒤엔 못 바꾼다
+  s.dice = [6, 6, 6, 2, 3];
+  assert.equal(E.catScore(s, p, 'sixes'), Math.round(18 * E.CLASS_TUNE.betMul));
+  assert.equal(E.catScore(s, p, 'choice'), 0);              // 배팅 안 한 칸은 0
+  E.commitScore(s, 'choice');
+  assert.equal(p.scores.choice, 0);
+  while (s.phase === 'levelup') E.pickPerk(s, p.offers[0][0]);
+  assert.equal(p.bet, null);                                // 다음 라운드엔 새로 배팅
+  assert.equal(E.botAction(s).type, 'bet');                 // 봇도 먼저 배팅한다
 });
 test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀림), 짝수 라운드 패기(뒤집기·조정 금지, 굴림은 그대로)', () => {
   const s = E.createGame([{ name: 'A', cls: 'monk' }], 11, { mode: 'coop', boss: 'demon', diff: 0 });
@@ -458,7 +479,7 @@ test('마왕: 홀수 라운드 첫 굴림 뒤 봉인 1개(다시 굴리면 풀�
 });
 
 test('상단 보너스: 기준을 넘는 순간 따로 공격 (보스전은 피해 두 번, 전사는 50)', () => {
-  for (const [cls, need] of [['gambler', 63], ['warrior', 50]]) {
+  for (const [cls, need] of [['bard', 63], ['warrior', 50]]) {
     const s = E.createGame([{ name: 'A', cls }], 4, { mode: 'coop', boss: 'orc', diff: 0 });
     const p = s.players[0];
     Object.assign(p.scores, { aces: 3, twos: 6, threes: 9, fours: 12, fives: need === 63 ? 15 : 5 });
@@ -472,6 +493,72 @@ test('상단 보너스: 기준을 넘는 순간 따로 공격 (보스전은 피�
     assert.ok(up && up.amount === E.UPPER_BONUS, cls);
     assert.deepEqual(list.filter(f => f.type === 'damage').map(f => f.amount), [24, E.UPPER_BONUS]);
   }
+});
+
+console.log('\n새 직업 · 재접속 · 일일 보상');
+test('무법자 속전속결: 첫 굴림 족보는 ×배율, 다시 굴리면 없음', () => {
+  const s = E.createGame([{ name: 'A', cls: 'outlaw' }, { name: 'B', cls: 'monk' }], 3);
+  const p = s.players[0];
+  E.roll(s); s.dice = [2, 2, 2, 5, 5];
+  assert.equal(E.catScore(s, p, 'full'), Math.round(16 * E.CLASS_TUNE.rushMul));
+  assert.equal(E.catScore(s, p, 'choice'), 16);           // 초이스는 족보가 아니다
+  assert.equal(E.catScore(s, p, 'twos'), 6);              // 상단도 아니다
+  s.held = [true, true, true, true, true]; s.held[4] = false; E.roll(s); s.dice = [2, 2, 2, 5, 5];
+  assert.equal(E.catScore(s, p, 'full'), 16);
+});
+test('타짜 밑장빼기: 주사위 1개를 원하는 눈으로, 라운드당 1번, 이번 기록 경험치 0', () => {
+  const s = E.createGame([{ name: 'A', cls: 'sharper' }, { name: 'B', cls: 'monk' }], 3);
+  const p = s.players[0];
+  assert.throws(() => E.useDeal(s, 0, 6));               // 굴리기 전엔 안 된다
+  E.roll(s); s.dice = [6, 6, 6, 6, 1]; s.board = [];
+  assert.ok(E.canDeal(s));
+  E.useDeal(s, 4, 6);
+  assert.deepEqual(s.dice, [6, 6, 6, 6, 6]);
+  assert.ok(!E.canDeal(s));
+  assert.throws(() => E.useDeal(s, 0, 1));
+  assert.equal(E.preview(s).find(r => r.id === 'yacht').xp, 0);
+  const xp0 = p.stats.xpEarned;
+  E.commitScore(s, 'yacht');
+  assert.equal(p.scores.yacht, 50);
+  assert.equal(p.stats.xpEarned, xp0);
+  assert.ok(E.drainFx(s).some(f => f.type === 'dealCost'));
+});
+test('타짜 · 무법자 봇이 끝까지 둔다', () => {
+  let seed = 5; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const s = E.createGame([{ name: 'A', cls: 'sharper', bot: true }, { name: 'B', cls: 'outlaw', bot: true }], 9);
+  let n = 0; while (!s.ended && n++ < 5000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
+  assert.ok(s.ended);
+});
+test('재접속: 봇이 대신하던 자리를 사람에게 돌려준다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }, { name: 'B', cls: 'monk' }, { name: 'C', cls: 'monk' }], 3);
+  E.dropToBot(s, 1);
+  assert.ok(s.players[1].bot && s.players[1].dropped);
+  assert.ok(E.rejoin(s, 1));
+  assert.ok(!s.players[1].bot && !s.players[1].dropped);
+  assert.ok(!E.rejoin(s, 1));
+});
+test('클래식 야추: 직업 능력 · 의뢰 · 레벨업 · 이벤트 · 충전 없음', () => {
+  const s = E.createGame([{ name: 'A', cls: 'warrior' }, { name: 'B', cls: 'rogue' }], 4, { mode: 'versus', rule: 'classic' });
+  assert.ok(s.classic);
+  assert.equal(s.board.length, 0);
+  assert.ok(s.events.every(e => e === 'calm'));
+  assert.equal(s.players[1].flip, 0);
+  assert.equal(E.upperNeed(s.players[0]), 63);
+  E.roll(s); s.dice = [6, 6, 6, 6, 6];
+  assert.equal(E.preview(s).find(r => r.id === 'yacht').xp, 0);
+  E.commitScore(s, 'yacht');
+  assert.equal(s.players[0].stats.xpEarned, 0);
+  assert.equal(s.turn, 1);
+  assert.equal(s.phase, 'roll');
+  // 협동에서는 클래식을 무시
+  assert.ok(!E.createGame([{ name: 'A', cls: 'monk' }], 1, { mode: 'coop', rule: 'classic' }).classic);
+});
+test('클래식 야추: 봇끼리 끝까지, 레벨 1 · 특성 0', () => {
+  let seed = 7; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const s = E.createGame(['gambler', 'dancer', 'sharper', 'outlaw'].map(cls => ({ name: cls, cls, bot: true })), 11, { rule: 'classic' });
+  let n = 0; while (!s.ended && n++ < 5000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
+  assert.ok(s.ended);
+  s.players.forEach(p => { assert.equal(p.level, 1); assert.equal(Object.keys(p.perks).length, 0); assert.equal(p.flip + p.nudge, 0); assert.ok(E.finalScore(p) <= 375); });
 });
 
 console.log(`\n${passed} 통과, ${failed} 실패`);

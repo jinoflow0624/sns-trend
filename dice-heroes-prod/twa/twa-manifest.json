@@ -1,8 +1,8 @@
 {
   "packageId": "com.hahahoho.diceheroes",
   "host": "diceheroes-4fbbb.web.app",
-  "name": "다이스 히어로즈",
-  "launcherName": "다이스히어로즈",
+  "name": "요트 히어로즈",
+  "launcherName": "요트히어로즈",
   "display": "fullscreen",
   "orientation": "portrait",
   "themeColor": "#0B0824",

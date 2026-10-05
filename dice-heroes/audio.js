@@ -617,6 +617,17 @@ export const sfx = {
     voice(sfxGain, { type: 'p12', f: 220, slide: 880 + power * 400, t, dur: 0.55, vol: 0.12 });
     voice(sfxGain, { type: 'p25', f: 110, slide: 440 + power * 200, t: t + 0.05, dur: 0.5, vol: 0.07 });
   },
+  // 대전: 에너지를 받아 강화되는 소리 — 낮게 깔린 웅 소리가 차오르며 반짝이는 상승 아르페지오로 끝난다
+  powerUp(power = 1) {
+    buzz(30 + power * 20);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 82, slide: 165, t, dur: 0.45, vol: 0.16 });
+    voice(sfxGain, { type: 'p50', f: 330, slide: 660 + power * 220, t, dur: 0.38, vol: 0.06 });
+    const notes = power >= 2.4 ? ['C5', 'E5', 'G5', 'C6', 'E6', 'G6', 'C7'] : power >= 1.6 ? ['C5', 'E5', 'G5', 'C6', 'E6'] : ['C5', 'E5', 'G5', 'C6'];
+    notes.forEach((n, i) => voice(sfxGain, { type: i % 2 ? 'p12' : 'p25', f: freq(n), t: t + 0.12 + i * 0.045, dur: 0.12, vol: 0.09, vib: i === notes.length - 1 ? 1 : 0 }));
+    noise(sfxGain, { t: t + 0.12 + notes.length * 0.045, dur: 0.3, vol: 0.03, hp: 6000 });
+  },
   whoosh() {
     if (!unlock()) return;
     const t = ctx.currentTime;
@@ -642,6 +653,14 @@ export const sfx = {
     const t = ctx.currentTime;
     voice(sfxGain, { type: 'p12', f: 900, slide: 200, t, dur: 0.5, vol: 0.1, vib: 3 });
     voice(sfxGain, { type: 'p25', f: 300, slide: 1200, t: t + 0.1, dur: 0.45, vol: 0.06 });
+  },
+  // 마왕의 패기: 낮고 길게 '둥~' 한 번 (칩튠 화음 없이)
+  haki() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 110, slide: 36, t, dur: 1.5, vol: 0.42 });
+    voice(sfxGain, { type: 'p50', f: 55, slide: 30, t, dur: 1.3, vol: 0.05 });
+    noise(sfxGain, { t, dur: 0.9, vol: 0.14, hp: 60, lp: 700 });
   },
   // 마왕의 봉인 (약 1.3초, fx.seal 과 박자를 맞춤): 낮게 깔리는 어둠 → 사방에서 쇠사슬이 날아와 철컥철컥 →
   // 사슬이 끼익 조여들고 → 쾅! 자물쇠가 잠긴다

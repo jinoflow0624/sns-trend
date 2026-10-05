@@ -62,7 +62,7 @@ for (let g = 0; g < N; g++) {
 }
 
 const base = 1 / PLAYERS;
-console.log(`\n다이스 히어로즈 밸런스 리포트 — ${N}판 × ${PLAYERS}인, 카드 선택: ${SMART ? '희귀도 우선' : '무작위'}  (${((Date.now() - t0) / 1000).toFixed(1)}초)\n`);
+console.log(`\n요트 히어로즈 밸런스 리포트 — ${N}판 × ${PLAYERS}인, 카드 선택: ${SMART ? '희귀도 우선' : '무작위'}  (${((Date.now() - t0) / 1000).toFixed(1)}초)\n`);
 
 console.log('■ 최종 점수');
 console.log(`  평균 ${mean(totals).toFixed(1)} ± ${sd(totals).toFixed(1)}  (1·2위 격차 평균 ${mean(margins).toFixed(1)})`);
