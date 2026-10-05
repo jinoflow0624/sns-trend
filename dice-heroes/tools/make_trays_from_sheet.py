@@ -23,9 +23,12 @@ HIRES = os.path.join(HERE, 'dice-src', 'tray-hires')   # upscale_tray_sheet.py �
 
 IDS = ['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry']
 # 칸마다 실측한 위치 (x0, y0, 한 변) — 바닥 · 발광 지도는 정사각, 함 바닥은 (x0, y0, x1, y1)
-FLOOR = [(14, 373, 197), (259, 375, 194), (479, 375, 193), (694, 375, 193), (909, 373, 195), (1122, 375, 193), (1336, 375, 194)]
-GLOW = [(20, 612, 200), (258, 616, 194), (479, 615, 194), (693, 615, 195), (910, 614, 195), (1122, 616, 193), (1336, 616, 193)]
-BOX = [(10, 872, 230, 949), (259, 870, 454, 951), (479, 873, 670, 948), (693, 869, 885, 952), (908, 872, 1100, 949), (1122, 873, 1312, 949), (1335, 873, 1527, 948)]
+# 칸마다 실측한 위치 (x0, y0, x1, y1). 클래식(marble) 바닥은 시안에서 정사각이 아니라 가로가 조금 넓다 (217×198)
+FLOOR = [(14, 372, 231, 570), (259, 375, 453, 569), (479, 375, 672, 568), (694, 375, 887, 568), (909, 373, 1104, 568), (1122, 375, 1315, 568), (1336, 375, 1530, 569)]
+GLOW = [(21, 612, 224, 809), (258, 616, 452, 810), (479, 615, 673, 809), (693, 615, 888, 810), (910, 614, 1105, 809), (1122, 616, 1315, 809), (1336, 616, 1529, 809)]
+BOX = [(17, 872, 229, 949), (259, 870, 454, 951), (479, 873, 670, 948), (693, 869, 885, 952), (908, 872, 1100, 949), (1122, 873, 1312, 949), (1335, 873, 1527, 948)]
+# 좌우를 완전히 대칭으로 맞출 스킨 (왼쪽 절반을 거울처럼 오른쪽에 복사)
+MIRROR = {'marble'}
 FW, FH = 1200, 768         # 바닥 (10 : 6.4)
 BW, BH = 1536, 264         # 함 바닥 (11 : 1.9)
 EMBLEM = 0.27              # 가운데 문양 반지름 (한 변 대비)
@@ -39,26 +42,37 @@ EMBLEM_R = {'marble': 0.40, 'deepsea': 0.37}
 
 
 def floor_fit(sq, er=EMBLEM):
-    """1) 정사각 그림에서 가운데 문양을 지운 바탕을 만든다 (작게 줄여 inpaint → 다시 키움: 부드러운 바탕)
+    """1) 그림에서 가운데 문양을 지운 바탕을 만든다 (작게 줄여 inpaint → 다시 키움: 부드러운 바탕)
     2) 그 바탕을 가로로 늘리고 (둘레 링은 타원이 된다) 3) 문양을 원래 비율로 다시 얹는다.
-    문양까지 같이 늘리면 원래 문양 양옆에 늘어난 문양의 잔상(왕관 날개 · 달 그림자)이 비쳤다."""
+    문양까지 같이 늘리면 원래 문양 양옆에 늘어난 문양의 잔상(왕관 날개 · 달 그림자)이 비쳤다.
+    er: 문양 반지름 (그림 높이 대비). 그림은 정사각이 아니어도 된다"""
     n = 256
-    small = np.asarray(sq.resize((n, n), Image.LANCZOS)).copy()
-    hole = np.zeros((n, n), np.uint8)
-    cv2.circle(hole, (n // 2, n // 2), int(n * (er + 0.03)), 255, -1)
+    nw = round(n * sq.width / sq.height)
+    small = np.asarray(sq.resize((nw, n), Image.LANCZOS)).copy()
+    hole = np.zeros((n, nw), np.uint8)
+    cv2.circle(hole, (nw // 2, n // 2), int(n * (er + 0.03)), 255, -1)
     fill = Image.fromarray(cv2.inpaint(small, hole, 9, cv2.INPAINT_TELEA)).resize(sq.size, Image.BICUBIC)
-    c, r = sq.width // 2, int(sq.width * (er + 0.03))
+    cx, cy, r = sq.width // 2, sq.height // 2, int(sq.height * (er + 0.03))
     mm = Image.new('L', sq.size, 0)
-    ImageDraw.Draw(mm).ellipse([c - r, c - r, c + r, c + r], fill=255)
+    ImageDraw.Draw(mm).ellipse([cx - r, cy - r, cx + r, cy + r], fill=255)
     clean = sq.copy(); clean.paste(fill, (0, 0), mm.filter(ImageFilter.GaussianBlur(r * 0.15)))
     base = clean.resize((FW, FH), Image.LANCZOS)
-    mid = sq.resize((FH, FH), Image.LANCZOS)                      # 원래 비율
+    mw = round(FH * sq.width / sq.height)
+    mid = sq.resize((mw, FH), Image.LANCZOS)                       # 원래 비율
     r = int(FH * er)
-    m = Image.new('L', (FH, FH), 0)
-    ImageDraw.Draw(m).ellipse([FH // 2 - r, FH // 2 - r, FH // 2 + r, FH // 2 + r], fill=255)
+    m = Image.new('L', (mw, FH), 0)
+    ImageDraw.Draw(m).ellipse([mw // 2 - r, FH // 2 - r, mw // 2 + r, FH // 2 + r], fill=255)
     m = m.filter(ImageFilter.GaussianBlur(r * 0.22))
-    base.paste(mid, ((FW - FH) // 2, 0), m)
+    base.paste(mid, ((FW - mw) // 2, 0), m)
     return base
+
+
+def mirror_lr(im):
+    """왼쪽 절반을 거울처럼 오른쪽에 (가운데 한 줄은 겹쳐 이음매가 안 보이게)"""
+    w = im.width
+    left = im.crop((0, 0, (w + 1) // 2, im.height))
+    out = im.copy(); out.paste(ImageOps.mirror(left), (w // 2, 0))
+    return out
 
 
 # 함 바닥 사이 무늬 잇는 법: 'mirror' 좌우로 번갈아 뒤집기 (테두리·꽃 장식이 대칭이라 자연스럽다)
@@ -161,10 +175,11 @@ def main():
             f = os.path.join(HIRES, f'{id_}_{kind}.webp')
             return Image.open(f).convert('RGB') if os.path.exists(f) else sheet.crop(box)
         er = EMBLEM_R.get(id_, EMBLEM)
-        x, y, s = FLOOR[i]; fl = floor_fit(src('floor', (x, y, x + s, y + s)), er)
-        x, y, s = GLOW[i]; gl = floor_fit(src('glow', (x, y, x + s, y + s)), er)
+        sym = mirror_lr if id_ in MIRROR else (lambda im: im)
+        fl = floor_fit(sym(src('floor', FLOOR[i])), er)
+        gl = floor_fit(sym(src('glow', GLOW[i])), er)
         j = BOX_JOIN.get(id_, 'mirror')
-        bx = box_band(src('box', BOX[i]), fl, j[1]) if isinstance(j, tuple) else box_fit(src('box', BOX[i]), j)
+        bx = box_band(sym(src('box', BOX[i])), fl, j[1]) if isinstance(j, tuple) else box_fit(sym(src('box', BOX[i])), j)
         if id_ in RECOLOR:
             fl, gl, bx = (recolor(im, *RECOLOR[id_]) for im in (fl, gl, bx))
         fl.save(os.path.join(d, 'floor.webp'), quality=90, method=6)

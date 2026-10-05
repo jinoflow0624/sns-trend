@@ -1,6 +1,6 @@
 """트레이 시트의 칸(바닥 · 발광 지도 · 함 바닥)을 AI 업스케일(Real-ESRGAN x4)로 4배 키워 둔다.
 
-  python3 tools/upscale_tray_sheet.py <RealESRGAN_x4plus.pth>   →  tools/dice-src/tray-hires/<스킨>_<floor|glow|box>.webp
+  python3 tools/upscale_tray_sheet.py <RealESRGAN_x4plus.pth> [스킨 …]   →  tools/dice-src/tray-hires/<스킨>_<floor|glow|box>.webp
   필요: pip install spandrel (torch 가 함께 깔린다) · 모델 https://github.com/xinntao/Real-ESRGAN/releases (RealESRGAN_x4plus.pth)
 
 시트 한 칸이 약 200px 라 그대로 키우면 뭉개진다. 한 번 키워 두면 make_trays_from_sheet.py 가 이 그림을 쓴다
@@ -35,9 +35,9 @@ def main():
         k = out.width // im.width
         return out.crop((PAD * k, PAD * k, out.width - PAD * k, out.height - PAD * k))
     for i, id_ in enumerate(T.IDS):
-        for kind, (x, y, s) in (('floor', T.FLOOR[i]), ('glow', T.GLOW[i])):
-            up((x, y, x + s, y + s)).save(os.path.join(OUT, f'{id_}_{kind}.webp'), quality=92, method=6)
-        up(T.BOX[i]).save(os.path.join(OUT, f'{id_}_box.webp'), quality=92, method=6)
+        if len(sys.argv) > 2 and id_ not in sys.argv[2:]: continue      # 스킨 이름을 주면 그것만
+        for kind, box in (('floor', T.FLOOR[i]), ('glow', T.GLOW[i]), ('box', T.BOX[i])):
+            up(box).save(os.path.join(OUT, f'{id_}_{kind}.webp'), quality=92, method=6)
         print(id_, 'ok')
 
 
