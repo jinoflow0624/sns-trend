@@ -28,12 +28,12 @@ CX = [553, 714, 876, 1041, 1207, 1369]
 # 스킨: 줄 번호 → (주사위 앞면 가운데 y, 오려 낼 한 변, 가로 어긋남)
 #   한 변은 주사위 앞면 폭(약 110px)에 대한 픽셀 수. 모서리 둥근 바깥(배경)이 안 들어오게 조금 안쪽으로 잡는다
 SKINS = {   # rim: 테두리를 대칭으로 만들 때 쓸 1/4 ('tl' 왼쪽 위 · 'bl' 왼쪽 아래)
-    'heart':     dict(cy=67,  side=102, rim='bl'),
-    'keycap':    dict(cy=186, box=(-47, -40, 47, 40), redraw=True),   # 눈이 있는 윗면만 (가운데 기준). 판이 가로로 길어 눈을 다시 얹는다
-    'clear':     dict(cy=315, side=112),
-    'minimal':   dict(cy=435, side=108, rim='bl'),
-    'gold':      dict(cy=556, side=108, rim='bl'),
-    'cosmic':    dict(cy=676, side=112),
+    'heart':     dict(cy=67,  side=102, rim='bl', finish=dict(amp=0.10, line=(255, 235, 240, 0.45))),
+    'keycap':    dict(cy=186, box=(-47, -40, 47, 40), redraw=True, finish=dict(amp=0.07, line=(255, 255, 255, 0.5))),   # 눈이 있는 윗면만 (가운데 기준). 판이 가로로 길어 눈을 다시 얹는다
+    'clear':     dict(cy=315, side=112, finish=dict(amp=0.16, line=(200, 230, 255, 0.55), r0=0.125)),
+    'minimal':   dict(cy=435, side=108, rim='bl', finish=dict(amp=0.05, line=(255, 255, 255, 0.5))),
+    'gold':      dict(cy=556, side=108, rim='bl', finish=dict(amp=0.18, line=(255, 236, 160, 0.5))),
+    'cosmic':    dict(cy=676, side=112, finish=dict(amp=0.14, line=(170, 140, 255, 0.55), base=(46, 22, 92), keep=0.6)),
     'black':     dict(cy=799, side=110, finish='obsidian'),
     'openheart': dict(cy=938, side=120),
 }
@@ -88,9 +88,11 @@ def crop_face(sheet, arr, name, c):
         big = Image.open(hi).convert('RGB')
         crop = big.crop(tuple(round((v - o) * SCALE) for v, o in zip(box, (x0, y0, x0, y0))))
         if p.get('redraw'):
-            return symmetric_rim(redraw_pips(name, crop, c + 1, sheet, arr), p.get('rim', 'tl'), t)
+            face = symmetric_rim(redraw_pips(name, crop, c + 1, sheet, arr), p.get('rim', 'tl'), t)
+            return clean_rim(face, **p['finish'], key=name) if isinstance(p.get('finish'), dict) else face
         face = symmetric_rim(crop.resize((SIZE, SIZE), Image.LANCZOS), p.get('rim', 'tl'), t)
-        return obsidian(face) if p.get('finish') == 'obsidian' else face
+        f = p.get('finish')
+        return obsidian(face) if f == 'obsidian' else clean_rim(face, **f, key=name) if f else face
     face = sheet.crop(tuple(int(round(v)) for v in box)).resize((SIZE, SIZE), Image.LANCZOS)
     face = symmetric_rim(face, p.get('rim', 'tl'), t)
     return face.filter(ImageFilter.UnsharpMask(radius=1.4, percent=60, threshold=2))
@@ -143,6 +145,44 @@ def redraw_pips(name, crop, v, sheet, arr):
     for fx, fy in PIP_POS[v]:
         base.paste(sp, (int(round(fx * SIZE - S2 / 2)), int(round(fy * SIZE - S2 / 2))), sp)
     return base
+
+
+_RIM_BASE = {}
+
+
+def clean_rim(face, amp=0.1, line=(255, 255, 255, 0.5), base=None, r0=0.10, soft=0.035, keep=0.0, key=None):
+    """테두리 띠를 시안 렌더(반사광 얼룩 · 무지갯빛 번짐 · 두 겹 선)에서 깔끔한 베벨로 바꾼다.
+    바탕색(테두리 바로 안쪽의 중간값, 또는 base)에 왼쪽 위는 밝고 오른쪽 아래는 어두운 음영(amp)을 주고,
+    가장자리 안쪽에 가는 광택선(line: r,g,b,세기) 하나. 눈이 있는 안쪽은 원본 그대로"""
+    a = np.asarray(face).astype(np.float32)
+    n = a.shape[0]
+    i = (np.arange(n) + 0.5) / n
+    dx, dy = np.meshgrid(i - 0.5, i - 0.5)
+    d = 0.5 - np.maximum(np.abs(dx), np.abs(dy))                   # 가장자리까지 거리 (네모)
+    rc = CORNER                                                     # 모서리 둥근 판 기준 거리 (광택선이 모서리에서 둥글게 돈다)
+    kx = np.maximum(np.abs(dx) - (0.5 - rc), 0); ky = np.maximum(np.abs(dy) - (0.5 - rc), 0)
+    dr = np.where((kx > 0) & (ky > 0), rc - np.sqrt(kx ** 2 + ky ** 2), d)
+    if base is None:                                                # 1 면(테두리 바로 안쪽에 눈이 없다)에서 재고, 같은 스킨의 다른 면도 그 색으로
+        band = (d > r0 + 0.01) & (d < r0 + 0.05)
+        base = _RIM_BASE.setdefault(key, np.median(a[band], 0))
+    base = np.array(base, np.float32)
+    wx = np.exp((np.abs(dx) - 0.5) / 0.05); wy = np.exp((np.abs(dy) - 0.5) / 0.05)
+    nx, ny = np.sign(dx) * wx, np.sign(dy) * wy
+    nl = np.sqrt(nx ** 2 + ny ** 2) + 1e-6
+    light = -(nx + ny) / nl / np.sqrt(2)                            # 바깥쪽이 왼쪽 위를 향하면 +1
+    prof = np.clip((r0 - d) / r0, 0, 1)
+    shade = 1 + amp * light * (0.4 + 0.6 * prof)
+    flat = np.broadcast_to(base, a.shape)
+    if keep:                                                        # 무늬는 남기고 밝은 번짐만 눌러서 (우주)
+        tex = np.minimum(a, base * 1.7)
+        flat = flat * (1 - keep) + tex * keep
+    synth = flat * shade[..., None]
+    lr, lg, lb, la = line
+    ln = np.exp(-((dr - 0.032) / 0.0065) ** 2) * la * (0.65 + 0.35 * np.clip(light, 0, 1))
+    synth = synth * (1 - ln[..., None]) + np.array([lr, lg, lb], np.float32) * ln[..., None]
+    m = np.clip((r0 + soft - d) / soft, 0, 1)[..., None]
+    out = a * (1 - m) + synth * m
+    return Image.fromarray(out.clip(0, 255).astype(np.uint8))
 
 
 def obsidian(face):
