@@ -277,7 +277,8 @@ export const BOSSES = [
   },
   // ── 강화 보스: 원래 보스를 어려움으로 깨면 열린다. 보통 · 어려움만 (diffs). 승률은 원래 보스보다 3~5%p 낮게 (sim/coop.mjs) ──
   {
-    id: 'hydra', ko: '세머리 용 트리글라브', title: '불 · 얼음 · 독, 세 숨결의 재앙', color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1, 1],
+    id: 'hydra', ko: '세머리 용 트리글라브', title: '불 · 얼음 · 독, 세 숨결의 재앙', color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1.2, 1.13],
+    partyAdj: [[1, 1, 1, 1], [0.97, 1.025, 1.02, 1.017], [0.99, 1.01, 1.01, 1.01]],
     skills: [
       { id: 'heads', icon: '🐉', ko: '세 머리의 숨결',
         desc: d => '라운드마다 불 → 얼음 → 독 머리가 차례로 숨결을 뿜는다. 불: 첫 굴림의 가장 높은 주사위 1개가 1로 · 얼음: 첫 굴림 뒤 주사위 2개가 얼어 다시 굴릴 수 없다(뒤집기 · 조정은 가능) · 독: 15점 이하 기록은 피해 절반' },
@@ -287,7 +288,8 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'cyclops', ko: '키클롭스 폴리페모스', title: '외눈으로 전장을 지배하는 거인', color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1, 1],
+    id: 'cyclops', ko: '키클롭스 폴리페모스', title: '외눈으로 전장을 지배하는 거인', color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1.1, 1],
+    partyAdj: [[1, 1, 1, 1], [1.02, 0.99, 1.01, 1.035], [0.96, 0.98, 1, 1.05]],
     skills: [
       { id: 'gaze', icon: '👁️', ko: '외눈 응시',
         desc: d => '라운드마다 점수표 칸 하나를 노려본다. 그 칸에 적으면 점수는 남지만 피해는 0' },
@@ -298,7 +300,8 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'overlord', ko: '오버로드 네크라스', title: '죽은 칸을 군대로 일으키는 자', color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 1, 1],
+    id: 'overlord', ko: '오버로드 네크라스', title: '죽은 칸을 군대로 일으키는 자', color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 0.91, 0.75],
+    partyAdj: [[1, 1, 1, 1], [1.055, 0.975, 0.99, 1], [1.09, 0.95, 0.92, 0.9]],
     skills: [
       { id: 'necro', icon: '⚰️', ko: '사령술',
         desc: d => `0점으로 버린 칸 하나마다 해골병이 일어나 라운드가 끝날 때마다 체력을 ${NECRO_HEAL}씩 회복시킨다` },
