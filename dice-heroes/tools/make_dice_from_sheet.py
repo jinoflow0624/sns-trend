@@ -28,7 +28,7 @@ CX = [553, 714, 876, 1041, 1207, 1369]
 # 스킨: 줄 번호 → (주사위 앞면 가운데 y, 오려 낼 한 변, 가로 어긋남)
 #   한 변은 주사위 앞면 폭(약 110px)에 대한 픽셀 수. 모서리 둥근 바깥(배경)이 안 들어오게 조금 안쪽으로 잡는다
 SKINS = {   # rim: 테두리를 대칭으로 만들 때 쓸 1/4 ('tl' 왼쪽 위 · 'bl' 왼쪽 아래)
-    'heart':     dict(cy=67,  side=102, rim='bl', finish=dict(amp=0.10, line=(255, 235, 240, 0.45))),
+    'heart':     dict(cy=67,  side=102, rim='bl', redraw=True, finish=dict(amp=0.10, line=(255, 235, 240, 0.45))),
     'keycap':    dict(cy=186, box=(-47, -40, 47, 40), redraw=True, finish=dict(amp=0.07, line=(255, 255, 255, 0.5))),   # 눈이 있는 윗면만 (가운데 기준). 판이 가로로 길어 눈을 다시 얹는다
     'clear':     dict(cy=315, side=112, finish=dict(amp=0.16, line=(200, 230, 255, 0.55), r0=0.125)),
     'minimal':   dict(cy=435, side=108, rim='bl', finish=dict(amp=0.05, line=(255, 255, 255, 0.5))),
@@ -88,8 +88,9 @@ def crop_face(sheet, arr, name, c):
         big = Image.open(hi).convert('RGB')
         crop = big.crop(tuple(round((v - o) * SCALE) for v, o in zip(box, (x0, y0, x0, y0))))
         if p.get('redraw'):
-            face = symmetric_rim(redraw_pips(name, crop, c + 1, sheet, arr), p.get('rim', 'tl'), t)
-            return clean_rim(face, **p['finish'], key=name) if isinstance(p.get('finish'), dict) else face
+            f = p.get('finish')
+            fin = lambda im: (clean_rim(symmetric_rim(im, p.get('rim', 'tl'), t), **f, key=name) if isinstance(f, dict) else symmetric_rim(im, p.get('rim', 'tl'), t))
+            return redraw_pips(name, crop, c + 1, sheet, arr, fin)
         face = symmetric_rim(crop.resize((SIZE, SIZE), Image.LANCZOS), p.get('rim', 'tl'), t)
         f = p.get('finish')
         return obsidian(face) if f == 'obsidian' else clean_rim(face, **f, key=name) if f else face
@@ -107,39 +108,57 @@ PIP_POS = {
 }
 
 
-def dark_pips(a):
-    return (a.sum(2) < 200).astype(np.uint8)
+def dark_pips(a, name='keycap'):
+    """눈 자리 (키캡: 검은 눈 · 그 밖: 스킨 눈 색)"""
+    if name == 'keycap': return (a.sum(2) < 200).astype(np.uint8)
+    return pip_mask(name, a.astype(int)).astype(np.uint8)
+
+
+def face_box(name, cx, cy):
+    p = SKINS[name]
+    if 'box' in p:
+        l, tp, r, b = p['box']; return (cx + l, cy + tp, cx + r, cy + b)
+    h = p['side'] / 2 * (1 - 2 * TRIM.get(name, 0.0))
+    return (cx - h, cy - h, cx + h, cy + h)
 
 
 _PIP = {}
 def pip_sprite_of(name, sheet, arr):
     """1 면 가운데 눈을 원래 비율 그대로 오린 RGBA 조각과, 판 가로폭 대비 눈 지름"""
     if name in _PIP: return _PIP[name]
-    p = SKINS[name]; cx, cy = face_center(arr, name, 0); x0, y0, _, _ = cell_box(name, 0)
-    l, t, r, b = p['box']
+    cx, cy = face_center(arr, name, 0); x0, y0, _, _ = cell_box(name, 0)
     big = Image.open(os.path.join(HIRES, f'{name}_1.webp')).convert('RGB')
-    crop = np.asarray(big.crop(tuple(round((v - o) * SCALE) for v, o in zip((cx + l, cy + t, cx + r, cy + b), (x0, y0, x0, y0))))).copy()
-    k, _, st, cen = cv2.connectedComponentsWithStats(dark_pips(crop))
+    crop = np.asarray(big.crop(tuple(round((v - o) * SCALE) for v, o in zip(face_box(name, cx, cy), (x0, y0, x0, y0))))).copy()
+    k, lab, st, cen = cv2.connectedComponentsWithStats(dark_pips(crop, name))
     i = 1 + int(np.argmax(st[1:, 4]))
-    d = (st[i, 2] + st[i, 3]) / 2
+    d = max(st[i, 2], st[i, 3]) if name != 'keycap' else (st[i, 2] + st[i, 3]) / 2
     R = int(d * 0.72)                                       # 눈 둘레의 옅은 그림자까지
-    px, py = int(cen[i][0]), int(cen[i][1])
+    px, py = (int(st[i, 0] + st[i, 2] / 2), int(st[i, 1] + st[i, 3] / 2)) if name != 'keycap' else (int(cen[i][0]), int(cen[i][1]))
     sp = crop[py - R:py + R, px - R:px + R]
-    m = np.zeros((2 * R, 2 * R), np.float32); cv2.circle(m, (R, R), int(R * 0.92), 1.0, -1)
-    m = cv2.GaussianBlur(m, (0, 0), R * 0.08)
+    if name == 'keycap':
+        m = np.zeros((2 * R, 2 * R), np.float32); cv2.circle(m, (R, R), int(R * 0.92), 1.0, -1)
+        m = cv2.GaussianBlur(m, (0, 0), R * 0.08)
+    else:                                                    # 하트처럼 둥글지 않은 눈: 눈 모양대로 (둘레 그림자 조금)
+        m = (lab[py - R:py + R, px - R:px + R] == i).astype(np.uint8)
+        m = cv2.dilate(m, np.ones((int(R * 0.18) | 1,) * 2, np.uint8)).astype(np.float32)
+        m = cv2.GaussianBlur(m, (0, 0), R * 0.06)
     rgba = Image.fromarray(np.dstack([sp, (m * 255).astype(np.uint8)]), 'RGBA')
     _PIP[name] = (rgba, d / crop.shape[1], R / d)
     return _PIP[name]
 
 
-def redraw_pips(name, crop, v, sheet, arr):
-    """판이 정사각이 아니라서(키캡 94×80) 그대로 늘리면 눈이 길쭉해진다 →
-    눈을 지운 판(inpaint)만 정사각으로 늘리고, 원래 비율의 동그란 눈을 표준 자리(PIP_POS)에 다시 얹는다"""
+MAX_PIP = 0.19   # 다시 얹는 눈의 최대 지름 (한 변 대비) — 6 면에서 이웃 눈 · 테두리와 겹치지 않게
+
+
+def redraw_pips(name, crop, v, sheet, arr, finish=lambda im: im):
+    """눈을 지운 판(inpaint)만 정사각으로 만들고(finish: 테두리 다듬기), 그 위에 원래 비율의 눈을 표준 자리(PIP_POS)에 다시 얹는다.
+    키캡: 판이 가로로 길어(94×80) 그대로 늘리면 눈이 길쭉해졌다.
+    하트: 시안의 하트가 크고 가장자리에 붙어 있어 테두리를 다듬으면 하트가 잘렸다 → 테두리를 먼저 다듬고 하트를 나중에 얹는다"""
     a = np.asarray(crop).copy()
-    hole = cv2.dilate(dark_pips(a), np.ones((25, 25), np.uint8))
-    base = Image.fromarray(cv2.inpaint(a, hole, 9, cv2.INPAINT_TELEA)).resize((SIZE, SIZE), Image.LANCZOS)
+    hole = cv2.dilate(dark_pips(a, name), np.ones((25, 25), np.uint8))
+    base = finish(Image.fromarray(cv2.inpaint(a, hole, 9, cv2.INPAINT_TELEA)).resize((SIZE, SIZE), Image.LANCZOS))
     sprite, dfrac, rr = pip_sprite_of(name, sheet, arr)
-    D = dfrac * SIZE
+    D = min(dfrac, MAX_PIP) * SIZE
     S2 = int(round(D * rr * 2))
     sp = sprite.resize((S2, S2), Image.LANCZOS)
     for fx, fy in PIP_POS[v]:
