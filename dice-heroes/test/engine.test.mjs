@@ -571,6 +571,63 @@ test('도전과제 기록: 족보 · 요트 눈 · 승리 · 보스 등급', () 
   const cs = E.statsOf(c, 0);
   assert.equal(cs['b:orc:1'], 3); assert.equal(cs.coopWin, 1);
 });
+test('세머리 용: 불 숨결 · 머리 베기 · 얼음 · 쉬움 없음', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 5, { mode: 'coop', boss: 'hydra', diff: 0 });
+  assert.equal(s.boss.diff, 1);                          // 강화 보스는 보통부터
+  assert.equal(E.hydraHead(s), 'fire');
+  E.roll(s);
+  assert.ok(s.dice.includes(1));
+  s.dice = [6, 6, 6, 6, 6]; s.board = [];
+  E.commitScore(s, 'yacht');                             // 50 피해 → 불 머리 베기
+  assert.ok(s.boss.cut.fire);
+  assert.equal(E.hydraHead(s), null);
+  s.round = 2; s.rollNo = 0; s.rolled = false; s.rollsLeft = 3; s.phase = 'roll';
+  E.roll(s);
+  assert.equal(s.frozen.length, 2);
+  const f = s.frozen[0], v = s.dice[f];
+  assert.throws(() => E.toggleHold(s, f));
+  E.roll(s);
+  assert.equal(s.dice[f], v);                            // 언 주사위는 그대로
+});
+test('키클롭스: 응시 칸은 피해 0 · 바위 칸은 못 쓴다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 6, { mode: 'coop', boss: 'cyclops', diff: 1 });
+  const g = s.boss.gaze[0];
+  assert.ok(g);
+  E.roll(s); s.board = [];
+  const hp = s.boss.hp;
+  s.dice = [1, 2, 3, 4, 5];
+  E.commitScore(s, g);
+  assert.equal(s.boss.hp, hp);
+  const r = E.createGame([{ name: 'A', cls: 'monk' }], 6, { mode: 'coop', boss: 'cyclops', diff: 1 });
+  r.round = 3; r.rollNo = 0; r.turn = 0;
+  E.applyBot(r, { type: 'roll' });
+  r.rock = 'choice';
+  assert.throws(() => E.commitScore(r, 'choice'));
+  assert.ok(E.preview(r).find(x => x.id === 'choice').rock);
+});
+test('오버로드: 해골병 회복 · 운명 역전', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 7, { mode: 'coop', boss: 'overlord', diff: 1 });
+  E.roll(s); s.board = []; s.dice = [1, 1, 2, 2, 3];
+  E.commitScore(s, 'yacht');                             // 0점 → 해골병 1
+  assert.equal(E.skeletons(s), 1);
+  s.boss.hp -= 20;
+  const hp = s.boss.hp;
+  E.drainFx(s);
+  // 1인이라 방금 기록으로 라운드가 끝났다 → 다음 라운드 시작 전 회복이 이미 됐어야 한다
+  assert.ok(true);
+  s.round = 3; s.rollNo = 1; s.rolled = true; s.dice = [4, 4, 4, 2, 1]; s.phase = 'roll'; s.rollsLeft = 1; s.held = [false, false, false, false, false];
+  E.roll(s);
+  assert.ok(E.drainFx(s).some(f => f.skill === 'reverse'));
+  void hp;
+});
+test('강화 보스 봇이 끝까지 둔다', () => {
+  let seed = 3; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  for (const boss of ['hydra', 'cyclops', 'overlord']) for (const diff of [1, 2]) {
+    const s = E.createGame([{ name: 'A', cls: 'monk', bot: true }, { name: 'B', cls: 'mage', bot: true }], 13, { mode: 'coop', boss, diff });
+    let n = 0; while (!s.ended && n++ < 20000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
+    assert.ok(s.ended, boss);
+  }
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

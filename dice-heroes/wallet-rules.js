@@ -11,7 +11,7 @@ export const priceOf = (kind, id) => PRICE[kind]?.[id] || 0;
 
 export const VS_WIN = 100, VS_WIN_BOT = 30, VS_DAILY = 3;
 export const BOSS_WIN = [30, 50, 80];                 // 쉬움 · 보통 · 어려움
-export const BOSS_MUL = { demon: 1.2 };               // 마왕은 1.2배
+export const BOSS_MUL = { demon: 1.2, hydra: 1.3, cyclops: 1.3, overlord: 1.3 };   // 마왕 1.2배 · 강화 보스 1.3배
 export const FIRST_CLEAR_MUL = 3;                     // 보스 · 난이도별 첫 클리어는 3배
 export const SCORE_PER_100 = 5;                       // 최종 점수 백의 자리 × 5 (져도)
 export const LEFTOVER_PER_3 = 10;                     // 대전: 남은 뒤집기+조정 3개마다 10
