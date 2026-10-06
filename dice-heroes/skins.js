@@ -1,4 +1,5 @@
 // 꾸미기 — 주사위 스킨 · 트레이 스킨.
+import { GAME } from './config.js';
 // 그림은 모두 캔버스로 그린다(이미지 파일 없음). three.js 에 의존하지 않아서 목록 미리보기(2D)에도 같은 그림을 쓴다.
 //
 // 각 스킨의 tier ('free' | 'special'). 스페셜 스킨은 보석으로 산다 (가격·보유 여부는 wallet.js).
@@ -6,24 +7,25 @@
 // sound: 굴릴 때 부딪히는 소리 (audio.js sfx.hit)
 export const DICE_SKINS = [
   { id: 'classic', name: '기본', desc: '상아색 기본 주사위', tier: 'free', sound: 'classic' },
-  { id: 'openheart', name: '오픈하츠', desc: '톱니가 비치는 구리 스켈레톤 · 숫자 눈 · 은빛 찰캉 소리', tier: 'special', sound: 'silver' },
+  { id: 'openheart', name: '오픈하츠', desc: '톱니바퀴가 맞물린 구리 시계 · 빛나는 눈 · 은빛 찰캉 소리', tier: 'special', sound: 'silver' },
   { id: 'gold', name: '황금', desc: '온통 순금 · 새겨진 눈 · 금화 소리', tier: 'special', sound: 'coin' },
-  { id: 'minimal', name: '미니멀', desc: '굵은 선의 만화풍 · 톡톡 소리', tier: 'special', sound: 'soft' },
+  { id: 'minimal', name: '미니멀', desc: '매끈하게 윤나는 하얀 주사위 · 톡톡 소리', tier: 'special', sound: 'soft' },
   { id: 'cosmic', name: '우주', desc: '은하수가 반짝이는 밤하늘 · 반짝 소리', tier: 'special', sound: 'twinkle' },
-  { id: 'black', name: '블랙', desc: '기본 주사위의 흑백 반전', tier: 'special', sound: 'classic' },
-  { id: 'clear', name: '투명', desc: '추억의 투명 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
-  { id: 'heart', name: '하트', desc: '연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
+  { id: 'black', name: '블랙', desc: '흑요석처럼 깊고 윤나는 검정 · 하얀 눈', tier: 'special', sound: 'classic' },
+  { id: 'clear', name: '투명', desc: '무지갯빛이 번지는 유리 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
+  { id: 'heart', name: '하트', desc: '반짝이는 연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
   { id: 'keycap', name: '키캡', desc: '기계식 키보드 키캡 · 도각 소리', tier: 'special', sound: 'key' },
 ];
 
 export const TRAY_SKINS = [
   { id: 'classic', name: '기본', desc: '초록 펠트 · 나무 테두리', tier: 'free' },
-  { id: 'royal', name: '왕실', desc: '진홍 벨벳 · 금 장식', tier: 'special' },
-  { id: 'deepsea', name: '심해', desc: '물결치는 바다 · 은빛 테두리', tier: 'special' },
-  { id: 'demon', name: '마왕성', desc: '돌바닥에 빛나는 마법진', tier: 'special' },
-  { id: 'sakura', name: '벚꽃', desc: '꽃잎이 흩날리는 분홍 펠트', tier: 'special' },
-  { id: 'lava', name: '용암', desc: '갈라진 현무암 · 끓는 용암', tier: 'special' },
-  { id: 'starry', name: '은하', desc: '우주 바닥 · 네온 테두리', tier: 'special' },
+  { id: 'marble', name: '클래식', desc: '상아빛 대리석 · 빛나는 황금 나침반', tier: 'special' },
+  { id: 'royal', name: '왕실', desc: '진홍 벨벳에 황금 왕관', tier: 'special' },
+  { id: 'deepsea', name: '심해', desc: '일렁이는 물빛 · 산호와 별 나침반', tier: 'special' },
+  { id: 'demon', name: '마왕성', desc: '검은 돌바닥에 보랏빛으로 타오르는 삼지창 문장', tier: 'special' },
+  { id: 'sakura', name: '벚꽃', desc: '연분홍 바닥에 피어난 벚꽃 문양', tier: 'special' },
+  { id: 'lava', name: '용암', desc: '갈라진 현무암 사이로 끓는 용암', tier: 'special' },
+  { id: 'starry', name: '은하', desc: '밤하늘 초승달 · 반짝이는 별자리', tier: 'special' },
 ];
 
 export const diceSkin = id => DICE_SKINS.find(s => s.id === id) || DICE_SKINS[0];
@@ -49,19 +51,23 @@ const PIP_POS = {
 //   upright: 숫자 눈 — 굴린 뒤 윗면 숫자의 머리가 화면 위쪽을 향하게 세운다
 const DIE_MAT = {
   classic: { roughness: 0.32, metalness: 0.02 },
-  // image: 디자인 렌더로 만든 면 그림(assets/dice/<스킨>/1~6.webp, tools/make_dice_textures.py). 그림에 음영이 이미 들어 있다
-  openheart: { roughness: 0.4, metalness: 0.45, env: 0.8, image: true, upright: true },
+  // image: 디자인 시트에서 오려 낸 면 그림(assets/dice/<스킨>/1~6.webp, tools/make_dice_from_sheet.py). 그림에 음영이 이미 들어 있다
+// 기본(classic)만 코드로 그린다. 예전 코드 그림(하트·키캡·투명·미니멀)은 drawDieFace 에 그대로 남아 있다 — image 줄만 지우면 되돌아간다
+  openheart: { roughness: 0.4, metalness: 0.45, env: 0.8, image: true },
   gold: { roughness: 0.28, metalness: 0.35, env: 0.9, image: true },
-  minimal: { toon: true, outline: true },
+  minimal: { roughness: 0.3, metalness: 0.0, env: 0.35, image: true },
   cosmic: { roughness: 0.25, metalness: 0.1, env: 0.5, image: true, selfGlow: 0.35, twinkle: true },
   black: { roughness: 0.28, metalness: 0.1, env: 0.6, image: true },
-  clear: { roughness: 0.04, metalness: 0.0, env: 1.1, clear: true },
-  heart: { roughness: 0.24, metalness: 0.0, env: 0.35 },
-  keycap: { roughness: 0.7, metalness: 0.0, env: 0.15, upright: true },
+  clear: { roughness: 0.12, metalness: 0.0, env: 0.9, image: true, selfGlow: 0.18 },
+  heart: { roughness: 0.3, metalness: 0.0, env: 0.4, image: true },
+  keycap: { roughness: 0.6, metalness: 0.0, env: 0.2, image: true },
 };
 export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;
-export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp` : null);
+// 그림 주소 끝에 게임 버전을 붙인다 — 오프라인 캐시(sw.js)가 주소가 같으면 저장해 둔 그림을 먼저 쓰기 때문에,
+// 파일 이름이 그대로면 새 버전에서도 예전 그림이 계속 보였다 (주사위 모서리가 검던 예전 그림 등)
+const AV = `?v=${GAME.version}`;
+export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 
 // 면 그림을 미리 받아 둔다 (꾸미기에서 고르면 바로 바뀌게). 받은 그림은 READY 에 남는다
 const IMGS = new Map();
@@ -358,7 +364,21 @@ const TRAY_STYLE = {
   lava: { floor: ['#3B2A22', '#120A08'], line: 'rgba(255, 140, 40, .35)', rail: 0x3A3533, trim: 0xFF7A1A, trimGlow: true, box: '#2A1E18', cracks: true, glow: 1.2 },
   starry: { floor: ['#1E1650', '#03020C'], line: 'rgba(90, 240, 255, .55)', rail: 0x0E0C18, trim: 0x3EF0FF, trimGlow: true, box: '#1A1628', stars: true, glow: 0.8 },
 };
-export const trayStyle = id => TRAY_STYLE[id] || TRAY_STYLE.classic;
+// 그림 트레이 (v0.30, 디자인 시트에서 오림 · tools/make_trays_from_sheet.py): 바닥 · 발광 지도 · 함 바닥 · 목록 그림을
+// assets/trays/<스킨>/ 의 파일로 쓰고, 테두리(rail)·장식(trim) 색만 여기서 정한다. glow: 바닥 발광 세기.
+// 예전 코드 그림 트레이는 TRAY_STYLE 에 그대로 있다 — IMAGE_TRAY 에서 빼면 되돌아간다
+const IMAGE_TRAY = {
+  marble: { rail: 0xE9DFCB, trim: 0xD4A443, trimEnv: true, glow: 0.3 },
+  royal: { rail: 0x7E1222, trim: 0xFFC83D, trimEnv: true, glow: 0.35 },
+  deepsea: { rail: 0x1E4A52, trim: 0xD8B45A, trimEnv: true, glow: 0.55 },
+  demon: { rail: 0x15101C, trim: 0xB36BFF, trimGlow: true, glow: 0.9 },   // 보라 · 검정 테마
+  sakura: { rail: 0xA8744A, trim: 0xF5A8C0, trimEnv: true, glow: 0.35 },
+  lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1 },
+  starry: { rail: 0x161C52, trim: 0xE6C35C, trimEnv: true, glow: 0.8 },
+};
+export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
+// 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
+export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 
 // 트레이 바닥 (512×512). glowOnly: 빛나는 부분(마법진·용암·별)만 그린 발광 지도
 export function drawTrayFloor(c, id = 'classic', glowOnly = false) {
@@ -523,6 +543,7 @@ function drawDiceThumb(id) {
   return c.toDataURL();
 }
 function drawTrayThumb(id) {
+  if (trayImage(id, 'thumb')) return trayImage(id, 'thumb');
   const st = trayStyle(id);
   const floor = drawTrayFloor(document.createElement('canvas'), id);
   const c = document.createElement('canvas');

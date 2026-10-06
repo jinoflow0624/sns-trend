@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, drawBoxFloor } from './skins.js';
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -355,10 +355,12 @@ export class DiceTray {
       const st = trayStyle(trayId);
       const fm = this.floorMesh.material;
       fm.map?.dispose(); fm.emissiveMap?.dispose();
-      fm.map = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
+      // 그림 트레이는 파일(바닥·발광 지도), 나머지는 캔버스로 그린 바닥
+      const img = kind => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind));
+      fm.map = img('floor') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
       if (trayGlows(trayId)) {
         fm.emissive = new THREE.Color(0xFFFFFF);
-        fm.emissiveMap = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
+        fm.emissiveMap = img('glow') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
         fm.emissiveIntensity = st.glow;
       } else { fm.emissive = new THREE.Color(0); fm.emissiveMap = null; }
       fm.needsUpdate = true;
@@ -370,7 +372,7 @@ export class DiceTray {
       this.trimMat.needsUpdate = true;
       const bm = this.boxFloor.material;
       bm.map?.dispose();
-      bm.map = this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
+      bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
     }
   }
@@ -411,12 +413,27 @@ export class DiceTray {
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
     const needW = (TRAY_W + 1.4) / 2 / Math.tan(hfov / 2);
     const needD = (SCENE_Z1 - SCENE_Z0 + 0.9) / 2 / Math.tan(vfov / 2);
-    const dist = Math.max(needW, needD);
+    let dist = Math.max(needW, needD);
     const cz = (SCENE_Z0 + SCENE_Z1) / 2 + 0.25;   // 트레이 + 주사위 함 가운데 (가까운 함 쪽이 원근으로 더 아래로 내려가는 만큼)
-    this.camera.position.set(0, dist * 0.93, cz - 0.35 + dist * 0.37);
+    const place = () => {
+      this.camera.position.set(0, dist * 0.93, cz - 0.35 + dist * 0.37);
+      this.camera.lookAt(0, 0, cz);
+      this.camera.updateProjectionMatrix();
+      this.camera.updateMatrixWorld();
+    };
+    place();
+    // 앞쪽 주사위 함은 트레이보다 넓고 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝 장식(보석)이 잘렸다.
+    // 함 바닥 양 끝 장식 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 벽까지 다 넣으면 주사위가 너무 작아진다)
+    const XE = TRAY_W / 2 + RAIL_T - 0.15, XR = TRAY_W / 2 + RAIL_T;
+    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
+    const v = new THREE.Vector3();
+    for (let k = 0; k < 40; k++) {
+      const out = corners.some(([x, y, z]) => { v.set(x, y, z).project(this.camera); return Math.abs(v.x) > 0.985 || Math.abs(v.y) > 0.985; });
+      if (!out) break;
+      dist *= 1.025;
+      place();
+    }
     this.camBase = this.camera.position.clone();
-    this.camera.lookAt(0, 0, cz);
-    this.camera.updateProjectionMatrix();
     this.dirty = true;
   }
 

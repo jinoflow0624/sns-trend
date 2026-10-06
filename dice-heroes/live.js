@@ -5,9 +5,11 @@
 //   notice       공지 한 줄 (비우면 안 보임)
 //   maintenance  true 면 온라인 방을 잠시 닫는다
 //   min_version  이보다 낮은 버전이면 업데이트 안내 (예: 1.0.0)
+//   ads_enabled  true 면 결과 화면 뒤 전면 광고를 켠다 (기본 false — 켜기 전엔 광고 스크립트도 안 불러옴)
+//   ads_every    몇 판마다 광고 한 번 (기본 2)
 import { PROD, fireApp } from './fire.js';
 
-const DEFAULTS = { notice: '', maintenance: false, min_version: '' };
+const DEFAULTS = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 2 };
 let rc = null;
 let analytics = null;
 let logFn = null;
@@ -28,6 +30,8 @@ export async function liveConfig() {
       notice: fb.getValue(rc, 'notice').asString(),
       maintenance: fb.getValue(rc, 'maintenance').asBoolean(),
       min_version: fb.getValue(rc, 'min_version').asString(),
+      ads_enabled: fb.getValue(rc, 'ads_enabled').asBoolean(),
+      ads_every: fb.getValue(rc, 'ads_every').asNumber() || DEFAULTS.ads_every,
     };
   } catch (err) {
     console.warn('[live]', err);

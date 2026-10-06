@@ -5,7 +5,7 @@ export const STARTER_GEMS = 30000;           // 지금은 모든 사용자에게
 // 직업: 봇 1대1 승률이 높을수록 비싸게 (마법사 58% · 음유시인 51% · 전사 50% · 도적 45%). 도박사·수도승은 무료
 export const CLASS_PRICE = { rogue: 600, warrior: 900, bard: 1000, mage: 1500, dancer: 1500, outlaw: 1800, sharper: 1800 };
 export const DICE_PRICE = { openheart: 1500, cosmic: 1500, gold: 1200, clear: 1000, heart: 1000, keycap: 1000, black: 900, minimal: 800 };
-export const TRAY_PRICE = { demon: 1000, lava: 1000, starry: 1000, royal: 800, deepsea: 800, sakura: 700 };
+export const TRAY_PRICE = { demon: 1000, lava: 1000, starry: 1000, royal: 800, deepsea: 800, marble: 800, sakura: 700 };
 export const PRICE = { cls: CLASS_PRICE, dice: DICE_PRICE, tray: TRAY_PRICE };
 export const priceOf = (kind, id) => PRICE[kind]?.[id] || 0;
 

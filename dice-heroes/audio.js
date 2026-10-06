@@ -450,11 +450,18 @@ export function stopBgm() {
   playing = null;
 }
 
-// 탭이 가려지면 음악을 멈췄다가 돌아오면 이어서
+// 탭이 가려지면 음악을 멈췄다가 돌아오면 이어서. 광고가 나오는 동안에도 멈춘다
+let adPause = false;
+export function pauseAudio(on) {
+  adPause = !!on;
+  if (!ctx) return;
+  if (adPause) ctx.suspend().catch(() => {});
+  else if (!document.hidden) ctx.resume().catch(() => {});
+}
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
   if (document.hidden) ctx.suspend().catch(() => {});
-  else ctx.resume().catch(() => {});
+  else if (!adPause) ctx.resume().catch(() => {});
 });
 
 // ── 효과음 ───────────────────────────────────────────────────────────────────

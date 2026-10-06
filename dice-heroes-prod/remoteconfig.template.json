@@ -14,6 +14,16 @@
       "defaultValue": { "useInAppDefault": true },
       "description": "이보다 낮은 버전이면 업데이트 안내 (예: 1.0.0)",
       "valueType": "STRING"
+    },
+    "ads_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "true 면 결과 화면 뒤 전면 광고를 켠다 (2판에 1번 · 최소 3분 간격)",
+      "valueType": "BOOLEAN"
+    },
+    "ads_every": {
+      "defaultValue": { "value": "2" },
+      "description": "몇 판마다 광고 한 번",
+      "valueType": "NUMBER"
     }
   }
 }
