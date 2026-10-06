@@ -398,7 +398,7 @@ export function spriteCanvas(name, scale = 4, flip = false) {
   if (IMG_SPRITES[name]) {
     const c = imgCanvas(name, scale, flip);
     if (c) { cache.set(key, c); return c; }
-    if (!SPRITES[name]) return spriteCanvas(name.startsWith('demon') ? 'demon' : name.split('_')[0], scale, flip);   // 분노·동작 그림을 받기 전: 평소 도트로
+    if (!SPRITES[name]) return spriteCanvas(/^(arch)?demon/.test(name) ? 'demon' : name.split('_')[0], scale, flip);   // 분노·동작 그림을 받기 전: 평소 도트로
   }
   const rows = SPRITES[name];
   const pal = { ...PALETTE, ...(OWN[name] || {}) };

@@ -64,6 +64,9 @@ for (const b of BASE_BOSSES) [['B', 1], ['A', 2], ['S', 3]].forEach(([gr, t]) =>
 const UP_KO = { hydra: ['세머리 용', '세머리 용을'], cyclops: ['키클롭스', '키클롭스를'], overlord: ['오버로드', '오버로드를'] };
 for (const [b, [ko, obj]] of Object.entries(UP_KO)) [['B', 2], ['A', 3], ['S', 3]].forEach(([gr, t]) =>
   add('boss', `${b}_${gr}`, t, `${ko} ${gr}등급`, `${obj} ${gr === 'S' ? 'S' : `${gr} 이상`} 등급으로 토벌`, GRADE_RANK[gr], bossBest(b), { nobar: true, series: `boss_${b}` }));
+// 마신 릴리스 (보통 이상): 마왕을 어려움으로 깨기 전에는 숨긴다
+[['B', 3], ['A', 4], ['S', 4]].forEach(([gr, t]) =>
+  add('boss', `archdemon_${gr}`, t, `마신 ${gr}등급`, `마신 릴리스를 ${gr === 'S' ? 'S' : `${gr} 이상`} 등급으로 토벌`, GRADE_RANK[gr], bossBest('archdemon'), { nobar: true, series: 'boss_archdemon', secret: 'archdemon' }));
 add('boss', 'unseal', 3, '봉인 해제', '화염룡 · 오크 대족장 · 리치를 모두 어려움으로 토벌', 3,
   ach => BASE_BOSSES.filter(b => (ach?.m?.[`b:${b}:2`] || 0) > 0).length);
 // 마왕: 스포일러 방지 — 마왕 봉인이 풀리기 전에는 목록에 나오지 않는다 (secret)

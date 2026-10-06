@@ -1447,3 +1447,6 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .tag.rock { background: #8A8070; color: #fff; }
 .tag.gaze { background: #FF3B3B; color: #fff; }
 .up-reveal .dr-title { text-shadow: 0 0 14px var(--c), 3px 3px 0 #1A1030; }
+
+.row.cursed { box-shadow: inset 0 0 0 2px #C21E56; }
+.tag.curse { background: #C21E56; color: #fff; }
