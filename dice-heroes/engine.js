@@ -239,6 +239,8 @@ export const HP_TUNE = {
   demon:  [[1.431, 1.322, 1.314, 1.306], [1.213, 1.195, 1.209, 1.222], [1.0937, 1.087, 1.106, 1.1157]],
   lich:   [[1.289, 1.217, 1.171, 1.125], [1.293, 1.324, 1.301, 1.271], [1.3815, 1.415, 1.416, 1.417]],
 };
+// 강화 보스(보통 · 어려움만)는 원래 보스의 인원별 배율을 그대로 쓰고 hpMul 로 맞춘다
+HP_TUNE.hydra = HP_TUNE.dragon; HP_TUNE.cyclops = HP_TUNE.orc; HP_TUNE.overlord = HP_TUNE.lich;
 
 export const BOSSES = [
   {
@@ -273,6 +275,43 @@ export const BOSSES = [
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다' : '어려움에서만 쓴다' },
     ],
   },
+  // ── 강화 보스: 원래 보스를 어려움으로 깨면 열린다. 보통 · 어려움만 (diffs). 승률은 원래 보스보다 3~5%p 낮게 (sim/coop.mjs) ──
+  {
+    id: 'hydra', ko: '세머리 용 트리글라브', title: '불 · 얼음 · 독, 세 숨결의 재앙', color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1.2, 1.13],
+    partyAdj: [[1, 1, 1, 1], [0.97, 1.01, 1.01, 1.017], [0.99, 1.01, 1.005, 1]],
+    skills: [
+      { id: 'heads', icon: '🐉', ko: '세 머리의 숨결',
+        desc: d => '라운드마다 불 → 얼음 → 독 머리가 차례로 숨결을 뿜는다. 불: 첫 굴림의 가장 높은 주사위 1개가 1로 · 얼음: 첫 굴림 뒤 주사위 2개가 얼어 다시 굴릴 수 없다(뒤집기 · 조정은 가능) · 독: 15점 이하 기록은 피해 절반' },
+      { id: 'behead', icon: '⚔️', ko: '머리 베기',
+        desc: d => `한 번에 ${HYDRA_CUT}점 이상 피해를 주면 그 라운드의 머리가 잘려 다시는 숨결을 뿜지 못한다` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 잘린 머리 하나가 다시 자란다 (한 번)' : '어려움에서만 쓴다' },
+    ],
+  },
+  {
+    id: 'cyclops', ko: '키클롭스 폴리페모스', title: '외눈으로 전장을 지배하는 거인', color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1.1, 1],
+    partyAdj: [[1, 1, 1, 1], [0.99, 0.99, 1.01, 1.035], [0.95, 0.98, 1, 1.05]],
+    skills: [
+      { id: 'gaze', icon: '👁️', ko: '외눈 응시',
+        desc: d => '라운드마다 점수표 칸 하나를 노려본다. 그 칸에 적으면 점수는 남지만 피해는 0' },
+      { id: 'rock', icon: '🪨', ko: '바위 투척',
+        desc: d => '3라운드마다 각자 빈칸 하나에 바위가 떨어져 그 차례엔 그 칸을 쓸 수 없다' },
+      { id: 'plunder', icon: '💰', ko: '약탈', desc: d => `누군가 0점을 기록하면 체력을 ${CYCLOPS_PLUNDER} 회복한다` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 노려보는 칸이 2개' : '어려움에서만 쓴다' },
+    ],
+  },
+  {
+    id: 'overlord', ko: '오버로드 네크라스', title: '죽은 칸을 군대로 일으키는 자', color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 0.91, 0.75],
+    partyAdj: [[1, 1, 1, 1], [1.055, 0.975, 0.99, 1], [1.09, 0.98, 0.97, 0.96]],
+    skills: [
+      { id: 'necro', icon: '⚰️', ko: '사령술',
+        desc: d => `0점으로 버린 칸 하나마다 해골병이 일어나 라운드가 끝날 때마다 체력을 ${NECRO_HEAL}씩 회복시킨다` },
+      { id: 'reverse', icon: '🌀', ko: '운명 역전',
+        desc: d => '3라운드마다 두 번째 굴림 직후, 가장 많이 나온 눈이 전부 뒤집힌다 (7-눈)' },
+      { id: 'throne', icon: '💀', ko: '뼈의 왕좌',
+        desc: d => `4라운드마다 인원 1명당 ${THRONE_SHIELD}의 보호막. 보호막이 남아 있으면 운명 역전이 주사위 1개를 더 뒤집는다` },
+      { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 한 번, 그 라운드에 받은 피해의 절반을 되돌린다 (시간 역행)' : '어려움에서만 쓴다' },
+    ],
+  },
   {
     // 세 보스의 어려움을 모두 깨면 나타난다. 승률은 다른 보스의 약 70% (봇 시뮬레이션), 보석 보상 1.2배
     id: 'demon', ko: '마왕 릴리스', title: '봉인에서 깨어난 밤의 여왕', color: '#C21E56', hpMul: [1, 1, 1], final: true,
@@ -286,6 +325,22 @@ export const BOSSES = [
   },
 ];
 export const bossInfo = id => BOSSES.find(b => b.id === id);
+export const HYDRA_CUT = 30, CYCLOPS_PLUNDER = 15, NECRO_HEAL = 3, THRONE_SHIELD = 15;
+export const HEADS = ['fire', 'ice', 'poison'];
+export const HEAD_KO = { fire: '불', ice: '얼음', poison: '독' };
+// 세머리 용: 이번 라운드에 숨결을 뿜는 머리 (잘렸으면 null)
+export const hydraHead = s => {
+  const h = HEADS[(s.round - 1) % 3];
+  return s.boss?.id === 'hydra' && !s.boss.cut?.[h] ? h : null;
+};
+export const isFrozen = (s, i) => !!s.frozen?.includes(i);
+// 보스가 고를 수 있는 난이도 (강화 보스는 보통 · 어려움만)
+export const bossDiffs = id => bossInfo(id)?.diffs || [0, 1, 2];
+// 키클롭스: 이 칸에 적으면 피해 0 / 이번 차례 쓸 수 없는 칸
+export const gazed = (s, cat) => s.boss?.id === 'cyclops' && !!s.boss.gaze?.includes(cat);
+export const rocked = (s, cat) => s.rock === cat;
+// 오버로드: 해골병 수 (파티가 0점으로 버린 칸)
+export const skeletons = s => s.players.reduce((a, p) => a + CAT_IDS.filter(id => p.scores[id] === 0).length, 0);
 // 봉인·패기 (마왕)
 const haki = s => event(s) === 'haki';
 export const isSealed = (s, i) => !!s.sealed?.includes(i);
@@ -317,6 +372,32 @@ function bossAfterRoll(s) {
     log(s, `마왕의 봉인! 주사위 ${idx.length}개가 봉인됐다`);
     fx(s, { type: 'boss', skill: 'seal', dice: idx });
   }
+  if (b.id === 'hydra' && s.rollNo === 1) {
+    const h = hydraHead(s);
+    if (h === 'fire') {
+      const i = s.dice.map((v, k) => k).sort((x, y) => s.dice[y] - s.dice[x])[0];
+      s.dice[i] = 1;
+      log(s, '불 머리의 숨결! 주사위 1개가 1로 탔다');
+      fx(s, { type: 'boss', skill: 'hfire', dice: [i], from });
+    }
+    if (h === 'ice' && s.rollsLeft > 0) {
+      s.frozen = shuffle(s, s.dice.map((v, k) => k)).slice(0, 2);
+      log(s, '얼음 머리의 숨결! 주사위 2개가 얼어붙었다');
+      fx(s, { type: 'boss', skill: 'hice', dice: s.frozen.slice() });
+    }
+  }
+  if (b.id === 'overlord' && s.rollNo === 2 && every(s, 3)) {
+    // 가장 많이 나온 눈(같으면 큰 눈)을 전부 뒤집는다. 뼈 보호막이 있으면 1개 더
+    const cnt = [0, 0, 0, 0, 0, 0, 0];
+    s.dice.forEach(v => cnt[v]++);
+    const face = [6, 5, 4, 3, 2, 1].sort((x, y) => cnt[y] - cnt[x])[0];
+    const idx = s.dice.map((v, k) => k).filter(k => s.dice[k] === face);
+    const rest = shuffle(s, s.dice.map((v, k) => k).filter(k => s.dice[k] !== face));
+    if (b.shield > 0 && rest.length) idx.push(rest[0]);
+    idx.forEach(k => (s.dice[k] = 7 - s.dice[k]));
+    log(s, `네크라스의 운명 역전! 주사위 ${idx.length}개가 뒤집혔다`);
+    fx(s, { type: 'boss', skill: 'reverse', dice: idx, from });
+  }
   if (b.id === 'lich' && s.rollNo === 2 && every(s, 3)) {
     const idx = shuffle(s, s.dice.map((v, i) => i)).slice(0, enraged(s) ? 2 : 1);
     idx.forEach(i => (s.dice[i] = 7 - s.dice[i]));
@@ -333,6 +414,7 @@ function dealDamage(s, pIdx, amount, source) {
   b.shield -= blocked;
   left -= blocked;
   b.hp = Math.max(0, b.hp - left);
+  if (b.roundDmg != null) b.roundDmg += left;
   b.dmg[pIdx] = (b.dmg[pIdx] || 0) + amount;
   fx(s, { type: 'damage', player: pIdx, amount: Math.round(amount), blocked, source });
   if (b.hp <= 0 && !s.ended) {
@@ -412,13 +494,15 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
   if (opts.rule === 'classic' && s.mode === 'versus') s.classic = true;
   if (s.mode === 'coop') {
     const id = bossInfo(opts.boss) ? opts.boss : 'dragon';
-    const diff = Math.min(2, Math.max(0, opts.diff | 0));
+    const diff = Math.min(2, Math.max(bossDiffs(id)[0], opts.diff | 0));
     // 인원 보정 (난이도별, 봇 시뮬레이션으로 맞춘 값): 인원이 많을수록 레벨업·소급 보너스가 쌓여
     // 파티가 강해지므로 1인당 체력을 조금씩 늘린다
     const party = [[1, 1.045, 1.055, 1.065], [1, 0.99, 0.985, 0.98], [1, 0.96, 0.95, 0.94]][diff][players.length - 1]
       * (bossInfo(id).partyAdj?.[diff][players.length - 1] ?? 1);
     const hp = Math.round(DIFFS[diff].hp * HP_TUNE[id][diff][players.length - 1] * bossInfo(id).hpMul[diff] * party * players.length / 5) * 5;
     s.boss = { id, diff, hp, maxHp: hp, shield: 0, dmg: players.map(() => 0), won: false };
+    if (id === 'hydra') s.boss.cut = {};
+    if (id === 'overlord') s.boss.roundDmg = 0;
   }
   if (s.classic) {
     s.events = new Array(ROUNDS).fill('calm');
@@ -452,6 +536,32 @@ function log(s, text) {
 }
 const fx = (s, e) => s.fx.push(e);
 
+// 라운드 시작: 세머리 용 머리 재생 · 독 머리 알림, 키클롭스 응시
+function bossRoundStart(s) {
+  const b = s.boss;
+  if (!b || s.ended) return;
+  if (b.id === 'hydra') {
+    if (enraged(s) && !b.regrew && HEADS.some(h => b.cut[h])) {
+      const h = HEADS.find(x => b.cut[x]);
+      b.cut[h] = false; b.regrew = true;
+      log(s, `트리글라브의 ${HEAD_KO[h]} 머리가 다시 자라났다!`);
+      fx(s, { type: 'boss', skill: 'regrow', head: h });
+    }
+    if (hydraHead(s) === 'poison') {
+      log(s, '독 머리의 숨결! 이번 라운드 15점 이하 기록은 피해 절반');
+      fx(s, { type: 'boss', skill: 'hpoison' });
+    }
+  }
+  if (b.id === 'cyclops') {
+    const open = CAT_IDS.filter(id => s.players.some(p => p.scores[id] === null));
+    b.gaze = shuffle(s, open).slice(0, enraged(s) ? 2 : 1);
+    if (b.gaze.length) {
+      log(s, `폴리페모스가 「${b.gaze.map(c => catInfo(c).ko).join('」「')}」 칸을 노려본다`);
+      fx(s, { type: 'boss', skill: 'gaze', cats: b.gaze.slice() });
+    }
+  }
+}
+
 function startTurn(s) {
   const p = current(s);
   s.dice = new Array(diceCount(p)).fill(0);
@@ -460,6 +570,8 @@ function startTurn(s) {
   s.rollNo = 0;
   s.toolUsed = false;
   s.sealed = [];
+  s.frozen = [];
+  s.rock = null;
   s.rolled = false;
   s.phase = 'roll';
   p.bet = null;                 // 도박사: 라운드마다 새로 배팅
@@ -475,9 +587,19 @@ function startTurn(s) {
     if (ev === 'blessing') s.players.forEach(pl => addCharges(s, pl, { flip: 1 }, 'blessing'));
     s.players.forEach(pl => (pl.roundScore = 0));
     fx(s, { type: 'round', round: s.round, event: ev });
+    bossRoundStart(s);
     if (bossRollMod(s)) {
       log(s, '그로크의 전쟁의 북! 이번 라운드 굴림 기회 -1');
       fx(s, { type: 'boss', skill: 'drums' });
+    }
+  }
+  // 키클롭스 바위 투척: 3라운드마다 내 빈칸 하나 (빈칸이 하나뿐이면 봐준다)
+  if (s.boss?.id === 'cyclops' && every(s, 3) && !s.ended) {
+    const empty = CAT_IDS.filter(id => p.scores[id] === null);
+    if (empty.length >= 2) {
+      s.rock = shuffle(s, empty)[0];
+      log(s, `폴리페모스의 바위! ${p.name}의 「${catInfo(s.rock).ko}」 칸이 막혔다`);
+      fx(s, { type: 'boss', skill: 'rock', cat: s.rock, player: s.turn });
     }
   }
   if (perkCount(p, 'midas')) {
@@ -503,13 +625,13 @@ const fail = msg => { throw new Error(msg); };
 export function roll(s) {
   if (s.ended || s.phase !== 'roll') fail('지금은 굴릴 수 없습니다.');
   if (s.rollsLeft <= 0) fail('굴림 기회를 다 썼습니다.');
-  if (s.rolled && s.held.every(Boolean)) fail('모든 주사위를 잡고 있습니다.');
+  if (s.rolled && s.held.every((h, i) => h || isFrozen(s, i))) fail('모든 주사위를 잡고 있습니다.');
   const p = current(s);
   if (ab(p) === 'gambler' && !p.bet && !s.rolled) fail('먼저 이번 라운드에 배팅할 족보를 고르세요.');
   // 튜토리얼처럼 결과를 미리 정해 둔 굴림 (s.script = [[눈...], ...])
   const forced = s.script?.length ? s.script.shift() : null;
   s.dice = s.dice.map((v, i) => {
-    if (s.rolled && (s.held[i] || isSealed(s, i))) return v;
+    if (s.rolled && (s.held[i] || isSealed(s, i) || isFrozen(s, i))) return v;
     if (forced) return forced[i];
     let r = die(s);
     if (r === 1 && perkCount(p, 'lucky')) r = die(s);
@@ -530,6 +652,7 @@ export function toggleHold(s, i) {
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (i < 0 || i >= s.dice.length) fail('없는 주사위입니다.');
   if (isSealed(s, i)) fail('봉인된 주사위는 움직일 수 없어요. 다시 굴리면 풀려요.');
+  if (isFrozen(s, i)) fail('얼어붙은 주사위는 이번 차례에 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.');
   s.held[i] = !s.held[i];
 }
 
@@ -692,6 +815,7 @@ export function preview(s) {
   const qXp = quests.reduce((a, q) => a + questInfo(q).xp, 0);
   return CATS.map(c => {
     if (p.scores[c.id] !== null) return { id: c.id, taken: true };
+    if (rocked(s, c.id)) return { id: c.id, taken: true, rock: true };     // 키클롭스 바위: 이번 차례 쓸 수 없다
     let pts = catScore(s, p, c.id);
     pts += bardBonus(p, pts, quests);
     const bonus = bonusList(s, p, c.id, quests);
@@ -725,6 +849,7 @@ export function commitScore(s, cat) {
   const p = current(s);
   if (!(cat in p.scores)) fail('없는 항목입니다.');
   if (p.scores[cat] !== null) fail('이미 기록한 항목입니다.');
+  if (rocked(s, cat)) fail('바위에 막힌 칸이에요. 이번 차례에는 다른 칸에 적어 주세요.');
 
   const quests = claimableQuests(s, p);
   const bonus = bonusList(s, p, cat, quests);
@@ -761,18 +886,33 @@ export function commitScore(s, cat) {
   if (upperHit) p.order.push('upper');
   if (s.boss) {
     // 점수가 곧 피해. 드래곤 갑옷은 상단(보너스 포함) 피해를 깎는다.
-    const armor = s.boss.id === 'dragon' && UPPER_IDS.includes(cat) ? 0.75 : 1;
+    let armor = s.boss.id === 'dragon' && UPPER_IDS.includes(cat) ? 0.75 : 1;
+    const head = hydraHead(s);
+    if (head === 'poison' && pts > 0 && pts <= 15) armor *= 0.5;          // 독 머리: 작은 점수는 피해 절반
     const dmg = cardTotal(p) - before - (upperHit ? UPPER_BONUS : 0);
-    dealDamage(s, s.turn, Math.round(dmg * armor), cat);
+    const gz = gazed(s, cat) && dmg > 0;
+    if (gz) {                                                             // 외눈 응시: 피해 0
+      log(s, `외눈 응시! 「${catInfo(cat).ko}」 칸의 피해가 막혔다`);
+      fx(s, { type: 'boss', skill: 'gazed', cat, player: s.turn });
+    }
+    const hit = gz ? 0 : Math.round(dmg * armor);
+    dealDamage(s, s.turn, hit, cat);
     if (upperHit && !s.ended) {
       log(s, `${p.name} · 상단 보너스 달성! +${UPPER_BONUS}`);
       fx(s, { type: 'upper', player: s.turn, amount: UPPER_BONUS });
       dealDamage(s, s.turn, Math.round(UPPER_BONUS * armor), 'upper');
     }
-    if (pts === 0 && s.boss.id === 'orc' && !s.ended) {
-      const heal = 10 * (enraged(s) ? 2 : 1);
+    // 머리 베기: 한 번에 30 이상 피해면 이번 라운드 머리가 잘린다
+    const total = hit + (upperHit ? Math.round(UPPER_BONUS * armor) : 0);
+    if (head && total >= HYDRA_CUT && !s.ended) {
+      s.boss.cut[head] = true;
+      log(s, `${p.name}이(가) 트리글라브의 ${HEAD_KO[head]} 머리를 베었다!`);
+      fx(s, { type: 'boss', skill: 'behead', head, player: s.turn });
+    }
+    if (pts === 0 && (s.boss.id === 'orc' || s.boss.id === 'cyclops') && !s.ended) {
+      const heal = s.boss.id === 'cyclops' ? CYCLOPS_PLUNDER : 10 * (enraged(s) ? 2 : 1);
       s.boss.hp = Math.min(s.boss.maxHp, s.boss.hp + heal);
-      log(s, `그로크의 약탈! 체력 ${heal} 회복`);
+      log(s, `${s.boss.id === 'cyclops' ? '폴리페모스' : '그로크'}의 약탈! 체력 ${heal} 회복`);
       fx(s, { type: 'boss', skill: 'plunder', amount: heal });
     }
   } else if (upperHit) {
@@ -916,6 +1056,28 @@ function endTurn(s) {
     }
     if (s.ended) return;
     const b = s.boss;
+    if (b?.id === 'overlord') {
+      const n = skeletons(s);
+      if (n > 0 && b.hp > 0) {
+        const heal = Math.min(b.maxHp - b.hp, n * NECRO_HEAL);
+        b.hp += heal;
+        log(s, `해골병 ${n}기가 네크라스를 회복시켰다 (+${heal})`);
+        fx(s, { type: 'boss', skill: 'necro', amount: heal, n });
+      }
+      if (enraged(s) && !b.rewound && b.roundDmg > 0) {
+        const back = Math.min(b.maxHp - b.hp, Math.floor(b.roundDmg / 2));
+        b.hp += back; b.rewound = true;
+        log(s, `네크라스의 시간 역행! 이번 라운드 피해의 절반 +${back}`);
+        fx(s, { type: 'boss', skill: 'rewind', amount: back });
+      }
+      b.roundDmg = 0;
+      if (every(s, 4)) {
+        const add = THRONE_SHIELD * s.players.length;
+        b.shield += add;
+        log(s, `네크라스가 뼈의 왕좌에 앉았다! 보호막 +${add}`);
+        fx(s, { type: 'boss', skill: 'throne', amount: add });
+      }
+    }
     if (b?.id === 'lich' && every(s, 4)) {
       const add = 12 * s.players.length;
       b.shield += add;
@@ -1013,8 +1175,9 @@ function valueOf(s, p, d, rollNo = s.rollNo) {
   const left = CAT_IDS.filter(id => p.scores[id] === null);
   const late = left.length <= 3;   // 막판엔 기회비용이 의미가 없다
   for (const id of left) {
+    if (rocked(s, id)) continue;
     const pts = catScore(s, p, id, d, rollNo);
-    let v = pts - (late ? 0 : EXPECT[id]);
+    let v = pts - (late ? 0 : EXPECT[id]) - (gazed(s, id) ? pts * 0.8 : 0);
     const up = catInfo(id).up;
     if (up && pts > 0) v += (pts - 3 * up) * 0.6;  // 상단 보너스 진척
     if (pts === 0) v -= 2;
@@ -1092,7 +1255,7 @@ export function botAction(s, rng = Math.random, samples = 24) {
   if (s.rollsLeft > 0) {
     const all = (1 << n) - 1;
     let bestMask = all, bestV = valueOf(s, p, s.dice);
-    const sealedBits = (s.sealed || []).reduce((m, i) => m | (1 << i), 0);
+    const sealedBits = [...(s.sealed || []), ...(s.frozen || [])].reduce((m, i) => m | (1 << i), 0);
     for (let mask = 0; mask < all; mask++) {
       if ((mask & sealedBits) !== sealedBits) continue;     // 봉인된 주사위는 굴릴 수 없다
       const v = holdValue(s, p, mask, samples, rng);
@@ -1105,8 +1268,9 @@ export function botAction(s, rng = Math.random, samples = 24) {
   const left = CAT_IDS.filter(id => p.scores[id] === null);
   const late = left.length <= 3;
   for (const id of left) {
+    if (rocked(s, id)) continue;
     const pts = catScore(s, p, id);
-    let v = pts - (late ? 0 : EXPECT[id]);
+    let v = pts - (late ? 0 : EXPECT[id]) - (gazed(s, id) ? pts * 0.8 : 0);
     const up = catInfo(id).up;
     if (up && pts > 0) v += (pts - 3 * up) * 0.6;
     if (v > bestV) { bestV = v; bestCat = id; }

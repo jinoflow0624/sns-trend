@@ -388,9 +388,34 @@ function showDemonUnlock() {
   setTimeout(() => sfx.legend(), 2600);
 }
 
-// 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
+// 강화 보스(세머리 용 · 키클롭스 · 오버로드): 원래 보스를 어려움으로 깨면 열린다
+function upgradeOpen(id) {
+  const base = E.bossInfo(id)?.base;
+  if (!base || DEMON_TEST) return true;
+  return (loadProfile().bosses?.[`${base}:2`]?.wins || 0) > 0 || !!Wal.wallet()?.clears?.[`${base}:2`];
+}
+function showUpgradeUnlock(b) {
+  store.set(`diceheroes.seen_${b.id}`, 1);
+  sfx.boom(2.4); buzz(140);
+  const el = document.createElement('div');
+  el.className = 'demon-reveal up-reveal';
+  el.style.setProperty('--c', b.color);
+  el.innerHTML = `<div class="dr-cracks"></div>
+    <div class="dr-boss">${portrait(b.id, 'dr-img')}</div>
+    <p class="dr-l1">${esc(E.bossInfo(b.base).ko)}을(를) 쓰러뜨리자, 더 강한 기운이 깨어났다.</p>
+    <h1 class="dr-title">${esc(b.ko)}</h1>
+    <p class="dr-l2">${esc(b.title)} · 보스 선택에서 도전할 수 있어요</p>
+    <button class="pbtn gold dr-ok" data-act="demon-ok">도전을 받아들인다</button>`;
+  document.body.appendChild(el);
+  setTimeout(() => { FX().flash(b.color, 500, 0.5); sfx.boom(2.4); }, 1200);
+  setTimeout(() => sfx.legend(), 2200);
+}
+
+// 난이도 해금: 처음 난이도(보통 · 강화 보스는 보통)는 처음부터, 그다음은 바로 아래 난이도를 한 번 이상 깨야 열린다
 function diffOpen(boss, d) {
-  if (d <= 0 || (DEMON_ALL && boss === 'demon')) return true;
+  const ds = E.bossDiffs(boss);
+  if (!ds.includes(d)) return false;
+  if (d <= ds[0] || (DEMON_ALL && boss === 'demon')) return true;
   return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
 }
 const clearedAt = (boss, d) => (loadProfile().bosses?.[`${boss}:${d}`]?.wins || 0) > 0;
@@ -406,6 +431,7 @@ function firstClearNote(o) {
 const topOpenDiff = boss => [2, 1, 0].find(d => diffOpen(boss, d));
 function clampDiff(o) {
   if (E.bossInfo(o.boss)?.final && !demonOpen()) o.boss = 'dragon';   // 테스트 링크로 골라 둔 마왕이 남아 있어도 봉인 중엔 못 고른다
+  if (!upgradeOpen(o.boss)) o.boss = E.bossInfo(o.boss).base;
   if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss);
 }
 
@@ -415,14 +441,17 @@ function bossPicker(o) {
   <section class="frame mode-box">
     <div class="bosses">
       ${E.BOSSES.map(b => b.final && !demonOpen()
-        ? `<button class="boss-pick sealed-boss" style="--c:${b.color}" data-act="boss-locked">
+        ? `<button class="boss-pick sealed-boss final" style="--c:${b.color}" data-act="boss-locked">
           ${portrait(b.id, 'bp')}<b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
-        : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
+        : !upgradeOpen(b.id)
+        ? `<button class="boss-pick sealed-boss" style="--c:${b.color}" data-act="boss-locked" data-base="${b.base}">
+          ${portrait(b.id, 'bp')}<b>${b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
+        : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
     </div>
     <div class="diffs">
-      ${E.DIFFS.map(d => diffOpen(o.boss, d.id)
+      ${E.DIFFS.filter(d => E.bossDiffs(o.boss).includes(d.id)).map(d => diffOpen(o.boss, d.id)
         ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}${!firstPending(o.boss, d.id) ? '' : `<i class="fc" title="첫 토벌 보석 ×${Wal.FIRST_CLEAR_MUL}">${ico('gem', 'xs')}×${Wal.FIRST_CLEAR_MUL}</i>`}</button>`
         : `<button class="diff locked" style="--c:${d.color}" data-act="diff-locked" data-v="${d.id}">${ico('lock')} ${d.ko}</button>`).join('')}
     </div>
@@ -547,6 +576,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
 function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
   if (act === 'pick-back') return pickBack();
+  if (act === 'boss-locked' && t.dataset.base) { sfx.back(); return toast(ico('lock'), '아직 잠든 강적', `${E.bossInfo(t.dataset.base).ko}을(를) 어려움으로 토벌하면 깨어나요.`, 2400); }
   if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), '봉인된 보스', '화염룡 · 오크 대장 · 리치 왕의 어려움을 모두 깨면 봉인이 풀려요.', 2400); }
   if (act === 'diff-locked') {
     sfx.back();
@@ -1275,7 +1305,7 @@ function readyCombos(p) {
   const counts = [0, 0, 0, 0, 0, 0, 0];
   S.dice.forEach(v => counts[v]++);
   return E.CATS.filter(c => {
-    if (p.scores[c.id] !== null || c.id === 'choice') return false;
+    if (p.scores[c.id] !== null || c.id === 'choice' || E.rocked(S, c.id)) return false;
     if (c.up) return counts[c.up] >= 3;
     return E.fiveSets(S.dice).some(d => E.baseScore(c.id, d) > 0);
   }).map(c => c.id);
@@ -1363,9 +1393,13 @@ function diceOverlay(myTurn) {
     const p = tray.screenPos(i);
     return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${SEAL_SIGIL}</div>`;
   }).join('') : '';
-  if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals; return; }
+  const frost = S.rolled && S.frozen?.length && !tray.anim ? S.frozen.map(i => {
+    const p = tray.screenPos(i);
+    return `<div class="frost-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${ico('snow', 'xs')}</div>`;
+  }).join('') : '';
+  if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals + frost; return; }
   const box = box0;
-  ovl.innerHTML = seals + S.dice.map((v, i) => {
+  ovl.innerHTML = seals + frost + S.dice.map((v, i) => {
     if (S.sealed?.includes(i)) return '';
     const p = tray.screenPos(i);
     const x = p.x - box.left, y = p.y - box.top;
@@ -1399,12 +1433,24 @@ function bossPanel() {
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
       <div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
         <em>HP ${hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
+      ${bossStatus(b)}
       <div class="boss-skills">
         ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}</button>`).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
       </div>
     </div>
   </section>`;
+}
+
+// 강화 보스 상태 한 줄: 세머리 용 머리 · 키클롭스 응시 칸 · 오버로드 해골병
+function bossStatus(b) {
+  if (b.id === 'hydra') {
+    const now = E.HEADS[(S.round - 1) % 3];
+    return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
+  }
+  if (b.id === 'cyclops' && b.gaze?.length) return `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`;
+  if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> <small>${n ? `라운드 끝마다 +${n * E.NECRO_HEAL} 회복` : '0점을 적으면 해골병이 생겨요'}</small></div>`; }
+  return '';
 }
 
 function tip(cur, myTurn, okQuests, combos = []) {
@@ -1426,15 +1472,17 @@ function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
     const done = p.scores[c.id] !== null;
     const r = canPick && !done ? pv(c.id) : null;
     const combo = canPick && combos.includes(c.id);
-    const cls = done ? 'done' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}` : '';
-    const val = done ? p.scores[c.id] : r ? `${r.pts}${S.classic ? '' : `<small>+${r.xp}xp</small>`}` : '–';
+    const rk = r?.rock;                                     // 키클롭스 바위: 이번 차례 못 쓰는 칸
+    const gz = !done && S.boss && E.gazed(S, c.id);         // 키클롭스 응시: 피해 0
+    const cls = done ? 'done' : rk ? 'rocked' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}${gz ? ' gazed' : ''}` : gz ? 'gazed' : '';
+    const val = done ? p.scores[c.id] : rk ? ico('rock', 'xs') : r ? `${r.pts}${S.classic ? '' : `<small>+${r.xp}xp</small>`}` : '–';
     // 보너스가 붙으면 규칙 설명 대신 어디서 몇 점 붙었는지 보여 준다
     const armed = r && ui.zeroArm === c.id;
     const sub = armed ? '<small class="zero-warn">한 번 더 누르면 0점 기록</small>' : r?.bonus?.length && r.pts > 0
       ? `<small class="bonus-src">${r.bonus.map(b => `${esc(b.ko)} +${b.amt}`).join(' · ')}</small>`
       : `<small>${CAT_HELP[c.id].rule}</small>`;
-    const tag = combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
-    return `<button class="row ${cls}${armed ? ' armed' : ''}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
+    const tag = rk ? '<em class="tag rock">바위</em>' : gz ? '<em class="tag gaze">응시 · 피해 0</em>' : combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
+    return `<button class="row ${cls}${armed ? ' armed' : ''}" data-act="score" data-cat="${c.id}" ${r && !rk ? '' : 'disabled'}>
       <span class="nm"><b>${c.ko}${tag}</b>${sub}</span><span class="v">${val}</span></button>`;
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
@@ -1701,6 +1749,18 @@ async function rageScene() {
 }
 
 const BOSS_LINES = {
+  hfire: '불 머리의 숨결! 가장 높은 주사위가 1로 타 버렸다',
+  hice: '얼음 머리의 숨결! 주사위 2개가 얼어붙었다 — 다시 굴릴 수 없다 (뒤집기 · 조정은 가능)',
+  hpoison: '독 머리의 숨결! 이번 라운드 15점 이하 기록은 피해 절반',
+  behead: '머리를 베었다! 이 머리는 더 이상 숨결을 뿜지 못한다',
+  regrow: '잘린 머리가 다시 자라났다!',
+  gaze: '외눈 응시! 노려본 칸에 적으면 피해 0',
+  gazed: '외눈이 노려보는 칸이었다 — 피해 0',
+  rock: '바위 투척! 이번 차례 그 칸은 쓸 수 없다',
+  necro: '사령술! 해골병이 주인을 회복시킨다',
+  reverse: '운명 역전! 가장 많이 나온 눈이 전부 뒤집혔다',
+  throne: '뼈의 왕좌! 보호막을 둘렀다',
+  rewind: '시간 역행! 이번 라운드 피해의 절반을 되돌렸다',
   breath: '화염 숨결! 가장 높은 주사위가 1로 타 버렸다',
   twist: '운명 비틀기! 주사위가 뒤집혔다',
   drums: '전쟁의 북! 이번 라운드 굴림 기회 -1',
@@ -1791,7 +1851,7 @@ function holdHp(list) {
   if (S && !S.boss && list.some(f => f.type === 'score')) ui.crownFreeze = true;   // 점수 연출이 끝날 때 왕관을 옮긴다
   if (!S?.boss) { ui.hpHold = null; return; }
   const dealt = list.filter(f => f.type === 'damage').reduce((a, f) => a + f.amount - (f.blocked || 0), 0);
-  const healed = list.filter(f => f.type === 'boss' && f.skill === 'plunder').reduce((a, f) => a + (f.amount || 0), 0);
+  const healed = list.filter(f => f.type === 'boss' && ['plunder', 'necro', 'rewind'].includes(f.skill)).reduce((a, f) => a + (f.amount || 0), 0);
   ui.hpHold = dealt || healed ? Math.min(S.boss.maxHp, S.boss.hp + dealt - healed) : null;
 }
 
@@ -2149,8 +2209,8 @@ async function skillFx(f) {
   const bossC = center(document.getElementById('boss-art'));
   const pts = t && f.dice ? f.dice.map(i => t.screenPos(i)) : [];
   const ms = ui.fast ? 500 : 900;
-  if ((f.skill === 'breath' || f.skill === 'twist') && t && f.from) {
-    const burn = f.skill === 'breath';
+  if (['breath', 'twist', 'hfire', 'reverse'].includes(f.skill) && t && f.from) {
+    const burn = f.skill === 'breath' || f.skill === 'hfire';
     burn ? sfx.fire() : sfx.twist();
     await Promise.all([
       burn ? fx.fire(pts, ms) : fx.vortex(pts, ms),
@@ -2172,7 +2232,45 @@ async function skillFx(f) {
     return;
   }
   if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
-  if (f.skill === 'bone' && bossC) { sfx.twist(); await fx.shield(bossC); return; }
+  if ((f.skill === 'bone' || f.skill === 'throne') && bossC) { sfx.twist(); await fx.shield(bossC); return; }
+  if ((f.skill === 'necro' || f.skill === 'rewind') && bossC) {        // 해골병 · 시간 역행: 보스가 회복
+    sfx.twist();
+    fx.burst(bossC.x, bossC.y + 20, { n: 26, pal: f.skill === 'necro' ? PALETTES.bone : PALETTES.arcane, speed: [40, 140], grav: -160, life: [0.5, 0.9], size: [2, 5] });
+    await wait(ui.fast ? 250 : 450);
+    ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art');
+    return;
+  }
+  if (f.skill === 'hice' && t) {                 // 얼음: 언 주사위에 서리가 내려앉는다
+    sfx.seal?.();
+    pts.forEach(p => { fx.burst(p.x, p.y, { n: 18, pal: PALETTES.frost, speed: [40, 160], life: [0.4, 0.8], size: [2, 5] }); fx.ring(p.x, p.y, { color: '#C8F4FF', r0: 6, r1: 34, dur: 420, width: 3 }); });
+    await wait(ui.fast ? 300 : 600);
+    render();
+    return;
+  }
+  if (f.skill === 'hpoison' && trayC) { sfx.fire(); fx.burst(trayC.x, trayC.y, { n: 40, pal: PALETTES.toxic, speed: [60, 220], grav: -40, life: [0.5, 1], size: [3, 6] }); await wait(ui.fast ? 300 : 600); return; }
+  if ((f.skill === 'behead' || f.skill === 'regrow') && bossC) {
+    f.skill === 'behead' ? sfx.boom(2.4) : sfx.twist();
+    fx.flash(f.skill === 'behead' ? '#FFFFFF' : '#7A5CFF', 260, 0.4);
+    fx.burst(bossC.x, bossC.y - 20, { n: 40, pal: f.skill === 'behead' ? PALETTES.gold : PALETTES.arcane, speed: [80, 260], life: [0.4, 0.9], size: [3, 6] });
+    if (f.skill === 'behead') shake(app.querySelector('.game'), 2);
+    await wait(ui.fast ? 300 : 600);
+    render();
+    return;
+  }
+  if ((f.skill === 'gaze' || f.skill === 'gazed') && bossC) {
+    sfx.haki?.();
+    fx.ring(bossC.x, bossC.y, { color: '#FF3B3B', r0: 10, r1: 120, dur: 500, width: 5 });
+    await wait(ui.fast ? 250 : 500);
+    render();
+    return;
+  }
+  if (f.skill === 'rock' && trayC) {
+    sfx.boom(1.6); shake(app.querySelector('.game'), 1.4);
+    fx.burst(trayC.x, trayC.y, { n: 30, pal: ['#C8C0B0', '#8A8070', '#5A5040'], speed: [80, 240], grav: 300, life: [0.4, 0.8], size: [3, 7] });
+    await wait(ui.fast ? 250 : 500);
+    render();
+    return;
+  }
   if (f.skill === 'seal' && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
     sfx.seal();
     shake(app.querySelector('.game'), 0.6);
@@ -2261,8 +2359,9 @@ async function playOne(f) {
       case 'boss': {
         if (f.skill === 'unseal') { await skillFx(f); break; }
         const b = E.bossInfo(S.boss.id);
-        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
-        if (f.skill !== 'bone') actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
+        const extra = f.cats ? ` 「${f.cats.map(c => E.catInfo(c).ko).join('」「')}」` : f.cat ? ` 「${E.catInfo(f.cat).ko}」` : f.head ? ` (${E.HEAD_KO[f.head]} 머리)` : '';
+        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
+        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;
         break;
@@ -2434,6 +2533,9 @@ function lostGame() {
 function showCoopResults() {
   const b = S.boss, info = E.bossInfo(b.id), grade = E.coopGrade(S);
   if (b.won && b.diff === 2 && demonOpen() && !store.get('diceheroes.demonSeen')) setTimeout(showDemonUnlock, 3200);
+  // 원래 보스를 어려움으로 처음 깨면: 강화 보스가 깨어난다
+  const up = E.BOSSES.find(x => x.base === b.id);
+  if (b.won && b.diff === 2 && up && !store.get(`diceheroes.seen_${up.id}`)) setTimeout(() => showUpgradeUnlock(up), 3400);
   const order = S.players.map((p, i) => ({ p, i, dmg: Math.round(b.dmg[i] || 0) })).sort((x, y) => y.dmg - x.dmg);
   layer.innerHTML = `<div class="overlay solid"><div class="results coop-res">
     <h1>${b.won ? '토벌 성공!' : '토벌 실패…'}</h1>
@@ -3408,6 +3510,7 @@ async function onGameAct(act, t) {
     if (ui.tool === 'nudge') return;          // 조정은 주사위 위의 −1 / +1 로
     if (ui.tool === 'deal') { if (E.isSealed(S, i)) return; sfx.select(); ui.dealDie = i; return render(); }   // 타짜: 고른 주사위 위에 1~6 고르기
     if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
+    if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '이번 차례엔 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.', 1500); }
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();
     if (online) return onlineAct(g => E.toggleHold(g, i));

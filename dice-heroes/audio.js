@@ -13,7 +13,9 @@ export const BGM_FILES = {
   boss_demon:  'assets/bgm/boss_demon.ogg',    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
-export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? `boss_${id}` : 'boss');
+// 강화 보스는 곡을 받기 전까지 원래 보스 곡을 쓴다
+const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich' };
+export const bossSong = id => { const k = BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? id : SONG_BASE[id] || id; return BGM_FILES[`boss_${k}`] || SONGS[`boss_${k}`] ? `boss_${k}` : 'boss'; };
 
 const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
