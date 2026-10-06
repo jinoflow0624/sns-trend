@@ -620,9 +620,35 @@ test('오버로드: 해골병 회복 · 운명 역전', () => {
   assert.ok(E.drainFx(s).some(f => f.skill === 'reverse'));
   void hp;
 });
+test('마신: 영겁의 봉인 · 저주 · 정화 · 미드나잇', () => {
+  const s = E.createGame([{ name: 'A', cls: 'rogue' }], 8, { mode: 'coop', boss: 'archdemon', diff: 1 });
+  assert.equal(s.boss.curse.length, 2);
+  assert.equal(s.events[1], 'midnight');
+  E.roll(s);
+  assert.equal(s.sealed.length, 1);
+  const k = s.sealed[0], v = s.dice[k];
+  E.roll(s);
+  assert.equal(s.sealed.length, 1); assert.equal(s.dice[k], v);   // 다시 굴려도 안 풀린다
+  E.useFlip(s, k);                                                  // 뒤집기로 풀린다 (눈은 그대로)
+  assert.equal(s.sealed.length, 0); assert.equal(s.dice[k], v);
+  // 저주 칸: 두 번째 굴림 이후면 회복
+  const c = s.boss.curse.find(x => x === 'lstr') ? 'lstr' : null;
+  s.board = []; s.boss.hp -= 40; const hp = s.boss.hp;
+  s.boss.curse = ['lstr']; s.dice = [2, 3, 4, 5, 6];
+  E.commitScore(s, 'lstr');
+  assert.equal(s.boss.hp, hp + 30);
+  void c;
+  // 정화: 첫 굴림 그대로면 피해 2배
+  const t = E.createGame([{ name: 'A', cls: 'monk' }], 9, { mode: 'coop', boss: 'archdemon', diff: 1 });
+  t.boss.curse = ['yacht']; E.roll(t); t.dice = [4, 4, 4, 4, 4]; t.board = [];
+  const hp2 = t.boss.hp;
+  E.commitScore(t, 'yacht');
+  assert.equal(t.boss.hp, hp2 - 100);
+  assert.equal(t.boss.curse.length, 0);
+});
 test('강화 보스 봇이 끝까지 둔다', () => {
   let seed = 3; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
-  for (const boss of ['hydra', 'cyclops', 'overlord']) for (const diff of [1, 2]) {
+  for (const boss of ['hydra', 'cyclops', 'overlord', 'archdemon']) for (const diff of [1, 2]) {
     const s = E.createGame([{ name: 'A', cls: 'monk', bot: true }, { name: 'B', cls: 'mage', bot: true }], 13, { mode: 'coop', boss, diff });
     let n = 0; while (!s.ended && n++ < 20000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
     assert.ok(s.ended, boss);

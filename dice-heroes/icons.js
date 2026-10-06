@@ -952,5 +952,5 @@ export const EVENT_ICON = {
   harvest: 'wheat', duel: 'trophy', refresh: 'sheet', blessing: 'sparkle', haki: 'eye',
 };
 export const SKILL_ICON = {
-  breath: 'fire', scale: 'dscale', rage: 'anger', heads: 'fire', behead: 'swords', gaze: 'eye', rock: 'rock', necro: 'skull', reverse: 'vortex', throne: 'bone', drums: 'drum', plunder: 'money', twist: 'vortex', bone: 'bone', seal: 'chain', haki: 'eye',
+  breath: 'fire', scale: 'dscale', rage: 'anger', heads: 'fire', behead: 'swords', gaze: 'eye', rock: 'rock', necro: 'skull', reverse: 'vortex', throne: 'bone', eternal: 'chain', midnight: 'eye', curse: 'skull', drums: 'drum', plunder: 'money', twist: 'vortex', bone: 'bone', seal: 'chain', haki: 'eye',
 };

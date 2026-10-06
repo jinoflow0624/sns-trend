@@ -354,6 +354,8 @@ export const HERO_POSES = {};   // 예: { warrior: ['attack', 'hurt'] }
 const AV = `?v=${GAME.version}`;
 const IMG_SPRITES = {
   demon: `assets/boss/demon.png${AV}`, demon_rage: `assets/boss/demon_rage.png${AV}`,
+  // 마신: 그림을 받기 전까지 마왕의 분노 그림을 쓴다
+  archdemon: `assets/boss/demon_rage.png${AV}`, archdemon_rage: `assets/boss/demon_rage.png${AV}`,
   ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp${AV}`],
     ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp${AV}`])]))),
 };
@@ -398,7 +400,7 @@ export function spriteCanvas(name, scale = 4, flip = false) {
   if (IMG_SPRITES[name]) {
     const c = imgCanvas(name, scale, flip);
     if (c) { cache.set(key, c); return c; }
-    if (!SPRITES[name]) return spriteCanvas(name.startsWith('demon') ? 'demon' : name.split('_')[0], scale, flip);   // 분노·동작 그림을 받기 전: 평소 도트로
+    if (!SPRITES[name]) return spriteCanvas(/^(arch)?demon/.test(name) ? 'demon' : name.split('_')[0], scale, flip);   // 분노·동작 그림을 받기 전: 평소 도트로
   }
   const rows = SPRITES[name];
   const pal = { ...PALETTE, ...(OWN[name] || {}) };

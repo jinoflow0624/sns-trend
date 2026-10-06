@@ -87,7 +87,7 @@ const br = s => esc(s).replace(/\n/g, '<br>');
 const shownHp = () => (S?.boss ? ui.hpHold ?? S.boss.hp : 0);
 const bossRaging = () => !!S?.boss && S.boss.diff === 2 && shownHp() * 2 < S.boss.maxHp && shownHp() > 0;
 const rageShown = () => bossRaging() && ui.rageSeed === S.seed;   // 분노 변신 연출을 본 뒤부터 분노한 모습
-const bossArt = () => (S?.boss?.id === 'demon' && rageShown() ? 'demon_rage' : S?.boss?.id);
+const bossArt = () => (['demon', 'archdemon'].includes(S?.boss?.id) && rageShown() ? `${S.boss.id}_rage` : S?.boss?.id);
 const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
@@ -444,8 +444,8 @@ function bossPicker(o) {
         ? `<button class="boss-pick sealed-boss final" style="--c:${b.color}" data-act="boss-locked">
           ${portrait(b.id, 'bp')}<b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
         : !upgradeOpen(b.id)
-        ? `<button class="boss-pick sealed-boss" style="--c:${b.color}" data-act="boss-locked" data-base="${b.base}">
-          ${portrait(b.id, 'bp')}<b>${b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
+        ? `<button class="boss-pick sealed-boss${b.final ? ' final' : ''}" style="--c:${b.color}" data-act="boss-locked" data-base="${b.base}">
+          ${portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
         : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
@@ -1234,9 +1234,9 @@ function render() {
       ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>`}
-      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
+      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
-      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
+      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
         ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>`}
       <button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
         ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
@@ -1400,9 +1400,10 @@ function diceOverlay(myTurn) {
   if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals + frost; return; }
   const box = box0;
   ovl.innerHTML = seals + frost + S.dice.map((v, i) => {
-    if (S.sealed?.includes(i)) return '';
     const p = tray.screenPos(i);
     const x = p.x - box.left, y = p.y - box.top;
+    // 영겁의 봉인: 뒤집기로 봉인만 푼다
+    if (S.sealed?.includes(i)) return ui.tool === 'flip' && S.sealPerm ? `<button class="flip-tag unseal-tag" style="left:${x}px;top:${y}px" data-act="die" data-i="${i}" aria-label="봉인 풀기"><i>봉인 풀기</i>${ico('chain', 'xs')}</button>` : '';
     if (ui.tool === 'deal') {
       if (ui.dealDie === i) return `<div class="deal-pick" style="left:${x}px;top:${y}px">${[1, 2, 3, 4, 5, 6].map(n => `<button data-act="deal" data-i="${i}" data-v="${n}" ${n === v ? 'disabled' : ''}>${miniDie(n)}</button>`).join('')}</div>`;
       return `<button class="flip-tag deal-tag" style="left:${x}px;top:${y}px" data-act="die" data-i="${i}" aria-label="${v} 바꾸기"><i>바꾸기</i>${miniDie(v)}</button>`;
@@ -1449,6 +1450,7 @@ function bossStatus(b) {
     return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
   }
   if (b.id === 'cyclops' && b.gaze?.length) return `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`;
+  if (b.id === 'archdemon' && b.curse?.length) return `<div class="boss-status">${ico('skull', 'xs')} 저주: <b>${b.curse.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>첫 굴림 그대로 완성하면 정화 ×2</small></div>`;
   if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> <small>${n ? `라운드 끝마다 +${n * E.NECRO_HEAL} 회복` : '0점을 적으면 해골병이 생겨요'}</small></div>`; }
   return '';
 }
@@ -1474,14 +1476,15 @@ function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
     const combo = canPick && combos.includes(c.id);
     const rk = r?.rock;                                     // 키클롭스 바위: 이번 차례 못 쓰는 칸
     const gz = !done && S.boss && E.gazed(S, c.id);         // 키클롭스 응시: 피해 0
-    const cls = done ? 'done' : rk ? 'rocked' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}${gz ? ' gazed' : ''}` : gz ? 'gazed' : '';
+    const cu = !done && S.boss && E.cursed(S, c.id);        // 마신 저주: 첫 굴림이면 정화(×2), 아니면 회복
+    const cls = done ? 'done' : rk ? 'rocked' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}${gz ? ' gazed' : ''}${cu ? ' cursed' : ''}` : gz ? 'gazed' : cu ? 'cursed' : '';
     const val = done ? p.scores[c.id] : rk ? ico('rock', 'xs') : r ? `${r.pts}${S.classic ? '' : `<small>+${r.xp}xp</small>`}` : '–';
     // 보너스가 붙으면 규칙 설명 대신 어디서 몇 점 붙었는지 보여 준다
     const armed = r && ui.zeroArm === c.id;
     const sub = armed ? '<small class="zero-warn">한 번 더 누르면 0점 기록</small>' : r?.bonus?.length && r.pts > 0
       ? `<small class="bonus-src">${r.bonus.map(b => `${esc(b.ko)} +${b.amt}`).join(' · ')}</small>`
       : `<small>${CAT_HELP[c.id].rule}</small>`;
-    const tag = rk ? '<em class="tag rock">바위</em>' : gz ? '<em class="tag gaze">응시 · 피해 0</em>' : combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
+    const tag = rk ? '<em class="tag rock">바위</em>' : cu ? `<em class="tag curse">${S.rollNo === 1 ? '저주 정화 ×2' : '저주 · 마신 회복'}</em>` : gz ? '<em class="tag gaze">응시 · 피해 0</em>' : combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
     return `<button class="row ${cls}${armed ? ' armed' : ''}" data-act="score" data-cat="${c.id}" ${r && !rk ? '' : 'disabled'}>
       <span class="nm"><b>${c.ko}${tag}</b>${sub}</span><span class="v">${val}</span></button>`;
   };
@@ -1593,7 +1596,7 @@ let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
   // 마왕의 패기 라운드: 라운드 표시만 하고, 패기는 그다음 따로 발동한다 (hakiFx)
-  layer.innerHTML = evId === 'haki' || S?.classic
+  layer.innerHTML = evId === 'haki' || evId === 'midnight' || S?.classic
     ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div></div></div>`
     : `<div class="overlay" data-act="skip-banner"><div class="banner">
     <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span></div></div>`;
@@ -1715,7 +1718,7 @@ async function rageScene() {
   const b = E.bossInfo(S.boss.id);
   const rageSkill = b.skills.find(k => k.id === 'rage');
   const pal = PALETTES[RAGE[b.id]] || PALETTES.fire;
-  const before = spriteURL(b.id, 12), after = spriteURL(b.id === 'demon' ? 'demon_rage' : b.id, 12);
+  const before = spriteURL(b.id, 12), after = spriteURL(['demon', 'archdemon'].includes(b.id) ? `${b.id}_rage` : b.id, 12);
   const el = document.createElement('div');
   el.className = 'rage-scene';
   el.style.setProperty('--c', b.color);
@@ -1749,6 +1752,11 @@ async function rageScene() {
 }
 
 const BOSS_LINES = {
+  eternal: '영겁의 봉인! 다시 굴려도 풀리지 않는다 — 뒤집기 1회로 풀 수 있다',
+  curse: '피의 저주! 저주 칸의 점수만큼 마신이 회복했다',
+  cleanse: '저주를 끊었다! 첫 굴림 그대로 완성 — 피해 2배',
+  midheal: '미드나잇! 0점을 틈타 마신이 회복했다',
+  awaken: '진(眞) 각성! 영겁의 봉인이 매 라운드 — 저주가 번진다',
   hfire: '불 머리의 숨결! 가장 높은 주사위가 1로 타 버렸다',
   hice: '얼음 머리의 숨결! 주사위 2개가 얼어붙었다 — 다시 굴릴 수 없다 (뒤집기 · 조정은 가능)',
   hpoison: '독 머리의 숨결! 이번 라운드 15점 이하 기록은 피해 절반',
@@ -1851,7 +1859,7 @@ function holdHp(list) {
   if (S && !S.boss && list.some(f => f.type === 'score')) ui.crownFreeze = true;   // 점수 연출이 끝날 때 왕관을 옮긴다
   if (!S?.boss) { ui.hpHold = null; return; }
   const dealt = list.filter(f => f.type === 'damage').reduce((a, f) => a + f.amount - (f.blocked || 0), 0);
-  const healed = list.filter(f => f.type === 'boss' && ['plunder', 'necro', 'rewind'].includes(f.skill)).reduce((a, f) => a + (f.amount || 0), 0);
+  const healed = list.filter(f => f.type === 'boss' && ['plunder', 'necro', 'rewind', 'curse', 'midheal'].includes(f.skill)).reduce((a, f) => a + (f.amount || 0), 0);
   ui.hpHold = dealt || healed ? Math.min(S.boss.maxHp, S.boss.hp + dealt - healed) : null;
 }
 
@@ -2233,9 +2241,9 @@ async function skillFx(f) {
   }
   if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
   if ((f.skill === 'bone' || f.skill === 'throne') && bossC) { sfx.twist(); await fx.shield(bossC); return; }
-  if ((f.skill === 'necro' || f.skill === 'rewind') && bossC) {        // 해골병 · 시간 역행: 보스가 회복
+  if (['necro', 'rewind', 'curse', 'midheal'].includes(f.skill) && bossC) {        // 해골병 · 시간 역행: 보스가 회복
     sfx.twist();
-    fx.burst(bossC.x, bossC.y + 20, { n: 26, pal: f.skill === 'necro' ? PALETTES.bone : PALETTES.arcane, speed: [40, 140], grav: -160, life: [0.5, 0.9], size: [2, 5] });
+    fx.burst(bossC.x, bossC.y + 20, { n: 26, pal: f.skill === 'necro' ? PALETTES.bone : f.skill === 'rewind' ? PALETTES.arcane : PALETTES.hell, speed: [40, 140], grav: -160, life: [0.5, 0.9], size: [2, 5] });
     await wait(ui.fast ? 250 : 450);
     ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art');
     return;
@@ -2248,6 +2256,15 @@ async function skillFx(f) {
     return;
   }
   if (f.skill === 'hpoison' && trayC) { sfx.fire(); fx.burst(trayC.x, trayC.y, { n: 40, pal: PALETTES.toxic, speed: [60, 220], grav: -40, life: [0.5, 1], size: [3, 6] }); await wait(ui.fast ? 300 : 600); return; }
+  if ((f.skill === 'cleanse' || f.skill === 'awaken') && bossC) {
+    f.skill === 'cleanse' ? sfx.boom(2.6) : sfx.haki?.();
+    fx.flash(f.skill === 'cleanse' ? '#FFFFFF' : '#C21E56', 320, 0.5);
+    fx.burst(bossC.x, bossC.y, { n: 50, pal: f.skill === 'cleanse' ? PALETTES.gold : PALETTES.hell, speed: [80, 300], life: [0.4, 1], size: [3, 7] });
+    shake(app.querySelector('.game'), 2);
+    await wait(ui.fast ? 300 : 650);
+    render();
+    return;
+  }
   if ((f.skill === 'behead' || f.skill === 'regrow') && bossC) {
     f.skill === 'behead' ? sfx.boom(2.4) : sfx.twist();
     fx.flash(f.skill === 'behead' ? '#FFFFFF' : '#7A5CFF', 260, 0.4);
@@ -2271,7 +2288,7 @@ async function skillFx(f) {
     render();
     return;
   }
-  if (f.skill === 'seal' && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
+  if ((f.skill === 'seal' || f.skill === 'eternal') && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
     sfx.seal();
     shake(app.querySelector('.game'), 0.6);
     setTimeout(() => shake(app.querySelector('.game'), 1.3), (ui.fast ? 600 : 1000) / fx.speed);
@@ -2290,7 +2307,7 @@ async function skillFx(f) {
 }
 
 // 마왕의 패기: 화면 전체가 붉게 떨리고 큰 글씨가 내리꽂힌다
-async function hakiFx() {
+async function hakiFx(midnight = false) {
   // 붉은 기운이 번지며 '둥~' 한 번 → 글자가 내려앉아 머물다(약 2.5초) → 서서히 사라진다
   const fx = FX();
   sfx.haki(); buzz(160);
@@ -2301,7 +2318,7 @@ async function hakiFx() {
   await wait(ui.fast ? 150 : 250);
   const el = document.createElement('div');
   el.className = 'haki-banner';
-  el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
+  el.innerHTML = midnight ? `<b>미드나잇</b><small>${ico('eye')} 뒤집기 · 조정 금지 · 0점이면 마신 회복 +${E.MIDNIGHT_HEAL}</small>` : `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
   document.body.appendChild(el);
   setTimeout(() => fx.ring(innerWidth / 2, innerHeight * 0.42, { color: '#FF9AB8', r0: 30, r1: innerWidth * 0.6, dur: 900, width: 4 }), ui.fast ? 400 : 800);
   await wait(ui.fast ? 1300 : 2250);
@@ -2328,7 +2345,7 @@ async function playOne(f) {
         ui.roundShow = null;     // 이제부터 새 라운드 표시
         if (S.boss && f.round === 1 && prefs.fx !== 'min') await bossBanner();
         if (!S.tutorial || f.round > 1) await banner(f.round, f.event);
-        if (f.event === 'haki' && prefs.fx !== 'min') await hakiFx();
+        if ((f.event === 'haki' || f.event === 'midnight') && prefs.fx !== 'min') await hakiFx(f.event === 'midnight');
         break;
       case 'score':
         if (f.pts > 0) {
@@ -2361,7 +2378,7 @@ async function playOne(f) {
         const b = E.bossInfo(S.boss.id);
         const extra = f.cats ? ` 「${f.cats.map(c => E.catInfo(c).ko).join('」「')}」` : f.cat ? ` 「${E.catInfo(f.cat).ko}」` : f.head ? ` (${E.HEAD_KO[f.head]} 머리)` : '';
         const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
-        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
+        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;
         break;
@@ -2643,7 +2660,7 @@ function showAchievements() {
   </div>`;
 }
 // 비밀 도전과제가 열렸나: 마왕은 봉인이 풀린 뒤에만 보인다
-const achOpen = () => ({ demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()) });
+const achOpen = () => ({ demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()), archdemon: upgradeOpen('archdemon') });
 async function claimAchUI(id, btn) {
   if (btn) btn.disabled = true;
   const r = await Wal.claimAch(id);
@@ -3509,7 +3526,7 @@ async function onGameAct(act, t) {
     }
     if (ui.tool === 'nudge') return;          // 조정은 주사위 위의 −1 / +1 로
     if (ui.tool === 'deal') { if (E.isSealed(S, i)) return; sfx.select(); ui.dealDie = i; return render(); }   // 타짜: 고른 주사위 위에 1~6 고르기
-    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
+    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '영겁의 봉인! 다시 굴려도 안 풀려요. 뒤집기를 쓰면 풀려요.' : '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
     if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '이번 차례엔 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.', 1500); }
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();

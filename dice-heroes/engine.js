@@ -215,6 +215,7 @@ export const EVENTS = [
   { id: 'blessing', ko: '여신의 축복', icon: '✨', desc: '모두 뒤집기 1회 충전' },
   // 마왕전 짝수 라운드 전용 (덱에는 없다)
   { id: 'haki', ko: '패기 발동', icon: '👁️', desc: '마왕의 패기! 이번 라운드 뒤집기·조정 금지' },
+  { id: 'midnight', ko: '미드나잇', icon: '🌑', desc: '마신의 밤! 이번 라운드 뒤집기·조정 금지 · 0점을 적으면 마신이 체력을 회복한다' },
 ];
 export const eventInfo = id => EVENTS.find(e => e.id === id);
 // 12라운드에 쓸 덱. 평온은 둘, 나머지는 한 장씩 (첫 라운드는 항상 평온)
@@ -240,11 +241,13 @@ export const HP_TUNE = {
   lich:   [[1.289, 1.217, 1.171, 1.125], [1.293, 1.324, 1.301, 1.271], [1.3815, 1.415, 1.416, 1.417]],
 };
 // 강화 보스(보통 · 어려움만)는 원래 보스의 인원별 배율을 그대로 쓰고 hpMul 로 맞춘다
-HP_TUNE.hydra = HP_TUNE.dragon; HP_TUNE.cyclops = HP_TUNE.orc; HP_TUNE.overlord = HP_TUNE.lich;
+HP_TUNE.hydra = HP_TUNE.dragon; HP_TUNE.cyclops = HP_TUNE.orc; HP_TUNE.overlord = HP_TUNE.lich; HP_TUNE.archdemon = HP_TUNE.demon;
 
 export const BOSSES = [
   {
     id: 'dragon', ko: '화염룡 이그니스', title: '붉은 산의 재앙', color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
+    // 인원별 체력 (v0.33: 2~4인 승률이 1인과 같게)
+    partyAdj: [[1, 1.025, 1.03, 1.03], [1, 1.007, 1.014, 1.01], [1, 1.009, 1.026, 1.024]],
     skills: [
       { id: 'breath', icon: '🔥', ko: '화염 숨결',
         desc: d => `4라운드마다 모두의 첫 굴림에서 가장 높은 주사위 1개가 1로 타 버린다` },
@@ -255,6 +258,8 @@ export const BOSSES = [
   },
   {
     id: 'orc', ko: '오크 대장 그로크', title: '약탈자 군단의 우두머리', color: '#6BBE45', hpMul: [1.26, 1.17, 1.1],
+    // 인원별 체력 (v0.33: 2~4인 승률이 1인과 같게)
+    partyAdj: [[1, 1.058, 1.029, 1.021], [1, 1.04, 1.022, 1.011], [1, 1.046, 1.012, 0.998]],
     skills: [
       { id: 'drums', icon: '🥁', ko: '전쟁의 북',
         desc: d => '3라운드마다 모두의 굴림 기회가 1 줄어든다' },
@@ -266,7 +271,7 @@ export const BOSSES = [
   {
     id: 'lich', ko: '리치 왕 모르가스', title: '잊힌 무덤의 주인', color: '#9486FF', hpMul: [1.22, 1.03, 0.87],
     // 운명 비틀기가 두 번째 굴림으로 바뀐 뒤 여럿이 할수록 어려워져서, 인원별로 체력을 따로 깎는다 [1인, 2인, 3인, 4인]
-    partyAdj: [[1, 0.95, 0.96, 0.97], [1.01, 0.94, 0.945, 0.95], [1, 0.95, 0.94, 0.93]],
+    partyAdj: [[1, 0.955, 0.979, 0.991], [1.01, 0.937, 0.94, 0.954], [1, 0.948, 0.939, 0.942]],
     skills: [
       { id: 'twist', icon: '🌀', ko: '운명 비틀기',
         desc: d => `3라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)` },
@@ -277,8 +282,8 @@ export const BOSSES = [
   },
   // ── 강화 보스: 원래 보스를 어려움으로 깨면 열린다. 보통 · 어려움만 (diffs). 승률은 원래 보스보다 3~5%p 낮게 (sim/coop.mjs) ──
   {
-    id: 'hydra', ko: '세머리 용 트리글라브', title: '불 · 얼음 · 독, 세 숨결의 재앙', color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1.2, 1.13],
-    partyAdj: [[1, 1, 1, 1], [0.97, 1.01, 1.01, 1.017], [0.99, 1.01, 1.005, 1]],
+    id: 'hydra', ko: '세머리 용 트리글라브', title: '불 · 얼음 · 독, 세 숨결의 재앙', color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1.208, 1.113],
+    partyAdj: [[1, 1, 1, 1], [0.97, 1.029, 1.005, 1.015], [0.99, 1.037, 1.031, 1.025]],
     skills: [
       { id: 'heads', icon: '🐉', ko: '세 머리의 숨결',
         desc: d => '라운드마다 불 → 얼음 → 독 머리가 차례로 숨결을 뿜는다. 불: 첫 굴림의 가장 높은 주사위 1개가 1로 · 얼음: 첫 굴림 뒤 주사위 2개가 얼어 다시 굴릴 수 없다(뒤집기 · 조정은 가능) · 독: 15점 이하 기록은 피해 절반' },
@@ -288,8 +293,8 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'cyclops', ko: '키클롭스 폴리페모스', title: '외눈으로 전장을 지배하는 거인', color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1.1, 1],
-    partyAdj: [[1, 1, 1, 1], [0.99, 0.99, 1.01, 1.035], [0.95, 0.98, 1, 1.05]],
+    id: 'cyclops', ko: '키클롭스 폴리페모스', title: '외눈으로 전장을 지배하는 거인', color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1.043, 0.948],
+    partyAdj: [[1, 1, 1, 1], [0.99, 1.103, 1.098, 1.101], [0.95, 1.082, 1.082, 1.071]],
     skills: [
       { id: 'gaze', icon: '👁️', ko: '외눈 응시',
         desc: d => '라운드마다 점수표 칸 하나를 노려본다. 그 칸에 적으면 점수는 남지만 피해는 0' },
@@ -300,8 +305,8 @@ export const BOSSES = [
     ],
   },
   {
-    id: 'overlord', ko: '오버로드 네크라스', title: '죽은 칸을 군대로 일으키는 자', color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 0.91, 0.75],
-    partyAdj: [[1, 1, 1, 1], [1.055, 0.975, 0.99, 1], [1.09, 0.98, 0.97, 0.96]],
+    id: 'overlord', ko: '오버로드 네크라스', title: '죽은 칸을 군대로 일으키는 자', color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 0.92, 0.712],
+    partyAdj: [[1, 1, 1, 1], [1.055, 0.995, 1.004, 0.995], [1.09, 1.054, 1.053, 1.032]],
     skills: [
       { id: 'necro', icon: '⚰️', ko: '사령술',
         desc: d => `0점으로 버린 칸 하나마다 해골병이 일어나 라운드가 끝날 때마다 체력을 ${NECRO_HEAL}씩 회복시킨다` },
@@ -315,6 +320,8 @@ export const BOSSES = [
   {
     // 세 보스의 어려움을 모두 깨면 나타난다. 승률은 다른 보스의 약 70% (봇 시뮬레이션), 보석 보상 1.2배
     id: 'demon', ko: '마왕 릴리스', title: '봉인에서 깨어난 밤의 여왕', color: '#C21E56', hpMul: [1, 1, 1], final: true,
+    // 인원별 체력 (v0.33: 2~4인 승률이 1인과 같게)
+    partyAdj: [[1, 0.986, 0.967, 0.963], [1, 0.974, 0.943, 0.936], [1, 0.984, 0.961, 0.939]],
     skills: [
       { id: 'seal', icon: '⛓️', ko: '봉인',
         desc: d => `홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인되어 재굴림·뒤집기·조정을 할 수 없다 (다시 굴리면 풀림)` },
@@ -323,8 +330,26 @@ export const BOSSES = [
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 변신 — 봉인이 주사위 2개로' : '어려움에서만 쓴다' },
     ],
   },
+  {
+    // 마왕을 어려움으로 깨면 나타난다 (그전에는 ??? 로 숨긴다). 보통 · 어려움만. 승률은 마왕보다 7~10%p 낮게
+    id: 'archdemon', ko: '마신 릴리스', title: '봉인을 삼킨 밤의 신', color: '#7A0E3A', base: 'demon', diffs: [1, 2], final: true, hpMul: [1, 0.988, 1.03],
+    partyAdj: [[1, 1, 1, 1], [1, 0.978, 0.925, 0.913], [1, 0.975, 0.942, 0.902]],
+    skills: [
+      { id: 'eternal', icon: '⛓️', ko: '영겁의 봉인',
+        desc: d => '홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인된다. 다시 굴려도 풀리지 않고, 뒤집기 1회를 쓰면 풀린다' },
+      { id: 'midnight', icon: '🌑', ko: '미드나잇',
+        desc: d => `짝수 라운드: 뒤집기 · 조정 금지. 이 라운드에 0점을 적으면 마신이 체력 ${MIDNIGHT_HEAL} 회복` },
+      { id: 'curse', icon: '🩸', ko: '피의 저주',
+        desc: d => '판 시작 때 큰 족보 2칸(포카인드 · 풀하우스 · 스트레이트 · 요트)을 저주한다. 저주 칸에 적은 점수는 피해 대신 마신을 회복시킨다. 단, 첫 굴림 그대로 완성해 적으면 저주를 끊고 피해 2배' },
+      { id: 'rage', icon: '💢', ko: '진(眞) 각성', desc: d => d === 2 ? '체력이 절반 아래면 각성 — 영겁의 봉인이 매 라운드, 저주 칸 1개 추가' : '어려움에서만 쓴다' },
+    ],
+  },
 ];
 export const bossInfo = id => BOSSES.find(b => b.id === id);
+export const MIDNIGHT_HEAL = 15;
+export const CURSE_CATS = ['four', 'full', 'sstr', 'lstr', 'yacht'];
+// 마신: 저주 칸 (첫 굴림 그대로면 정화)
+export const cursed = (s, cat) => s.boss?.id === 'archdemon' && !!s.boss.curse?.includes(cat);
 export const HYDRA_CUT = 30, CYCLOPS_PLUNDER = 15, NECRO_HEAL = 3, THRONE_SHIELD = 15;
 export const HEADS = ['fire', 'ice', 'poison'];
 export const HEAD_KO = { fire: '불', ice: '얼음', poison: '독' };
@@ -342,7 +367,7 @@ export const rocked = (s, cat) => s.rock === cat;
 // 오버로드: 해골병 수 (파티가 0점으로 버린 칸)
 export const skeletons = s => s.players.reduce((a, p) => a + CAT_IDS.filter(id => p.scores[id] === 0).length, 0);
 // 봉인·패기 (마왕)
-const haki = s => event(s) === 'haki';
+const haki = s => event(s) === 'haki' || event(s) === 'midnight';   // 마왕 패기 · 마신 미드나잇: 뒤집기 · 조정 금지
 export const isSealed = (s, i) => !!s.sealed?.includes(i);
 const enraged = s => s.boss.diff === 2 && s.boss.hp * 2 < s.boss.maxHp;
 const every = (s, k) => s.round % k === 0;
@@ -371,6 +396,12 @@ function bossAfterRoll(s) {
     s.sealed = idx;
     log(s, `마왕의 봉인! 주사위 ${idx.length}개가 봉인됐다`);
     fx(s, { type: 'boss', skill: 'seal', dice: idx });
+  }
+  if (b.id === 'archdemon' && s.rollNo === 1 && (s.round % 2 === 1 || enraged(s)) && s.rollsLeft > 0) {
+    s.sealed = shuffle(s, s.dice.map((v, k) => k)).slice(0, 1);
+    s.sealPerm = true;
+    log(s, '영겁의 봉인! 주사위 1개가 봉인됐다 (뒤집기로만 풀린다)');
+    fx(s, { type: 'boss', skill: 'eternal', dice: s.sealed.slice() });
   }
   if (b.id === 'hydra' && s.rollNo === 1) {
     const h = hydraHead(s);
@@ -513,6 +544,10 @@ export function createGame(players, seed = (Math.random() * 2 ** 32) >>> 0, opts
     s.events = ['calm', ...rest].slice(0, ROUNDS);
   }
   if (s.boss?.id === 'demon') s.events = s.events.map((e, i) => (i % 2 === 1 ? 'haki' : e));
+  if (s.boss?.id === 'archdemon') {
+    s.events = s.events.map((e, i) => (i % 2 === 1 ? 'midnight' : e));
+    s.boss.curse = shuffle(s, CURSE_CATS.slice()).slice(0, 2);
+  }
   startTurn(s);
   return s;
 }
@@ -552,6 +587,13 @@ function bossRoundStart(s) {
       fx(s, { type: 'boss', skill: 'hpoison' });
     }
   }
+  if (b.id === 'archdemon' && enraged(s) && !b.awake) {
+    b.awake = true;
+    const more = shuffle(s, CURSE_CATS.filter(c => !b.curse.includes(c) && s.players.some(p => p.scores[c] === null)))[0];
+    if (more) b.curse.push(more);
+    log(s, `마신 릴리스 진(眞) 각성!${more ? ` 「${catInfo(more).ko}」 칸도 저주받았다` : ''}`);
+    fx(s, { type: 'boss', skill: 'awaken', cat: more || null });
+  }
   if (b.id === 'cyclops') {
     const open = CAT_IDS.filter(id => s.players.some(p => p.scores[id] === null));
     b.gaze = shuffle(s, open).slice(0, enraged(s) ? 2 : 1);
@@ -570,6 +612,7 @@ function startTurn(s) {
   s.rollNo = 0;
   s.toolUsed = false;
   s.sealed = [];
+  s.sealPerm = false;
   s.frozen = [];
   s.rock = null;
   s.rolled = false;
@@ -641,7 +684,7 @@ export function roll(s) {
   s.rolled = true;
   s.rollsLeft--;
   s.rollNo = (s.rollNo || 0) + 1;
-  if (s.sealed?.length && s.rollNo >= 2) {                  // 한 번 다시 굴리면 봉인이 풀린다
+  if (s.sealed?.length && s.rollNo >= 2 && !s.sealPerm) {                  // 한 번 다시 굴리면 봉인이 풀린다
     fx(s, { type: 'boss', skill: 'unseal', dice: s.sealed.slice() });
     s.sealed = [];
   }
@@ -661,6 +704,13 @@ export function useFlip(s, i) {
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (p.flip <= 0) fail('뒤집기 충전이 없습니다.');
   if (haki(s)) fail('마왕의 패기! 이번 라운드는 뒤집기를 쓸 수 없어요.');
+  if (isSealed(s, i) && s.sealPerm) {             // 영겁의 봉인: 뒤집기 1회로 봉인만 푼다
+    s.sealed = s.sealed.filter(k => k !== i);
+    p.flip--;
+    s.toolUsed = true;
+    fx(s, { type: 'boss', skill: 'unseal', dice: [i] });
+    return;
+  }
   if (isSealed(s, i)) fail('봉인된 주사위는 뒤집을 수 없어요. 다시 굴리면 풀려요.');
   s.dice[i] = 7 - s.dice[i];
   p.flip--;
@@ -895,7 +945,23 @@ export function commitScore(s, cat) {
       log(s, `외눈 응시! 「${catInfo(cat).ko}」 칸의 피해가 막혔다`);
       fx(s, { type: 'boss', skill: 'gazed', cat, player: s.turn });
     }
-    const hit = gz ? 0 : Math.round(dmg * armor);
+    // 피의 저주: 저주 칸 점수는 마신 회복 — 첫 굴림 그대로 완성했으면 저주를 끊고 피해 2배
+    const cs = cursed(s, cat) && dmg > 0;
+    const cleanse = cs && s.rollNo === 1;
+    if (cleanse) {
+      armor *= 2;
+      s.boss.curse = s.boss.curse.filter(c => c !== cat);
+      log(s, `${p.name}이(가) 「${catInfo(cat).ko}」의 저주를 끊었다! 피해 2배`);
+      fx(s, { type: 'boss', skill: 'cleanse', cat, player: s.turn });
+    }
+    let hit = gz ? 0 : Math.round(dmg * armor);
+    if (cs && !cleanse) {
+      const heal = Math.min(s.boss.maxHp - s.boss.hp, dmg);
+      s.boss.hp += heal;
+      hit = 0;
+      log(s, `피의 저주! 「${catInfo(cat).ko}」 점수만큼 마신이 회복했다 (+${heal})`);
+      fx(s, { type: 'boss', skill: 'curse', cat, amount: heal, player: s.turn });
+    }
     dealDamage(s, s.turn, hit, cat);
     if (upperHit && !s.ended) {
       log(s, `${p.name} · 상단 보너스 달성! +${UPPER_BONUS}`);
@@ -908,6 +974,12 @@ export function commitScore(s, cat) {
       s.boss.cut[head] = true;
       log(s, `${p.name}이(가) 트리글라브의 ${HEAD_KO[head]} 머리를 베었다!`);
       fx(s, { type: 'boss', skill: 'behead', head, player: s.turn });
+    }
+    if (pts === 0 && s.boss.id === 'archdemon' && event(s) === 'midnight' && !s.ended) {
+      const heal = Math.min(s.boss.maxHp - s.boss.hp, MIDNIGHT_HEAL);
+      s.boss.hp += heal;
+      log(s, `미드나잇! 0점을 틈타 마신이 회복했다 (+${heal})`);
+      fx(s, { type: 'boss', skill: 'midheal', amount: heal });
     }
     if (pts === 0 && (s.boss.id === 'orc' || s.boss.id === 'cyclops') && !s.ended) {
       const heal = s.boss.id === 'cyclops' ? CYCLOPS_PLUNDER : 10 * (enraged(s) ? 2 : 1);
@@ -1177,7 +1249,7 @@ function valueOf(s, p, d, rollNo = s.rollNo) {
   for (const id of left) {
     if (rocked(s, id)) continue;
     const pts = catScore(s, p, id, d, rollNo);
-    let v = pts - (late ? 0 : EXPECT[id]) - (gazed(s, id) ? pts * 0.8 : 0);
+    let v = pts - (late ? 0 : EXPECT[id]) - (gazed(s, id) ? pts * 0.8 : 0) - (cursed(s, id) ? (rollNo === 1 ? -pts : pts * 1.8) : 0);
     const up = catInfo(id).up;
     if (up && pts > 0) v += (pts - 3 * up) * 0.6;  // 상단 보너스 진척
     if (pts === 0) v -= 2;
@@ -1270,7 +1342,7 @@ export function botAction(s, rng = Math.random, samples = 24) {
   for (const id of left) {
     if (rocked(s, id)) continue;
     const pts = catScore(s, p, id);
-    let v = pts - (late ? 0 : EXPECT[id]) - (gazed(s, id) ? pts * 0.8 : 0);
+    let v = pts - (late ? 0 : EXPECT[id]) - (gazed(s, id) ? pts * 0.8 : 0) - (cursed(s, id) ? (s.rollNo === 1 ? -pts : pts * 1.8) : 0);
     const up = catInfo(id).up;
     if (up && pts > 0) v += (pts - 3 * up) * 0.6;
     if (v > bestV) { bestV = v; bestCat = id; }

@@ -23,7 +23,7 @@ export const PALETTES = {
   hell:   ['#FFFFFF', '#FF9AB8', '#FF2A6A', '#C21E56', '#4A0A24'],
 };
 // 분노 불꽃 색
-export const RAGE = { dragon: 'fire', orc: 'toxic', lich: 'arcane', hydra: 'arcane', cyclops: 'frost', overlord: 'hell', demon: 'hell' };
+export const RAGE = { dragon: 'fire', orc: 'toxic', lich: 'arcane', hydra: 'arcane', cyclops: 'frost', overlord: 'hell', demon: 'hell', archdemon: 'hell' };
 
 // 점수 크기에 따라 공격 색과 세기를 고른다
 export function attackStyle(pts, cat) {
