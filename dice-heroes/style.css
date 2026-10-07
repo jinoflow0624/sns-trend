@@ -712,14 +712,16 @@ img.t-boss { width: 44px; height: 44px; }
 .combo-tag { position: absolute; top: -8px; left: -4px; font-size: 10px; font-weight: 700; background: var(--mint); color: #052E22; padding: 0 4px; border: 2px solid var(--ink); }
 .member.viewing { box-shadow: inset 0 0 0 2px var(--sky); }
 
-/* 보스 패널 (작게) · 분노하면 커지고 불탄다 */
+/* 보스 패널 (작게) · 분노하면 커지고 불탄다
+   그림은 폭 100px까지(좁은 폰은 글자 칸이 240px 밑으로 줄지 않게 덜), 높이는 패널 줄 높이만큼 — 패널은 거의 늘리지 않는다 */
 .game .boss-panel { padding: 5px 8px; gap: 8px; position: relative; z-index: 1; }
-.game .boss-art { width: 68px; height: 68px; transition: transform .4s cubic-bezier(.2,1.5,.4,1); }
-.game .boss-art img.boss { width: 68px; height: 68px; }
+.game .boss-art { width: clamp(68px, calc(100vw - 290px), 100px); height: auto; min-height: 72px; align-self: stretch; transition: transform .4s cubic-bezier(.2,1.5,.4,1); }
+.game .boss-art img.boss { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
 .game .boss-name b { font-size: 12px; }
 .game .hp { height: 17px; }
 .game .skill-chip { font-size: 10px; }
 .boss-panel.rage .boss-art { transform: scale(1.32) translateY(-3px); z-index: 2; }
+.game .boss-panel.rage .boss-art { transform: scale(1.12) translateY(-2px); }   /* 게임 칸은 그림이 이미 커서 덜 키운다 */
 .boss-panel.rage .boss-art img.boss { animation: rageShake .18s steps(2) infinite; filter: drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 2px #fff); }
 .boss-panel.rage .aura { inset: -6px; background: radial-gradient(circle, color-mix(in srgb, var(--c) 90%, #fff), color-mix(in srgb, var(--c) 40%, transparent) 45%, transparent 72%); animation: aura .5s ease-in-out infinite; }
 @keyframes rageShake { 50% { transform: translate(1px, -1px) scale(1.02); } }
