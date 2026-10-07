@@ -86,7 +86,8 @@ const br = s => esc(s).replace(/\n/g, '<br>');
 // 분노: 어려움에서 화면에 보이는 체력(연출 중엔 아직 안 깎인 체력)이 절반 아래일 때 — 피해 연출보다 먼저 분노해 보이지 않게
 const shownHp = () => (S?.boss ? ui.hpHold ?? S.boss.hp : 0);
 const bossRaging = () => !!S?.boss && S.boss.diff === 2 && shownHp() * 2 < S.boss.maxHp && shownHp() > 0;
-const bossArt = () => S?.boss?.id;
+const rageShown = () => bossRaging() && ui.rageSeed === S.seed;   // 분노 변신 연출을 본 뒤부터 분노한 모습
+const bossArt = () => (['demon', 'archdemon'].includes(S?.boss?.id) && rageShown() ? `${S.boss.id}_rage` : S?.boss?.id);
 const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
@@ -1711,13 +1712,13 @@ function countUp(root) {
   });
 }
 
-// 분노 변신: 화면 가운데에 보스가 크게 나타나 몸을 떨며 변한다 (그림은 그대로, 연출로만)
+// 분노 변신: 화면 가운데에 보스가 크게 나타나 몸을 떨며 변한다 (마왕은 분노한 모습으로 바뀐다)
 async function rageScene() {
   ui.rageSeed = S.seed;
   const b = E.bossInfo(S.boss.id);
   const rageSkill = b.skills.find(k => k.id === 'rage');
   const pal = PALETTES[RAGE[b.id]] || PALETTES.fire;
-  const before = spriteURL(b.id, 12), after = before;
+  const before = spriteURL(b.id, 12), after = spriteURL(['demon', 'archdemon'].includes(b.id) ? `${b.id}_rage` : b.id, 12);
   const el = document.createElement('div');
   el.className = 'rage-scene';
   el.style.setProperty('--c', b.color);

@@ -352,10 +352,10 @@ export const HERO_POSES = {};   // 예: { warrior: ['attack', 'hurt'] }
 // 그림 파일로 된 스프라이트 — 마왕 릴리스 (512px 도트 그림: 평소 · 분노) · 새 직업 그림. 파일을 받기 전에는 위의 도트로 대신 그린다
 // 주소 끝 ?v=게임 버전: 그림을 바꿔 배포하면 오프라인 캐시에 남은 예전 그림 대신 바로 새 그림을 받는다 (sw.js)
 const AV = `?v=${GAME.version}`;
-const BOSS_ART = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'];
 const IMG_SPRITES = {
-  // 보스 8종 그림 (tools/make_boss_sprites.py로 도트화). 분노는 그림을 바꾸지 않고 연출로만 보여 준다
-  ...Object.fromEntries(BOSS_ART.map(id => [id, `assets/boss/${id}.png${AV}`])),
+  demon: `assets/boss/demon.png${AV}`, demon_rage: `assets/boss/demon_rage.png${AV}`,
+  // 마신: 그림을 받기 전까지 마왕의 분노 그림을 쓴다
+  archdemon: `assets/boss/demon_rage.png${AV}`, archdemon_rage: `assets/boss/demon_rage.png${AV}`,
   ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp${AV}`],
     ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp${AV}`])]))),
 };
