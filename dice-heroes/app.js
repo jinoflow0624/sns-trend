@@ -86,7 +86,7 @@ const br = s => esc(s).replace(/\n/g, '<br>');
 // 분노: 어려움에서 화면에 보이는 체력(연출 중엔 아직 안 깎인 체력)이 절반 아래일 때 — 피해 연출보다 먼저 분노해 보이지 않게
 const shownHp = () => (S?.boss ? ui.hpHold ?? S.boss.hp : 0);
 const bossRaging = () => !!S?.boss && S.boss.diff === 2 && shownHp() * 2 < S.boss.maxHp && shownHp() > 0;
-const bossArt = () => S?.boss?.id && `${S.boss.id}_bust`;   // 게임 중에는 상반신 (얼굴이 작은 칸에서도 보이게)
+const bossArt = () => S?.boss?.id;
 const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);

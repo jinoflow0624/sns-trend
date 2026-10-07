@@ -355,7 +355,7 @@ const AV = `?v=${GAME.version}`;
 const BOSS_ART = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'];
 const IMG_SPRITES = {
   // 보스 8종 그림 (tools/make_boss_sprites.py로 원본을 512px로 맞춤). 분노는 그림을 바꾸지 않고 연출로만 보여 준다
-  ...Object.fromEntries(BOSS_ART.flatMap(id => [[id, `assets/boss/${id}.webp${AV}`], [`${id}_bust`, `assets/boss/${id}_bust.webp${AV}`]])),   // _bust: 게임 중 보스 칸 · 알림용 상반신
+  ...Object.fromEntries(BOSS_ART.map(id => [id, `assets/boss/${id}.webp${AV}`])),
   ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp${AV}`],
     ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp${AV}`])]))),
 };
