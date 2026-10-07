@@ -2,6 +2,7 @@
 
 원본은 생성 그림이라 너무 촘촘해서, 보스 칸(68~96px)에서는 잔점이 뭉개져 화질이 나빠 보인다.
 도트 한 칸을 굵게(GRID칸 격자) 만든다:
+  0) 머리·상체 중심 정사각형으로 자르고(CROP), 떠 있는 작은 부스러기를 지운다(ISLAND)
   1) 목표의 4배 크기로 줄여 경계 보존 평탄화로 미세 질감을 지운다
   2) 목표 크기로 평균 축소 → 살짝 샤픈
   3) Lab k-평균으로 COLORS색 (채도 축에 무게를 줘야 금빛 사슬·눈빛이 살아남는다)
@@ -26,6 +27,13 @@ CHROMA = 1.8                  # 색 묶을 때 채도(a·b) 가중치
 SMOOTH = 2                    # 평탄화 횟수
 SHARPEN = 0.6
 OUTLINE = (26, 16, 48)        # #1A1030 · 다른 도트와 같은 외곽선 색
+# 특징 부위만 크게: 원본 그림(투명 여백 뺀 상자)에서 정사각형으로 잘라 쓴다 (가운데 x, 위 y, 한 변 — 긴 변 대비)
+# 날개 끝·받침대·흩어진 장식은 68px 칸에서 잔점만 되므로 머리·상체 중심으로 자른다
+CROP = {
+    'dragon': (.5, 0, .74), 'orc': (.47, 0, .76), 'lich': (.5, 0, .74), 'hydra': (.5, 0, .64),
+    'cyclops': (.5, 0, .76), 'overlord': (.5, 0, .74), 'demon': (.5, .02, .54), 'archdemon': (.5, .02, .52),
+}
+ISLAND = 0.004                # 이보다 작은(전체 면적 대비) 떠 있는 조각은 지운다 (불씨·뼈 부스러기)
 IDS = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon']
 
 
@@ -42,12 +50,22 @@ def pixelate(name):
     box = Image.fromarray(a[..., 3]).point(lambda v: 255 if v > 24 else 0).getbbox()
     a = a[box[1]:box[3], box[0]:box[2]]
     h, w = a.shape[:2]
+    cx, top, side = CROP.get(name, (.5, 0, 1))
+    side = round(max(w, h) * side)
+    x0 = min(max(0, round(w * cx - side / 2)), max(0, w - side))
+    a = a[round(h * top):round(h * top) + side, x0:x0 + side]
+    h, w = a.shape[:2]
     k = FIT / max(w, h)
     nw, nh = max(1, round(w * k)), max(1, round(h * k))
     pm = a.astype(np.float32) / 255
     pm[..., :3] *= pm[..., 3:]
     # 1) 4배 크기에서 미세 질감 지우기
     rgb, al = area(pm, (nw * 4, nh * 4))
+    on = (al > 0.5).astype(np.uint8)
+    n, cc, st, _ = cv2.connectedComponentsWithStats(on, connectivity=8)
+    for i in range(1, n):
+        if st[i, 4] < ISLAND * on.size:
+            al[cc == i] = 0
     rgb8 = (rgb * 255).astype(np.uint8)
     for _ in range(SMOOTH):
         rgb8 = cv2.bilateralFilter(rgb8, 7, 40, 5)
