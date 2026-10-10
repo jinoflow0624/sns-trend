@@ -1427,7 +1427,7 @@ function bossPanel() {
   // 분노는 살아 있을 때만 (체력 0에서 분노 흔들림이 계속돼 발작처럼 보였다)
   const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0 && ui.rageSeed === S.seed;
   return `
-  <section class="boss-panel${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
+  <section class="boss-panel${['demon', 'archdemon'].includes(b.id) ? ' big-boss' : ''}${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
     <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
@@ -2207,6 +2207,30 @@ function crownDraw(g, x, y, s = 1, rot = 0) {
 }
 
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
+// 보스 스킬 이름표: 화면 가운데 스킬 이름이 쾅 찍히고 보스 그림이 번쩍인다 (색은 스킬 기운)
+const CAST = {
+  breath: ['화염 숨결', '#FF8A1A'], hfire: ['불 머리의 숨결', '#FF8A1A'], hice: ['얼음 머리의 숨결', '#7CE0FF'], hpoison: ['독 머리의 숨결', '#5FD13A'],
+  behead: ['머리 베기!', '#FFD24A'], regrow: ['머리 재생', '#B98CFF'], twist: ['운명 비틀기', '#B98CFF'], reverse: ['운명 역전', '#B98CFF'],
+  drums: ['전쟁의 북', '#B6F25A'], plunder: ['약탈', '#FFD24A'], bone: ['뼈 방패', '#C8F4FF'], throne: ['뼈의 왕좌', '#C8F4FF'],
+  gaze: ['외눈 응시', '#FF3B3B'], gazed: ['응시당한 칸 — 피해 0', '#FF3B3B'], rock: ['바위 투척', '#C8C0B0'],
+  necro: ['사령술', '#9DB7D6'], rewind: ['시간 역행', '#B98CFF'], seal: ['봉인', '#FF2A6A'], eternal: ['영겁의 봉인', '#FF2A6A'],
+  curse: ['피의 저주', '#C21E56'], cleanse: ['저주 정화!', '#FFD24A'], midheal: ['미드나잇', '#FF2A6A'], awaken: ['진(眞) 각성', '#FF2A6A'],
+};
+function castBanner(f) {
+  const [name, color] = CAST[f.skill] || [];
+  if (!name || prefs.fx === 'min') return;
+  const el = document.createElement('div');
+  el.className = 'cast-banner';
+  el.style.setProperty('--c', color);
+  const sub = f.cats ? f.cats.map(c => E.catInfo(c).ko).join(' · ') : f.cat ? E.catInfo(f.cat).ko : f.head ? `${E.HEAD_KO[f.head]} 머리` : '';
+  el.innerHTML = `<b>${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), (ui.fast ? 700 : 1200) / fxRate());
+  const art = document.getElementById('boss-art');
+  if (art) { art.style.setProperty('--cast', color); art.classList.remove('casting'); void art.offsetWidth; art.classList.add('casting'); setTimeout(() => art.classList.remove('casting'), 900); }
+}
+
+// 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 async function skillFx(f) {
   const fx = FX();
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
@@ -2216,11 +2240,18 @@ async function skillFx(f) {
   const bossC = center(document.getElementById('boss-art'));
   const pts = t && f.dice ? f.dice.map(i => t.screenPos(i)) : [];
   const ms = ui.fast ? 500 : 900;
+  const game = app.querySelector('.game');
+  const heal = () => { ui.hpHold = null; render(); if (f.amount) floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); };
+  if (f.skill !== 'unseal') castBanner(f);
+  const mouth = bossC ? { x: bossC.x, y: bossC.y + 6 } : null;
+  // 숨결 · 운명 비틀기 · 운명 역전: 보스에게서 광선이 뿜어져 주사위를 태우거나 뒤집는다
   if (['breath', 'twist', 'hfire', 'reverse'].includes(f.skill) && t && f.from) {
     const burn = f.skill === 'breath' || f.skill === 'hfire';
     burn ? sfx.fire() : sfx.twist();
+    if (mouth && pts.length) { shake(game, burn ? 1.6 : 1); await fx.beam(mouth, pts, { pal: burn ? PALETTES.fire : PALETTES.arcane, ms: ui.fast ? 350 : 600 }); }
+    if (f.skill === 'reverse') fx.flash('#7A4BFF', 300, 0.35);
     await Promise.all([
-      burn ? fx.fire(pts, ms) : fx.vortex(pts, ms),
+      burn ? fx.fire(pts, ms) : fx.vortex(pts, ms * (f.skill === 'reverse' ? 1.3 : 1)),
       ...f.dice.map(i => t.morph(i, burn ? 1 : 7 - f.from[i], burn ? 'burn' : 'twist', ms)),
     ]);
     ui.dice = null;
@@ -2228,69 +2259,94 @@ async function skillFx(f) {
     await wait(200);
     return;
   }
+  if (f.skill === 'hice' && t) {                 // 얼음 숨결: 냉기 광선 → 주사위에 얼음 결정이 돋는다
+    sfx.seal?.();
+    if (mouth && pts.length) await fx.beam(mouth, pts, { pal: PALETTES.frost, ms: ui.fast ? 350 : 600 });
+    shake(game, 1.2);
+    await fx.frost(pts, ui.fast ? 500 : 850);
+    render();
+    return;
+  }
+  if (f.skill === 'hpoison' && trayC) {          // 독 숨결: 독 광선 → 트레이에 독안개 · 거품
+    sfx.fire();
+    if (mouth) await fx.beam(mouth, [trayC], { pal: PALETTES.toxic, ms: ui.fast ? 350 : 600, width: 30 });
+    await fx.toxic(trayC, trayC.w, ui.fast ? 600 : 1100);
+    return;
+  }
+  if (f.skill === 'behead' && bossC) {           // 머리 베기: X자 참격 · 금빛 피 · 머리가 날아간다
+    sfx.slash?.(); sfx.boom(2.6); buzz(120);
+    shake(game, 2.6);
+    await fx.slash(bossC, Math.max(70, bossC.w * 0.5), ui.fast ? 500 : 800);
+    render();
+    return;
+  }
+  if (f.skill === 'regrow' && bossC) { sfx.twist(); shake(game, 1.6); await fx.regrow(bossC, ui.fast ? 500 : 900); render(); return; }
+  if ((f.skill === 'gaze' || f.skill === 'gazed') && bossC) {   // 외눈 응시: 거대한 눈이 떠지고 붉은 시선
+    sfx.haki?.(); buzz(80);
+    const sheetBtn = document.querySelector('[data-act=sheet]')?.getBoundingClientRect();
+    const tgt = sheetBtn ? { x: sheetBtn.left + sheetBtn.width / 2, y: sheetBtn.top + sheetBtn.height / 2 } : trayC;
+    await fx.eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, tgt, f.skill === 'gaze' ? (ui.fast ? 700 : 1200) : (ui.fast ? 450 : 700));
+    render();
+    return;
+  }
+  if (f.skill === 'rock' && trayC) {             // 바위 투척: 거대한 바위가 떨어져 쾅
+    sfx.whoosh();
+    await fx.boulder({ x: trayC.x, y: trayC.y }, ui.fast ? 450 : 700);
+    sfx.boom(2.4); buzz(150); shake(game, 2.6);
+    await wait(ui.fast ? 150 : 300);
+    render();
+    return;
+  }
   if (f.skill === 'drums' && trayC) {
     for (let k = 0; k < 3; k++) {
       sfx.drum();
       t?.quake();
       fx.quake(trayC.x, trayC.y, trayC.w);
-      shake(app.querySelector('.game'), 1.4);
+      fx.flash('#B6F25A', 120, 0.18);
+      shake(game, 1.4 + k * 0.4);
       await wait(ui.fast ? 180 : 320);
     }
     return;
   }
-  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
-  if ((f.skill === 'bone' || f.skill === 'throne') && bossC) { sfx.twist(); await fx.shield(bossC); return; }
-  if (['necro', 'rewind', 'curse', 'midheal'].includes(f.skill) && bossC) {        // 해골병 · 시간 역행: 보스가 회복
+  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC, 22); fx.ring(bossC.x, bossC.y, { color: '#FFD24A', r1: 90, dur: 400 }); heal(); return; }
+  if ((f.skill === 'bone' || f.skill === 'throne') && bossC) {
     sfx.twist();
-    fx.burst(bossC.x, bossC.y + 20, { n: 26, pal: f.skill === 'necro' ? PALETTES.bone : f.skill === 'rewind' ? PALETTES.arcane : PALETTES.hell, speed: [40, 140], grav: -160, life: [0.5, 0.9], size: [2, 5] });
-    await wait(ui.fast ? 250 : 450);
-    ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art');
+    if (f.skill === 'throne') { fx.flash('#C8F4FF', 220, 0.3); shake(game, 1.2); }
+    await fx.shield(bossC);
+    if (f.skill === 'throne') await fx.shield(bossC);
     return;
   }
-  if (f.skill === 'hice' && t) {                 // 얼음: 언 주사위에 서리가 내려앉는다
-    sfx.seal?.();
-    pts.forEach(p => { fx.burst(p.x, p.y, { n: 18, pal: PALETTES.frost, speed: [40, 160], life: [0.4, 0.8], size: [2, 5] }); fx.ring(p.x, p.y, { color: '#C8F4FF', r0: 6, r1: 34, dur: 420, width: 3 }); });
-    await wait(ui.fast ? 300 : 600);
+  if (f.skill === 'necro' && bossC && trayC) {   // 사령술: 해골 손이 솟고 영혼이 보스에게
+    sfx.twist();
+    const n = Math.min(6, Math.max(2, f.n || 2));
+    const spots = [...Array(n)].map((_, q) => ({ x: trayC.x - trayC.w * 0.4 + (q + 0.5) * (trayC.w * 0.8 / n), y: trayC.y + 50 }));
+    await fx.souls(spots, bossC, ui.fast ? 600 : 1100);
+    heal();
+    return;
+  }
+  if (f.skill === 'rewind' && bossC) { sfx.twist(); await fx.clock(bossC, ui.fast ? 600 : 1100); heal(); return; }
+  if (f.skill === 'curse' && bossC) { sfx.haki?.(); shake(game, 1.2); await fx.blood(bossC, ui.fast ? 600 : 1000); heal(); return; }
+  if (f.skill === 'midheal' && bossC) { sfx.haki?.(); await fx.moon({ x: bossC.x, y: bossC.y - 10 }, ui.fast ? 500 : 900); heal(); return; }
+  if (f.skill === 'cleanse') {                   // 정화: 금빛 성광 기둥, 붉은 문양이 산산조각
+    sfx.unseal(); sfx.boom(2.6); buzz(120);
+    await fx.holy([trayC || bossC].filter(Boolean), ui.fast ? 500 : 900);
+    shake(game, 2);
     render();
     return;
   }
-  if (f.skill === 'hpoison' && trayC) { sfx.fire(); fx.burst(trayC.x, trayC.y, { n: 40, pal: PALETTES.toxic, speed: [60, 220], grav: -40, life: [0.5, 1], size: [3, 6] }); await wait(ui.fast ? 300 : 600); return; }
-  if ((f.skill === 'cleanse' || f.skill === 'awaken') && bossC) {
-    f.skill === 'cleanse' ? sfx.boom(2.6) : sfx.haki?.();
-    fx.flash(f.skill === 'cleanse' ? '#FFFFFF' : '#C21E56', 320, 0.5);
-    fx.burst(bossC.x, bossC.y, { n: 50, pal: f.skill === 'cleanse' ? PALETTES.gold : PALETTES.hell, speed: [80, 300], life: [0.4, 1], size: [3, 7] });
-    shake(app.querySelector('.game'), 2);
-    await wait(ui.fast ? 300 : 650);
-    render();
-    return;
-  }
-  if ((f.skill === 'behead' || f.skill === 'regrow') && bossC) {
-    f.skill === 'behead' ? sfx.boom(2.4) : sfx.twist();
-    fx.flash(f.skill === 'behead' ? '#FFFFFF' : '#7A5CFF', 260, 0.4);
-    fx.burst(bossC.x, bossC.y - 20, { n: 40, pal: f.skill === 'behead' ? PALETTES.gold : PALETTES.arcane, speed: [80, 260], life: [0.4, 0.9], size: [3, 6] });
-    if (f.skill === 'behead') shake(app.querySelector('.game'), 2);
-    await wait(ui.fast ? 300 : 600);
-    render();
-    return;
-  }
-  if ((f.skill === 'gaze' || f.skill === 'gazed') && bossC) {
-    sfx.haki?.();
-    fx.ring(bossC.x, bossC.y, { color: '#FF3B3B', r0: 10, r1: 120, dur: 500, width: 5 });
-    await wait(ui.fast ? 250 : 500);
-    render();
-    return;
-  }
-  if (f.skill === 'rock' && trayC) {
-    sfx.boom(1.6); shake(app.querySelector('.game'), 1.4);
-    fx.burst(trayC.x, trayC.y, { n: 30, pal: ['#C8C0B0', '#8A8070', '#5A5040'], speed: [80, 240], grav: 300, life: [0.4, 0.8], size: [3, 7] });
-    await wait(ui.fast ? 250 : 500);
+  if (f.skill === 'awaken' && bossC) {           // 진 각성: 핏빛 하늘 · 붉은 문양 · 크게 흔들림
+    sfx.haki?.(); sfx.boom(3); buzz(200);
+    fx.flash('#C21E56', 500, 0.55);
+    shake(game, 3);
+    await fx.blood(bossC, ui.fast ? 700 : 1200);
     render();
     return;
   }
   if ((f.skill === 'seal' || f.skill === 'eternal') && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
     sfx.seal();
-    shake(app.querySelector('.game'), 0.6);
-    setTimeout(() => shake(app.querySelector('.game'), 1.3), (ui.fast ? 600 : 1000) / fx.speed);
+    if (f.skill === 'eternal') fx.flash('#4A0A24', 400, 0.45);
+    shake(game, 0.6);
+    setTimeout(() => shake(game, f.skill === 'eternal' ? 2 : 1.3), (ui.fast ? 600 : 1000) / fx.speed);
     await fx.seal(pts, ui.fast ? 800 : 1300);
     render();
     return;
@@ -2307,6 +2363,7 @@ async function skillFx(f) {
 
 // 마왕의 패기: 화면 전체가 붉게 떨리고 큰 글씨가 내리꽂힌다
 async function hakiFx(midnight = false) {
+  if (midnight) FX().moon({ x: innerWidth / 2, y: innerHeight * 0.28 }, 1600);
   // 붉은 기운이 번지며 '둥~' 한 번 → 글자가 내려앉아 머물다(약 2.5초) → 서서히 사라진다
   const fx = FX();
   sfx.haki(); buzz(160);
