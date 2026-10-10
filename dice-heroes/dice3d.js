@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -273,6 +273,46 @@ export class DiceTray {
     return this.coreM;
   }
 
+  // 세머리 용의 얼음 숨결: 주사위를 감싸는 얼음 껍질 (가장자리는 하얀 성에, 가운데는 비쳐 보이는 얼음, 금 몇 줄)
+  iceMat() {
+    if (this.iceM) return this.iceM;
+    const S = 256, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    // 가운데는 옅은 푸른빛, 가장자리로 갈수록 짙은 성에
+    const rg = g.createRadialGradient(S / 2, S / 2, S * 0.18, S / 2, S / 2, S * 0.72);
+    rg.addColorStop(0, 'rgba(150,215,255,0.30)');
+    rg.addColorStop(0.6, 'rgba(170,228,255,0.50)');
+    rg.addColorStop(1, 'rgba(240,250,255,0.95)');
+    g.fillStyle = rg; g.fillRect(0, 0, S, S);
+    // 테두리 성에 알갱이
+    for (let k = 0; k < 900; k++) {
+      const side = k % 4, t = rnd() * S, d = Math.pow(rnd(), 2.2) * S * 0.2;
+      const [x, y] = side === 0 ? [t, d] : side === 1 ? [S - d, t] : side === 2 ? [t, S - d] : [d, t];
+      g.fillStyle = `rgba(255,255,255,${0.25 + rnd() * 0.55})`;
+      g.beginPath(); g.arc(x, y, 1 + rnd() * 3.2, 0, Math.PI * 2); g.fill();
+    }
+    // 얼음 금
+    g.lineCap = 'round';
+    for (let k = 0; k < 5; k++) {
+      let x = S * (0.15 + rnd() * 0.7), y = S * (0.15 + rnd() * 0.7), a = rnd() * Math.PI * 2;
+      g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(x, y);
+      for (let s = 0; s < 4; s++) { a += (rnd() - 0.5) * 1.4; x += Math.cos(a) * S * 0.09; y += Math.sin(a) * S * 0.09; g.lineTo(x, y); }
+      g.stroke();
+    }
+    // 반사광 띠
+    const sh = g.createLinearGradient(0, 0, S, S);
+    sh.addColorStop(0.18, 'rgba(255,255,255,0)'); sh.addColorStop(0.26, 'rgba(255,255,255,0.45)'); sh.addColorStop(0.34, 'rgba(255,255,255,0)');
+    g.fillStyle = sh; g.fillRect(0, 0, S, S);
+    const tex = this.canvasTex(c);
+    this.iceM = new THREE.MeshStandardMaterial({ map: tex, color: 0xCDEFFF, transparent: true, depthWrite: false, roughness: 0.12, metalness: 0,
+      envMap: this.envMap(), envMapIntensity: 1.3, emissive: new THREE.Color(0x3FA8F0), emissiveIntensity: 0.35 });
+    return this.iceM;
+  }
+
   // 만화풍 음영 3단계
   toonRamp() {
     if (this.ramp) return this.ramp;
@@ -283,15 +323,19 @@ export class DiceTray {
   }
 
   // 디자인 렌더로 만든 면 그림 (불러오면 다시 그린다)
+  // 받아 둔 그림의 텍스처는 버리지 않고 다시 쓴다 (스킨을 다시 고를 때 GPU에 또 올리느라 늦게 뜨지 않게)
   imageTex(url) {
+    this.texCache ||= new Map();
+    if (this.texCache.has(url)) return this.texCache.get(url);
     const img = READY.get(url);
     let t;
-    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; }
+    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; t.userData.cached = true; this.texCache.set(url, t); }
     else t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
   }
+  drop(t) { if (t && !t.userData?.cached) t.dispose(); }
 
   canvasTex(c) {
     const t = new THREE.CanvasTexture(c);
@@ -311,7 +355,12 @@ export class DiceTray {
         preloadDice(diceId).then(go, go);
       } else this.applyDice(diceId);
     }
-    this.applyTray(trayId);
+    if (trayId !== this.traySkin && this.floorMesh?.material.map && !trayReady(trayId)) {
+      // 트레이도 그림을 다 받은 뒤에 바꾼다 (그 사이엔 지금 트레이 그대로)
+      this.wantTray = trayId;
+      const go = () => { if (this.wantTray === trayId && this.running) { this.applyTray(trayId); this.dirty = true; } };
+      preloadTray(trayId).then(go, go);
+    } else { this.wantTray = trayId; this.applyTray(trayId); }
   }
 
   applyDice(diceId) {
@@ -339,7 +388,7 @@ export class DiceTray {
         m.userData.baseTransparent = !!p.clear;
         this.faceMats[v] = m;
         if (this.ghostMats) this.ghostMats[v] = null;    // 스킨이 바뀌면 봉인용 반투명 재질도 새로
-        if (old) { old.map?.dispose(); if (old.emissiveMap !== old.map) old.emissiveMap?.dispose(); old.bumpMap?.dispose(); old.dispose(); }
+        if (old) { this.drop(old.map); if (old.emissiveMap !== old.map) this.drop(old.emissiveMap); this.drop(old.bumpMap); old.dispose(); }
       }
       this.outlineOn = !!p.outline;
       this.coreOn = !!p.core;
@@ -354,7 +403,7 @@ export class DiceTray {
       this.traySkin = trayId;
       const st = trayStyle(trayId);
       const fm = this.floorMesh.material;
-      fm.map?.dispose(); fm.emissiveMap?.dispose();
+      this.drop(fm.map); this.drop(fm.emissiveMap);
       // 그림 트레이는 파일(바닥·발광 지도), 나머지는 캔버스로 그린 바닥
       const img = kind => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind));
       fm.map = img('floor') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
@@ -371,7 +420,7 @@ export class DiceTray {
       this.trimMat.envMap = st.trimEnv ? this.envMap() : null;
       this.trimMat.needsUpdate = true;
       const bm = this.boxFloor.material;
-      bm.map?.dispose();
+      this.drop(bm.map);
       bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
     }
@@ -457,6 +506,12 @@ export class DiceTray {
       core.scale.setScalar(0.58);
       core.visible = !!this.coreOn;
       mesh.add(core);
+      // 얼음 껍질: 주사위의 자식이라 뒤집거나 튀어도 그대로 붙어 다닌다 (setFrozen)
+      const ice = new THREE.Mesh(this.geo, this.iceMat());
+      ice.scale.setScalar(1.1);
+      ice.visible = false;
+      ice.renderOrder = 2;
+      mesh.add(ice);
       const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), this.glowGold);
       glow.rotation.x = -Math.PI / 2;
       glow.position.y = 0.02;
@@ -472,7 +527,7 @@ export class DiceTray {
       aura.scale.setScalar(1.14);
       aura.visible = false;
       this.scene.add(mesh, glow, ring, aura);
-      this.dice.push({ mesh, outline, core, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, boxed: false, hop: null, value: 0, lift: 0, morph: null });
+      this.dice.push({ mesh, outline, core, ice, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, boxed: false, hop: null, value: 0, lift: 0, morph: null });
     }
     while (this.dice.length > n) {
       const d = this.dice.pop();
@@ -537,6 +592,13 @@ export class DiceTray {
   // 다른 주사위가 구르는 동안은 반투명해져(물리에도 넣지 않는다) 장애물이 되지 않고 그대로 통과한다
   setSealed(idx = []) {
     this.sealed = new Set(idx);
+    this.dirty = true;
+  }
+  // 세머리 용의 얼음: 언 주사위는 얼음 껍질을 입는다
+  setFrozen(idx = []) {
+    const s = new Set(idx);
+    if (this.frozen && s.size === this.frozen.size && [...s].every(i => this.frozen.has(i))) return;
+    this.frozen = s;
     this.dirty = true;
   }
   ghostMat(v) {
@@ -1019,6 +1081,7 @@ export class DiceTray {
       d.aura.position.copy(d.mesh.position);
       d.aura.quaternion.copy(d.mesh.quaternion);
       d.aura.scale.setScalar(1.14 * scale);
+      d.ice.visible = !!this.frozen?.has(i) && !d.blank;
       const ghost = !!(this.sealed?.has(i) && (this.anim || this.live) && !d.blank);
       if (ghost !== !!d.ghost) {
         d.ghost = ghost;

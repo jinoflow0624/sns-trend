@@ -17,7 +17,7 @@ import { webglOK, DiceTray2D } from './dice2d.js';
 import * as Wal from './wallet.js';
 import * as AC from './achievements.js';
 import * as Ads from './ads.js';
-import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice } from './skins.js';
+import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice, preloadTray } from './skins.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -1392,10 +1392,9 @@ function diceOverlay(myTurn) {
     const p = tray.screenPos(i);
     return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${SEAL_SIGIL}</div>`;
   }).join('') : '';
-  const frost = S.rolled && S.frozen?.length && !tray.anim ? S.frozen.map(i => {
-    const p = tray.screenPos(i);
-    return `<div class="ice-cube" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px"><i></i><b>${ico('snow', 'xs')}</b></div>`;
-  }).join('') : '';
+  // 세머리 용의 얼음: 주사위 자체가 얼음 껍질을 입는다 (뒤집어도 주사위에 붙어 다닌다)
+  tray.setFrozen?.(S.rolled && !ui.hideIce ? S.frozen || [] : []);
+  const frost = '';
   if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals + frost; return; }
   const box = box0;
   ovl.innerHTML = seals + frost + S.dice.map((v, i) => {
@@ -1448,7 +1447,7 @@ function bossStatus(b) {
     const now = E.HEADS[(S.round - 1) % 3];
     return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
   }
-  if (b.id === 'cyclops' && b.gaze?.length) return `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`;
+  if (b.id === 'cyclops' && b.gaze?.length && !ui.hideGaze) return `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`;
   if (b.id === 'archdemon' && b.curse?.length) return `<div class="boss-status">${ico('skull', 'xs')} 저주: <b>${b.curse.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>첫 굴림 그대로 완성하면 정화 ×2</small></div>`;
   if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> <small>${n ? `라운드 끝마다 +${n * E.NECRO_HEAL} 회복` : '0점을 적으면 해골병이 생겨요'}</small></div>`; }
   return '';
@@ -1473,8 +1472,9 @@ function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
     const done = p.scores[c.id] !== null;
     const r = canPick && !done ? pv(c.id) : null;
     const combo = canPick && combos.includes(c.id);
-    const rk = r?.rock;                                     // 키클롭스 바위: 이번 차례 못 쓰는 칸
-    const gz = !done && S.boss && E.gazed(S, c.id);         // 키클롭스 응시: 피해 0
+    // 키클롭스 바위: 이번 차례 못 쓰는 칸 · 응시: 피해 0 — 둘 다 스킬 연출이 끝난 뒤부터 보인다 (ui.hideRock · ui.hideGaze)
+    const rk = !done && !ui.hideRock && idx === S.turn && E.rocked(S, c.id);
+    const gz = !done && S.boss && !ui.hideGaze && E.gazed(S, c.id);
     const cu = !done && S.boss && E.cursed(S, c.id);        // 마신 저주: 첫 굴림이면 정화(×2), 아니면 회복
     const cls = done ? 'done' : rk ? 'rocked' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}${gz ? ' gazed' : ''}${cu ? ' cursed' : ''}` : gz ? 'gazed' : cu ? 'cursed' : '';
     const val = done ? p.scores[c.id] : rk ? ico('rock', 'xs') : r ? `${r.pts}${S.classic ? '' : `<small>+${r.xp}xp</small>`}` : '–';
@@ -1527,11 +1527,21 @@ function popover(anchor, html, { afterRelease = false } = {}) {
   const below = r.bottom + 8 + el.offsetHeight < innerHeight;
   el.style.top = `${below ? r.bottom + 8 : r.top - el.offsetHeight - 8}px`;
   el.classList.add(below ? 'below' : 'above');
-  const arm = () => setTimeout(() => document.addEventListener('click', closePopover, { once: true }), 0);
+  // 바깥을 누르면 닫는다. 이전 창의 닫기 대기는 closePopover 가 지운다
+  // (예전에는 남아 있던 대기가 다른 스킬을 눌러 새로 띄운 설명창까지 바로 닫아 버렸다)
+  const arm = () => setTimeout(() => {
+    if (!el.isConnected) return;
+    popClose = e => { if (!el.contains(e.target)) closePopover(); };
+    document.addEventListener('click', popClose);
+  }, 0);
   if (afterRelease) document.addEventListener('pointerup', arm, { once: true });
   else arm();
 }
-function closePopover() { document.querySelectorAll('.popover').forEach(p => p.remove()); }
+let popClose = null;
+function closePopover() {
+  document.querySelectorAll('.popover').forEach(p => p.remove());
+  if (popClose) { document.removeEventListener('click', popClose); popClose = null; }
+}
 
 // 의뢰 보상 아이콘: 뒤집기 · 조정
 const rewardIcons = r => [r.flip ? `${ico('flip', 'xs')}${r.flip}` : '', r.nudge ? `${ico('nudge', 'xs')}${r.nudge}` : ''].filter(Boolean).join(' ');
@@ -2249,7 +2259,7 @@ async function skillFx(f) {
   if (['breath', 'twist', 'hfire', 'reverse'].includes(f.skill) && t && f.from) {
     const burn = f.skill === 'breath' || f.skill === 'hfire';
     burn ? sfx.fire() : sfx.twist();
-    if (mouth && pts.length) { shake(game, burn ? 1.6 : 1); await fx.beam(mouth, pts, { pal: burn ? PALETTES.fire : PALETTES.arcane, ms: ui.fast ? 350 : 600 }); }
+    if (mouth && pts.length) { shake(game, burn ? 1.6 : 1); await (burn ? fx.flame(mouth, pts, ui.fast ? 400 : 700) : fx.hexBolt(mouth, pts, ui.fast ? 400 : 700)); }
     if (f.skill === 'reverse') fx.flash('#7A4BFF', 300, 0.35);
     await Promise.all([
       burn ? fx.fire(pts, ms) : fx.vortex(pts, ms * (f.skill === 'reverse' ? 1.3 : 1)),
@@ -2260,9 +2270,10 @@ async function skillFx(f) {
     await wait(200);
     return;
   }
-  if (f.skill === 'hice' && t) {                 // 얼음 숨결: 냉기 광선 → 주사위에 얼음 결정이 돋는다
+  if (f.skill === 'hice' && t) {                 // 얼음 숨결: 얼음 창이 날아가 박힘 → 얼음 결정이 돋고 주사위가 얼음 껍질을 입는다
     sfx.seal?.();
-    if (mouth && pts.length) await fx.beam(mouth, pts, { pal: PALETTES.frost, ms: ui.fast ? 350 : 600 });
+    if (mouth && pts.length) await fx.iceShards(mouth, pts, ui.fast ? 400 : 700);
+    ui.hideIce = false; render();               // 얼음 창이 박히는 순간 주사위가 언다
     shake(game, 1.2);
     await fx.frost(pts, ui.fast ? 500 : 850);
     render();
@@ -2270,7 +2281,7 @@ async function skillFx(f) {
   }
   if (f.skill === 'hpoison' && trayC) {          // 독 숨결: 독 광선 → 트레이에 독안개 · 거품
     sfx.fire();
-    if (mouth) await fx.beam(mouth, [trayC], { pal: PALETTES.toxic, ms: ui.fast ? 350 : 600, width: 30 });
+    if (mouth) await fx.acid(mouth, trayC, ui.fast ? 400 : 650);
     await fx.toxic(trayC, trayC.w, ui.fast ? 600 : 1100);
     return;
   }
@@ -2397,9 +2408,18 @@ async function hakiFx(midnight = false) {
 
 // 연출 중 오류가 나도 게임이 멈추지 않게 (연출은 건너뛰고 진행)
 async function playFx(list) {
+  // 키클롭스 응시 · 바위: 스킬 연출이 나오기 전에는 바뀐 칸을 미리 보여 주지 않는다
+  ui.hideGaze = list.some(f => f.type === 'boss' && f.skill === 'gaze');
+  ui.hideRock = list.some(f => f.type === 'boss' && f.skill === 'rock');
+  ui.hideIce = list.some(f => f.type === 'boss' && f.skill === 'hice');   // 얼음도 냉기가 닿은 뒤에 언다
   for (const f of list) {
     try { await playOne(f); } catch (err) { console.error('[fx]', f.type, err); ui.dice = null; tray?.restore(); }
+    if (f.type === 'boss' && ['gaze', 'rock', 'hice'].includes(f.skill)) {
+      if (f.skill === 'gaze') ui.hideGaze = false; else if (f.skill === 'rock') ui.hideRock = false; else ui.hideIce = false;
+      render();
+    }
   }
+  ui.hideGaze = ui.hideRock = ui.hideIce = false;
   ui.hpHold = null;
   ui.roundShow = null;
   ui.crownFreeze = false;
@@ -2925,7 +2945,19 @@ async function showSkins(tab = 'dice') {
   const buyBar = () => skinTry ? `<div class="buy-bar"><span>${esc((skinTry.kind === 'dice' ? diceSkin : traySkin)(skinTry.id).name)} 미리 보는 중</span>
       <button class="pbtn gold small" data-act="buy" data-kind="${skinTry.kind}" data-id="${skinTry.id}">${ico('gem', 'xs')} ${Wal.priceOf(skinTry.kind, skinTry.id).toLocaleString()}에 사기</button></div>` : '';
   if (reuse) {
-    layer.querySelector('.skin-grid').innerHTML = cards;
+    const grid = layer.querySelector('.skin-grid');
+    // 같은 탭이면 카드를 새로 그리지 않고 표시만 바꾼다 (썸네일이 다시 뜨느라 깜박이지 않게)
+    if (grid.dataset.tab === tab) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = cards;
+      [...grid.children].forEach((el, i) => {
+        const nu = tmp.children[i];
+        if (!nu) return;
+        el.className = nu.className;
+        [...el.children].forEach(c => { if (c.tagName !== 'IMG') c.remove(); });
+        [...nu.children].forEach(c => { if (c.tagName !== 'IMG') el.appendChild(c); });
+      });
+    } else { grid.innerHTML = cards; grid.dataset.tab = tab; }
     layer.querySelectorAll('.skin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     layer.querySelector('.buy-slot').innerHTML = buyBar();
     layer.querySelector('.gem-chip b').textContent = Wal.gems().toLocaleString();
@@ -2933,6 +2965,7 @@ async function showSkins(tab = 'dice') {
   }
   closeSkinPreview();
   DICE_SKINS.forEach(k => preloadDice(k.id).catch(() => {}));   // 고르면 바로 바뀌게 그림 스킨을 미리 받아 둔다
+  TRAY_SKINS.forEach(k => preloadTray(k.id).catch(() => {}));
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame skins" data-act="noop">
     <h2>꾸미기 <span class="gem-chip">${ico('gem', 'xs')}<b>${Wal.gems().toLocaleString()}</b></span></h2>
     <div class="skin-preview"><button class="pbtn small skin-roll" data-act="skin-roll">굴려 보기</button></div>
@@ -2941,7 +2974,7 @@ async function showSkins(tab = 'dice') {
       <button data-act="skin-tab" data-tab="tray" class="${tab === 'tray' ? 'on' : ''}">트레이</button>
     </div>
     <div class="buy-slot">${buyBar()}</div>
-    <div class="skin-grid">${cards}</div>
+    <div class="skin-grid" data-tab="${tab}">${cards}</div>
     <p class="hint">보석은 대전 승리 · 보스 토벌 · 높은 점수로 모아요. 잠긴 스킨은 눌러서 미리 볼 수 있어요.</p>
     <button class="pbtn gold" data-act="close">닫기</button>
   </div></div>`;

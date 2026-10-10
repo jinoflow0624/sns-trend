@@ -9,6 +9,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const ease = t => 1 - Math.pow(1 - t, 3);
 const easeIn = t => t * t * t;
 const wait = ms => new Promise(r => setTimeout(r, ms));
+const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.max(0, Math.min(1, a))})`; };
 
 export const PALETTES = {
   fire:   ['#FFF6C8', '#FFD24A', '#FF8A1A', '#FF4A1A', '#B8141E'],
@@ -630,6 +631,169 @@ class FxLayer {
     }, ms);
   }
 
+  // ── 속성 투사체 (숨결 · 운명 비틀기 · 얼음 · 독) ─────────────────────────────
+  // 예전에는 모두 같은 네모 광선이었다. 속성마다 날아가는 모양과 맞는 순간의 폭발을 따로 그린다
+  // 부드러운 빛 덩어리 (가운데 하얀 심 → 속성 색 → 투명)
+  static blob(g, x, y, r, core, mid, a = 1) {
+    if (r < 0.5) return;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, rgba(core, a)); gr.addColorStop(0.35, rgba(mid, a * 0.75)); gr.addColorStop(1, rgba(mid, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  }
+  // 경로 위의 점 (살짝 휘는 곡선): s 0 → 1
+  static along(from, to, s, bend = 0) {
+    const dx = to.x - from.x, dy = to.y - from.y, L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L, ny = dx / L, b = Math.sin(s * Math.PI) * bend;
+    return { x: from.x + dx * s + nx * b, y: from.y + dy * s + ny * b, ang: Math.atan2(dy, dx), nx, ny, L };
+  }
+
+  // 화염 숨결: 입에서 소용돌이치는 불길이 주사위로 쏟아지고, 닿는 곳마다 폭발
+  async flame(from, points, ms = 700) {
+    const seeds = points.map(() => rnd(0, 10));
+    await this.add((g, k) => {
+      const reach = Math.min(1, k / 0.32), fade = k > 0.78 ? 1 - (k - 0.78) / 0.22 : 1;
+      points.forEach((p, j) => {
+        const n = 26;
+        for (let i = n - 1; i >= 0; i--) {
+          const s = (i / n + k * 2.6 + seeds[j]) % 1;          // 앞으로 흘러가는 불덩이들
+          if (s > reach) continue;
+          const q = FxLayer.along(from, p, s);
+          const wob = Math.sin(s * 14 + k * 36 + i * 1.7) * (4 + s * 16);
+          const x = q.x + q.nx * wob, y = q.y + q.ny * wob, r = (7 + s * 30) * fade;
+          FxLayer.blob(g, x, y, r * 1.9, '#FF8A1A', '#B8141E', 0.55 * fade);
+          FxLayer.blob(g, x, y, r, '#FFF6C8', '#FF8A1A', 0.9 * fade);
+        }
+        // 입가의 강한 섬광 · 끝머리의 불꽃
+        FxLayer.blob(g, from.x, from.y, 34 * fade, '#FFFFFF', '#FFD24A', 0.8 * fade);
+        if (reach >= 1) FxLayer.blob(g, p.x, p.y, (46 + Math.sin(k * 50) * 6) * fade, '#FFFFFF', '#FF8A1A', 0.85 * fade);
+        if (Math.random() < 0.9) {
+          const q = FxLayer.along(from, p, Math.random() * reach);
+          this.spawn({ x: q.x + rnd(-10, 10), y: q.y + rnd(-10, 10), vx: rnd(-90, 90), vy: rnd(-200, -60), life: rnd(0.3, 0.6), size: rnd(2, 5), color: pick(PALETTES.fire), drag: 1.6 });
+        }
+      });
+    }, ms);
+    points.forEach(p => this.explode(p.x, p.y, 'fire'));
+  }
+
+  // 얼음: 뾰족한 얼음 창이 휘며 날아가 박히고, 결정이 깨지며 눈꽃 충격파
+  async iceShards(from, points, ms = 700) {
+    const N = 5, shards = points.flatMap((p, j) => Array.from({ length: N }, (_, i) => ({ p, j, t0: i * 0.07 + j * 0.03, bend: rnd(-60, 60), hit: false })));
+    await this.add((g, k) => {
+      for (const sh of shards) {
+        const u = Math.max(0, Math.min(1, (k - sh.t0) / 0.42));
+        if (u <= 0) continue;
+        const s = ease(u), q = FxLayer.along(from, sh.p, s, sh.bend * (1 - u * 0.3));
+        if (u < 1) {
+          // 꼬리: 지나온 자리의 서리 안개
+          for (let b = 1; b <= 5; b++) {
+            const qq = FxLayer.along(from, sh.p, Math.max(0, s - b * 0.035), sh.bend);
+            FxLayer.blob(g, qq.x, qq.y, 12 - b * 1.6, '#FFFFFF', '#7CE0FF', 0.35 * (1 - b / 6));
+          }
+          const d = FxLayer.along(from, sh.p, Math.min(1, s + 0.02), sh.bend), ang = Math.atan2(d.y - q.y, d.x - q.x);
+          g.save(); g.translate(q.x, q.y); g.rotate(ang);
+          const Ls = 30, Ws = 7;
+          const lg = g.createLinearGradient(-Ls, 0, Ls * 0.6, 0);
+          lg.addColorStop(0, 'rgba(58,168,255,0)'); lg.addColorStop(0.55, 'rgba(124,224,255,0.9)'); lg.addColorStop(1, 'rgba(255,255,255,1)');
+          g.fillStyle = lg;
+          g.beginPath(); g.moveTo(Ls * 0.6, 0); g.lineTo(0, -Ws); g.lineTo(-Ls, 0); g.lineTo(0, Ws); g.closePath(); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.95)';
+          g.beginPath(); g.moveTo(Ls * 0.6, 0); g.lineTo(2, -2); g.lineTo(-Ls * 0.4, 0); g.closePath(); g.fill();
+          g.restore();
+          if (Math.random() < 0.35) this.spawn({ x: q.x, y: q.y, vx: rnd(-40, 40), vy: rnd(-40, 40), life: rnd(0.25, 0.5), size: rnd(1.5, 3), color: pick(['#FFFFFF', '#C8F4FF']), drag: 2 });
+        } else if (!sh.hit) {
+          sh.hit = true;
+          this.burst(sh.p.x, sh.p.y, { n: 10, pal: ['#FFFFFF', '#C8F4FF', '#7CE0FF'], speed: [80, 220], size: [2, 4], life: [0.25, 0.5], drag: 3 });
+        }
+      }
+    }, ms);
+    points.forEach(p => this.explode(p.x, p.y, 'frost'));
+  }
+
+  // 운명 비틀기 · 역전: 두 개의 마력 구슬이 나선을 그리며 날아가 주사위 위에 룬 마법진을 연다
+  async hexBolt(from, points, ms = 700) {
+    await this.add((g, k) => {
+      const u = Math.min(1, k / 0.6), s = ease(u);
+      for (const p of points) {
+        for (const side of [1, -1]) {
+          const trail = 9;
+          for (let b = trail; b >= 0; b--) {
+            const ss = Math.max(0, s - b * 0.03), q = FxLayer.along(from, p, ss);
+            const amp = Math.sin(ss * Math.PI) * 26, ph = ss * 16 + (side > 0 ? 0 : Math.PI);
+            const x = q.x + q.nx * Math.sin(ph) * amp, y = q.y + q.ny * Math.sin(ph) * amp;
+            const r = b ? 9 - b * 0.7 : 12;
+            FxLayer.blob(g, x, y, r * (b ? 1.6 : 2.4), b ? '#E0CCFF' : '#FFFFFF', '#7A4BFF', b ? 0.5 * (1 - b / (trail + 1)) : 1);
+          }
+        }
+        if (u >= 1) FxLayer.rune(g, p.x, p.y, 44 * ease(Math.min(1, (k - 0.6) / 0.25)), k * 5, 1 - Math.max(0, (k - 0.85) / 0.15));
+      }
+    }, ms);
+    points.forEach(p => this.explode(p.x, p.y, 'arcane'));
+  }
+  // 룬 마법진: 겹 고리 + 눈금 + 육망성
+  static rune(g, x, y, r, rot, a) {
+    if (r < 1 || a <= 0) return;
+    g.save(); g.translate(x, y); g.scale(1, 0.62); g.rotate(rot);
+    g.globalAlpha = a; g.strokeStyle = '#E0CCFF'; g.lineWidth = 2.5;
+    g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke();
+    g.lineWidth = 1.5; g.strokeStyle = '#B98CFF';
+    g.beginPath(); g.arc(0, 0, r * 0.78, 0, TAU); g.stroke();
+    for (let i = 0; i < 12; i++) { const an = (i / 12) * TAU; g.beginPath(); g.moveTo(Math.cos(an) * r * 0.82, Math.sin(an) * r * 0.82); g.lineTo(Math.cos(an) * r * 0.96, Math.sin(an) * r * 0.96); g.stroke(); }
+    g.strokeStyle = '#FFFFFF'; g.lineWidth = 1.8;
+    for (const off of [0, Math.PI]) {
+      g.beginPath();
+      for (let i = 0; i <= 3; i++) { const an = off + (i / 3) * TAU - Math.PI / 2; const px = Math.cos(an) * r * 0.7, py = Math.sin(an) * r * 0.7; i ? g.lineTo(px, py) : g.moveTo(px, py); }
+      g.stroke();
+    }
+    g.restore(); g.globalAlpha = 1;
+  }
+
+  // 독 숨결: 커다란 산성 덩어리가 포물선으로 날아가 트레이에 철퍽
+  async acid(from, to, ms = 650) {
+    await this.add((g, k) => {
+      const s = easeIn(Math.min(1, k)) * 0.6 + k * 0.4;
+      const x = from.x + (to.x - from.x) * s, y = from.y + (to.y - from.y) * s - Math.sin(s * Math.PI) * 120;
+      const R = 22 + Math.sin(k * 40) * 2;
+      FxLayer.blob(g, x, y, R * 2.2, '#B6F25A', '#16501A', 0.6);
+      g.save(); g.globalCompositeOperation = 'source-over';
+      const gr = g.createRadialGradient(x - R * 0.35, y - R * 0.35, 2, x, y, R);
+      gr.addColorStop(0, '#F2FFC0'); gr.addColorStop(0.35, '#B6F25A'); gr.addColorStop(0.8, '#2E8F2A'); gr.addColorStop(1, 'rgba(22,80,26,0.9)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, R * (1 + Math.sin(k * 30) * 0.08), R * (1 - Math.sin(k * 30) * 0.08), 0, 0, TAU); g.fill();
+      g.restore();
+      if (Math.random() < 0.9) this.spawn({ x: x + rnd(-8, 8), y: y + rnd(0, 10), vx: rnd(-30, 30), vy: rnd(20, 80), life: rnd(0.3, 0.6), size: rnd(3, 6), color: pick(['#B6F25A', '#5FD13A', '#F2FFC0']), grav: 600, drag: 0.5 });
+    }, ms);
+    this.explode(to.x, to.y, 'toxic');
+  }
+
+  // 맞는 순간 (속성별)
+  explode(x, y, kind) {
+    const K = {
+      fire:   { core: '#FFFFFF', mid: '#FF8A1A', pal: PALETTES.fire, ring: '#FFD24A', r: 70, grav: -120, smoke: true },
+      frost:  { core: '#FFFFFF', mid: '#7CE0FF', pal: PALETTES.frost, ring: '#C8F4FF', r: 60, grav: 320, flake: true },
+      arcane: { core: '#FFFFFF', mid: '#B98CFF', pal: PALETTES.arcane, ring: '#E0CCFF', r: 58, grav: 0 },
+      toxic:  { core: '#F2FFC0', mid: '#5FD13A', pal: PALETTES.toxic, ring: '#B6F25A', r: 90, grav: 700, splash: true },
+    }[kind];
+    this.add((g, k) => {
+      const e = ease(k);
+      FxLayer.blob(g, x, y, K.r * (0.4 + e), K.core, K.mid, (1 - k) * 0.95);
+      if (K.flake) {                                   // 눈꽃 결정이 커지며 사라진다
+        g.save(); g.translate(x, y); g.rotate(k * 0.6);
+        g.globalAlpha = 1 - k; g.strokeStyle = '#FFFFFF'; g.lineWidth = 3 * (1 - k) + 1;
+        const R = 22 + e * 54;
+        for (let i = 0; i < 6; i++) {
+          g.rotate(TAU / 6);
+          g.beginPath(); g.moveTo(0, 0); g.lineTo(R, 0);
+          g.moveTo(R * 0.55, 0); g.lineTo(R * 0.72, -R * 0.16); g.moveTo(R * 0.55, 0); g.lineTo(R * 0.72, R * 0.16);
+          g.stroke();
+        }
+        g.restore(); g.globalAlpha = 1;
+      }
+    }, 460);
+    this.ring(x, y, { color: K.ring, r0: 10, r1: K.r * 1.3, dur: 420, width: 7 });
+    this.burst(x, y, { n: 30, pal: K.pal, speed: [120, 340], size: [2, 6], life: [0.35, 0.8], drag: 2.6, grav: K.grav });
+    if (K.smoke) this.burst(x, y - 8, { n: 12, pal: PALETTES.smoke, speed: [20, 70], life: [0.6, 1.1], size: [5, 10], grav: -70, drag: 1 });
+    if (K.splash) this.burst(x, y, { n: 26, pal: ['#B6F25A', '#5FD13A', '#F2FFC0'], speed: [180, 380], size: [3, 7], life: [0.5, 0.9], dir: -Math.PI / 2, spread: 2.4, grav: 900, drag: 0.6 });
+  }
+
   // ── 강화 보스 · 마신 스킬 연출 ───────────────────────────────────────────
   // 숨결 광선: 보스 입에서 주사위마다 굵은 광선이 뿜어져 나간다 (떨리는 심 · 흩날리는 불티)
   async beam(from, points, { pal = PALETTES.fire, ms = 650, width = 22 } = {}) {
@@ -640,10 +804,15 @@ class FxLayer {
         const ang = Math.atan2(p.y - from.y, p.x - from.x), L = Math.hypot(tx - from.x, ty - from.y);
         g.save(); g.translate(from.x, from.y); g.rotate(ang);
         const w = width * (0.8 + Math.sin(k * 60) * 0.2) * fade;
-        g.globalAlpha = 0.45 * fade; g.fillStyle = pal[3] || pal[2]; g.fillRect(0, -w, L, w * 2);
-        g.globalAlpha = 0.75 * fade; g.fillStyle = pal[1]; g.fillRect(0, -w * 0.55, L, w * 1.1);
-        g.globalAlpha = fade; g.fillStyle = '#FFFFFF'; g.fillRect(0, -w * 0.2, L, w * 0.4);
+        // 가장자리로 갈수록 투명해지는 빛줄기 세 겹 (네모 막대가 아니라 빛처럼)
+        for (const [ww, col, a] of [[w * 1.6, pal[3] || pal[2], 0.35], [w * 0.8, pal[1], 0.7], [w * 0.28, '#FFFFFF', 1]]) {
+          const lg = g.createLinearGradient(0, -ww, 0, ww);
+          lg.addColorStop(0, rgba(col, 0)); lg.addColorStop(0.5, rgba(col, a * fade)); lg.addColorStop(1, rgba(col, 0));
+          g.fillStyle = lg; g.fillRect(0, -ww, L, ww * 2);
+        }
         g.restore();
+        FxLayer.blob(g, from.x, from.y, w * 2.2, '#FFFFFF', pal[2] || pal[1], 0.8 * fade);
+        FxLayer.blob(g, tx, ty, w * 2.6, '#FFFFFF', pal[2] || pal[1], 0.9 * fade);
         if (Math.random() < 0.8) this.spawn({ x: tx + rnd(-10, 10), y: ty + rnd(-10, 10), vx: rnd(-120, 120), vy: rnd(-160, 40), life: rnd(0.25, 0.5), size: rnd(3, 7), color: pick(pal), drag: 2 });
       }
       g.globalAlpha = 1;
@@ -665,10 +834,7 @@ class FxLayer {
             g.fillRect(Math.round(p.x + Math.cos(a) * s - sz / 2), Math.round(p.y + Math.sin(a) * s * 0.8 - sz / 2), Math.round(sz), Math.round(sz));
           }
         }
-        g.globalAlpha = 0.35 + Math.sin(k * 30) * 0.1;
-        g.fillStyle = '#C8F4FF'; g.fillRect(Math.round(p.x - 26), Math.round(p.y - 26), 52, 52);
-        g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(p.x - 26), Math.round(p.y - 26), 52, 6);
-        g.globalAlpha = 1;
+        FxLayer.blob(g, p.x, p.y, 40 * grow, '#FFFFFF', '#7CE0FF', 0.45 * (1 - k * 0.6));   // 주사위를 감싸는 냉기 (네모 상자 없이)
       }
     }, ms);
     points.forEach(p => {
@@ -767,9 +933,14 @@ class FxLayer {
       if (target && k > 0.45 && k < 0.85) {                    // 시선 광선
         const ang = Math.atan2(target.y - c.y, target.x - c.x), L = Math.hypot(target.x - c.x, target.y - c.y);
         g.save(); g.translate(c.x, c.y); g.rotate(ang);
-        g.globalAlpha = 0.7; g.fillStyle = '#FF3B3B'; g.fillRect(0, -7, L, 14);
-        g.globalAlpha = 1; g.fillStyle = '#FFFFFF'; g.fillRect(0, -2, L, 4);
+        const flick = 0.85 + Math.sin(k * 70) * 0.15;
+        for (const [w, col, a] of [[22, 'rgba(232,21,42,', 0.28], [11, 'rgba(255,59,59,', 0.6], [4, 'rgba(255,255,255,', 0.95]]) {
+          const lg = g.createLinearGradient(0, -w, 0, w);
+          lg.addColorStop(0, col + '0)'); lg.addColorStop(0.5, col + a * flick + ')'); lg.addColorStop(1, col + '0)');
+          g.fillStyle = lg; g.fillRect(0, -w, L, w * 2);
+        }
         g.restore();
+        FxLayer.blob(g, target.x, target.y, 34 * flick, '#FFFFFF', '#E8152A', 0.8);
         if (Math.random() < 0.7) this.spawn({ x: target.x + rnd(-14, 14), y: target.y + rnd(-14, 14), vx: rnd(-90, 90), vy: rnd(-90, 90), life: 0.4, size: rnd(3, 6), color: pick(['#FF3B3B', '#FFFFFF', '#E8152A']), drag: 2 });
       }
     }, ms);

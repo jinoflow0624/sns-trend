@@ -379,6 +379,10 @@ const IMAGE_TRAY = {
 export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
 export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
+// 트레이 그림도 미리 받아 둔다 (꾸미기에서 고르면 바닥이 비었다가 뒤늦게 뜨지 않게)
+const trayImages = id => ['floor', 'glow', 'box'].map(k => trayImage(id, k)).filter(Boolean);
+export const trayReady = id => trayImages(id).every(u => READY.has(u));
+export const preloadTray = id => Promise.all(trayImages(id).map(loadImage));
 
 // 트레이 바닥 (512×512). glowOnly: 빛나는 부분(마법진·용암·별)만 그린 발광 지도
 export function drawTrayFloor(c, id = 'classic', glowOnly = false) {
