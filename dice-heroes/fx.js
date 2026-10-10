@@ -630,6 +630,265 @@ class FxLayer {
     }, ms);
   }
 
+  // ── 강화 보스 · 마신 스킬 연출 ───────────────────────────────────────────
+  // 숨결 광선: 보스 입에서 주사위마다 굵은 광선이 뿜어져 나간다 (떨리는 심 · 흩날리는 불티)
+  async beam(from, points, { pal = PALETTES.fire, ms = 650, width = 22 } = {}) {
+    await this.add((g, k) => {
+      const grow = Math.min(1, k / 0.35), fade = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+      for (const p of points) {
+        const tx = from.x + (p.x - from.x) * grow, ty = from.y + (p.y - from.y) * grow;
+        const ang = Math.atan2(p.y - from.y, p.x - from.x), L = Math.hypot(tx - from.x, ty - from.y);
+        g.save(); g.translate(from.x, from.y); g.rotate(ang);
+        const w = width * (0.8 + Math.sin(k * 60) * 0.2) * fade;
+        g.globalAlpha = 0.45 * fade; g.fillStyle = pal[3] || pal[2]; g.fillRect(0, -w, L, w * 2);
+        g.globalAlpha = 0.75 * fade; g.fillStyle = pal[1]; g.fillRect(0, -w * 0.55, L, w * 1.1);
+        g.globalAlpha = fade; g.fillStyle = '#FFFFFF'; g.fillRect(0, -w * 0.2, L, w * 0.4);
+        g.restore();
+        if (Math.random() < 0.8) this.spawn({ x: tx + rnd(-10, 10), y: ty + rnd(-10, 10), vx: rnd(-120, 120), vy: rnd(-160, 40), life: rnd(0.25, 0.5), size: rnd(3, 7), color: pick(pal), drag: 2 });
+      }
+      g.globalAlpha = 1;
+    }, ms);
+    points.forEach(p => { this.impact(p.x, p.y, pal, 1.6); });
+  }
+
+  // 얼음: 주사위에서 얼음 결정이 뾰족하게 자라나 얼어붙는다
+  async frost(points, ms = 800) {
+    this.flash('#C8F4FF', 260, 0.35);
+    await this.add((g, k) => {
+      const grow = ease(Math.min(1, k / 0.45));
+      for (const p of points) {
+        for (let q = 0; q < 8; q++) {
+          const a = (q / 8) * TAU + 0.2, L = (q % 2 ? 38 : 62) * grow;
+          for (let s = 0; s < L; s += 5) {
+            const sz = Math.max(3, 12 - s * 0.15);
+            g.fillStyle = s > L - 8 ? '#FFFFFF' : q % 2 ? '#7CE0FF' : '#C8F4FF';
+            g.fillRect(Math.round(p.x + Math.cos(a) * s - sz / 2), Math.round(p.y + Math.sin(a) * s * 0.8 - sz / 2), Math.round(sz), Math.round(sz));
+          }
+        }
+        g.globalAlpha = 0.35 + Math.sin(k * 30) * 0.1;
+        g.fillStyle = '#C8F4FF'; g.fillRect(Math.round(p.x - 26), Math.round(p.y - 26), 52, 52);
+        g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(p.x - 26), Math.round(p.y - 26), 52, 6);
+        g.globalAlpha = 1;
+      }
+    }, ms);
+    points.forEach(p => {
+      this.ring(p.x, p.y, { color: '#FFFFFF', r0: 8, r1: 70, dur: 420, width: 6 });
+      this.burst(p.x, p.y, { n: 24, pal: PALETTES.frost, speed: [80, 260], grav: 260, life: [0.4, 0.8], size: [2, 5] });
+    });
+  }
+
+  // 독: 트레이 위로 초록 독안개가 퍼지고 거품이 부글부글 올라온다
+  async toxic(c, w, ms = 1000) {
+    await this.add((g, k) => {
+      const spread = ease(Math.min(1, k / 0.4)), fade = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
+      g.save(); g.globalCompositeOperation = 'source-over';
+      for (let q = 0; q < 9; q++) {                       // 뭉게뭉게 독안개 덩어리
+        const x = c.x + Math.sin(q * 2.4 + k * 3) * w * 0.42 * spread, y = c.y + Math.cos(q * 1.7 + k * 2) * 60 * spread, r = (46 + (q % 3) * 18) * spread;
+        g.globalAlpha = 0.16 * fade; g.fillStyle = q % 2 ? '#2E8F2A' : '#16501A';
+        g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+      }
+      g.restore();
+      for (let q = 0; q < 26; q++) {
+        const x = c.x + Math.sin(q * 7.3) * w * 0.5, y = c.y + 70 - ((k * 260 + q * 37) % 180);
+        const r = 3 + (q % 4) * 2;
+        g.globalAlpha = fade * 0.9; g.fillStyle = q % 3 ? '#5FD13A' : '#B6F25A';
+        g.fillRect(Math.round(x - r), Math.round(y - r), r * 2, r * 2);
+        g.fillStyle = '#F2FFC0'; g.fillRect(Math.round(x - r + 1), Math.round(y - r + 1), 2, 2);
+      }
+      g.globalAlpha = 1;
+      if (Math.random() < 0.6) this.spawn({ x: c.x + rnd(-w / 2, w / 2), y: c.y - 80, vx: 0, vy: rnd(60, 140), life: 0.6, size: rnd(3, 5), color: '#B6F25A', drag: 0.5 });
+    }, ms);
+    this.ring(c.x, c.y, { color: '#5FD13A', r0: 20, r1: w * 0.6, dur: 500, width: 8 });
+  }
+
+  // 머리 베기: 거대한 X자 참격이 보스를 가르고 금빛 피가 튄다, 잘린 머리 조각이 날아간다
+  async slash(at, size = 120, ms = 700) {
+    this.flash('#FFFFFF', 200, 0.6);
+    await this.add((g, k) => {
+      const cuts = [[-1, -1, 1, 1, 0], [1, -1, -1, 1, 0.22]];
+      for (const [x0, y0, x1, y1, d] of cuts) {
+        const q = Math.max(0, Math.min(1, (k - d) / 0.25));
+        if (q <= 0) continue;
+        const fade = k > d + 0.4 ? Math.max(0, 1 - (k - d - 0.4) / 0.3) : 1;
+        const ax = at.x + x0 * size, ay = at.y + y0 * size, bx = ax + (at.x + x1 * size - ax) * q, by = ay + (at.y + y1 * size - ay) * q;
+        const ang = Math.atan2(by - ay, bx - ax), L = Math.hypot(bx - ax, by - ay);
+        g.save(); g.translate(ax, ay); g.rotate(ang);
+        g.globalAlpha = 0.6 * fade; g.fillStyle = '#FFD24A'; g.fillRect(0, -9, L, 18);
+        g.globalAlpha = fade; g.fillStyle = '#FFFFFF'; g.fillRect(0, -3, L, 6);
+        g.restore();
+      }
+      // 잘린 머리 조각: 위로 튀었다 떨어지며 돈다
+      if (k > 0.3) {
+        const t = (k - 0.3) / 0.7, x = at.x + 40 + t * 120, y = at.y - 30 - Math.sin(t * Math.PI) * 120 + t * 60;
+        g.save(); g.translate(x, y); g.rotate(t * 10);
+        g.fillStyle = '#7A5CFF'; g.fillRect(-14, -10, 28, 20); g.fillStyle = '#FFE24A'; g.fillRect(4, -4, 5, 5);
+        g.restore();
+      }
+      g.globalAlpha = 1;
+    }, ms);
+    this.burst(at.x, at.y, { n: 60, pal: ['#FFFFFF', '#FFD24A', '#FF8A1A', '#E8435A'], speed: [120, 420], life: [0.4, 1], size: [3, 7], grav: 300 });
+    this.ring(at.x, at.y, { color: '#FFD24A', r0: 20, r1: size * 1.6, dur: 600, width: 10 });
+  }
+
+  // 머리 재생: 보랏빛 촉수가 휘감겨 모이고 고동친다
+  async regrow(at, ms = 800) {
+    await this.add((g, k) => {
+      for (let arm = 0; arm < 5; arm++) {
+        for (let i = 0; i < 16; i++) {
+          const t = i / 16, a = arm * (TAU / 5) + k * 6 + t * 3;
+          const r = (1 - ease(k)) * 140 * (1 - t) + 18;
+          g.fillStyle = PALETTES.arcane[(i + arm) % 5]; g.globalAlpha = 1 - t * 0.6;
+          g.fillRect(Math.round(at.x + Math.cos(a) * r) - 4, Math.round(at.y + Math.sin(a) * r * 0.8) - 4, 8, 8);
+        }
+      }
+      g.globalAlpha = 1;
+    }, ms);
+    this.ring(at.x, at.y, { color: '#B98CFF', r0: 10, r1: 110, dur: 500, width: 8 });
+    this.burst(at.x, at.y, { n: 40, pal: PALETTES.arcane, speed: [80, 260], life: [0.4, 0.9] });
+  }
+
+  // 외눈 응시: 화면 가운데 거대한 눈이 번쩍 뜨이고 붉은 시선이 목표를 꿰뚫는다
+  async eye(c, target, ms = 1100) {
+    await this.add((g, k) => {
+      const open = k < 0.25 ? ease(k / 0.25) : k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1;
+      const W = Math.min(innerWidth * 0.42, 170), H = W * 0.5 * open;
+      g.save(); g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 0.5 * open; g.fillStyle = '#0A0008'; g.fillRect(0, 0, innerWidth, innerHeight);
+      g.globalAlpha = 1;
+      g.fillStyle = '#1A1030'; g.beginPath(); g.ellipse(c.x, c.y, W + 6, H + 6, 0, 0, TAU); g.fill();
+      g.fillStyle = '#F2EEDD'; g.beginPath(); g.ellipse(c.x, c.y, W, Math.max(1, H), 0, 0, TAU); g.fill();
+      if (open > 0.3) {
+        const ir = W * 0.36, px = c.x + Math.sin(k * 6) * 6;
+        g.fillStyle = '#E8152A'; g.beginPath(); g.arc(px, c.y, ir, 0, TAU); g.fill();
+        g.fillStyle = '#1A1030'; g.beginPath(); g.arc(px, c.y, ir * 0.45, 0, TAU); g.fill();
+        g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(px - ir * 0.5), Math.round(c.y - ir * 0.5), 6, 6);
+      }
+      g.restore();
+      if (target && k > 0.45 && k < 0.85) {                    // 시선 광선
+        const ang = Math.atan2(target.y - c.y, target.x - c.x), L = Math.hypot(target.x - c.x, target.y - c.y);
+        g.save(); g.translate(c.x, c.y); g.rotate(ang);
+        g.globalAlpha = 0.7; g.fillStyle = '#FF3B3B'; g.fillRect(0, -7, L, 14);
+        g.globalAlpha = 1; g.fillStyle = '#FFFFFF'; g.fillRect(0, -2, L, 4);
+        g.restore();
+        if (Math.random() < 0.7) this.spawn({ x: target.x + rnd(-14, 14), y: target.y + rnd(-14, 14), vx: rnd(-90, 90), vy: rnd(-90, 90), life: 0.4, size: rnd(3, 6), color: pick(['#FF3B3B', '#FFFFFF', '#E8152A']), drag: 2 });
+      }
+    }, ms);
+    if (target) this.ring(target.x, target.y, { color: '#FF3B3B', r0: 10, r1: 90, dur: 450, width: 8 });
+  }
+
+  // 바위 투척: 하늘에서 거대한 바위가 굴러떨어져 쾅 — 먼지 · 파편 · 금
+  async boulder(to, ms = 700) {
+    const from = { x: to.x + 160, y: -80 };
+    await this.add((g, k) => {
+      const e = easeIn(k), x = from.x + (to.x - from.x) * e, y = from.y + (to.y - from.y) * e, R = 48;
+      g.save(); g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 0.35 * k; g.fillStyle = '#000000'; g.beginPath(); g.ellipse(to.x, to.y + 30, R * (0.4 + k), R * 0.3 * (0.4 + k), 0, 0, TAU); g.fill();
+      g.globalAlpha = 1; g.translate(x, y); g.rotate(k * 8);
+      g.fillStyle = '#1A1030'; g.fillRect(-R - 3, -R - 3, R * 2 + 6, R * 2 + 6);
+      g.fillStyle = '#8A8070'; g.fillRect(-R, -R, R * 2, R * 2);
+      g.fillStyle = '#C8C0B0'; g.fillRect(-R, -R, R * 2, 10); g.fillRect(-R, -R, 10, R * 2);
+      g.fillStyle = '#5A5040'; g.fillRect(-R, R - 10, R * 2, 10); g.fillRect(4, -6, 12, 8);
+      g.restore();
+      this.spawn({ x: x + rnd(-20, 20), y: y - 20, vx: rnd(-20, 20), vy: rnd(-60, -20), life: 0.4, size: rnd(3, 6), color: pick(PALETTES.smoke), drag: 1 });
+    }, ms);
+    this.flash('#FFFFFF', 160, 0.4);
+    this.ring(to.x, to.y, { color: '#C8C0B0', r0: 20, r1: 180, dur: 520, width: 10 });
+    this.burst(to.x, to.y, { n: 50, pal: ['#C8C0B0', '#8A8070', '#5A5040', '#FFFFFF'], speed: [120, 380], grav: 520, life: [0.5, 1], size: [3, 8] });
+    this.burst(to.x, to.y + 20, { n: 24, pal: PALETTES.smoke, speed: [40, 120], grav: -40, life: [0.6, 1.2], size: [6, 12], drag: 1.2 });
+  }
+
+  // 사령술: 땅에서 해골 손이 솟고 영혼이 보스에게 빨려 든다
+  async souls(points, to, ms = 1000) {
+    await this.add((g, k) => {
+      for (const [q, p] of points.entries()) {
+        const up = ease(Math.min(1, k / 0.35)) * 54;
+        g.fillStyle = '#F2EEDD';
+        g.fillRect(Math.round(p.x - 5), Math.round(p.y - up), 10, Math.round(up));           // 팔뼈
+        g.fillRect(Math.round(p.x - 14), Math.round(p.y - up - 10), 28, 10);                   // 손바닥
+        for (let f = 0; f < 4; f++) g.fillRect(Math.round(p.x - 14 + f * 8), Math.round(p.y - up - 24), 5, 14);   // 손가락
+        g.fillStyle = '#C9C2A6'; g.fillRect(Math.round(p.x - 14), Math.round(p.y - up - 2), 28, 2);
+        if (k > 0.35) {                                                                         // 영혼이 보스로
+          const t = Math.min(1, (k - 0.35 - q * 0.04) / 0.55);
+          if (t > 0 && t < 1) {
+            const e = easeIn(t), x = p.x + (to.x - p.x) * e + Math.sin(t * 9 + q) * 16, y = p.y - 40 + (to.y - p.y + 40) * e;
+            g.globalAlpha = 1 - t * 0.4; g.fillStyle = '#C8F4FF'; g.fillRect(Math.round(x - 7), Math.round(y - 7), 14, 14);
+            g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(x - 3), Math.round(y - 3), 6, 6); g.globalAlpha = 1;
+            this.spawn({ x, y, vx: 0, vy: 20, life: 0.3, size: 3, color: '#9DB7D6', drag: 2 });
+          }
+        }
+      }
+    }, ms);
+    this.ring(to.x, to.y, { color: '#C8F4FF', r0: 10, r1: 90, dur: 460, width: 6 });
+    this.burst(to.x, to.y, { n: 30, pal: PALETTES.bone, speed: [60, 200], life: [0.4, 0.8] });
+  }
+
+  // 시간 역행: 거꾸로 도는 시계 문양 + 색 반전 섬광
+  async clock(at, ms = 1000) {
+    this.flash('#B98CFF', 300, 0.4);
+    await this.add((g, k) => {
+      const R = 70 + Math.sin(k * 20) * 4;
+      g.strokeStyle = '#E0CCFF'; g.lineWidth = 5; g.globalAlpha = 1 - k * 0.5;
+      g.beginPath(); g.arc(at.x, at.y, R, 0, TAU); g.stroke();
+      for (let q = 0; q < 12; q++) { const a = (q / 12) * TAU; g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(at.x + Math.cos(a) * (R - 10)) - 3, Math.round(at.y + Math.sin(a) * (R - 10)) - 3, 6, 6); }
+      for (const [len, sp, c] of [[R * 0.75, -30, '#FFFFFF'], [R * 0.5, -6, '#B98CFF']]) {
+        const a = k * sp - Math.PI / 2;
+        g.strokeStyle = c; g.lineWidth = 6; g.beginPath(); g.moveTo(at.x, at.y); g.lineTo(at.x + Math.cos(a) * len, at.y + Math.sin(a) * len); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }, ms);
+    this.ring(at.x, at.y, { color: '#B98CFF', r0: 80, r1: 10, dur: 400, width: 8 });
+    this.burst(at.x, at.y, { n: 36, pal: PALETTES.arcane, speed: [60, 240], life: [0.4, 0.8] });
+  }
+
+  // 피의 저주: 하늘에서 핏방울이 쏟아지고 보스 앞에 붉은 문양이 새겨진다
+  async blood(at, ms = 1000) {
+    await this.add((g, k) => {
+      g.save(); g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 0.22 * Math.sin(k * Math.PI); g.fillStyle = '#4A0A24'; g.fillRect(0, 0, innerWidth, innerHeight);
+      for (let q = 0; q < 30; q++) {
+        const x = (q * 97) % innerWidth, y = ((k * 900 + q * 53) % (innerHeight + 80)) - 40;
+        g.globalAlpha = 0.9; g.fillStyle = q % 3 ? '#8E0E2E' : '#C21E56';
+        g.fillRect(x, Math.round(y), 4, 14); g.fillRect(x - 1, Math.round(y) + 12, 6, 6);
+      }
+      g.restore();
+      const r = 56 * ease(Math.min(1, k / 0.4));
+      g.strokeStyle = '#FF2A6A'; g.lineWidth = 4; g.globalAlpha = 1 - Math.max(0, k - 0.7) / 0.3;
+      g.beginPath(); g.arc(at.x, at.y, r, 0, TAU); g.stroke();
+      g.beginPath(); for (let q = 0; q <= 3; q++) { const a = k * 2 + (q / 3) * TAU - Math.PI / 2, x = at.x + Math.cos(a) * r, y = at.y + Math.sin(a) * r; q ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      g.globalAlpha = 1;
+    }, ms);
+    this.burst(at.x, at.y, { n: 40, pal: PALETTES.hell, speed: [60, 260], grav: 200, life: [0.4, 0.9], size: [3, 6] });
+  }
+
+  // 저주 정화: 금빛 성광 기둥이 내리꽂히고 붉은 문양이 산산조각
+  async holy(points, ms = 900) {
+    this.flash('#FFF0A8', 300, 0.5);
+    await this.add((g, k) => {
+      for (const p of points) {
+        const b = k < 0.3 ? k / 0.3 : 1 - (k - 0.3) / 0.7;
+        g.globalAlpha = 0.7 * b; g.fillStyle = '#FFF0A8'; g.fillRect(Math.round(p.x - 50 * b), 0, Math.round(100 * b), Math.round(p.y + 30));
+        g.globalAlpha = 0.9 * b; g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(p.x - 8), 0, 16, Math.round(p.y + 30));
+        for (let q = 0; q < 8; q++) { const a = (q / 8) * TAU + k * 4, r = 30 + k * 140; g.globalAlpha = 1 - k; g.fillStyle = '#FF2A6A'; g.fillRect(Math.round(p.x + Math.cos(a) * r) - 4, Math.round(p.y + Math.sin(a) * r) - 4, 8, 8); }
+      }
+      g.globalAlpha = 1;
+    }, ms);
+    points.forEach(p => { this.ring(p.x, p.y, { color: '#FFFFFF', r0: 10, r1: 160, dur: 600, width: 10 }); this.burst(p.x, p.y, { n: 50, pal: PALETTES.gold, speed: [120, 380], life: [0.4, 1] }); });
+  }
+
+  // 미드나잇: 하늘이 어두워지고 붉은 초승달이 떠오른다
+  async moon(c, ms = 1000) {
+    await this.add((g, k) => {
+      const v = Math.sin(k * Math.PI);
+      g.save(); g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 0.55 * v; g.fillStyle = '#05020A'; g.fillRect(0, 0, innerWidth, innerHeight);
+      g.globalAlpha = v; g.fillStyle = '#FF2A6A'; g.beginPath(); g.arc(c.x, c.y, 46, 0, TAU); g.fill();
+      g.fillStyle = '#05020A'; g.beginPath(); g.arc(c.x + 18, c.y - 10, 42, 0, TAU); g.fill();
+      g.restore();
+      for (let q = 0; q < 14; q++) { const a = (q / 14) * TAU + k * 2; g.globalAlpha = v * 0.8; g.fillStyle = q % 2 ? '#FF9AB8' : '#FFFFFF'; g.fillRect(Math.round(c.x + Math.cos(a) * 80), Math.round(c.y + Math.sin(a) * 80), 3, 3); }
+      g.globalAlpha = 1;
+    }, ms);
+  }
+
   // 0점: 에너지가 흩어져 연기가 된다
   fizzle(points) {
     points.forEach(p => this.burst(p.x, p.y, { n: 8, pal: PALETTES.smoke, speed: [20, 60], grav: -40, life: [0.4, 0.8], size: [3, 6] }));
