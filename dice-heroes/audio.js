@@ -1,21 +1,25 @@
 // 8비트 사운드 — 패미컴식 4채널(펄스 2 · 삼각파 · 노이즈) 칩튠 시퀀서와 효과음.
 // 오디오 파일 없이 WebAudio 로 합성한다. 외부 음원을 쓰려면 BGM_FILES 에 경로만 넣으면
 // 해당 트랙은 파일 재생으로 바뀐다 (예: { title: 'assets/bgm/title.ogg' }).
+import { GAME } from './config.js';
 
 // 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich · boss_demon
 // 파일은 마디 경계에서 잘라 끝과 처음이 이어지게 다듬은 루프여야 한다. sw.js 캐시 목록에도 넣는다.
+// 주소에 게임 버전(?v=)을 붙인다. 오프라인 캐시(sw.js)는 그림 · 음악을 캐시에서 먼저 꺼내므로,
+// 버전이 없으면 곡을 바꿔 배포해도 예전 파일(도입부 없는 루프)이 한 번 더 재생됐다
+const AV = `?v=${GAME.version}`;
 export const BGM_FILES = {
-  title:       'assets/bgm/title.ogg',         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
-  adventure:   'assets/bgm/versus.ogg',        // 대전 · 32마디 루프, 133BPM (Suno)
-  boss_dragon: 'assets/bgm/boss_dragon.ogg',   // 32마디 루프, 120BPM (Suno)
-  boss_orc:    'assets/bgm/boss_orc.ogg',      // 28마디 루프, 120BPM (Suno)
-  boss_lich:   'assets/bgm/boss_lich.ogg',     // 28마디 루프, 120BPM (Suno)
-  boss_demon:  'assets/bgm/boss_demon.ogg',    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
+  title:       `assets/bgm/title.ogg${AV}`,         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
+  adventure:   `assets/bgm/versus.ogg${AV}`,        // 대전 · 32마디 루프, 133BPM (Suno)
+  boss_dragon: `assets/bgm/boss_dragon.ogg${AV}`,   // 32마디 루프, 120BPM (Suno)
+  boss_orc:    `assets/bgm/boss_orc.ogg${AV}`,      // 28마디 루프, 120BPM (Suno)
+  boss_lich:   `assets/bgm/boss_lich.ogg${AV}`,     // 28마디 루프, 120BPM (Suno)
+  boss_demon:  `assets/bgm/boss_demon.ogg${AV}`,    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
   // 강화 보스 (Suno). 곡 첫 박부터 틀고, BGM_LOOP 지점부터 끝까지를 반복한다 (오버로드는 곡 전체가 루프)
-  boss_cyclops:   'assets/bgm/boss_cyclops.ogg',   // 키클롭스 · 1~12마디 도입 + 13~40마디(28마디) 반복, 131BPM
-  boss_hydra:     'assets/bgm/boss_hydra.ogg',     // 세머리 용 · 1~7마디 도입 + 8~39마디(32마디) 반복, 130BPM
-  boss_overlord:  'assets/bgm/boss_overlord.ogg',  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
-  boss_archdemon: 'assets/bgm/boss_archdemon.ogg', // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
+  boss_cyclops:   `assets/bgm/boss_cyclops.ogg${AV}`,   // 키클롭스 · 1~12마디 도입 + 13~40마디(28마디) 반복, 131BPM
+  boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~7마디 도입 + 8~39마디(32마디) 반복, 130BPM
+  boss_overlord:  `assets/bgm/boss_overlord.ogg${AV}`,  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
+  boss_archdemon: `assets/bgm/boss_archdemon.ogg${AV}`, // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
 };
 // 도입부가 있는 곡: 처음 한 번은 첫 박부터, 그다음부터는 이 시각(초)부터 파일 끝까지를 반복한다.
 // 파일 끝 0.04초는 루프 시작 직전 소리로 미리 섞어 두어 이음매가 매끄럽다
