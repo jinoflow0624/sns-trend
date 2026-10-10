@@ -638,6 +638,14 @@ export class DiceTray {
     const v = this.dice[i].mesh.position.clone().project(this.camera);
     return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
   }
+  // 윗면 한가운데 (봉인 문양처럼 주사위 윗면에 올리는 표시용). 주사위 몸통 가운데보다 반 칸 위
+  topPos(i) {
+    const d = this.dice[i];
+    if (!d) return this.screenPos(i);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const v = d.mesh.position.clone().add(new THREE.Vector3(0, HALF * d.mesh.scale.y, 0)).project(this.camera);
+    return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
+  }
 
   hitIndex(e) {
     const r = this.renderer.domElement.getBoundingClientRect();

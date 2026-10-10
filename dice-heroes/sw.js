@@ -4,7 +4,7 @@
 // 받은 파일은 캐시에 덮어써 둔다. 인터넷이 없거나 4초 안에 답이 없으면(약한 신호) 캐시에서 꺼낸다.
 // 그래서 새 버전을 배포하면 다음 실행에 바로 반영되고, 신호가 약해도 멈춰 있지 않는다.
 // 이름을 바꾸면 예전 캐시를 통째로 지운다 (v0.30.7: 버전이 안 붙은 예전 주사위·트레이 그림이 남아 있어서)
-const CACHE = 'dh-cache-2';
+const CACHE = 'dh-cache-3';   // v0.37.5: 버전이 안 붙은 예전 보스 곡(도입부 없는 루프)을 지운다
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
   'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest',

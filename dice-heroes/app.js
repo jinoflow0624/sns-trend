@@ -946,9 +946,10 @@ async function onRoom(room) {
   }
   ui.busy = true;
   ui.dice = pendingDice(fxList);
+  hideUntilFx(fxList);
   holdHp(fxList);
   render();
-  for (const f of newFx) await playFx(f.list);
+  for (const f of newFx) { await playFx(f.list); hideUntilFx(newFx.filter(x => x.id > f.id).flatMap(x => x.list)); }
   ui.busy = false;
   online.pres = presenceSig();
   if (online.latest !== undefined) return;       // 더 새 상태가 기다리고 있으면 바로 그걸 처리
@@ -1389,7 +1390,7 @@ function diceOverlay(myTurn) {
   const box0 = document.getElementById('tray').getBoundingClientRect();
   const sealList = ui.sealRoll || S.sealed || [];   // 굴리는 동안에도 봉인 표시는 제자리에 남는다
   const seals = S.rolled && sealList.length ? sealList.map(i => {
-    const p = tray.screenPos(i);
+    const p = tray.topPos?.(i) || tray.screenPos(i);   // 윗면 한가운데
     return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${SEAL_SIGIL}</div>`;
   }).join('') : '';
   // 세머리 용의 얼음: 주사위 자체가 얼음 껍질을 입는다 (뒤집어도 주사위에 붙어 다닌다)
@@ -1447,7 +1448,11 @@ function bossStatus(b) {
     const now = E.HEADS[(S.round - 1) % 3];
     return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
   }
-  if (b.id === 'cyclops' && b.gaze?.length && !ui.hideGaze) return `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`;
+  // 응시 · 저주가 없을 때도 같은 크기의 빈 줄을 둔다 (줄이 생겼다 사라지며 화면이 위아래로 밀리지 않게)
+  if (b.id === 'cyclops') return b.gaze?.length && !ui.hideGaze
+    ? `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`
+    : `<div class="boss-status ph" aria-hidden="true">${ico('eye', 'xs')} 응시: <b>-</b> <small>-</small></div>`;
+  if (b.id === 'archdemon' && !b.curse?.length) return `<div class="boss-status ph" aria-hidden="true">${ico('skull', 'xs')} 저주: <b>-</b> <small>-</small></div>`;
   if (b.id === 'archdemon' && b.curse?.length) return `<div class="boss-status">${ico('skull', 'xs')} 저주: <b>${b.curse.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>첫 굴림 그대로 완성하면 정화 ×2</small></div>`;
   if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> <small>${n ? `라운드 끝마다 +${n * E.NECRO_HEAL} 회복` : '0점을 적으면 해골병이 생겨요'}</small></div>`; }
   return '';
@@ -2371,7 +2376,7 @@ async function skillFx(f) {
     if (f.skill === 'eternal') fx.flash('#4A0A24', 400, 0.45);
     shake(game, 0.6);
     setTimeout(() => shake(game, f.skill === 'eternal' ? 2 : 1.3), (ui.fast ? 600 : 1000) / fx.speed);
-    await fx.seal(pts, ui.fast ? 800 : 1300);
+    await fx.seal(f.dice.map(i => t.topPos?.(i) || t.screenPos(i)), ui.fast ? 800 : 1300);   // 윗면 한가운데에
     render();
     return;
   }
@@ -2379,7 +2384,7 @@ async function skillFx(f) {
     if (!t) return;
     sfx.unseal();
     floatText('봉인 해제!', 'gold', -30, 'tray');
-    await fx.unseal(pts, ui.fast ? 600 : 900);
+    await fx.unseal(f.dice ? f.dice.map(i => t.topPos?.(i) || t.screenPos(i)) : pts, ui.fast ? 600 : 900);
     return;
   }
   sfx.zero();
@@ -2407,11 +2412,16 @@ async function hakiFx(midnight = false) {
 }
 
 // 연출 중 오류가 나도 게임이 멈추지 않게 (연출은 건너뛰고 진행)
+// 키클롭스 응시 · 바위, 세머리 용 얼음: 스킬 연출이 나오기 전에는 바뀐 칸 · 언 주사위를 미리 보여 주지 않는다.
+// 연출 목록을 받자마자(첫 render 전에) 부른다 — 예전에는 playFx 안에서만 걸어서 한 번 그려진 뒤에 사라졌다
+function hideUntilFx(list, keep = false) {
+  const has = s => list.some(f => f.type === 'boss' && f.skill === s);
+  ui.hideGaze = (keep && ui.hideGaze) || has('gaze');
+  ui.hideRock = (keep && ui.hideRock) || has('rock');
+  ui.hideIce = (keep && ui.hideIce) || has('hice');
+}
 async function playFx(list) {
-  // 키클롭스 응시 · 바위: 스킬 연출이 나오기 전에는 바뀐 칸을 미리 보여 주지 않는다
-  ui.hideGaze = list.some(f => f.type === 'boss' && f.skill === 'gaze');
-  ui.hideRock = list.some(f => f.type === 'boss' && f.skill === 'rock');
-  ui.hideIce = list.some(f => f.type === 'boss' && f.skill === 'hice');   // 얼음도 냉기가 닿은 뒤에 언다
+  hideUntilFx(list, true);
   for (const f of list) {
     try { await playOne(f); } catch (err) { console.error('[fx]', f.type, err); ui.dice = null; tray?.restore(); }
     if (f.type === 'boss' && ['gaze', 'rock', 'hice'].includes(f.skill)) {
@@ -3425,6 +3435,7 @@ async function step() {
   if (!S.ended && !S.tutorial) store.set(KEYS.save, S);
   if (E.current(S).bot || S.ended) ui.view = null;
   ui.dice = pendingDice(fx);
+  hideUntilFx(fx);
   holdHp(fx);
   render();
   await playFx(fx);
@@ -3459,6 +3470,7 @@ async function rollAnimated(mask, list = S.fx) {
   ui.busy = true;
   ui.sheet = false;
   ui.dice = pendingDice(list);
+  hideUntilFx(list);
   t.setSealed?.(ui.sealRoll || []);
   render();
   await t.roll(ui.dice || S.dice, mask, (ui.fast && E.current(S).bot ? 2.2 : 1) * (prefs.fx === 'min' ? 1.6 : prefs.fx === 'fast' ? 1.3 : 1));
