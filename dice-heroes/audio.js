@@ -11,9 +11,14 @@ export const BGM_FILES = {
   boss_orc:    'assets/bgm/boss_orc.ogg',      // 28마디 루프, 120BPM (Suno)
   boss_lich:   'assets/bgm/boss_lich.ogg',     // 28마디 루프, 120BPM (Suno)
   boss_demon:  'assets/bgm/boss_demon.ogg',    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
+  // 강화 보스 (Suno, 원곡 13~40 · 8~39 · 1~32 · 20~35마디)
+  boss_cyclops:   'assets/bgm/boss_cyclops.ogg',   // 키클롭스 · 28마디 루프, 131BPM
+  boss_hydra:     'assets/bgm/boss_hydra.ogg',     // 세머리 용 · 32마디 루프, 130BPM
+  boss_overlord:  'assets/bgm/boss_overlord.ogg',  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
+  boss_archdemon: 'assets/bgm/boss_archdemon.ogg', // 마신 · 16마디 루프(곡 앞 1분 안), 140BPM
 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
-// 강화 보스는 곡을 받기 전까지 원래 보스 곡을 쓴다
+// 강화 보스는 자기 곡이 없으면 원래 보스 곡을 쓴다
 const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich', archdemon: 'demon' };
 export const bossSong = id => { const k = BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? id : SONG_BASE[id] || id; return BGM_FILES[`boss_${k}`] || SONGS[`boss_${k}`] ? `boss_${k}` : 'boss'; };
 
