@@ -336,7 +336,7 @@ export const BOSSES = [
     partyAdj: [[1, 1, 1, 1], [1, 0.978, 0.925, 0.913], [1, 0.975, 0.942, 0.902]],
     skills: [
       { id: 'eternal', icon: '⛓️', ko: '영겁의 봉인',
-        desc: d => '홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인된다. 다시 굴려도 풀리지 않고, 뒤집기 1회를 쓰면 풀린다' },
+        desc: d => '홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인된다. 다시 굴려도 풀리지 않고, 뒤집기 1회를 쓰면 풀린다 (미드나잇에도 풀 수 있다). 풀린 주사위는 바로 다시 굴리거나 조정할 수 있다' },
       { id: 'midnight', icon: '🌑', ko: '미드나잇',
         desc: d => `짝수 라운드: 뒤집기 · 조정 금지. 이 라운드에 0점을 적으면 마신이 체력 ${MIDNIGHT_HEAL} 회복` },
       { id: 'curse', icon: '🩸', ko: '피의 저주',
@@ -703,14 +703,13 @@ export function useFlip(s, i) {
   const p = current(s);
   if (s.phase !== 'roll' || !s.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (p.flip <= 0) fail('뒤집기 충전이 없습니다.');
-  if (haki(s)) fail('마왕의 패기! 이번 라운드는 뒤집기를 쓸 수 없어요.');
-  if (isSealed(s, i) && s.sealPerm) {             // 영겁의 봉인: 뒤집기 1회로 봉인만 푼다
+  if (isSealed(s, i) && s.sealPerm) {             // 영겁의 봉인: 뒤집기 1회로 봉인만 푼다 (미드나잇에도 봉인 풀기는 된다)
     s.sealed = s.sealed.filter(k => k !== i);
     p.flip--;
-    s.toolUsed = true;
     fx(s, { type: 'boss', skill: 'unseal', dice: [i] });
     return;
   }
+  if (haki(s)) fail('마왕의 패기! 이번 라운드는 뒤집기를 쓸 수 없어요.');
   if (isSealed(s, i)) fail('봉인된 주사위는 뒤집을 수 없어요. 다시 굴리면 풀려요.');
   s.dice[i] = 7 - s.dice[i];
   p.flip--;

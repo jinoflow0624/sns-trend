@@ -1233,7 +1233,7 @@ function render() {
       ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>`}
-      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
+      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && (!['haki', 'midnight'].includes(E.event(S)) || (S.sealPerm && S.sealed?.length)) ? '' : 'disabled'}>
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
         ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>`}
@@ -1394,7 +1394,7 @@ function diceOverlay(myTurn) {
   }).join('') : '';
   const frost = S.rolled && S.frozen?.length && !tray.anim ? S.frozen.map(i => {
     const p = tray.screenPos(i);
-    return `<div class="frost-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${ico('snow', 'xs')}</div>`;
+    return `<div class="ice-cube" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px"><i></i><b>${ico('snow', 'xs')}</b></div>`;
   }).join('') : '';
   if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals + frost; return; }
   const box = box0;
@@ -1726,7 +1726,8 @@ async function rageScene() {
     <div class="rs-text"><b>분노!</b><small>${esc(b.ko)} — ${esc(rageSkill?.desc(2) || '')}</small></div>`;
   layer.appendChild(el);
   const fx = FX(), C = { x: innerWidth / 2, y: innerHeight * 0.42 };
-  stopBgm?.();
+  const keepSong = S.boss.id === 'archdemon';   // 마신: 각성 장면에서도 곡을 끊지 않는다
+  if (!keepSong) stopBgm?.();
   sfx.boom(3); buzz(200);
   fx.flash('#000000', 400, 0.5);
   const flames = setInterval(() => fx.burst(C.x + (Math.random() - 0.5) * 220, C.y + 110, { n: 10, pal, speed: [60, 220], dir: -Math.PI / 2, spread: 0.9, grav: -60, life: [0.5, 1], size: [3, 7] }), 70);
@@ -1746,7 +1747,7 @@ async function rageScene() {
   el.classList.add('out');
   await wait(300);
   el.remove();
-  playBgm(bossSong(S.boss.id));
+  if (!keepSong) playBgm(bossSong(S.boss.id));
   render();
 }
 
@@ -2327,10 +2328,22 @@ async function skillFx(f) {
   if (f.skill === 'rewind' && bossC) { sfx.twist(); await fx.clock(bossC, ui.fast ? 600 : 1100); heal(); return; }
   if (f.skill === 'curse' && bossC) { sfx.haki?.(); shake(game, 1.2); await fx.blood(bossC, ui.fast ? 600 : 1000); heal(); return; }
   if (f.skill === 'midheal' && bossC) { sfx.haki?.(); await fx.moon({ x: bossC.x, y: bossC.y - 10 }, ui.fast ? 500 : 900); heal(); return; }
-  if (f.skill === 'cleanse') {                   // 정화: 금빛 성광 기둥, 붉은 문양이 산산조각
-    sfx.unseal(); sfx.boom(2.6); buzz(120);
-    await fx.holy([trayC || bossC].filter(Boolean), ui.fast ? 500 : 900);
-    shake(game, 2);
+  if (f.skill === 'cleanse') {                   // 정화: 성광 기둥 → 금빛 광선이 마신을 꿰뚫고 X자 성광 참격 · 대폭발
+    sfx.unseal(); buzz(120);
+    await fx.holy([trayC || bossC].filter(Boolean), ui.fast ? 450 : 800);
+    if (bossC && trayC) {
+      sfx.whoosh();
+      await fx.beam(trayC, [bossC], { pal: PALETTES.gold, ms: ui.fast ? 300 : 520, width: 30 });
+      sfx.boom(3); buzz(200);
+      fx.flash('#FFFFFF', 360, 0.7);
+      shake(game, 3);
+      fx.slash(bossC, Math.max(80, bossC.w * 0.6), ui.fast ? 450 : 700);
+      fx.ring(bossC.x, bossC.y, { color: '#FFD24A', r0: 10, r1: innerWidth * 0.8, dur: 700, width: 12 });
+      fx.ring(bossC.x, bossC.y, { color: '#FFFFFF', r0: 20, r1: innerWidth * 0.5, dur: 520, width: 6 });
+      fx.burst(bossC.x, bossC.y, { n: 90, pal: ['#FFFFFF', '#FFF0A8', '#FFD24A', '#FF9A1F'], speed: [160, 480], life: [0.5, 1.2], size: [3, 8] });
+      floatText('정화! 피해 ×2', 'gold', -20, 'boss-art', 'sparkle');
+      await wait(ui.fast ? 350 : 650);
+    }
     render();
     return;
   }
@@ -3577,12 +3590,18 @@ async function onGameAct(act, t) {
       ui.tool = null;
       sfx.select();
       if (online) return onlineAct(g => E.useFlip(g, i));
-      if (tryAct(() => E.useFlip(S, i))) { render(); advanceTutorial(); }
+      if (tryAct(() => E.useFlip(S, i))) { if (S.fx.length) return step(); render(); advanceTutorial(); }   // 봉인 풀기: 해제 연출을 바로 보여 주고 곧장 다음 조작
       return;
     }
     if (ui.tool === 'nudge') return;          // 조정은 주사위 위의 −1 / +1 로
     if (ui.tool === 'deal') { if (E.isSealed(S, i)) return; sfx.select(); ui.dealDie = i; return render(); }   // 타짜: 고른 주사위 위에 1~6 고르기
-    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '영겁의 봉인! 다시 굴려도 안 풀려요. 뒤집기를 쓰면 풀려요.' : '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
+    if (E.isSealed(S, i) && S.sealPerm && E.current(S).flip > 0) {   // 영겁의 봉인: 봉인된 주사위를 누르면 뒤집기 1회로 바로 푼다
+      sfx.select();
+      if (online) return onlineAct(g => E.useFlip(g, i));
+      if (tryAct(() => E.useFlip(S, i))) return step();
+      return;
+    }
+    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '영겁의 봉인! 다시 굴려도 안 풀려요. 뒤집기가 있으면 이 주사위를 눌러 바로 풀 수 있어요.' : '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
     if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '이번 차례엔 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.', 1500); }
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();
@@ -3605,6 +3624,20 @@ async function onGameAct(act, t) {
     // 0점 칸은 한 번 더 눌러야 기록 (실수로 요트 칸을 버리지 않게)
     const row = E.preview(S).find(r => r.id === t.dataset.cat);
     if (row && row.pts === 0 && ui.zeroArm !== t.dataset.cat) { ui.zeroArm = t.dataset.cat; sfx.back(); buzz(25); return render(); }
+    // 피의 저주 칸: 점수가 마신 회복이 되면 한 번 더 묻는다
+    if (row && row.pts > 0 && S.boss && E.cursed(S, t.dataset.cat) && S.rollNo !== 1 && !t.dataset.ok) {
+      sfx.back(); buzz(40);
+      const heal = Math.min(S.boss.maxHp - S.boss.hp, row.pts);
+      layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame curse-ask" data-act="noop">
+        <h2>${ico('skull')} 피의 저주 칸</h2>
+        <p>「${esc(E.catInfo(t.dataset.cat).ko)}」 칸은 저주받았어요.<br>지금 적으면 피해 대신 <b>마신이 체력을 ${heal}</b> 회복해요.</p>
+        <p class="hint">첫 굴림 그대로 완성해 적었다면 저주를 끊고 피해 2배였어요.</p>
+        <p><b>그래도 적으시겠습니까?</b></p>
+        <div class="modal-actions"><button class="pbtn" data-act="close">취소</button><button class="pbtn danger" data-act="score" data-cat="${t.dataset.cat}" data-ok="1">그래도 적기</button></div>
+      </div></div>`;
+      return;
+    }
+    if (t.dataset.ok) layer.innerHTML = '';
     ui.zeroArm = null;
     ui.tool = null;
     ui.sheet = false;
