@@ -1473,16 +1473,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 
 /* 한국어 문장은 단어 단위로 줄바꿈 (단어 중간에서 끊기지 않게) */
 body { word-break: keep-all; overflow-wrap: break-word; }
-/* 세머리 용 얼음: 언 주사위를 감싼 얼음 덩어리 */
-.ice-cube { position: absolute; transform: translate(-50%, -50%); width: 60px; height: 60px; pointer-events: none; z-index: 3;
-  background: linear-gradient(135deg, rgba(255, 255, 255, .55), rgba(124, 224, 255, .35) 40%, rgba(58, 168, 255, .45));
-  border: 3px solid rgba(200, 244, 255, .95); box-shadow: inset 0 0 0 2px rgba(30, 90, 200, .6), 0 0 12px rgba(124, 224, 255, .8); animation: iceShine 2.2s ease-in-out infinite; }
-.ice-cube i { position: absolute; inset: 6px 30px 30px 6px; background: rgba(255, 255, 255, .85); clip-path: polygon(0 0, 100% 0, 0 100%); }
-.ice-cube::before, .ice-cube::after { content: ''; position: absolute; background: rgba(255, 255, 255, .9); }
-.ice-cube::before { left: 38px; top: 8px; width: 2px; height: 22px; transform: rotate(25deg); }
-.ice-cube::after { left: 14px; top: 38px; width: 18px; height: 2px; transform: rotate(-20deg); }
-.ice-cube b { position: absolute; right: -6px; top: -8px; padding: 1px 2px; background: #C8F4FF; border: 2px solid #1E5AC8; }
-@keyframes iceShine { 50% { box-shadow: inset 0 0 0 2px rgba(30, 90, 200, .6), 0 0 20px rgba(200, 244, 255, 1); } }
-@media (prefers-reduced-motion: reduce) { .ice-cube { animation: none; } }
+/* 세머리 용 얼음: 3D 주사위는 얼음 껍질(dice3d.js iceMat), 2D 대체 화면은 주사위 자체를 얼린다 */
+.d2.frozen { background: linear-gradient(135deg, #F4FDFF, #BDEBFF 45%, #8FD6F5); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .9), inset 0 0 10px rgba(58, 168, 255, .55); }
 .curse-ask p { line-height: 1.6; }
 .curse-ask b { color: #FF5A8A; }

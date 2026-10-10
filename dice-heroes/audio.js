@@ -11,12 +11,15 @@ export const BGM_FILES = {
   boss_orc:    'assets/bgm/boss_orc.ogg',      // 28마디 루프, 120BPM (Suno)
   boss_lich:   'assets/bgm/boss_lich.ogg',     // 28마디 루프, 120BPM (Suno)
   boss_demon:  'assets/bgm/boss_demon.ogg',    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
-  // 강화 보스 (Suno, 원곡 13~40 · 8~39 · 1~32 · 20~35마디)
-  boss_cyclops:   'assets/bgm/boss_cyclops.ogg',   // 키클롭스 · 28마디 루프, 131BPM
-  boss_hydra:     'assets/bgm/boss_hydra.ogg',     // 세머리 용 · 32마디 루프, 130BPM
+  // 강화 보스 (Suno). 곡 첫 박부터 틀고, BGM_LOOP 지점부터 끝까지를 반복한다 (오버로드는 곡 전체가 루프)
+  boss_cyclops:   'assets/bgm/boss_cyclops.ogg',   // 키클롭스 · 1~12마디 도입 + 13~40마디(28마디) 반복, 131BPM
+  boss_hydra:     'assets/bgm/boss_hydra.ogg',     // 세머리 용 · 1~7마디 도입 + 8~39마디(32마디) 반복, 130BPM
   boss_overlord:  'assets/bgm/boss_overlord.ogg',  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
-  boss_archdemon: 'assets/bgm/boss_archdemon.ogg', // 마신 · 16마디 루프(곡 앞 1분 안), 140BPM
+  boss_archdemon: 'assets/bgm/boss_archdemon.ogg', // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
 };
+// 도입부가 있는 곡: 처음 한 번은 첫 박부터, 그다음부터는 이 시각(초)부터 파일 끝까지를 반복한다.
+// 파일 끝 0.04초는 루프 시작 직전 소리로 미리 섞어 두어 이음매가 매끄럽다
+export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 13.181708, boss_archdemon: 32.741604 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 // 강화 보스는 자기 곡이 없으면 원래 보스 곡을 쓴다
 const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich', archdemon: 'demon' };
@@ -413,6 +416,7 @@ export function playBgm(name) {
       if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
       const src = ctx.createBufferSource(), g = ctx.createGain();
       src.buffer = buf; src.loop = true; g.gain.value = FILE_VOL;
+      if (BGM_LOOP[name] < buf.duration) { src.loopStart = BGM_LOOP[name]; src.loopEnd = buf.duration; }
       src.connect(g).connect(bgmGain);
       src.start();
       state.src = src;
