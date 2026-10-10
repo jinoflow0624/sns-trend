@@ -9,9 +9,9 @@
 // 난이도별 보석 (1 쉬움 · 2 보통 · 3 어려움 · 4 전설)
 export const TIER = {
   1: { ko: '브론즈', gems: 50, color: '#D08A4A' },
-  2: { ko: '실버', gems: 150, color: '#C8D2E6' },
-  3: { ko: '골드', gems: 400, color: '#FFD24A' },
-  4: { ko: '전설', gems: 1000, color: '#FF6FB5' },
+  2: { ko: '실버', gems: 100, color: '#C8D2E6' },
+  3: { ko: '골드', gems: 200, color: '#FFD24A' },
+  4: { ko: '전설', gems: 400, color: '#FF6FB5' },
 };
 
 // 한 판에서 쌓을 수 있는 최대치 (오프라인 판 값 검사)
