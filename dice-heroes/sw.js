@@ -12,6 +12,7 @@ const FILES = [
   'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'assets/bgm/title.ogg', 'assets/bgm/versus.ogg',
   'assets/bgm/boss_dragon.ogg', 'assets/bgm/boss_orc.ogg', 'assets/bgm/boss_lich.ogg', 'assets/bgm/boss_demon.ogg',
+  'assets/bgm/boss_cyclops.ogg', 'assets/bgm/boss_hydra.ogg', 'assets/bgm/boss_overlord.ogg', 'assets/bgm/boss_archdemon.ogg',
   ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].map(id => `assets/boss/${id}.webp`),
   ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
   // 그림 주사위 스킨 (오프라인에서 꾸미기를 바꿔도 보이게)
