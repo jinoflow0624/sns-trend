@@ -372,6 +372,28 @@ export const isSealed = (s, i) => !!s.sealed?.includes(i);
 const enraged = s => s.boss.diff === 2 && s.boss.hp * 2 < s.boss.maxHp;
 const every = (s, k) => s.round % k === 0;
 
+// 보스 예고: 그 라운드에 때가 되어 쓰는 공격 · 방해 목록 [{ id: 스킬 칩, ko, what }].
+// 화면이 한 라운드 전에 경고한다. 분노 여부는 지금 체력으로 본다 (그 사이 분노하면 바뀔 수 있다)
+const HEAD_WHAT = { fire: '첫 굴림의 가장 높은 주사위 1개가 1로 탄다', ice: '첫 굴림 뒤 주사위 2개가 얼어붙는다', poison: '15점 이하 기록은 피해 절반' };
+export function bossPlan(s, round = s.round) {
+  const b = s.boss;
+  if (!b || round < 1 || round > ROUNDS) return [];
+  const rage = enraged(s), out = [];
+  const add = (id, ko, what) => out.push({ id, ko, what });
+  if (b.id === 'dragon' && round % (rage ? 2 : 4) === 0) add('breath', '화염 숨결', HEAD_WHAT.fire);
+  if (b.id === 'orc' && round % 3 === 0) add('drums', '전쟁의 북', '모두의 굴림 기회 -1');
+  if (b.id === 'lich' && round % 3 === 0) add('twist', '운명 비틀기', `두 번째 굴림 뒤 주사위 ${rage ? 2 : 1}개가 뒤집힌다`);
+  if (b.id === 'hydra') { const h = HEADS[(round - 1) % 3]; if (!b.cut?.[h]) add('heads', `${HEAD_KO[h]} 머리의 숨결`, HEAD_WHAT[h]); }
+  if (b.id === 'cyclops' && round % 3 === 0 && round < ROUNDS) add('rock', '바위 투척', '각자 빈칸 하나가 막힌다');
+  if (b.id === 'overlord' && round % 3 === 0) add('reverse', '운명 역전', '두 번째 굴림 뒤 가장 많이 나온 눈이 전부 뒤집힌다');
+  if (b.id === 'demon') { if (round % 2) add('seal', '봉인', `첫 굴림 뒤 주사위 ${rage ? 2 : 1}개가 봉인된다`); else add('haki', '패기', '뒤집기 · 조정 금지'); }
+  if (b.id === 'archdemon') {
+    if (round % 2 || rage) add('eternal', '영겁의 봉인', '첫 굴림 뒤 주사위 1개 봉인 (뒤집기로만 풀린다)');
+    if (!(round % 2)) add('midnight', '미드나잇', '뒤집기 · 조정 금지 · 0점이면 마신 회복');
+  }
+  return out;
+}
+
 function bossRollMod(s) {
   const b = s.boss;
   if (!b || b.id !== 'orc') return 0;
