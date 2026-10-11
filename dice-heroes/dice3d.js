@@ -651,8 +651,10 @@ export class DiceTray {
     const r = this.renderer.domElement.getBoundingClientRect();
     const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(p, this.camera);
-    const hit = this.raycaster.intersectObjects(this.dice.map(d => d.mesh))[0];
-    return hit ? this.dice.findIndex(d => d.mesh === hit.object) : -1;
+    // 주사위에 붙은 얼음 껍질 등 자식 메시에 맞아도 그 주사위로 친다 (예전엔 -1 이 돼 잡기가 안 됐다)
+    const hit = this.raycaster.intersectObjects(this.dice.map(d => d.mesh), true)[0];
+    if (!hit) return -1;
+    return this.dice.findIndex(d => { for (let o = hit.object; o; o = o.parent) if (o === d.mesh) return true; return false; });
   }
 
   // ── 연출 ────────────────────────────────────────────────────────────────
