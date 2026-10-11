@@ -133,6 +133,10 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 .menu { display: grid; gap: 10px; width: min(300px, 100%); margin-bottom: 8vh; animation: rise .45s ease both; }
 .menu .pbtn { width: 100%; }
 .menu-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* 원정 (테스트판 전용) 메뉴: 이어하기 + 새 원정 */
+.run-menu { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.run-menu .pbtn.small { width: auto; }
+.run-menu .pbtn:only-child { grid-column: 1 / -1; }
 @keyframes rise { from { transform: translateY(30px); opacity: 0; } }
 .ver { font-size: 10px; color: #CFC6FF; opacity: .7; text-shadow: 1px 1px 0 var(--ink); }
 
