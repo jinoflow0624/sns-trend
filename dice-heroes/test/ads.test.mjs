@@ -6,11 +6,12 @@ let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); pass++; console.log('  ✓', name); } catch (e) { fail++; console.log('  ✗', name, '\n   ', e.message); } };
 const MIN = 60 * 1000;
 
-t('기본 규칙: 2판에 1번 · 최소 3분', () => { assert.equal(RULES.every, 2); assert.equal(RULES.gapMs, 3 * MIN); });
-t('한 판만 했으면 광고 없음', () => assert.equal(due({ games: 1, last: 0 }, 10 * MIN), false));
+t('기본 규칙: 한 판에 1번 · 최소 3분', () => { assert.equal(RULES.every, 1); assert.equal(RULES.gapMs, 3 * MIN); });
+t('아직 한 판도 안 끝났으면 광고 없음', () => assert.equal(due({ games: 0, last: 0 }, 10 * MIN), false));
+t('한 판 끝 · 3분 지남 → 광고', () => assert.equal(due({ games: 1, last: 0 }, 10 * MIN), true));
 t('두 판 · 3분 지남 → 광고', () => assert.equal(due({ games: 2, last: 0 }, 10 * MIN), true));
-t('두 판이어도 직전 광고 뒤 3분 안이면 없음', () => assert.equal(due({ games: 2, last: 10 * MIN }, 12 * MIN), false));
-t('3분이 지나면 다시 가능', () => assert.equal(due({ games: 3, last: 10 * MIN }, 13 * MIN), true));
+t('직전 광고 뒤 3분 안이면 없음', () => assert.equal(due({ games: 1, last: 10 * MIN }, 12 * MIN), false));
+t('3분이 지나면 다시 가능', () => assert.equal(due({ games: 1, last: 10 * MIN }, 13 * MIN), true));
 t('규칙을 바꿀 수 있다 (3판에 1번)', () => assert.equal(due({ games: 2, last: 0 }, 10 * MIN, { every: 3, gapMs: 0 }), false));
 
 // 브라우저가 아닌 곳(스크립트 없음)에서는 광고 없이 바로 넘어간다

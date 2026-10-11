@@ -2,13 +2,13 @@
 // 게임 도중에는 절대 띄우지 않는다. Google H5 Games Ads (Ad Placement API: adConfig / adBreak).
 //
 // 규칙
-//   · 끝까지 한 판이 RULES.every(기본 2)판 쌓이고, 직전 광고 뒤 RULES.gapMs(3분)가 지났을 때만
+//   · 끝까지 한 판이 RULES.every(기본 1)판 쌓이고, 직전 광고 뒤 RULES.gapMs(3분)가 지났을 때만
 //   · 광고 제거 권리(adFree)가 있으면 스크립트조차 불러오지 않는다
 //   · 스크립트가 막혔거나 광고가 없거나 늦으면 아무것도 표시하지 않고 그대로 넘어간다
 //   · 맞춤형 광고는 기본 꺼짐 (설정에서 켤 수 있다). 유럽·영국·스위스는 애드센스 동의 창(CMP)이 따로 뜬다
 //   · 테스트판은 항상 테스트 광고(data-adbreak-test), 배포판은 Remote Config ads_enabled 가 true 일 때만
 export const ADS_CLIENT = 'ca-pub-1731682355545536';
-export const RULES = { every: 2, gapMs: 180 * 1000 };
+export const RULES = { every: 1, gapMs: 180 * 1000 };
 const KEY = 'diceheroes.ads';
 const WAIT_MS = 2000;     // 이 안에 광고가 시작되지 않으면 없는 것으로 보고 넘어간다
 const MAX_MS = 90 * 1000; // 광고가 끝났다는 신호가 안 와도 이만큼 지나면 게임으로 돌아온다
