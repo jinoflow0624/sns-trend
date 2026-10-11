@@ -761,6 +761,16 @@ export const sfx = {
     voice(sfxGain, { type: 'p50', f: 110, slide: 55, t: t + 0.05, dur: 0.8, vol: 0.03 });
     buzz(90);
   },
+  // 무희 춤사위: 캐스터네츠 따닥 + 빙글 도는 장조 아르페지오 + 반짝이는 끝음 (약 0.6초)
+  dance() {
+    buzz(40);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    [0, 0.07, 0.11].forEach(d => noise(sfxGain, { t: t + d, dur: 0.025, vol: 0.12, hp: 3000, lp: 9000 }));
+    ['A5', 'C#6', 'E6', 'A6', 'E6', 'A6', 'C#7'].forEach((n, i) => voice(sfxGain, { type: i % 2 ? 'p12' : 'p25', f: freq(n), t: t + 0.12 + i * 0.055, dur: 0.09, vol: 0.09 }));
+    ping(sfxGain, { f: freq('E7'), t: t + 0.52, dur: 0.4, vol: 0.05, type: 'triangle' });
+    ping(sfxGain, { f: freq('A7'), t: t + 0.56, dur: 0.35, vol: 0.03, type: 'triangle' });
+  },
   // ── 원정 ──
   // 카드가 적에게 꽂힌다: 짧게 베는 소리 + 둔탁한 타격
   strike(power = 1) {

@@ -1481,8 +1481,8 @@ function bossPanel() {
     <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
-      <div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
-        <em>HP ${hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
+      <div class="hp-row"><div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
+        <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
       ${bossStatus(b)}
       <div class="boss-skills">
         ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip${k.id !== 'heads' && planNow.has(k.id) ? ' now' : ''}${k.id !== 'heads' && planNext.has(k.id) ? ' next' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${k.id !== 'heads' && planNext.has(k.id) ? '<i class="nx">다음</i>' : ''}</button>`).join('')}
@@ -2099,7 +2099,7 @@ const memberFx = (i, cls, ms) => {
 };
 // 무희 춤사위 버프: 꽃잎이 트레이로 쏟아지며 모든 주사위가 한 칸씩 올라간다
 async function danceBuffFx(i) {
-  sfx.legend(); buzz(60);
+  sfx.dance(); buzz(60);
   danceFx(i);
   floatText('춤사위! 모든 주사위 +1', 'gold', -20, 'tray', 'sparkle');
   const fx = FX(), r = document.getElementById('tray')?.getBoundingClientRect();
