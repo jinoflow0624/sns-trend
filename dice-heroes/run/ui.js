@@ -155,8 +155,9 @@ const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
+// 지도 · 이벤트 · 상점 · 휴식 · 전투 보상은 모두 지도 곡(run_map) — 같은 곡이면 playBgm 이 다시 틀지 않아 화면을 오가도 끊기지 않는다
 function showMap() {
-  playBgm('adventure');
+  playBgm('run_map');
   const nodes = R.map.nodes;
   const next = new Set(Run.nextNodes(R));
   const H = MAP_PAD * 2 + Run.ROWS * MAP_ROW + 40;
@@ -200,7 +201,7 @@ function showMap() {
 function showCombat(fresh) {
   const C = R.C;
   const kind = Run.ENEMIES[C.e.id].kind;
-  playBgm(kind === 'boss' ? bossSong(C.e.id) : 'adventure');
+  playBgm(kind === 'boss' ? bossSong(C.e.id) : kind === 'elite' ? 'run_elite' : 'run_battle');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-combat" id="rc">
@@ -906,7 +907,7 @@ async function introFoe() {
 function showReward() {
   const rw = R.reward;
   if (!rw) { R.phase = 'map'; return showMap(); }
-  playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'adventure');
+  playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'run_map');
   const title = rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : '승리!';
   X.layer.innerHTML = '';
   X.app.innerHTML = `
@@ -984,7 +985,7 @@ function relicPick(k) {
 
 // ── 상점 ─────────────────────────────────────────────────────────────────────
 function showShop() {
-  playBgm('adventure');
+  playBgm('run_map');
   const sh = R.shop;
   const price = (p, sold) => `<em class="price${!sold && R.gold < p ? ' poor' : ''}">${sold ? '판매됨' : `${ico('coins', 'xs')}${p}`}</em>`;
   X.layer.innerHTML = '';
@@ -1010,7 +1011,7 @@ function showShop() {
 
 // ── 휴식 ─────────────────────────────────────────────────────────────────────
 function showRest() {
-  playBgm('title');
+  playBgm('run_map');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-rest">
@@ -1028,7 +1029,7 @@ function showRest() {
 
 // ── 이벤트 ───────────────────────────────────────────────────────────────────
 function showEvent() {
-  playBgm('title');
+  playBgm('run_map');
   const ev = Run.eventDef(R.event.id);
   const res = R.event.result;
   X.layer.innerHTML = '';
@@ -1087,7 +1088,7 @@ function showEnd() {
     X.store.set(BEST, b);
   }
   X.store.del(SAVE);
-  playBgm(won ? 'victory' : 'title');
+  playBgm(won ? 'run_win' : 'run_lose');
   const st = R.stats;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
