@@ -31,7 +31,9 @@ if (conf.includes('REPLACE_ME')) {
 const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'package.json', 'package-lock.json', 'run']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-cpSync(src, out, { recursive: true, filter: p => !SKIP.has(p.slice(src.length + 1).split(/[\\/]/)[0]) });
+// 원정 전용 곡(assets/bgm/run_*.ogg)도 배포판에는 넣지 않는다
+const runOnly = rel => /^assets[\\/]bgm[\\/]run_/.test(rel);
+cpSync(src, out, { recursive: true, filter: p => { const rel = p.slice(src.length + 1); return !SKIP.has(rel.split(/[\\/]/)[0]) && !runOnly(rel); } });
 
 writeFileSync(join(out, 'env.js'), "// 배포판 빌드 (dice-heroes-prod/build.mjs 가 만든 파일)\nexport const ENV = 'prod';\n");
 writeFileSync(join(out, 'fireconfig.js'), conf);
