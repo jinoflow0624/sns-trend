@@ -73,6 +73,7 @@ export const KEYWORDS = {
   weak:   { ko: '약화',   icon: 'snow',    color: '#7CE0FF', desc: '점수의 절반 이상으로 공격하면 적의 다음 공격 피해가 절반이 된다' },
   gold:   { ko: '황금',   icon: 'coins',   color: '#FFD24A', desc: '공격한 점수의 1/3만큼 골드를 얻는다' },
   echo:   { ko: '메아리', icon: 'recycle', color: '#6BBE45', desc: '내고 나면 버린 더미 대신 다음 턴 손패로 돌아온다' },
+  keep:   { ko: '보존',   icon: 'lock',    color: '#C8A2FF', desc: '턴이 끝나도 버려지지 않고 손패에 남는다' },
 };
 export const KW_IDS = Object.keys(KEYWORDS);
 export const CAT_SHORT = { ones: '1', twos: '2', threes: '3', fours: '4', fives: '5', sixes: '6' };
@@ -88,32 +89,76 @@ export const cardName = c => `${c.kw ? KEYWORDS[c.kw].ko + ' ' : ''}${catInfo(c.
 export const cardRarity = c => (c.kw && c.up) || (c.cat === 'yacht' && c.up) ? 3 : c.kw ? 2 : 1;
 function mkCard(R, cat, up = 0, kw = null) { return { u: ++R.uid, cat, up: up ? 1 : 0, kw: kw || null }; }
 
+// ── 승천 (원정을 깬 직업은 한 단계씩 더 어려운 원정을 열 수 있다, 0~10. 단계는 쌓인다) ──
+export const ASC_MAX = 10;
+export const ASCENSION = [
+  null,
+  { ko: '정예의 갑옷', desc: '엘리트 체력 +15%' },
+  { ko: '거친 길', desc: '일반 적의 공격 +10%' },
+  { ko: '두꺼운 가죽', desc: '보스 체력 +15%' },
+  { ko: '짧은 휴식', desc: '모닥불 휴식 회복 30% → 20%' },
+  { ko: '고된 행군', desc: '막을 넘어갈 때 회복 60% → 40%' },
+  { ko: '오래된 상처', desc: '최대 체력 -8%' },
+  { ko: '바가지', desc: '상점 가격 +25%' },
+  { ko: '정예의 칼날', desc: '엘리트 공격 +15%' },
+  { ko: '폭군', desc: '보스 공격 +10%' },
+  { ko: '조급함', desc: '격앙이 2턴 빨리 시작된다' },
+];
+export const asc = (R, n) => (R.asc || 0) >= n;
+export const furyOf = R => { const f = FURY[ENEMIES[R.C.e.id].kind]; return asc(R, 10) ? { ...f, from: f.from - 2 } : f; };
+
+// ── 원정 도전과제 (판 안에서 이루면 R.feats 에 남고, 화면이 기록에 옮긴다) ──
+export const FEATS = [
+  { id: 'act1',     ko: '첫 관문',       icon: 'skull',   desc: '1막 보스를 쓰러뜨린다' },
+  { id: 'clear',    ko: '원정 성공',     icon: 'crown',   desc: '마왕을 쓰러뜨리고 원정을 끝낸다' },
+  { id: 'flawless', ko: '완벽한 사냥',   icon: 'heart',   desc: '체력을 하나도 잃지 않고 보스를 쓰러뜨린다' },
+  { id: 'ace30',    ko: '에이스의 반란', icon: 'die1',    desc: '에이스 카드 한 장으로 30 피해 이상' },
+  { id: 'lstr60',   ko: '질주의 끝',     icon: 'boot',    desc: '라지 스트레이트 한 장으로 60 피해 이상' },
+  { id: 'yacht',    ko: '요트!',         icon: 'boat',    desc: '요트 카드로 공격한다' },
+  { id: 'wall',     ko: '철벽',          icon: 'shield',  desc: '보호막 60 이상으로 적의 턴을 맞는다' },
+  { id: 'rich',     ko: '부자',          icon: 'coins',   desc: '골드 500 이상을 모은다' },
+  { id: 'hoard',    ko: '수집가',        icon: 'card',    desc: '덱 25장 이상으로 원정을 이어 간다' },
+  { id: 'asc5',     ko: '승천자',        icon: 'up',      desc: '승천 5 이상으로 원정을 끝낸다' },
+  { id: 'asc10',    ko: '정점',          icon: 'trophy',  desc: '승천 10으로 원정을 끝낸다' },
+  { id: 'five',     ko: '다섯 영웅',     icon: 'party',   desc: '서로 다른 직업 5종으로 원정을 끝낸다' },
+];
+function feat(R, id) {
+  const f = (R.feats ||= []);
+  if (f.includes(id)) return;
+  f.push(id);
+  fx(R, { type: 'feat', id });
+}
+function checkFeats(R) {
+  if (R.gold >= 500) feat(R, 'rich');
+  if (R.deck.length >= 25) feat(R, 'hoard');
+}
+
 // ── 직업 (원정용 능력) ──────────────────────────────────────────────────────
 // 보석 해금 직업이 무료 직업(도박사 · 수도승)보다 조금 더 잘 이기도록 맞춘다 (sim/run.mjs).
 // sig: 직업마다 시작 덱에 한 장 더 들어가는 대표 카드
 export const BASE_DECK = ['choice', 'choice', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];
 export const RUN_CLASSES = {
-  gambler: { hp: 70, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
+  gambler: { hp: 73, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}. 전투에서 얻는 골드 +25%`; } },
-  monk:    { hp: 80, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
+  monk:    { hp: 77, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
     get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1 · 보호막 +${CLASS_TUNE.monkBlock}`; } },
-  rogue:   { hp: 86, flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
+  rogue:   { hp: 92, flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
     get desc() { return `전투를 시작할 때마다 뒤집기 +${CLASS_TUNE.rogueFlip}. 뒤집기를 쓴 턴에 내는 카드는 점수 +${Math.round(CLASS_TUNE.rogueMul * 100)}%, 적 보호막을 무시한다`; } },
   warrior: { hp: 98, flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
     get desc() { return `숫자 카드(에이스~식스) 점수 +${Math.round(CLASS_TUNE.warriorMul * 100)}%. 숫자 카드로 공격하면 공격한 점수의 절반만큼 보호막도 얻는다`; } },
-  bard:    { hp: 92, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
+  bard:    { hp: 88, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
     get desc() { return `매 턴 시작에 보호막 +${CLASS_TUNE.bardBlock}. 전투에서 이기면 체력 ${CLASS_TUNE.bardHeal} 회복`; } },
-  mage:    { hp: 84, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
+  mage:    { hp: 80, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
     get desc() { return `손패 5장. 카드로 공격할 때 손에 남은 카드 1장당 피해 +${CLASS_TUNE.mageBonus} (나눠 내면 공격 비율만큼). 카드 보상을 한 장 더 보고 고른다`; } },
   dancer:  { hp: 77, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
     get desc() { return `${DANCE_NEED}점 이상 카드를 내면 춤사위 +1 (최대 ${DANCE_CAP}, 원정 내내 유지). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로), 그 턴 카드 점수 +${Math.round(CLASS_TUNE.danceMul * 100)}% (턴당 1번)`; } },
-  outlaw:  { hp: 84, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
+  outlaw:  { hp: 88, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
     get desc() { return `첫 굴림 그대로(다시 굴리지 않고) 카드를 내면 점수 ×${CLASS_TUNE.rushAny}, 포카인드 · 풀하우스 · 스트레이트 · 요트면 ×${CLASS_TUNE.rushMul}. 남은 굴림 1회당 보호막 +${CLASS_TUNE.rushBlock}`; } },
-  sharper: { hp: 84, flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
+  sharper: { hp: 80, flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
     get desc() { return `굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다. 턴마다 ${CLASS_TUNE.dealsTurn}번, 전투마다 ${CLASS_TUNE.deals}번까지`; } },
 };
 // 직업 수치 (sim/run.mjs 로 맞춘다)
-export const CLASS_TUNE = { mageBonus: 1, betMul: 1.25, monkBlock: 3, rogueFlip: 2, rogueMul: 0.4, warriorMul: 0.5, bardBlock: 3, bardHeal: 2,
+export const CLASS_TUNE = { mageBonus: 1, betMul: 1.25, monkBlock: 3, rogueFlip: 2, rogueMul: 0.4, warriorMul: 0.3, bardBlock: 3, bardHeal: 2,
   rushAny: 1.2, rushMul: 1.5, rushBlock: 4, deals: 6, dealsTurn: 2, danceMul: 0.1, gamblerGold: 0.25 };
 
 // ── 유물 (판 내내 켜져 있는 패시브) — 대부분 원래 특성 카드에서 옮겨 왔다 ──
@@ -150,7 +195,20 @@ export const RELICS = [
   { id: 'midas',     ko: '황금손',          icon: 'hand',      r: 3, desc: '매 턴 시작에 조정 +1' },
   { id: 'phoenix',   ko: '불사조 깃털',     icon: 'sparkle',   r: 3, desc: '쓰러지면 한 번, 최대 체력의 40%로 되살아난다' },
   { id: 'chalice',   ko: '생명의 성배',     icon: 'trophy',    r: 3, desc: '얻을 때 최대 체력 +30, 체력 모두 회복' },
+  // 낮은 족보를 살리는 유물 (덱 방향을 정한다 — 가지면 같은 계열 카드 · 유물이 더 자주 나온다)
+  { id: 'ace',       ko: '에이스의 긍지',   icon: 'die1',      r: 2, desc: '에이스 카드: 1의 눈 하나를 8점으로 센다' },
+  { id: 'small',     ko: '작은 수의 힘',    icon: 'die2',      r: 2, desc: '에이스 · 듀스 · 트레이 카드 점수 ×2.5' },
+  { id: 'pairs',     ko: '수집가의 상자',   icon: 'bag',       r: 1, desc: '숫자 카드는 맞는 주사위 1개당 +3점' },
+  { id: 'quad',      ko: '쌍둥이 별',       icon: 'pair4',     r: 2, desc: '숫자 카드에 맞는 주사위가 4개 이상이면 점수 ×2' },
+  { id: 'flow',      ko: '질풍',            icon: 'rainbow',   r: 2, desc: '스몰 스트레이트 기본 25점 · 라지 스트레이트 기본 45점' },
+  { id: 'combo',     ko: '연환',            icon: 'link',      r: 2, desc: '스트레이트 카드로 공격하면 피해가 두 번 들어간다' },
 ];
+// 덱 방향: 숫자 카드(에이스~식스) · 스트레이트
+export const NUM_RELICS = ['basic', 'ace', 'small', 'pairs', 'quad'];
+export const STR_RELICS = ['straight', 'flow', 'combo'];
+export function synergy(R) {
+  return { num: NUM_RELICS.filter(id => hasRelic(R, id)).length + (R.cls === 'warrior' ? 1 : 0), str: STR_RELICS.filter(id => hasRelic(R, id)).length };
+}
 export const relicInfo = id => RELICS.find(r => r.id === id);
 export const hasRelic = (R, id) => R.relics.includes(id);
 
@@ -315,12 +373,14 @@ export function nextNodes(R) {
 }
 
 // ── 원정 만들기 ─────────────────────────────────────────────────────────────
-export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>> 0, name = '모험가' } = {}) {
+export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>> 0, name = '모험가', asc: lv = 0 } = {}) {
   const k = RUN_CLASSES[cls] ? cls : 'gambler';
   const ci = RUN_CLASSES[k];
+  const a = Math.max(0, Math.min(ASC_MAX, Math.floor(Number(lv) || 0)));
+  const hp = a >= 6 ? Math.round(ci.hp * 0.92) : ci.hp;
   const R = {
-    v: 1, seed: seed >>> 0, rng: seed >>> 0, uid: 0,
-    cls: k, name, hp: ci.hp, maxHp: ci.hp, gold: 0,
+    v: 1, seed: seed >>> 0, rng: seed >>> 0, uid: 0, asc: a, feats: [],
+    cls: k, name, hp, maxHp: hp, gold: 0,
     flip: ci.flip, nudge: ci.nudge, dance: k === 'dancer' ? 1 : 0,
     deck: [], relics: [], potions: [],
     act: 1, map: null, pos: null, boss: null, path: [],
@@ -390,7 +450,7 @@ export const toolsLocked = R => hexActive(R, 'haki');
 export function startCombat(R, foeId) {
   const def = ENEMIES[foeId];
   const a = R.act - 1;
-  const hpMul = TUNE.hp[def.kind][a];
+  const hpMul = TUNE.hp[def.kind][a] * (def.kind === 'elite' && asc(R, 1) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 3) ? 1.15 : 1);
   const hp = Math.round(int(R, def.hp[0], def.hp[1]) * hpMul);
   const e = { id: foeId, hp, maxHp: hp, block: 0, str: 0, weak: 0, burn: 0, burnT: 0, mi: -1, intent: null, raged: false, last: [], cut: def.ai === 'heads' ? {} : null, regrew: false };
   R.C = {
@@ -468,7 +528,9 @@ export function intentParts(R) {
 // 적 한 대의 실제 공격력 (힘 · 막 배율 · 약화 반영)
 export function atkOf(R, base) {
   const e = R.C.e;
-  const v = Math.round((base + e.str) * TUNE.atk[ENEMIES[e.id].kind][R.act - 1]);
+  const kind = ENEMIES[e.id].kind;
+  const am = (kind === 'normal' && asc(R, 2) ? 1.1 : 1) * (kind === 'elite' && asc(R, 8) ? 1.15 : 1) * (kind === 'boss' && asc(R, 9) ? 1.1 : 1);
+  const v = Math.round((base + e.str) * TUNE.atk[kind][R.act - 1] * am);
   return e.weak > 0 ? Math.floor(v / 2) : v;
 }
 export const incoming = R => { const m = R.C?.e?.intent; return m?.atk ? atkOf(R, m.atk) * (m.hits || 1) : 0; };
@@ -705,8 +767,22 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   const C = R.C;
   const base = dice.length && !dice.includes(0) ? Math.max(0, ...fiveSets(dice).map(set => baseScore(card.cat, set))) : 0;
   const parts = [];
-  const add = (ko, mul) => { const amt = Math.round(base * mul); if (amt) parts.push({ ko, amt }); };
+  // 유물이 기본 점수를 바꾼다 (에이스의 긍지 · 수집가의 상자 · 질풍). 배율은 바뀐 기본 점수에 붙는다
+  let adj = base;
   if (base > 0) {
+    if (isUpper(card.cat)) {
+      const f = UPPER.indexOf(card.cat) + 1, n = Math.round(base / f);
+      if (card.cat === 'ones' && hasRelic(R, 'ace')) { parts.push({ ko: '에이스의 긍지', amt: n * 8 - base }); adj = n * 8; }
+      if (hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * 3 }); adj += n * 3; }
+    } else if (hasRelic(R, 'flow') && (card.cat === 'sstr' || card.cat === 'lstr')) {
+      adj = card.cat === 'sstr' ? 25 : 45;
+      parts.push({ ko: '질풍', amt: adj - base });
+    }
+  }
+  const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
+  if (base > 0) {
+    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add('작은 수의 힘', 1.5);
+    if (hasRelic(R, 'quad') && isUpper(card.cat) && Math.round(base / (UPPER.indexOf(card.cat) + 1)) >= 4) add('쌍둥이 별', 1);
     if (card.up) add('강화', UP_MUL);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add('기초 수련', 0.3);
     if (hasRelic(R, 'choice') && card.cat === 'choice') add('선택의 달인', 0.3);
@@ -752,11 +828,12 @@ function splitOut(R, card, sc, want) {
   const S = sc.total;
   const atk = splitAtk(S, want) ?? S, def = S - atk, share = S > 0 ? atk / S : 0;
   const out = { score: S, atk, def, dmg: 0, pierce: false, block: 0, heal: 0, gold: 0, burn: 0, weak: false, kill: false,
-    whet: 0, arcane: 0, horn: false, poison: false, defMul: 1, wblk: 0, always: 0 };
+    whet: 0, arcane: 0, combo: false, horn: false, poison: false, defMul: 1, wblk: 0, always: 0 };
   if (atk > 0) {
     if (hasRelic(R, 'whet')) out.whet = Math.round(3 * share);
     if (R.cls === 'mage') out.arcane = Math.round((C.hand.length - 1) * CLASS_TUNE.mageBonus * share);
     let d = atk + out.whet + out.arcane;
+    if (hasRelic(R, 'combo') && (card.cat === 'sstr' || card.cat === 'lstr')) { d *= 2; out.combo = true; }
     if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
     if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
     out.dmg = d;
@@ -826,6 +903,10 @@ export function playCard(R, hi, target) {
     }
   }
   if (p.block) { C.block += p.block; ev.block = p.block; }
+  if (p.atk > 0 && card.cat === 'ones' && p.dmg >= 30) feat(R, 'ace30');
+  if (p.atk > 0 && card.cat === 'lstr' && p.dmg >= 60) feat(R, 'lstr60');
+  if (p.atk > 0 && card.cat === 'yacht' && p.score > 0) feat(R, 'yacht');
+  if (C.block >= 60 && incoming(R) > 0) feat(R, 'wall');
   if (p.heal) ev.heal = healHero(R, p.heal, 'card', true);
   if (p.gold) { R.gold += p.gold; R.stats.gold += p.gold; ev.gold = p.gold; }
   if (p.burn) { C.e.burn += p.burn; C.e.burnT = BURN_TURNS; ev.burn = p.burn; }
@@ -836,6 +917,7 @@ export function playCard(R, hi, target) {
   if (R.cls === 'dancer' && p.score >= DANCE_NEED && R.dance < DANCE_CAP) { R.dance++; ev.dance = true; }
   // 카드는 버린 더미로 (메아리는 다음 턴 손패로)
   (card.kw === 'echo' ? C.top : C.discard).push(card);
+  checkFeats(R);
   log(R, `${cardName(card)} ${[p.atk > 0 ? `공격 ${p.dmg}` : '', p.block ? `방어 ${p.block}` : ''].filter(Boolean).join(' · ') || '0점'}`);
   if (C.e.hp <= 0) return winCombat(R);
   enemyTurn(R);
@@ -896,11 +978,14 @@ function enemyTurn(R) {
   const C = R.C, e = C.e;
   C.phase = 'enemy';
   // 남은 손패는 버린 더미로
-  if (C.hand.length) { fx(R, { type: 'discard', us: C.hand.map(c => c.u) }); C.discard.push(...C.hand); C.hand = []; }
+  // 남은 손패는 버린 더미로 (보존 카드는 손패에 남는다)
+  const out = C.hand.filter(c => c.kw !== 'keep');
+  if (out.length) { fx(R, { type: 'discard', us: out.map(c => c.u) }); C.discard.push(...out); }
+  C.hand = C.hand.filter(c => c.kw === 'keep');
   C.sealed = []; C.frozen = []; C.gazed = [];
   e.block = 0;                        // 적 보호막은 적의 턴이 시작될 때 사라진다
   if (C.weak > 0) C.weak--;            // 영웅 약화는 영웅 턴 수로 센다
-  const fury = FURY[ENEMIES[e.id].kind];
+  const fury = furyOf(R);
   const m = e.intent;
   const act = { type: 'enemy', ko: m?.ko || '', hits: [], block: 0, str: 0, heal: 0, steal: 0, weak: 0, behead: !m };
   if (m) {
@@ -965,7 +1050,13 @@ function winCombat(R) {
   fx(R, { type: 'foeDie', foe: e.id, kind: def.kind });
   log(R, `${def.ko} 처치!`);
   if (def.kind === 'elite') R.stats.elites++;
-  if (def.kind === 'boss') R.stats.bosses++;
+  if (def.kind === 'boss') {
+    R.stats.bosses++;
+    if (R.act === 1) feat(R, 'act1');
+    if (!C.taken) feat(R, 'flawless');
+    if (R.act >= ACTS) { feat(R, 'clear'); if (asc(R, 5)) feat(R, 'asc5'); if (asc(R, 10)) feat(R, 'asc10'); }
+  }
+  checkFeats(R);
   if (R.cls === 'bard') healHero(R, CLASS_TUNE.bardHeal, 'bard');
   if (hasRelic(R, 'lotus')) healHero(R, 6, 'lotus');
   if (def.kind === 'boss' && R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
@@ -975,9 +1066,18 @@ function winCombat(R) {
 
 // ── 보상 ─────────────────────────────────────────────────────────────────────
 const CAT_W = { choice: 14, four: 12, full: 14, sstr: 12, lstr: 10, yacht: 6, sixes: 8, fives: 6, fours: 4, threes: 2, twos: 1, ones: 1 };
-const KW_W = { guard: 14, vamp: 12, burn: 12, pierce: 10, quick: 12, lucky: 10, weak: 8, gold: 8, echo: 10 };
+const KW_W = { guard: 14, vamp: 12, burn: 12, pierce: 10, quick: 12, lucky: 10, weak: 8, gold: 8, echo: 10, keep: 10 };
+// 덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다
+function catWeights(R) {
+  const w = { ...CAT_W }, sy = synergy(R);
+  if (sy.num) for (const c of UPPER) w[c] *= 1 + sy.num * 1.5;
+  if (hasRelic(R, 'ace')) w.ones *= 4;
+  if (hasRelic(R, 'small')) { w.ones *= 3; w.twos *= 3; w.threes *= 3; }
+  if (sy.str) { w.sstr *= 1 + sy.str; w.lstr *= 1 + sy.str; }
+  return w;
+}
 export function rollCard(R, rarity) {
-  const cat = weighted(R, CAT_W);
+  const cat = weighted(R, catWeights(R));
   if (rarity === 1) return mkCard(R, cat);
   const kw = weighted(R, KW_W);
   if (rarity === 2) return mkCard(R, cat, 0, kw);
@@ -998,9 +1098,12 @@ function cardOffer(R, kind) {
 // 유물 하나 (가진 것 빼고). 그 희귀도가 바닥나면 다른 희귀도에서
 export function rollRelic(R, r, exclude = []) {
   const own = new Set([...R.relics, ...exclude]);
+  const sy = synergy(R);
+  // 이미 고른 덱 방향의 유물은 더 잘 나온다
+  const wt = id => 1 + (NUM_RELICS.includes(id) ? sy.num * 2 : 0) + (STR_RELICS.includes(id) ? sy.str * 2 : 0);
   for (const rr of [Number(r), 2, 1, 3]) {
     const pool = RELICS.filter(x => x.r === rr && !own.has(x.id));
-    if (pool.length) return pick(R, pool).id;
+    if (pool.length) return weighted(R, Object.fromEntries(pool.map(x => [x.id, wt(x.id)])));
   }
   return null;
 }
@@ -1038,6 +1141,7 @@ export function takeReward(R, idx, choice = 0) {
   if (it.t === 'flip' || it.t === 'nudge') { if (!addTool(R, it.t, it.n)) fail(`${it.t === 'flip' ? '뒤집기' : '조정'}를 더 들 수 없어요 (최대 ${TOOL_CAP}).`); }
   if (it.t === 'card') { if (choice >= 0) { const c = it.opts[choice]; if (!c) fail('없는 카드예요.'); R.deck.push({ ...c }); fx(R, { type: 'gainCard', u: c.u }); } }
   it.done = true;
+  checkFeats(R);
   fx(R, { type: 'take', t: it.t });
 }
 export function gainRelic(R, id) {
@@ -1055,7 +1159,7 @@ export function leaveReward(R) {
   if (rw.kind === 'boss') {
     if (R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
     R.act++;
-    const heal = Math.round((R.maxHp - R.hp) * ACT_HEAL);
+    const heal = Math.round((R.maxHp - R.hp) * (asc(R, 5) ? 0.4 : ACT_HEAL));
     R.hp += heal;
     newAct(R);
     fx(R, { type: 'act', act: R.act, heal });
@@ -1068,7 +1172,7 @@ export function leaveReward(R) {
 export const PRICE = { card: { 1: 48, 2: 76, 3: 140 }, relic: { 1: 140, 2: 200, 3: 300 }, potion: 40, flip: 30, nudge: 20, remove: 60, removeStep: 20 };
 function genShop(R) {
   const cards = [rollCard(R, 1), rollCard(R, 2), rollCard(R, Number(weighted(R, { 1: 30, 2: 50, 3: 20 })))];
-  const jitter = p => Math.round(p * (0.9 + rand(R) * 0.2));
+  const jitter = p => Math.round(p * (0.9 + rand(R) * 0.2) * (asc(R, 7) ? 1.25 : 1));
   return {
     cards: cards.map(c => ({ c, price: jitter(PRICE.card[cardRarity(c)]), sold: false })),
     relics: shopRelics(R).map(id => ({ id, price: jitter(PRICE.relic[relicInfo(id).r]), sold: false })),
@@ -1081,7 +1185,7 @@ function shopRelics(R) {
   const a = rollRelic(R, 1), b = rollRelic(R, 2, a ? [a] : []);
   return [a, b].filter(Boolean);
 }
-export const removePrice = R => PRICE.remove + R.removes * PRICE.removeStep;
+export const removePrice = R => Math.round((PRICE.remove + R.removes * PRICE.removeStep) * (asc(R, 7) ? 1.25 : 1));
 export function buy(R, kind, idx) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
   const list = { card: R.shop.cards, relic: R.shop.relics, potion: R.shop.potions, tool: R.shop.tools }[kind];
@@ -1111,7 +1215,7 @@ export function leaveShop(R) {
 }
 
 // ── 휴식 ─────────────────────────────────────────────────────────────────────
-export const restAmount = R => Math.round(R.maxHp * REST_HEAL) + (hasRelic(R, 'camp') ? 20 : 0);
+export const restAmount = R => Math.round(R.maxHp * (asc(R, 4) ? 0.2 : REST_HEAL)) + (hasRelic(R, 'camp') ? 20 : 0);
 export function restHeal(R) {
   if (R.phase !== 'rest') fail('휴식처가 아니에요.');
   healHero(R, restAmount(R), 'rest');
@@ -1288,9 +1392,12 @@ function prepHand(R, rollNo) {
     if (card.kw === 'quick' && first) mul += 0.5;
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
+    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 1.5;
     if (C.weak > 0) mul *= 0.75;
     return {
-      cat: up, mul, zero: C.gazed.includes(card.u) && !C.pure,
+      cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, ace: up === 'ones' && hasRelic(R, 'ace'), pairs: hasRelic(R, 'pairs'),
+      quad: hasRelic(R, 'quad') ? (C.weak > 0 ? 0.75 : 1) : 0, flow: hasRelic(R, 'flow') && (up === 'sstr' || up === 'lstr'),
+      combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), zero: C.gazed.includes(card.u) && !C.pure,
       flat: (R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0) + (hasRelic(R, 'whet') ? 3 : 0),
       horn: hasRelic(R, 'horn') && isBossKind(C.e), poison: hexActive(R, 'poison'),
       pierce: card.kw === 'pierce' || (R.cls === 'rogue' && C.flipped),
@@ -1320,6 +1427,7 @@ function fastSplit(R, info, s, a, ctx) {
   let v = 0, weak = false;
   if (a > 0) {
     let d = a + Math.round(info.flat * a / s);
+    if (info.combo) d *= 2;
     if (info.horn) d = Math.round(d * 1.25);
     if (info.poison && d <= 15) d = Math.floor(d / 2);
     const through = info.pierce ? d : Math.max(0, d - e.block);
@@ -1343,11 +1451,24 @@ function fastValue(R, info, s, ctx) {
   }
   return best;
 }
+// 빠른 카드 점수 (유물의 기본 점수 변경 포함)
+function fastScore(info, dice) {
+  const raw = fastBase(info.cat, dice);
+  if (raw <= 0) return 0;
+  let adj = raw, mul = info.mul;
+  if (info.face) {
+    const n = Math.round(raw / info.face);
+    if (info.ace) adj = n * 8;
+    if (info.pairs) adj += n * 3;
+    if (n >= 4) mul += info.quad;
+  } else if (info.flow) adj = info.cat === 'sstr' ? 25 : 45;
+  return Math.round(adj * mul);
+}
 function handFast(R, infos, dice, ctx) {
   let best = 0;
   for (const info of infos) {
     if (info.zero) continue;
-    const v = fastValue(R, info, Math.round(fastBase(info.cat, dice) * info.mul), ctx);
+    const v = fastValue(R, info, fastScore(info, dice), ctx);
     if (v > best) best = v;
   }
   return best;
@@ -1479,10 +1600,18 @@ export function applyCombat(R, a) {
 
 // 카드 가치 (봇이 보상 · 상점에서 고를 때). 대략 '노렸을 때 기대 점수'
 const CARD_EV = { choice: 23, four: 9, full: 10, sstr: 11, lstr: 10, yacht: 6, sixes: 12.6, fives: 10.5, fours: 8.4, threes: 6.3, twos: 4.2, ones: 2.1 };
-const KW_V = { guard: 4, vamp: 5, burn: 6, pierce: 3, quick: 4, lucky: 3, weak: 3, gold: 2, echo: 3 };
+const KW_V = { guard: 4, vamp: 5, burn: 6, pierce: 3, quick: 4, lucky: 3, weak: 3, gold: 2, echo: 3, keep: 4 };
 export function botCardValue(R, c) {
   let v = CARD_EV[c.cat] * (c.up ? 1 + UP_MUL : 1);
   if (R.cls === 'warrior' && isUpper(c.cat)) v *= 1.5;
+  const sy = synergy(R);
+  if (isUpper(c.cat)) {
+    if (hasRelic(R, 'pairs')) v += (CARD_EV[c.cat] / (UPPER.indexOf(c.cat) + 1)) * 3;
+    if (c.cat === 'ones' && hasRelic(R, 'ace')) v *= 6;
+    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(c.cat)) v *= 2.5;
+    if (hasRelic(R, 'quad')) v *= 1.3;
+  }
+  if ((c.cat === 'sstr' || c.cat === 'lstr') && sy.str) v *= 1 + (hasRelic(R, 'flow') ? 0.6 : 0) + (hasRelic(R, 'combo') ? 0.8 : 0);
   if (c.kw) v += KW_V[c.kw];
   // 이미 있는 카드와 겹치면 조금 덜
   const same = R.deck.filter(x => x.cat === c.cat).length;
