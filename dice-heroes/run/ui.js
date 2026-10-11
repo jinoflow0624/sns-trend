@@ -15,7 +15,7 @@ const BEST = 'diceheroes.runBest';
 let X = null;            // app.js 도구
 let R = null;            // 원정 상태
 let hand = null;         // 손패 (스프링 카드)
-const ui = { busy: false, tool: null, dealDie: null, sel: null, show: null, dice: null, view: null, sealRoll: null, pickU: null, cardPick: null, relicPick: null, last: 0 };
+const ui = { busy: false, tool: null, dealDie: null, sel: null, split: null, rolling: false, show: null, dice: null, view: null, sealRoll: null, pickU: null, cardPick: null, relicPick: null, last: 0 };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -82,7 +82,7 @@ function paintSelect() {
       <button class="icon-btn" data-act="run-home" aria-label="뒤로">◀</button>
       <div><b>원정</b><small>테스트판 · 로그라이크 · 혼자 하기</small></div>
     </header>
-    <p class="rs-intro">족보 카드 덱으로 3막을 돌파하세요. 주사위를 굴린 뒤 카드를 <b>적에게 끌어 공격</b>, <b>나에게 끌어 방어</b>합니다. 쓰러지면 처음부터.</p>
+    <p class="rs-intro">족보 카드 덱으로 3막을 돌파하세요. 주사위를 굴린 뒤 카드의 점수를 <b>공격</b>과 <b>방어</b>로 나눠 냅니다. 쓰러지면 처음부터.</p>
     <div class="rs-grid">
       ${Object.keys(Run.RUN_CLASSES).map(id => {
         const c = classInfo(id), owned = X.owns(id);
@@ -147,7 +147,7 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
     ${kw ? `<span class="rc-kw">${ico(kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
-    ${score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
+    ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
     <i class="rc-sheen"></i>
   </div>`;
 }
@@ -225,7 +225,8 @@ function showCombat(fresh) {
     targets: () => ({ enemy: $('foe'), self: $('r-hero') }),
     canPlay: () => canAct() && R.C.rolled,
     bet: u => R.C.bet === u, gazed: u => R.C.gazed.includes(u) && !R.C.pure,
-    sound: k => ({ draw: () => sfx.card(), touch: () => sfx.tap(), lift: () => sfx.select(), aim: () => sfx.hold(), nope: () => sfx.back(), slam: () => sfx.whoosh?.() }[k]?.()),
+    sound: (k, n) => ({ draw: () => sfx.card(), touch: () => sfx.tap(), lift: () => sfx.select(), aim: () => sfx.hold(), nope: () => sfx.back(), slam: () => sfx.whoosh?.(),
+      live: () => sfx.tick?.(Math.min(1, 0.35 + n / 50)), dead: () => {} }[k]?.()),
   });
   hand.set(C.hand, fresh ? 'deal' : 'instant');
   paint();
@@ -240,7 +241,8 @@ function showCombat(fresh) {
   if (fresh && C.turn === 1 && !C.rolled) introFoe();
 }
 const canAct = () => R?.phase === 'combat' && R.C?.phase === 'roll' && !ui.busy;
-const cardScore = c => (R.C.rolled ? Run.scoreCard(R, c).total : null);
+// 굴리는 동안(주사위가 다 멈추기 전)은 '?' — 점수는 주사위가 멈춘 뒤에 드러난다
+const cardScore = c => (ui.rolling ? '?' : R.C.rolled ? Run.scoreCard(R, c).total : null);
 
 // 상태가 바뀌면 화면 숫자 · 버튼 · 카드 점수를 새로 그린다 (손패 위치는 Hand 가 맡는다)
 function paint() {
@@ -262,6 +264,7 @@ function paint() {
   $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure ? `<button class="hex-badge" data-act="run-hex">${ico(Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
   $('rtip').innerHTML = tipText(needBet);
   hand?.refresh();
+  if (ui.split && ui.sel === ui.split.u) syncSplit();
   paintTray();
   $('rc')?.classList.toggle('my-turn', my);
 }
@@ -272,11 +275,12 @@ function tipText(needBet) {
   if (ui.tool === 'flip') return '뒤집을 주사위를 누르세요 (7 - 눈)';
   if (ui.tool === 'nudge') return '주사위 위의 +1 / −1 을 누르세요';
   if (ui.tool === 'deal') return ui.dealDie == null ? '바꿀 주사위를 누르세요' : '원하는 눈을 고르세요';
+  if (R.cls === 'gambler' && !C.rolled && ui.sel != null) return '배팅할지 정해 주세요';
   if (needBet) return `${ico('coins', 'xs')} 배팅: 이번 턴에 노릴 카드를 누르세요 (그 카드 ×${Run.CLASS_TUNE.betMul})`;
   if (!C.rolled) return '주사위를 굴려 족보를 만드세요';
   const live = C.hand.filter(c => Run.scoreCard(R, c).total > 0).length;
-  if (ui.sel != null) return '카드 위 버튼으로 공격 · 방어, 또는 끌어서 놓으세요';
-  return live ? `카드를 <b>적에게 끌면 공격</b> · <b>나에게 끌면 방어</b>${C.rollsLeft ? ' · 다시 굴려도 돼요' : ''}` : (C.rollsLeft ? '맞는 족보가 없어요 · 다시 굴리거나 카드를 바꿔 보세요' : '0점이라도 카드 1장을 내야 턴이 끝나요');
+  if (ui.sel != null) return '막대를 밀어 <b>공격 · 방어</b>를 나누고 <b>내기</b>';
+  return live ? `카드를 눌러 <b>공격 · 방어 나누기</b> · 끌어서 바로 내기` : (C.rollsLeft ? '맞는 족보가 없어요 · 다시 굴리거나 카드를 바꿔 보세요' : '0점이라도 카드 1장을 내야 턴이 끝나요');
 }
 
 function foePanel() {
@@ -338,7 +342,7 @@ function playTip(c) {
   if (!R.C.rolled) return '<small>굴린 뒤에 낼 수 있어요</small>';
   const hi = R.C.hand.findIndex(x => x.u === c.u);
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
-  return `<p>${ico('sword', 'xs')} 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 방어 ${d.block}</p>`;
+  return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p><small>누르면 공격 · 방어로 나눠 낼 수 있어요</small>`;
 }
 
 // ── 전투 조작 ────────────────────────────────────────────────────────────────
@@ -347,25 +351,146 @@ function tapCard(u) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
   if (hi < 0) return;
   if (ui.tool === 'swap') return doSwap(hi);
-  if (R.cls === 'gambler' && !C.rolled && C.bet == null) {
-    try { Run.placeBet(R, hi); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
-    Run.drainFx(R);
-    sfx.coin();
-    const p = center(hand.el(u));
-    FX().burst(p.x, p.y - 20, { n: 18, pal: PALETTES.gold, speed: [60, 200], life: [0.3, 0.6] });
-    save(); paint();
+  // 도박사: 굴리기 전에 카드를 고르면 '이 카드에 배팅할까요?' (굴리기 전에는 바꿀 수 있다)
+  if (R.cls === 'gambler' && !C.rolled) {
+    if (C.bet === u) { sfx.tap(); return; }
+    sfx.card();
+    ui.sel = ui.sel === u ? null : u;
+    hand.select(ui.sel, ui.sel != null ? betAsk(u) : '');
+    $('rtip').innerHTML = tipText(false);
     return;
   }
   if (!C.rolled) { sfx.back(); X.toast(ico('dice'), '먼저 굴려 주세요', '주사위를 굴린 뒤에 카드를 낼 수 있어요.', 1300); return; }
   sfx.card();
-  ui.sel = ui.sel === u ? null : u;
-  hand.select(ui.sel, ui.sel != null ? actButtons(u) : '');
+  if (ui.sel === u && hand.sel === u) return closeSplit();
+  openSplit(u);
+}
+function betAsk(u) {
+  const re = R.C.bet != null;
+  return `<div class="bet-ask">
+    <p>${ico('coins', 'xs')}<b>${re ? '배팅을 이 카드로 바꿀까요?' : '이 카드에 배팅하시겠습니까?'}</b><small>이 카드를 내면 점수 ×${Run.CLASS_TUNE.betMul} · 굴리기 전에만 바꿀 수 있어요</small></p>
+    <div class="bet-btns"><button class="hb" data-act="run-betno">아니요</button><button class="hb gold" data-act="run-bet" data-u="${u}">${ico('coins', 'xs')}배팅</button></div>
+  </div>`;
+}
+function doBet(u) {
+  const C = R.C, hi = C.hand.findIndex(c => c.u === u);
+  if (hi < 0 || C.rolled) return;
+  try { Run.placeBet(R, hi); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+  Run.drainFx(R);
+  ui.sel = null;
+  hand.select(null);
+  sfx.coin();
+  const p = center(hand.el(u));
+  FX().burst(p.x, p.y - 20, { n: 18, pal: PALETTES.gold, speed: [60, 200], life: [0.3, 0.6] });
+  save(); paint();
+}
+
+// ── 공격 · 방어 나누기 ───────────────────────────────────────────────────────
+// 카드를 누르면 손패 위에 막대가 열린다. 빨강(왼쪽부터) = 공격, 파랑 = 방어. 손잡이를 밀어 나누고 '내기'.
+// 적에게 끌면 전부 공격, 나에게 끌면 전부 방어 (지름길).
+function openSplit(u) {
+  const C = R.C, hi = C.hand.findIndex(c => c.u === u);
+  const S = Run.scoreCard(R, C.hand[hi]).total;
+  ui.sel = u;
+  ui.split = { u, S, atk: S };
+  hand.select(u, splitHTML(u), { wide: true });
+  hand.el(u)?.classList.add('splitting');
+  bindSplit();
+  paintSplit();
   $('rtip').innerHTML = tipText(false);
 }
-function actButtons(u) {
-  const hi = R.C.hand.findIndex(c => c.u === u);
-  const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
-  return `<button class="hb atk" data-act="run-play" data-u="${u}" data-t="enemy">${ico('sword', 'xs')}공격 <b>${a.dmg}</b></button><button class="hb def" data-act="run-play" data-u="${u}" data-t="self">${ico('shield', 'xs')}방어 <b>${d.block}</b></button>`;
+function closeSplit() {
+  ui.sel = null; ui.split = null;
+  hand.select(null);
+  if ($('rtip')) $('rtip').innerHTML = tipText(false);
+}
+// 점수가 바뀌었으면(물약 등) 비율을 지키며 다시 맞춘다
+function syncSplit() {
+  const sp = ui.split, C = R.C, c = C.hand.find(x => x.u === sp.u);
+  if (!c) return closeSplit();
+  const S = Run.scoreCard(R, c).total;
+  if (S !== sp.S) { sp.atk = sp.S ? Math.round(sp.atk / sp.S * S) : S; sp.S = S; }
+  paintSplit();
+}
+function splitHTML(u) {
+  return `<div class="split" id="split">
+    <div class="sp-top">
+      <button class="sp-end atk" data-act="run-split" data-v="all" aria-label="전부 공격">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>피해</small></button>
+      <div class="sp-bar" id="sp-bar" role="slider" aria-label="공격 · 방어 나누기"><i class="sp-a" id="sp-a"></i><span class="sp-knob" id="sp-knob"><em id="sp-n"></em></span></div>
+      <button class="sp-end def" data-act="run-split" data-v="none" aria-label="전부 방어">${ico('shield', 'xs')}<b id="sp-blk"></b><small>보호막</small></button>
+    </div>
+    <p class="sp-info" id="sp-info"></p>
+    <div class="sp-row">
+      <button class="sp-step" data-act="run-split" data-v="-1" aria-label="공격 1 줄이기">◀</button>
+      <button class="sp-cover" id="sp-cover" data-act="run-split" data-v="cover"></button>
+      <button class="sp-step" data-act="run-split" data-v="1" aria-label="공격 1 늘리기">▶</button>
+      <button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button>
+    </div>
+  </div>`;
+}
+function bindSplit() {
+  const bar = $('sp-bar');
+  if (!bar) return;
+  const at = e => { const r = bar.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * ui.split.S); };
+  bar.addEventListener('pointerdown', e => {
+    if (!ui.split) return;
+    e.preventDefault(); e.stopPropagation();
+    bar.setPointerCapture?.(e.pointerId);
+    bar.classList.add('drag');
+    setSplit(at(e));
+  });
+  bar.addEventListener('pointermove', e => { if (ui.split && bar.classList.contains('drag')) { e.preventDefault(); setSplit(at(e)); } });
+  const end = () => bar.classList.remove('drag');
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', end);
+}
+function setSplit(a) {
+  const sp = ui.split;
+  if (!sp) return;
+  a = Math.max(0, Math.min(sp.S, Math.round(a)));
+  if (a === sp.atk) return;
+  sp.atk = a;
+  sfx.tick?.(sp.S ? a / sp.S : 1);
+  buzz(4);
+  paintSplit();
+}
+function paintSplit() {
+  const sp = ui.split, C = R.C;
+  const hi = sp ? C.hand.findIndex(c => c.u === sp.u) : -1;
+  if (hi < 0 || !$('split')) return;
+  const p = Run.preview(R, hi, sp.atk), card = C.hand[hi];
+  const k = p.score ? p.atk / p.score : 1;
+  $('sp-a').style.width = `${k * 100}%`;
+  $('sp-knob').style.left = `${k * 100}%`;
+  $('sp-bar').style.setProperty('--k', k.toFixed(3));
+  $('sp-n').textContent = `${p.atk} : ${p.def}`;
+  $('sp-dmg').textContent = p.dmg;
+  $('sp-blk').textContent = p.block;
+  $('split').classList.toggle('all-atk', p.def === 0 && p.score > 0);
+  $('split').classList.toggle('all-def', p.atk === 0);
+  const inc = Run.incomingAfter(R, p.weak), taken = Run.takenAfter(R, p);
+  const info = [];
+  if (p.atk > 0) {
+    if (p.kill) info.push(`<b class="kill">${ico('skull', 'xs')}처치!</b>`);
+    if (p.pierce) info.push(`${ico('dagger', 'xs')}관통`);
+    if (p.whet) info.push(`숫돌 +${p.whet}`);
+    if (p.arcane) info.push(`비전 +${p.arcane}`);
+    if (p.horn) info.push('뿔피리 ×1.25');
+    if (p.poison) info.push('독: 피해 ½');
+    if (p.heal) info.push(`${ico('heart', 'xs')}+${p.heal}`);
+    if (p.gold) info.push(`${ico('coins', 'xs')}+${p.gold}`);
+    if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
+  }
+  if (card.kw === 'weak') info.push(p.weak ? `${ico('snow', 'xs')}약화` : `<s>약화</s><small>절반 이상 공격</small>`);
+  if (p.def > 0 && p.defMul > 1) info.push(`${ico('shield', 'xs')}방어 +${Math.round((p.defMul - 1) * 100)}%`);
+  if (p.wblk) info.push(`불굴 +${p.wblk}`);
+  if (p.always) info.push(`보호막 +${p.always}`);
+  if (inc > 0 && !p.kill) info.push(taken ? `<em class="hurt">받을 피해 ${taken}</em>` : '<em class="safe">공격을 다 막아요</em>');
+  $('sp-info').innerHTML = info.join('<i class="sep">·</i>') || '&nbsp;';
+  const cov = Run.coverAtk(R, hi), cb = $('sp-cover');
+  if (!inc) { cb.disabled = true; cb.innerHTML = '적이 공격하지 않아요'; }
+  else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.score - cov.atk}</small>` : '전부 방어<small>다 못 막아요</small>'; }
+  hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3));
 }
 function dropCard(u, target) {
   if (!canAct() || !R.C.rolled) return false;
@@ -385,7 +510,7 @@ async function doRoll() {
   const C = R.C;
   const t = await X.ensureTray();
   if (!canAct()) return;
-  ui.tool = null; ui.sel = null; ui.dealDie = null;
+  ui.tool = null; ui.sel = null; ui.split = null; ui.dealDie = null;
   hand.select(null);
   const mask = C.dice.map((_, i) => !(C.rolled && (C.held[i] || Run.isSealed(R, i) || Run.isFrozen(R, i))));
   ui.sealRoll = C.rolled ? C.sealed.slice() : [];
@@ -396,15 +521,24 @@ async function doRoll() {
   const first = r.list.find(f => (f.type === 'hexDice' || f.type === 'lucky') && f.from);
   ui.dice = first ? first.from.slice() : null;
   ui.busy = true;
+  ui.rolling = true;                    // 주사위가 다 멈출 때까지 카드 점수는 '?'
   paint();
   t.setSealed?.(ui.sealRoll);
-  await t.roll(ui.dice || C.dice, mask, X.prefs.fx === 'min' ? 1.6 : X.prefs.fx === 'fast' ? 1.3 : 1);
-  ui.sealRoll = null;
-  t.setSealed?.([]);
-  await playFx(r.list, r.before);
+  try {
+    await t.roll(ui.dice || C.dice, mask, X.prefs.fx === 'min' ? 1.6 : X.prefs.fx === 'fast' ? 1.3 : 1);
+    ui.sealRoll = null;
+    t.setSealed?.([]);
+    await playFx(r.list, r.before);     // 굴린 직후의 방해(화염 숨결 · 운명 비틀기 …)까지 끝난 뒤
+  } catch (err) {
+    console.warn('[run roll]', err);
+  } finally {
+    ui.rolling = false;
+    ui.sealRoll = null;
+  }
   ui.dice = null;
-  ui.busy = false;
   t.show(C.dice, C.held);
+  if (R.phase === 'combat' && $('rc')) await hand.reveal();   // 점수가 왼쪽부터 한 장씩 드러난다
+  ui.busy = false;
   save();
   paint();
 }
@@ -412,7 +546,7 @@ async function doRoll() {
 async function doPlay(u, target) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
   if (hi < 0) return;
-  ui.sel = null; ui.tool = null;
+  ui.sel = null; ui.split = null; ui.tool = null;
   const r = await act(() => Run.playCard(R, hi, target));
   if (!r) { hand.select(null); hand.layout(); return; }
   ui.busy = true;
@@ -450,10 +584,65 @@ function floatAt(x, y, text, cls = '') {
 const foeAt = () => center($('foe-art'));
 const heroAt = () => center($('rh-por'));
 function setShow(patch) { if (ui.show) Object.assign(ui.show, patch); }
+// 연출 중에는 적 · 영웅 칸을 통째로 다시 그리지 않고 숫자 · 막대만 바꾼다
+// (맞는 애니메이션이 끊기지 않고, 깎인 체력만큼 흰 띠가 남았다가 따라 줄어든다)
 function repaintBars() {
   if (!ui.show || !$('rc')) return;
-  $('foe').innerHTML = foePanel();
-  $('r-hero').innerHTML = heroStrip();
+  updFoe();
+  updHero();
+}
+function trailBar(bar, pct) {
+  const fill = bar.querySelector('i');
+  let trail = bar.querySelector('u');
+  if (!trail) { trail = document.createElement('u'); trail.style.width = fill.style.width; bar.prepend(trail); }
+  const lost = parseFloat(pct) < parseFloat(fill.style.width);
+  fill.style.width = pct;
+  clearTimeout(trail._t);
+  trail._t = setTimeout(() => (trail.style.width = pct), lost ? 380 : 0);
+}
+function updFoe() {
+  const foe = $('foe');
+  if (!foe) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = foePanel();
+  const bar = foe.querySelector('.foe-hp'), nb = tmp.querySelector('.foe-hp');
+  if (!bar || !nb || !foe.querySelector('#foe-art')) { foe.innerHTML = tmp.innerHTML; return; }
+  trailBar(bar, nb.querySelector('i').style.width);
+  bar.querySelector('s')?.remove();
+  const ns = nb.querySelector('s');
+  if (ns) bar.insertBefore(ns, bar.querySelector('em'));
+  bar.querySelector('em').innerHTML = nb.querySelector('em').innerHTML;
+  for (const sel of ['.foe-name', '.foe-st']) { const a = foe.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; }
+  const oi = foe.querySelector('.intent'), ni = tmp.querySelector('.intent');
+  if (oi && ni) oi.replaceWith(ni); else if (oi) oi.remove(); else if (ni) foe.appendChild(ni);
+}
+function updHero(hurt = false) {
+  const bar = document.querySelector('#rhero .rh-hp');
+  if (!bar) { if ($('r-hero')) $('r-hero').innerHTML = heroStrip(); return; }
+  const hp = shownHp(), blk = shownBlk();
+  trailBar(bar, `${(hp / R.maxHp) * 100}%`);
+  bar.classList.toggle('low', hp / R.maxHp < 0.3);
+  bar.querySelector('em').textContent = `${hp} / ${R.maxHp}`;
+  const b = $('rh-blk');
+  if (b) { b.classList.toggle('on', blk > 0); b.querySelector('b').textContent = blk; }
+  if (hurt) { const st = $('rhero'); st?.classList.remove('hurt'); void st?.offsetWidth; st?.classList.add('hurt'); }
+}
+function popBlk() { const b = $('rh-blk'); b?.classList.remove('pop'); void b?.offsetWidth; b?.classList.add('pop'); }
+// 할퀸 자국 세 줄 (영웅 초상 위)
+function clawAt(p, big) {
+  const el = document.createElement('div');
+  el.className = `claw${big ? ' big' : ''}`;
+  el.style.left = `${p.x}px`; el.style.top = `${p.y}px`;
+  el.innerHTML = '<i></i><i></i><i></i>';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 650);
+}
+// 화면 가장자리가 붉게 번쩍
+function hurtFlash(big) {
+  const el = document.createElement('div');
+  el.className = `hurt-vig${big ? ' big' : ''}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 560);
 }
 async function playFx(list, before) {
   ui.show = { ...before };
@@ -476,7 +665,7 @@ async function playOne(f) {
         const power = f.score >= 40 ? 3 : f.score >= 28 ? 2.2 : f.score >= 18 ? 1.6 : 1.1;
         if (f.dmg > 0 || f.blocked > 0) {
           if (fxOn) FX().impact(e.x, e.y, pal, power);
-          sfx.hit?.('normal', Math.min(10, 4 + power * 2));
+          sfx.strike?.(power);
           if (power >= 2) sfx.boom?.(power / 2); else sfx.slash?.();
           rumble(Math.min(10, 3 + power * 2));
           const art = $('foe-art');
@@ -493,10 +682,12 @@ async function playOne(f) {
         }
       }
       if (f.block) {
+        if (f.target === 'enemy' && fxOn) FX().ring(h.x, h.y, { color: '#7CC8FF', r0: 10, r1: 60, dur: 360, width: 6 });   // 나눠 낸 방어 몫
         if (fxOn) FX().shield(h);
         sfx.hold();
         setShow({ blk: ui.show.blk + f.block });
-        repaintBars();
+        updHero();
+        popBlk();
         floatAt(h.x, h.y - 30, `${ico('shield', 'xs')}+${f.block}`, 'sky');
       }
       if (f.heal) { setShow({ hp: ui.show.hp + f.heal }); repaintBars(); floatAt(h.x, h.y - 50, `+${f.heal}`, 'mint'); if (fxOn) FX().burst(h.x, h.y, { n: 16, pal: PALETTES.heal, grav: -60 }); }
@@ -520,22 +711,32 @@ async function playOne(f) {
       const art = $('foe-art');
       if (f.behead) { floatAt(e.x, e.y - 30, '숨결이 끊겼다!', 'mint'); await wait(500); return; }
       if (f.hits.length) {
-        art?.classList.add('lunge');
-        await wait(220);
+        // 적이 달려든다 → 할퀸 자국 · 붉은 번쩍임 · 체력바가 깎이며 흰 띠가 따라 줄어든다. 막으면 방패가 '쨍'
+        art?.classList.remove('lunge'); void art?.offsetWidth; art?.classList.add('lunge');
+        sfx.whoosh?.();
+        await wait(190);
         for (const hit of f.hits) {
-          sfx.hit?.('normal', 8);
-          if (fxOn) FX().burst(h.x, h.y, { n: 18, pal: hit.dmg ? PALETTES.fire : PALETTES.frost, speed: [80, 240], life: [0.25, 0.5] });
-          if (hit.blocked) floatAt(h.x + 30, h.y - 30, `${ico('shield', 'xs')}${hit.blocked}`, 'sky');
+          const big = hit.dmg >= 15;
+          if (hit.blocked) {
+            sfx.clang?.(hit.dmg ? 0.6 : 1);
+            if (fxOn) { FX().ring(h.x, h.y, { color: '#7CC8FF', r1: 64, dur: 300, width: 6 }); FX().burst(h.x, h.y, { n: 14, pal: PALETTES.frost, speed: [100, 260], life: [0.2, 0.45] }); }
+            floatAt(h.x + 34, h.y - 26, `${ico('shield', 'xs')}-${hit.blocked}`, 'sky');
+            popBlk();
+          }
           if (hit.dmg) {
-            floatAt(h.x, h.y - 10, `-${hit.dmg}`, 'dmg');
-            shake($('r-hero'), 1.4);
-            $('rh-por')?.classList.remove('hurt'); void $('rh-por')?.offsetWidth; $('rh-por')?.classList.add('hurt');
-            buzz(60);
-            if (hit.dmg >= 15 && fxOn) FX().flash('#E8435A', 220, 0.22);
+            sfx.hurt?.(Math.min(2, hit.dmg / 12));
+            buzz(big ? 140 : 70);
+            if (fxOn) {
+              clawAt(center($('rhero')), big);
+              hurtFlash(big);
+              FX().burst(h.x, h.y, { n: 18 + Math.min(30, hit.dmg), pal: PALETTES.fire, speed: [100, 300], life: [0.25, 0.6], grav: 260 });
+            }
+            floatAt(h.x, h.y - 12, `-${hit.dmg}`, `dmg${big ? ' big' : ''}`);
+            shake($('rc'), big ? 1.6 : 0.9);
           }
           setShow({ blk: Math.max(0, ui.show.blk - hit.blocked), hp: Math.max(0, ui.show.hp - hit.dmg) });
-          repaintBars();
-          await wait(f.hits.length > 1 ? 200 : 260);
+          updHero(hit.dmg > 0);
+          await wait(f.hits.length > 1 ? 260 : 340);
         }
         art?.classList.remove('lunge');
         if (f.thorn) { setShow({ ehp: ui.show.ehp - f.thorn }); repaintBars(); floatAt(e.x, e.y, `${f.thorn}`, 'dmg'); }
@@ -654,7 +855,7 @@ async function playOne(f) {
     case 'foeDie': {
       const art = $('foe-art');
       art?.classList.add('dying');
-      sfx.win?.();
+      sfx.foeDie?.(f.kind === 'boss' ? 2 : f.kind === 'elite' ? 1.4 : 1);   // 팡파레는 '승리!' 화면에서 한 번만
       const e = foeAt();
       if (fxOn) { FX().burst(e.x, e.y, { n: 70, pal: PALETTES.gold, speed: [100, 400], life: [0.5, 1.1] }); FX().ring(e.x, e.y, { color: '#FFE27A', r1: 160, dur: 600 }); }
       await wait(1100);
@@ -721,7 +922,8 @@ function showReward() {
     </div>
     ${heroStrip()}
   </div>`;
-  sfx.win?.();
+  // 팡파레는 '승리!'가 처음 뜰 때 한 번만 (보상을 받을 때마다 다시 그려도 울리지 않는다)
+  if (!rw.cheered) { rw.cheered = true; save(); sfx.win?.(); }
 }
 function rewardRow(it, k) {
   const done = it.done ? ' done' : '';
@@ -1064,7 +1266,23 @@ export function onAct(act, t) {
     ui.busy = true;
     return playFx(Run.drainFx(R), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
   }
-  if (act === 'run-play') { X.closePopover?.(); return doPlay(Number(t.dataset.u), t.dataset.t); }
+  if (act === 'run-play') {
+    X.closePopover?.();
+    const u = Number(t.dataset.u), tt = t.dataset.t;
+    const target = tt == null || tt === '' ? (ui.split?.u === u ? ui.split.atk : 'enemy') : tt === 'enemy' || tt === 'self' ? tt : Number(tt);
+    return doPlay(u, target);
+  }
+  if (act === 'run-split') {
+    const sp = ui.split;
+    if (!sp) return;
+    const v = t.dataset.v, hi = R.C.hand.findIndex(c => c.u === sp.u);
+    if (v === 'all') return setSplit(sp.S);
+    if (v === 'none') return setSplit(0);
+    if (v === 'cover') return setSplit(hi >= 0 ? Run.coverAtk(R, hi).atk : sp.atk);
+    return setSplit(sp.atk + Number(v));
+  }
+  if (act === 'run-bet') return doBet(Number(t.dataset.u));
+  if (act === 'run-betno') { sfx.back(); ui.sel = null; hand.select(null); $('rtip').innerHTML = tipText(false); return; }
 }
 
 // 트레이의 주사위를 눌렀을 때 (app.js 가 원정 중에 보낸다)
@@ -1155,7 +1373,7 @@ export function back() {
   if (R.pick) { onAct('run-pickcancel', {}); return true; }
   if (X.layer.firstElementChild) { sfx.back(); X.layer.innerHTML = ''; return true; }
   if (ui.tool) { ui.tool = null; paint(); return true; }
-  if (ui.sel != null) { ui.sel = null; hand?.select(null); return true; }
+  if (ui.sel != null) { closeSplit(); return true; }
   showMenu();
   return true;
 }
