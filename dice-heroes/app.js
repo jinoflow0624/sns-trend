@@ -145,6 +145,8 @@ function showTitle() {
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;
+  // 판의 곡을 미리 받아 둔다: 이어하기가 있으면 그 판, 아니면 지난번에 고른 모드 · 보스 (대부분 같은 걸 또 한다)
+  if (unlocked) preloadBgm(canResume ? stateSong(saved) : optsSong(opts));
   const last = store.get(KEYS.lastRoom);
   const rejoinLeft = last ? Math.ceil((Net.DROP_MS - (Date.now() - last.t)) / 1000) : 0;
   app.innerHTML = `
@@ -516,6 +518,7 @@ function showSetup() {
   layer.innerHTML = '';
   playBgm('title');
   pick.o ||= opts;
+  preloadBgm(optsSong(pick.o));   // 고른 모드 · 보스의 곡을 미리 받아 둔다 (시작하자마자 음악이 나오게)
   const steps = pickSteps();
   if (!steps.includes(pick.step)) pick.step = steps[steps.length - 1];
   const n = steps.indexOf(pick.step);
@@ -801,6 +804,7 @@ function showLobby() {
   screen = 'lobby';
   clearActors();
   const room = online.room;
+  preloadBgm(optsSong(room.opts));   // 판이 시작되면 바로 나오게 그 판의 곡을 미리 받아 둔다
   const host = isHost();
   const link = Net.inviteLink(online.code);
   const humans = room.seats.filter(s => !s.bot).length;
@@ -956,8 +960,13 @@ async function onRoom(room) {
     screen = 'game';
     setStage(null);
     layer.innerHTML = '';
-    playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
+    const song = playBgm(stateSong(S));
     online.fxSeen = room.fxId - 1;
+    // 대기실에서 미리 받아 둔 곡이 준비될 때까지 잠깐 (최대 3초) — 연출보다 음악이 늦지 않게
+    ui.busy = true;
+    render();
+    await Promise.race([song, sleep(3000)]);
+    if (!online || S !== g) return;
   } else {
     S = g;
   }
@@ -1100,8 +1109,13 @@ function onlineAct(fn, { any = false, quiet = false } = {}) {
   });
 }
 
+// 판의 배경음악: 협동은 보스 곡, 대전은 모험 곡 (게임 상태 / 고른 옵션)
+const stateSong = g => (g?.mode === 'coop' && g.boss ? bossSong(g.boss.id) : 'adventure');
+const optsSong = o => (o?.mode === 'coop' ? bossSong(o.boss) : 'adventure');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
-function startGame(state) {
+async function startGame(state) {
   S = state;
   gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxNote.includes('오류')) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
@@ -1109,9 +1123,15 @@ function startGame(state) {
   screen = 'game';
   setStage(null);
   layer.innerHTML = '';
-  playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
+  const song = playBgm(stateSong(S));
   if (!S.tutorial && (S.round || 1) <= 1) track('game_start', { mode: S.mode, classic: S.classic ? 1 : 0, online: online ? 1 : 0, players: S.players.length });
   if (!S.tutorial && !online) Wal.beginRun({ mode: S.mode, boss: S.boss?.id ?? null, diff: S.boss?.diff ?? null });   // 배포판: 판 시작을 서버에 기록 (온라인 방 판은 방 기록으로 확인)
+  // 판을 먼저 그려 두고, 곡이 준비될 때까지 잠깐 기다렸다가(최대 3초) 보스 등장 · 라운드 연출을 시작한다
+  // (예전엔 곡을 받는 사이 연출이 먼저 지나가서 라운드가 시작된 뒤에 음악이 나오곤 했다)
+  ui.busy = true;
+  render();
+  await Promise.race([song, sleep(3000)]);
+  if (S !== state || screen !== 'game') return;   // 그사이 메뉴로 나갔다
   step();
 }
 
@@ -1453,6 +1473,9 @@ function bossPanel() {
   const shown = ui.hpHold ?? b.hp;
   // 분노는 살아 있을 때만 (체력 0에서 분노 흔들림이 계속돼 발작처럼 보였다)
   const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0 && ui.rageSeed === S.seed;
+  // 보스 예고: 이번 라운드에 쓰는 스킬(now)과 다음 라운드에 쓸 스킬(next, 깜박이며 '다음')
+  const planNow = new Set(E.bossPlan(S, ui.roundShow ?? S.round).map(k => k.id));
+  const planNext = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, (ui.roundShow ?? S.round) + 1).map(k => k.id) : []);
   return `
   <section class="boss-panel${['demon', 'archdemon'].includes(b.id) ? ' big-boss' : ''}${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
     <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
@@ -1462,7 +1485,7 @@ function bossPanel() {
         <em>HP ${hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
       ${bossStatus(b)}
       <div class="boss-skills">
-        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}</button>`).join('')}
+        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip${k.id !== 'heads' && planNow.has(k.id) ? ' now' : ''}${k.id !== 'heads' && planNext.has(k.id) ? ' next' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${k.id !== 'heads' && planNext.has(k.id) ? '<i class="nx">다음</i>' : ''}</button>`).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
       </div>
     </div>
@@ -1472,8 +1495,8 @@ function bossPanel() {
 // 강화 보스 상태 한 줄: 세머리 용 머리 · 키클롭스 응시 칸 · 오버로드 해골병
 function bossStatus(b) {
   if (b.id === 'hydra') {
-    const now = E.HEADS[(S.round - 1) % 3];
-    return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
+    const now = E.HEADS[(S.round - 1) % 3], nxt = S.round < E.ROUNDS ? E.HEADS[S.round % 3] : null;
+    return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}${h === nxt && !b.cut?.[h] ? ' next' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
   }
   // 응시 · 저주가 없을 때도 같은 크기의 빈 줄을 둔다 (줄이 생겼다 사라지며 화면이 위아래로 밀리지 않게)
   if (b.id === 'cyclops') return b.gaze?.length && !ui.hideGaze
@@ -1636,13 +1659,17 @@ async function toast(icon, title, text, ms = 1900, img = '') {
 let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
+  // 보스 예고: 다음 라운드에 보스가 때가 되어 쓰는 공격이 있으면 이번 라운드 배너에서 미리 경고한다
+  const next = S?.boss ? E.bossPlan(S, round + 1) : [];
+  const warn = next.length ? `<div class="warn-next">${ico('warn', 'xs')}<b>다음 라운드</b>${next.map(k => `<span>${skillIco(k.id, 'xs')}${k.ko}</span>`).join('')}<small>${next.map(k => k.what).join(' · ')}</small></div>` : '';
   // 마왕의 패기 라운드: 라운드 표시만 하고, 패기는 그다음 따로 발동한다 (hakiFx)
   layer.innerHTML = evId === 'haki' || evId === 'midnight' || S?.classic
-    ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div></div></div>`
+    ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div>${warn}</div></div>`
     : `<div class="overlay" data-act="skip-banner"><div class="banner">
-    <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span></div></div>`;
+    <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span>${warn}</div></div>`;
   sfx.round();
-  await Promise.race([wait(ui.fast ? 700 : 1500), new Promise(r => (skipBanner = r))]);
+  if (warn) setTimeout(() => sfx.haki?.(), 350);
+  await Promise.race([wait(ui.fast ? 700 : warn ? 2300 : 1500), new Promise(r => (skipBanner = r))]);
   layer.innerHTML = '';
 }
 // 보스 등장: 화면을 대각선으로 가르는 띠 위에 이름과 거대한 모습만

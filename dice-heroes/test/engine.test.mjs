@@ -673,5 +673,31 @@ test('행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로
   assert.ok(hits > 30);
 });
 
+console.log('\n보스 예고');
+test('보스 예고(bossPlan)가 실제로 스킬을 쓰는 라운드와 같다 (화염룡 · 오크 · 리치 · 마왕)', () => {
+  const SK = { dragon: 'breath', lich: 'twist', demon: 'seal', overlord: 'reverse', orc: 'drums' };
+  for (const id of Object.keys(SK)) {
+    for (let seed = 1; seed <= 6; seed++) {
+      const s = E.createGame([{ name: 'A', cls: 'monk', bot: true }], seed, { mode: 'coop', boss: id, diff: 1 });
+      s.boss.hp = s.boss.maxHp = 99999;                        // 끝까지 가게
+      const seen = new Set();
+      let guard = 0, r = s.round;
+      const check = list => list.forEach(f => {
+        if (f.type === 'round') r = f.round;                      // 라운드 시작 연출이 있으면 그 라운드 (북은 라운드 시작에 울린다)
+        if (f.type === 'boss' && f.skill === SK[id]) { assert.ok(E.bossPlan(s, r).some(k => k.id === SK[id]), `${id} ${r}라운드에 예고 없이 ${SK[id]}`); seen.add(r); }
+      });
+      check(E.drainFx(s));
+      while (!s.ended && guard++ < 4000) { r = s.round; E.applyBot(s, E.botAction(s, () => 0.5, 4)); check(E.drainFx(s)); }
+      // 예고한 라운드에는 실제로 썼다 (봉인 · 비틀기 · 역전은 그 굴림까지 갔을 때만이라 북 · 숨결만 확인)
+      if (id === 'orc' || id === 'dragon') for (let k = 1; k <= E.ROUNDS; k++) if (E.bossPlan(s, k).some(x => x.id === SK[id])) assert.ok(seen.has(k), `${id} ${k}라운드 예고했는데 안 씀`);
+    }
+  }
+});
+test('마지막 라운드 다음은 예고가 없다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 1, { mode: 'coop', boss: 'dragon', diff: 1 });
+  assert.deepEqual(E.bossPlan(s, E.ROUNDS + 1), []);
+  assert.ok(E.bossPlan(s, 4).some(k => k.id === 'breath'));
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

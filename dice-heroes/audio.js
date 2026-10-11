@@ -397,26 +397,44 @@ let playing = null;       // { name, timer, step, next } 또는 음원 파일이
 const FILE_VOL = 0.9;
 const buffers = {};
 const badFiles = new Set();   // 못 받았거나 못 푼 파일(구형 iOS 의 OGG 등)은 칩튠 곡으로 대신한다
-const loadBuffer = url => (buffers[url] ||= fetch(url)
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
-  .then(b => ctx.decodeAudioData(b))
-  .catch(err => { delete buffers[url]; throw err; }));
+// 풀어 둔 곡은 최근 것 몇 개만 메모리에 둔다 (3분짜리 곡 하나를 풀면 수십 MB). 지금 나오는 곡은 지우지 않는다
+const BUF_KEEP = 4;
+const recent = [];
+function keepBuffer(url) {
+  const i = recent.indexOf(url);
+  if (i >= 0) recent.splice(i, 1);
+  recent.push(url);
+  for (let k = 0; recent.length > BUF_KEEP && k < recent.length;) {
+    if (recent[k] === playing?.url || recent[k] === url) { k++; continue; }
+    delete buffers[recent.splice(k, 1)[0]];
+  }
+}
+const loadBuffer = url => {
+  keepBuffer(url);
+  return (buffers[url] ||= fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(b => ctx.decodeAudioData(b))
+    .catch(err => { delete buffers[url]; throw err; }));
+};
 
-// 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악을 준비해서 시작 화면에서 바로 나오게)
+// 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악, 보스 · 모드를 고르는 동안 그 판의 곡 —
+// 예전엔 판이 시작되는 순간에 받기 시작해서 폰에서는 라운드가 시작된 뒤에야 음악이 나왔다)
 export function preloadBgm(name) {
   const url = BGM_FILES[name];
-  if (url && !badFiles.has(url) && unlock()) loadBuffer(url).catch(() => {});
+  if (url && !badFiles.has(url) && unlock()) return loadBuffer(url).then(() => {}, () => {});
+  return Promise.resolve();
 }
 
+// 곡을 튼다. 돌려주는 약속은 실제로 소리가 나기 시작할 때 끝난다 (파일을 받는 중이면 받은 뒤)
 export function playBgm(name) {
-  if (playing?.name === name) return;
+  if (playing?.name === name) return playing.ready || Promise.resolve();
   stopBgm();
-  if (!unlock()) return;
+  if (!unlock()) return Promise.resolve();
   const url = BGM_FILES[name];
   if (url && !badFiles.has(url)) {
-    const state = { name };
+    const state = { name, url };
     playing = state;
-    loadBuffer(url).then(buf => {
+    state.ready = loadBuffer(url).then(buf => {
       if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
       const src = ctx.createBufferSource(), g = ctx.createGain();
       src.buffer = buf; src.loop = true; g.gain.value = FILE_VOL;
@@ -428,7 +446,7 @@ export function playBgm(name) {
       badFiles.add(url);
       if (playing === state) { playing = null; if (SONGS[name]) playBgm(name); }
     });
-    return;
+    return state.ready;
   }
   const song = SONGS[name];
   const tracks = {
@@ -455,6 +473,7 @@ export function playBgm(name) {
   tick();
   state.timer = setInterval(tick, 30);
   playing = state;
+  return Promise.resolve();
 }
 
 export function stopBgm() {
