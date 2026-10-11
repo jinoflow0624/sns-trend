@@ -666,7 +666,7 @@ export class DiceTray {
     if (!d) return Promise.resolve();
     return new Promise(resolve => {
       d.morph = { t0: performance.now(), ms, kind, v, swapped: false, resolve, base: d.mesh.quaternion.clone() };
-      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : 0x9A5BFF);
+      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : kind === 'lucky' ? 0x3EE6B4 : 0x9A5BFF);
       d.auraI = 1;
     });
   }

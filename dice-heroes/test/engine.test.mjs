@@ -654,6 +654,24 @@ test('강화 보스 봇이 끝까지 둔다', () => {
     assert.ok(s.ended, boss);
   }
 });
+test('행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로 다시 굴린다', () => {
+  let hits = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = E.createGame([{ name: 'A', cls: 'monk' }], seed);
+    s.players[0].perks.lucky = 1;
+    E.roll(s);
+    const f = E.drainFx(s).find(x => x.type === 'lucky');
+    if (!f) continue;
+    hits++;
+    const i = f.dice[0];
+    assert.equal(f.from[i], Math.min(...f.from));          // 가장 낮은 눈을 골랐다
+    assert.equal(s.dice[i], f.to);
+    assert.equal(s.rollsLeft, E.maxRolls(s) - 1);           // 굴림 기회는 그대로
+    E.roll(s);
+    assert.ok(!E.drainFx(s).some(x => x.type === 'lucky')); // 두 번째 굴림엔 없다
+  }
+  assert.ok(hits > 30);
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

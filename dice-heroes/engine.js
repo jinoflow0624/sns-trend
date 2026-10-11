@@ -126,7 +126,7 @@ export const PERKS = [
   { id: 'straight', ko: '질주',            icon: '🏃', rarity: 2, max: 2, desc: '두 스트레이트 ×1.3 (기록한 칸에도 소급)' },
   { id: 'fourk',    ko: '사냥 본능',       icon: '🐺', rarity: 2, max: 2, desc: '포카인드 ×1.5 (기록한 칸에도 소급)' },
   { id: 'reroll',   ko: '재굴림 +1',       icon: '♻️', rarity: 2, max: 2, desc: '매 턴 굴림 기회 +1' },
-  { id: 'lucky',    ko: '행운의 부적',     icon: '🧿', rarity: 2, max: 1, desc: '매 굴림에서 나온 1은 한 번 더 굴린다' },
+  { id: 'lucky',    ko: '행운의 부적',     icon: '🧿', rarity: 2, max: 1, desc: '매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴린다 (굴림 기회는 그대로)' },
   { id: 'chain',    ko: '연쇄 의뢰',       icon: '⛓️', rarity: 2, max: 1, desc: '한 턴에 퀘스트를 2개까지 깬다' },
   { id: 'scholar',  ko: '현자의 눈',       icon: '👁️', rarity: 2, max: 1, desc: '이후 레벨업 때 카드 4장 중에 고른다' },
   { id: 'sixth',    ko: '여섯 번째 주사위', icon: '🌟', rarity: 3, max: 1, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
@@ -677,9 +677,7 @@ export function roll(s) {
   s.dice = s.dice.map((v, i) => {
     if (s.rolled && (s.held[i] || isSealed(s, i) || isFrozen(s, i))) return v;
     if (forced) return forced[i];
-    let r = die(s);
-    if (r === 1 && perkCount(p, 'lucky')) r = die(s);
-    return r;
+    return die(s);
   });
   if (!s.rolled) s.held = s.held.map(() => false);
   s.rolled = true;
@@ -688,6 +686,16 @@ export function roll(s) {
   if (s.sealed?.length && s.rollNo >= 2 && !s.sealPerm) {                  // 한 번 다시 굴리면 봉인이 풀린다
     fx(s, { type: 'boss', skill: 'unseal', dice: s.sealed.slice() });
     s.sealed = [];
+  }
+  // 행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로 다시 굴린다 (봉인 · 언 주사위 제외, 이미 6이면 안 굴림)
+  if (!forced && s.rollNo === 1 && perkCount(p, 'lucky')) {
+    const i = s.dice.map((v, k) => k).filter(k => !isSealed(s, k) && !isFrozen(s, k)).sort((a, b) => s.dice[a] - s.dice[b])[0];
+    if (i != null && s.dice[i] < 6) {
+      const from = s.dice.slice();
+      s.dice[i] = die(s);
+      log(s, `${p.name} · 행운의 부적! 주사위 ${from[i]} → ${s.dice[i]}`);
+      fx(s, { type: 'lucky', player: s.turn, dice: [i], from, to: s.dice[i] });
+    }
   }
   if (!forced) bossAfterRoll(s);
 }
