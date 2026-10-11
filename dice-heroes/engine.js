@@ -297,9 +297,9 @@ export const BOSSES = [
     partyAdj: [[1, 1, 1, 1], [0.99, 1.103, 1.098, 1.101], [0.95, 1.082, 1.082, 1.071]],
     skills: [
       { id: 'gaze', icon: '👁️', ko: '외눈 응시',
-        desc: d => '라운드마다 점수표 칸 하나를 노려본다. 그 칸에 적으면 점수는 남지만 피해는 0' },
+        desc: d => '라운드마다(마지막 라운드 제외) 점수표 칸 하나를 노려본다. 그 칸에 적으면 점수는 남지만 피해는 0' },
       { id: 'rock', icon: '🪨', ko: '바위 투척',
-        desc: d => '3라운드마다 각자 빈칸 하나에 바위가 떨어져 그 차례엔 그 칸을 쓸 수 없다' },
+        desc: d => '3라운드마다(마지막 라운드 제외) 각자 빈칸 하나에 바위가 떨어져 그 차례엔 그 칸을 쓸 수 없다' },
       { id: 'plunder', icon: '💰', ko: '약탈', desc: d => `누군가 0점을 기록하면 체력을 ${CYCLOPS_PLUNDER} 회복한다` },
       { id: 'rage', icon: '💢', ko: '분노', desc: d => d === 2 ? '체력이 절반 아래면 노려보는 칸이 2개' : '어려움에서만 쓴다' },
     ],
@@ -595,7 +595,8 @@ function bossRoundStart(s) {
     fx(s, { type: 'boss', skill: 'awaken', cat: more || null });
   }
   if (b.id === 'cyclops') {
-    const open = CAT_IDS.filter(id => s.players.some(p => p.scores[id] === null));
+    // 마지막 라운드에는 노려보지 않는다 (남은 칸이 적어 피할 길이 없다)
+    const open = s.round >= ROUNDS ? [] : CAT_IDS.filter(id => s.players.some(p => p.scores[id] === null));
     b.gaze = shuffle(s, open).slice(0, enraged(s) ? 2 : 1);
     if (b.gaze.length) {
       log(s, `폴리페모스가 「${b.gaze.map(c => catInfo(c).ko).join('」「')}」 칸을 노려본다`);
@@ -636,8 +637,8 @@ function startTurn(s) {
       fx(s, { type: 'boss', skill: 'drums' });
     }
   }
-  // 키클롭스 바위 투척: 3라운드마다 내 빈칸 하나 (빈칸이 하나뿐이면 봐준다)
-  if (s.boss?.id === 'cyclops' && every(s, 3) && !s.ended) {
+  // 키클롭스 바위 투척: 3라운드마다 내 빈칸 하나 (빈칸이 하나뿐이면, 그리고 마지막 라운드에는 봐준다)
+  if (s.boss?.id === 'cyclops' && every(s, 3) && s.round < ROUNDS && !s.ended) {
     const empty = CAT_IDS.filter(id => p.scores[id] === null);
     if (empty.length >= 2) {
       s.rock = shuffle(s, empty)[0];

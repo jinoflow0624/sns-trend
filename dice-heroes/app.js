@@ -1387,7 +1387,8 @@ function diceOverlay(myTurn) {
   const ovl = document.getElementById('dice-ovl');
   if (!ovl || !tray || !S) return;
   // 마왕의 봉인: 봉인된 주사위 위에 쇠사슬 문양 (다시 굴리면 풀린다)
-  const box0 = document.getElementById('tray').getBoundingClientRect();
+  // 겹침 층(dice-ovl)은 트레이 테두리(3px) 안쪽에서 시작한다 — 트레이 바깥 상자를 기준으로 재면 표시가 오른쪽 아래로 3px 밀린다
+  const box0 = ovl.getBoundingClientRect();
   const sealList = ui.sealRoll || S.sealed || [];   // 굴리는 동안에도 봉인 표시는 제자리에 남는다
   const seals = S.rolled && sealList.length ? sealList.map(i => {
     const p = tray.topPos?.(i) || tray.screenPos(i);   // 윗면 한가운데
