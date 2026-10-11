@@ -1487,3 +1487,16 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 .d2.frozen { background: linear-gradient(135deg, #F4FDFF, #BDEBFF 45%, #8FD6F5); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .9), inset 0 0 10px rgba(58, 168, 255, .55); }
 .curse-ask p { line-height: 1.6; }
 .curse-ask b { color: #FF5A8A; }
+
+/* 대시보드: 없는 난이도 칸은 비우고, 등급 · 승패 글자색을 등급마다 다르게 (S 는 무지개빛으로 반짝) */
+.db-none { width: 100%; min-height: 34px; }
+.dr-row em.gS, .db-cell.gS b { background: linear-gradient(90deg, #FF5A6A, #FFC83D, #3EE6B4, #4FB3FF, #B98CFF, #FF5A6A); background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 4px rgba(255, 210, 74, .8)); animation: gradeS 2.4s linear infinite; }
+.dr-row em.gS { font-size: 15px; }
+@keyframes gradeS { to { background-position: 300% 0; } }
+.dr-row em.gA, .db-cell.gA b { color: #FFD24A; text-shadow: 0 0 6px rgba(255, 210, 74, .6); }
+.dr-row em.gB, .db-cell.gB b { color: #9DD8FF; text-shadow: 0 0 4px rgba(79, 179, 255, .5); }
+.dr-row em.gF, .db-cell.gF b { color: var(--ruby); }
+.dr-row em.win { color: #3EE6B4; text-shadow: 0 0 5px rgba(62, 230, 180, .55); }
+.dr-row em.lose { color: #8C83BB; }
+@media (prefers-reduced-motion: reduce) { .dr-row em.gS, .db-cell.gS b { animation: none; } }

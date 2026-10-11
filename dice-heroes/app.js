@@ -2808,6 +2808,8 @@ function recordProfile() {
   store.set(KEYS.profile, prof);
 }
 
+// 기록에 쓰는 보스 짧은 이름 (마왕 · 마신은 둘 다 '릴리스'라 앞 단어로 구분)
+const bossShort = id => { const b = E.bossInfo(id); if (!b) return ''; const w = b.ko.split(' '); return b.final ? w[0] : w[w.length - 1]; };
 function showDashboard() {
   screen = 'dashboard';
   setStage(null);
@@ -2861,6 +2863,7 @@ function showDashboard() {
         <div class="dash-boss">
           <span></span>${E.DIFFS.map(d => `<small style="color:${d.color}">${d.ko}</small>`).join('')}
           ${E.BOSSES.map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
+            if (!E.bossDiffs(b.id).includes(d.id)) return '<span class="db-none"></span>';   // 강화 보스 · 마신은 쉬움이 없다
             const r = prof.bosses[`${b.id}:${d.id}`];
             return `<span class="db-cell${r?.grade ? ` g${r.grade}` : ''}">${r ? `<b>${r.grade}</b><small>${r.wins}/${r.tries}</small>` : '-'}</span>`;
           }).join('')}`).join('')}
@@ -2871,8 +2874,8 @@ function showDashboard() {
         <h3 class="dash-h">최근 기록</h3>
         ${prof.recent.length ? `<div class="dash-recent">${prof.recent.map(r => `<div class="dr-row">
           <small>${date(r.date)}</small>${portrait(r.cls, 'mini')}
-          <span>${r.mode === 'coop' ? `협동 · ${E.bossInfo(r.boss)?.ko.split(' ').pop() || ''} ${E.DIFFS[r.diff]?.ko || ''}` : r.classic ? '클래식 야추' : '대전'}${r.online ? ' · 온라인' : ''}</span>
-          <b>${r.score}점</b><em class="${r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? '승리' : '패배'}</em></div>`).join('')}</div>`
+          <span>${r.mode === 'coop' ? `협동 · ${bossShort(r.boss)} ${E.DIFFS[r.diff]?.ko || ''}` : r.classic ? '클래식 야추' : '대전'}${r.online ? ' · 온라인' : ''}</span>
+          <b>${r.score}점</b><em class="${r.mode === 'coop' ? `g${r.grade}` : r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? '승리' : '패배'}</em></div>`).join('')}</div>`
         : '<p class="hint">아직 기록이 없어요.</p>'}
       </section>
       <div class="dash-backup">
