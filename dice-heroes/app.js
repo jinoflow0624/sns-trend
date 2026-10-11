@@ -1880,7 +1880,7 @@ function holdHp(list) {
 }
 
 function pendingDice(list) {
-  const b = list.find(f => f.type === 'boss' && f.from);
+  const b = list.find(f => (f.type === 'boss' || f.type === 'lucky') && f.from);   // 행운의 부적 · 보스 능력이 바꾸기 전 눈
   if (b) return b.from.slice();
   const sc = list.find(f => f.type === 'score' && f.dice);
   return sc ? sc.dice.slice() : null;
@@ -2431,6 +2431,7 @@ async function playFx(list) {
     }
   }
   ui.hideGaze = ui.hideRock = ui.hideIce = false;
+  if (ui.dice && list.some(f => f.type === 'lucky')) { ui.dice = null; render(); }   // 행운의 부적만 있던 굴림: 잡아 둔 눈을 놓는다
   ui.hpHold = null;
   ui.roundShow = null;
   ui.crownFreeze = false;
@@ -2464,6 +2465,19 @@ async function playOne(f) {
         }
         break;
       case 'upper': await upperFx(f); break;
+      case 'lucky': {                              // 행운의 부적: 가장 낮은 주사위가 초록빛으로 다시 굴러 바뀐다
+        const t = await trayReady();
+        if (!t) break;
+        const pt = t.screenPos(f.dice[0]), fx = FX();
+        sfx.legend();
+        floatText('행운의 부적! 다시 굴림', 'mint', -24, 'tray', 'sparkle');
+        fx.ring(pt.x, pt.y, { color: '#3EE6B4', r0: 6, r1: 60, dur: 420, width: 5 });
+        fx.burst(pt.x, pt.y, { n: 24, pal: ['#FFFFFF', '#B6F25A', '#3EE6B4', '#FFD24A'], speed: [60, 200], life: [0.4, 0.8], size: [2, 5] });
+        await t.morph(f.dice[0], f.to, 'lucky', ui.fast ? 450 : 800);
+        if (ui.dice) ui.dice[f.dice[0]] = f.to;      // 뒤에 보스 능력이 이어지면 그 연출의 시작 눈과 맞춘다
+        render();
+        break;
+      }
       case 'damage':
         sfx.clack(12); buzz(30);
         bumpPts(f.player, f.amount);
