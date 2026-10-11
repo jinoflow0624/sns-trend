@@ -162,6 +162,7 @@ function showTitle() {
         ${rejoinLeft > 0 ? `<button class="pbtn gold" data-act="rejoin" data-code="${esc(last.code)}">방으로 돌아가기 <small>${esc(last.code)} · ${rejoinLeft}초 안에</small></button>` : ''}
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
         <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
+        ${PROD ? '' : runMenu()}
         <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
         ${achBtn()}
@@ -180,6 +181,31 @@ function showTitle() {
   showLiveBar();
   setStage(titleScene(app.querySelector('.scene')));
   playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
+}
+
+// ── 원정 (로그라이크, 테스트판 전용) ────────────────────────────────────────
+// 화면 · 규칙은 run/ 폴더에 따로 있고, 처음 누를 때 불러온다. 배포판 빌드에는 run/ 폴더가 없다.
+let runMod = null, runLoading = null;
+function runMenu() {
+  const s = store.get('diceheroes.run');
+  const can = s && s.v === 1 && !s.ended;
+  return `<div class="run-menu"><button class="pbtn${can ? ' gold' : ''}" data-act="${can ? 'run-resume' : 'run-open'}">원정${can ? ' 이어하기' : ''} <small>${can ? `${s.act}막 · 체력 ${s.hp}/${s.maxHp}` : '테스트판 · 로그라이크'}</small></button>${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
+}
+function loadRun() {
+  return (runLoading ||= import('./run/ui.js').then(m => {
+    m.init({
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, popover, closePopover,
+      showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
+      owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName,
+    });
+    runMod = m;
+    return m;
+  }).catch(err => { runLoading = null; throw err; }));
+}
+function runAct(act, t) {
+  if (PROD) return;
+  loadRun().then(m => (act === 'die' ? m.onDie(Number(t.dataset.i)) : m.onAct(act, t)))
+    .catch(err => { noteErr(err); toast(ico('warn'), '원정을 열지 못했어요', String(err?.message || err).slice(0, 80), 2200); });
 }
 
 // 지갑이 바뀌면: 시작 화면 보석 숫자 갱신, 안 산 스킨을 쓰고 있었으면 기본으로
@@ -1112,7 +1138,7 @@ function trayOpts() {
     onHit: (v, i) => diceHit(v, i, tray),
     onThrow: () => sfx.shake(),
     onBox: () => sfx.box(),
-    onLong: i => dieInfo(i),
+    onLong: i => (screen === 'run' ? runMod?.dieInfo(i) : dieInfo(i)),
     onFail: err => to2d(`그리기 오류: ${err?.message || err}`),
     lowGfx: !!prefs.lowGfx,
     diceSkin: diceSkin(mySkin().dice).id,
@@ -1147,7 +1173,7 @@ function to2d(why) {
   try { tray?.destroy?.(); } catch { /* 무시 */ }
   tray = host ? new DiceTray2D(host, trayOpts()) : null;
   toast(ico('warn'), '그래픽을 간단하게 바꿨어요', '이 기기에서 3D 주사위를 그리지 못해 2D 주사위로 계속해요.', 2400);
-  render();
+  if (screen === 'run') runMod?.render(); else render();
 }
 
 // 지금 이 기기가 조작할 차례인가
@@ -3712,6 +3738,7 @@ async function onGameAct(act, t) {
 
 // 모든 버튼은 data-act 로 한곳에서 받는다
 function onAct(act, t) {
+  if (act.startsWith('run-') || (screen === 'run' && act === 'die')) return runAct(act, t);
   if (act === 'touch') {
     unlock(); unlocked = true; sfx.start();
     if (urlRoom) return joinRoom(urlRoom);
@@ -3849,6 +3876,7 @@ function onAct(act, t) {
 function armBack() { if (!history.state?.dhBack) history.pushState({ ...(history.state || {}), dhBack: 1 }, ''); }
 function handleBack() {
   if (document.querySelector('.popover')) { closePopover(); return true; }
+  if (screen === 'run' && runMod?.back()) return true;
   if (layer.querySelector('[data-act=skip-banner]')) { skipBanner(); return true; }
   if (layer.querySelector('.results')) { onAct('home', {}); return true; }
   if (layer.querySelector('.lv-overlay')) return true;                 // 카드를 골라야 넘어간다
@@ -3935,4 +3963,4 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
-if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox(), results: () => showResults() };
+if (q.has('debug')) window.__dh = { get run() { return runMod?.state(); }, runMod: () => runMod, get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox(), results: () => showResults() };

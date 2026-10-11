@@ -27,7 +27,8 @@ if (conf.includes('REPLACE_ME')) {
   conf = conf.replaceAll('REPLACE_ME', 'demo-diceheroes').replace(/databaseURL: '[^']*'/, "databaseURL: 'http://127.0.0.1:9100?ns=demo-diceheroes-default-rtdb'");
 }
 
-const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'package.json', 'package-lock.json']);
+// run/ = 원정(로그라이크) 모드 — 아직 테스트판 전용이라 배포판에는 넣지 않는다 (게임도 배포판에서는 원정 버튼을 그리지 않는다)
+const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'package.json', 'package-lock.json', 'run']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(src, out, { recursive: true, filter: p => !SKIP.has(p.slice(src.length + 1).split(/[\\/]/)[0]) });
