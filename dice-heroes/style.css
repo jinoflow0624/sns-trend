@@ -1519,3 +1519,9 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 .dr-row em.win { color: #3EE6B4; text-shadow: 0 0 5px rgba(62, 230, 180, .55); }
 .dr-row em.lose { color: #8C83BB; }
 @media (prefers-reduced-motion: reduce) { .dr-row em.gS, .db-cell.gS b { animation: none; } }
+
+/* 적 · 보스 보호막 숫자 (체력바 옆) */
+.hp-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.hp-row > .hp { flex: 1 1 auto; min-width: 0; }
+.shield-badge { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 20px; padding: 0 5px; font-size: 13px; font-weight: 700; color: #fff; background: #12305A; border: 2px solid var(--sky); box-shadow: 0 0 8px rgba(79,179,255,.6), 0 2px 0 var(--ink); animation: zoom .25s cubic-bezier(.2,1.6,.4,1); }
+.shield-badge .ico { width: 12px; height: 12px; }

@@ -8,6 +8,7 @@ import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe } from './art.js';
+import { relicIco } from './relic-art.js';
 import { Hand } from './hand.js';
 
 const SAVE = 'diceheroes.run';
@@ -185,7 +186,7 @@ function heroStrip() {
       <div class="hp rh-hp${hp / R.maxHp < 0.3 ? ' low' : ''}"><i style="width:${(hp / R.maxHp) * 100}%"></i><em>${hp} / ${R.maxHp}</em></div>
     </div>
     <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk">${ico('shield', 'xs')}<b>${blk}</b></div>
-    <div class="rh-relics">${R.relics.map(id => { const r = Run.relicInfo(id); return `<button class="relic r${r.r}" data-act="run-relic" data-id="${id}" aria-label="${r.ko}">${ico(r.icon, 'xs')}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
+    <div class="rh-relics">${R.relics.map(id => { const r = Run.relicInfo(id); return `<button class="relic r${r.r}" data-act="run-relic" data-id="${id}" aria-label="${r.ko}">${relicIco(r, 'xs')}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
   </section>`;
 }
 
@@ -364,7 +365,7 @@ function foePanel() {
     <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
-      <div class="hp foe-hp"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}${blk ? ` · ${ico('shield', 'xs')}${blk}` : ''}</em></div>
+      <div class="hp-row"><div class="hp foe-hp"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge" title="보호막">${ico('shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
       <div class="foe-st">${st.join('')}</div>
     </div>
     ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : ''}`;
@@ -376,7 +377,7 @@ function paintTray() {
   if (!t || !ovl || !C || R.phase !== 'combat') return;
   t.setTarget?.(!!ui.tool && ui.tool !== 'swap' && canAct());
   const box = ovl.getBoundingClientRect();
-  t.setFrozen?.(C.rolled ? C.frozen : []);
+  t.setFrozen?.(C.rolled && !ui.hideIce ? C.frozen : []);
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
   if (!ui.tool || ui.tool === 'swap' || !canAct() || !C.rolled || t.anim) { ovl.innerHTML = seals; return; }
@@ -577,6 +578,7 @@ async function doRoll() {
   if (!r) { ui.sealRoll = null; return; }
   const first = r.list.find(f => (f.type === 'hexDice' || f.type === 'lucky') && f.from);
   ui.dice = first ? first.from.slice() : null;
+  ui.hideIce = r.list.some(f => f.type === 'hexDice' && f.t === 'freeze');   // 얼음 창이 박히기 전에는 얼려 보이지 않는다
   ui.busy = true;
   ui.rolling = true;                    // 주사위가 다 멈출 때까지 카드 점수는 '?'
   paint();
@@ -590,6 +592,7 @@ async function doRoll() {
     console.warn('[run roll]', err);
   } finally {
     ui.rolling = false;
+    ui.hideIce = false;
     ui.sealRoll = null;
   }
   ui.dice = null;
@@ -669,7 +672,7 @@ function updFoe() {
   const ns = nb.querySelector('s');
   if (ns) bar.insertBefore(ns, bar.querySelector('em'));
   bar.querySelector('em').innerHTML = nb.querySelector('em').innerHTML;
-  for (const sel of ['.foe-name', '.foe-st']) { const a = foe.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; }
+  for (const sel of ['.foe-name', '.foe-st', '.foe-blk']) { const a = foe.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; }
   const oi = foe.querySelector('.intent'), ni = tmp.querySelector('.intent');
   if (oi && ni) oi.replaceWith(ni); else if (oi) oi.remove(); else if (ni) foe.appendChild(ni);
 }
@@ -912,6 +915,7 @@ async function playOne(f) {
       } else if (f.t === 'freeze') {              // 얼음: 얼음 창이 박히고 서리 결정이 돋는다
         sfx.seal?.();
         if (fxOn) await fx.iceShards(m, pts, 700);
+        ui.hideIce = false;
         t.setFrozen?.(f.dice);
         if (fxOn) { shake(rc, 1.2); await fx.frost(pts, 850); }
       } else if (f.t === 'seal') {                // 봉인: 마왕의 봉인과 같은 마법진 · 쇠사슬 · 봉인 문양
@@ -950,7 +954,7 @@ async function playOne(f) {
       return;
     }
     case 'dance': {
-      sfx.levelup?.();
+      sfx.dance?.();
       if (t) await Promise.all(f.to.map((v, i) => (v !== f.from[i] ? t.morph(i, v, 'lucky', 500) : null)));
       return;
     }
@@ -1038,7 +1042,7 @@ function rewardRow(it, k) {
   const done = it.done ? ' done' : '';
   if (it.t === 'gold') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('coins')}<b>골드 ${it.n}</b></button>`;
   if (it.t === 'potion') { const p = Run.potionInfo(it.id); return `<button class="rw${done}" data-act="run-take" data-k="${k}" style="--pc:${p.color}">${ico(p.icon)}<b>${p.ko}</b><small>${p.desc}</small></button>`; }
-  if (it.t === 'relic') { const r = Run.relicInfo(it.id); return `<button class="rw relic-row r${r.r}${done}" data-act="run-take" data-k="${k}">${ico(r.icon)}<b>${r.ko}</b><small>${r.desc}</small></button>`; }
+  if (it.t === 'relic') { const r = Run.relicInfo(it.id); return `<button class="rw relic-row r${r.r}${done}" data-act="run-take" data-k="${k}">${relicIco(r)}<b>${r.ko}</b><small>${r.desc}</small></button>`; }
   if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>보스 유물 고르기</b><small>3개 중 1개</small></button>`;
   if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b></button>`;
   if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드 고르기</b><small>${it.opts.length}장 중 1장 · 건너뛸 수 있어요</small></button>`;
@@ -1086,7 +1090,7 @@ function relicPick(k) {
   sfx.legend();
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
     <h2>보스 유물 1개를 고르세요</h2>
-    <div class="relic-picks">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r3" data-act="run-relictake" data-i="${i}">${ico(r.icon, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
+    <div class="relic-picks">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r3" data-act="run-relictake" data-i="${i}">${relicIco(r, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
     <div class="pick-actions"><button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
   </div></div>`;
 }
@@ -1106,7 +1110,7 @@ function showShop() {
       <div class="shop-cards">${sh.cards.map((it, i) => `<button class="shop-item${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="card" data-i="${i}" ${it.sold ? 'disabled' : ''}><div class="rc rc-static">${cardFace(it.c)}</div>${price(it.price, it.sold)}</button>`).join('')}</div>
       <h3>유물 · 물약 · 도구</h3>
       <div class="shop-goods">
-        ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${ico(r.icon)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
+        ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${relicIco(r)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="potion" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--pc:${p.color}">${ico(p.icon)}<span><b>${p.ko}</b><small>${p.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.tools.map((it, i) => `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="tool" data-i="${i}" ${it.sold ? 'disabled' : ''}>${ico(it.kind)}<span><b>${it.kind === 'flip' ? '뒤집기' : '조정'} +1</b><small>${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})</small></span>${price(it.price, it.sold)}</button>`).join('')}
         <button class="shop-good remove${sh.removed ? ' sold' : ''}" data-act="run-remove" ${sh.removed ? 'disabled' : ''}>${ico('skull')}<span><b>카드 제거</b><small>덱에서 카드 1장을 없앤다</small></span>${price(Run.removePrice(R), sh.removed)}</button>
@@ -1210,7 +1214,7 @@ function showEnd() {
         <span><b>${st.fights}</b>일반</span><span><b>${st.elites}</b>엘리트</span><span><b>${st.bosses}</b>보스</span>
         <span><b>${st.dmg}</b>준 피해</span><span><b>${st.maxHit}</b>최고 한 방</span><span><b>${st.turns}</b>턴</span>
       </div>
-      <div class="end-relics">${R.relics.map(id => ico(Run.relicInfo(id).icon)).join('')}</div>
+      <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
       <p class="hint">${R.asc ? `승천 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
       ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 승천 ${(R.asc || 0) + 1} 열림!</p>` : ''}
       <div class="res-actions"><button class="pbtn" data-act="run-home">메인으로</button><button class="pbtn gold" data-act="run-again">다시 원정</button></div>
@@ -1267,7 +1271,7 @@ export function onAct(act, t) {
   }
   if (act === 'run-deck') { sfx.select(); return showDeck(); }
   if (act === 'run-skill') { const ci = Run.RUN_CLASSES[R.cls]; sfx.tap(); return X.popover(t, `<b>${ico('star', 'xs')} ${ci.skill}</b><p>${esc(ci.desc)}</p>`); }
-  if (act === 'run-relic') { const r = Run.relicInfo(t.dataset.id); sfx.tap(); return X.popover(t, `<b>${ico(r.icon, 'xs')} ${r.ko}</b> <small>${['', '일반', '희귀', '보스'][r.r]}</small><p>${r.desc}</p>`); }
+  if (act === 'run-relic') { const r = Run.relicInfo(t.dataset.id); sfx.tap(); return X.popover(t, `<b>${relicIco(r, 'xs')} ${r.ko}</b> <small>${['', '일반', '희귀', '보스'][r.r]}</small><p>${r.desc}</p>`); }
   if (act === 'run-pot') return potionMenu(Number(t.dataset.k), t);
   if (act === 'run-potuse') return usePotion(Number(t.dataset.k));
   if (act === 'run-potdrop') { X.closePopover(); Run.dropPotion(R, Number(t.dataset.k)); save(); sfx.back(); return R.phase === 'combat' ? paint() : enterView(); }

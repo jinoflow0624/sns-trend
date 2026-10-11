@@ -1,6 +1,7 @@
 // 원정(로그라이크) 룰 엔진 테스트 — node test/run.test.mjs
 import assert from 'node:assert/strict';
 import * as Run from '../run/rules.js';
+import { RELIC_ART } from '../run/relic-art.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -255,6 +256,19 @@ test('원정 도전과제: 요트 카드로 공격하면 기록된다', () => {
   Run.playCard(R, 0, 'enemy');
   assert.ok(R.feats.includes('yacht'));
   assert.ok(Run.drainFx(R).some(f => f.type === 'feat' && f.id === 'yacht'));
+});
+test('유물 그림(relic-art.js): 16줄 × 16글자, 팔레트에 있는 글자만, 6색 이하, 있는 유물 id', () => {
+  for (const [id, a] of Object.entries(RELIC_ART)) {
+    assert.ok(Run.relicInfo(id), `없는 유물: ${id}`);
+    assert.equal(a.rows.length, 16, `${id} 줄 수`);
+    const pal = { k: 1, ...a.pal };
+    assert.ok(Object.keys(pal).length <= 6, `${id} 색이 6개를 넘는다`);
+    for (const row of a.rows) {
+      assert.equal(row.length, 16, `${id} 줄 길이`);
+      for (const ch of row) assert.ok(ch === '.' || pal[ch], `${id}: 팔레트에 없는 글자 ${ch}`);
+    }
+    for (const c of Object.values(a.pal)) assert.match(c, /^#[0-9A-Fa-f]{6}$/, `${id} 색 형식`);
+  }
 });
 test('봉인 · 얼음: 첫 굴림 뒤 걸리고, 봉인은 다시 굴리면 풀린다', () => {
   const R = run('monk', 11);
