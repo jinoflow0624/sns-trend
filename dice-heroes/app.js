@@ -194,11 +194,11 @@ function runMenu() {
   return `<div class="run-menu"><button class="pbtn${can ? ' gold' : ''}" data-act="${can ? 'run-resume' : 'run-open'}">원정${can ? ' 이어하기' : ''} <small>${can ? `${s.act}막 · 체력 ${s.hp}/${s.maxHp}` : '테스트판 · 로그라이크'}</small></button>${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
 }
 function loadRun() {
-  return (runLoading ||= import('./run/ui.js').then(m => {
-    m.init({
+  return (runLoading ||= import('./run/ui.js').then(async m => {
+    await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
       app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
-      owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName,
+      owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
     });
     runMod = m;
     return m;

@@ -195,6 +195,67 @@ test('다 막을 만큼만 방어하고 나머지는 공격 (coverAtk)', () => {
   R.C.e.intent = { ko: '큰 공격', atk: 200 };
   assert.deepEqual(Run.coverAtk(R, 0), { atk: 0, full: false });
 });
+test('보존: 턴이 끝나도 손패에 남고, 나머지 카드만 버린다', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  R.C.dice = [6, 6, 6, 6, 6];
+  R.C.e.hp = R.C.e.maxHp = 500;
+  R.C.hand[1] = { u: 9201, cat: 'sixes', up: 0, kw: 'keep' };
+  Run.playCard(R, 0, 'enemy');
+  assert.ok(R.C.hand.some(c => c.u === 9201), '보존 카드는 다음 턴 손패에 있다');
+  assert.ok(!R.C.discard.some(c => c.u === 9201));
+  assert.equal(R.C.hand.length, Run.handSize(R));
+});
+test('낮은 족보 유물: 에이스의 긍지 · 수집가의 상자 · 작은 수의 힘 · 쌍둥이 별 · 질풍 · 연환', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  const ace = { u: 9301, cat: 'ones', up: 0, kw: null };
+  R.C.dice = [1, 1, 1, 1, 6];
+  assert.equal(Run.scoreCard(R, ace).total, 4);
+  R.relics.push('ace');
+  assert.equal(Run.scoreCard(R, ace).total, 32);              // 1의 눈 4개 × 8
+  R.relics.push('pairs');
+  assert.equal(Run.scoreCard(R, ace).total, 44);              // + 4 × 3
+  R.relics.push('quad');
+  assert.equal(Run.scoreCard(R, ace).total, 88);              // 4개 이상 ×2
+  R.relics = ['small'];
+  assert.equal(Run.scoreCard(R, ace).total, 10);              // 4 × 2.5
+  R.relics = ['flow'];
+  R.C.dice = [1, 2, 3, 4, 5];
+  assert.equal(Run.scoreCard(R, { u: 9302, cat: 'lstr', up: 0, kw: null }).total, 45);
+  assert.equal(Run.scoreCard(R, { u: 9303, cat: 'sstr', up: 0, kw: null }).total, 25);
+  R.relics = ['combo'];
+  R.C.e.block = 0;
+  R.C.hand[0] = { u: 9304, cat: 'lstr', up: 0, kw: null };
+  assert.equal(Run.preview(R, 0, 'enemy').dmg, 60);
+});
+test('덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다', () => {
+  const count = relics => { const R = run('rogue', 3); R.relics = relics; let n = 0; for (let k = 0; k < 400; k++) if (Run.isUpper(Run.rollCard(R, 1).cat)) n++; return n; };
+  assert.ok(count(['ace', 'small']) > count([]) * 2);
+});
+test('승천: 단계가 쌓이며 적 · 회복 · 체력이 바뀐다', () => {
+  const a0 = Run.createRun({ cls: 'warrior', seed: 9 }), a10 = Run.createRun({ cls: 'warrior', seed: 9, asc: 10 });
+  assert.equal(a10.asc, 10);
+  assert.ok(a10.maxHp < a0.maxHp);
+  assert.ok(Run.restAmount(a10) < Run.restAmount(a0));
+  Run.startCombat(a0, 'slime'); Run.startCombat(a10, 'slime');
+  assert.ok(Run.atkOf(a10, 10) > Run.atkOf(a0, 10));
+  assert.equal(Run.furyOf(a10).from, Run.furyOf(a0).from - 2);
+  assert.equal(Run.createRun({ cls: 'warrior', asc: 99 }).asc, Run.ASC_MAX);
+});
+test('원정 도전과제: 요트 카드로 공격하면 기록된다', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  R.C.dice = [6, 6, 6, 6, 6];
+  R.C.e.hp = R.C.e.maxHp = 500;
+  R.C.hand[0] = { u: 9401, cat: 'yacht', up: 0, kw: null };
+  Run.playCard(R, 0, 'enemy');
+  assert.ok(R.feats.includes('yacht'));
+  assert.ok(Run.drainFx(R).some(f => f.type === 'feat' && f.id === 'yacht'));
+});
 test('봉인 · 얼음: 첫 굴림 뒤 걸리고, 봉인은 다시 굴리면 풀린다', () => {
   const R = run('monk', 11);
   intoFight(R);
