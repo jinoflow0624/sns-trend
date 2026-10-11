@@ -36,7 +36,7 @@ const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false,
 preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
-let live = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 2 };
+let live = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 1 };
 // 광고: 테스트판은 늘 테스트 광고, 배포판은 Remote Config ads_enabled 가 켜졌을 때만. 광고 제거 권리 = 지갑 owned.pass.no_ads
 const adsOn = () => (PROD ? !!live.ads_enabled : true);
 liveConfig().then(v => {
