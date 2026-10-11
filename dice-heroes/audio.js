@@ -20,10 +20,17 @@ export const BGM_FILES = {
   boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~7마디 도입 + 8~39마디(32마디) 반복, 130BPM
   boss_overlord:  `assets/bgm/boss_overlord.ogg${AV}`,  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
   boss_archdemon: `assets/bgm/boss_archdemon.ogg${AV}`, // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
+  // 원정 (Suno). 지도 곡은 이벤트 · 상점 · 휴식에서도 끊기지 않고 이어진다 (같은 이름이면 playBgm 이 다시 틀지 않는다)
+  run_map:    `assets/bgm/run_map.ogg${AV}`,      // 지도 · 1~11마디 도입 + 12~27마디(16마디) 반복, 108BPM
+  run_battle: `assets/bgm/run_battle.ogg${AV}`,   // 일반 전투 · 1~12마디 도입 + 13~28마디(16마디) 반복, 143BPM
+  run_elite:  `assets/bgm/run_elite.ogg${AV}`,    // 엘리트 · 1~4마디 도입 + 5~20마디(16마디) 반복, 151BPM
+  run_win:    `assets/bgm/run_win.ogg${AV}`,      // 원정 성공 · 곡 전체(15마디)를 처음부터 반복, 135BPM
+  run_lose:   `assets/bgm/run_lose.ogg${AV}`,     // 원정 실패 · 곡 전체(17마디)를 처음부터 반복, 91BPM
 };
 // 도입부가 있는 곡: 처음 한 번은 첫 박부터, 그다음부터는 이 시각(초)부터 파일 끝까지를 반복한다.
 // 파일 끝 0.04초는 루프 시작 직전 소리로 미리 섞어 두어 이음매가 매끄럽다
-export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 13.181708, boss_archdemon: 32.741604 };
+export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 13.181708, boss_archdemon: 32.741604,
+  run_map: 24.676896, run_battle: 20.328, run_elite: 6.491604 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 // 강화 보스는 자기 곡이 없으면 원래 보스 곡을 쓴다
 const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich', archdemon: 'demon' };
