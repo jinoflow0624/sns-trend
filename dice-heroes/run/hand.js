@@ -1,6 +1,7 @@
 // 원정 손패 — 카드마다 스프링 물리로 움직인다.
 // 펼쳐진 부채꼴, 누르면 들리고, 끌면 손가락을 바짝 따라오며 속도만큼 기울고,
-// 적(위)에 놓으면 공격 · 영웅(아래)에 놓으면 방어, 위로 튕겨 올려도 공격. 놓친 카드는 출렁이며 제자리로.
+// 적(위)에 놓으면 전부 공격 · 영웅(아래)에 놓으면 전부 방어, 위로 튕겨 올려도 공격. 놓친 카드는 출렁이며 제자리로.
+// 카드를 누르면 고른 카드 위에 버튼(배팅) 또는 손패 폭만큼 넓은 판(공격 · 방어 나누기)이 뜬다.
 const SPRING = { k: 240, c: 21 };      // 보통: 살짝 출렁이며 자리 잡는다
 const DRAG = { k: 900, c: 52 };        // 끌 때: 손가락을 바짝 따라온다
 const FLY = { k: 620, c: 34 };         // 던질 때
@@ -126,7 +127,8 @@ export class Hand {
     if (bet) it.el.insertAdjacentHTML('beforeend', '<i class="rc-bet">배팅</i>');
     if (!force && sc != null && prev != null && sc !== prev) {
       const em = it.el.querySelector('.rc-pts');
-      em?.classList.add(sc > prev ? 'up' : 'down');
+      if (typeof sc === 'number' && typeof prev === 'number') em?.classList.add(sc > prev ? 'up' : 'down');
+      else if (typeof sc === 'number') em?.classList.add('reveal');      // 주사위가 멈추고 점수가 드러난다
       if (sc > 0 && !(prev > 0)) {           // 막 살아난 카드: 반짝
         it.el.classList.remove('pop'); void it.el.offsetWidth; it.el.classList.add('pop');
         it.vs += 4;                           // 톡 튄다
@@ -137,6 +139,15 @@ export class Hand {
   refresh() {
     this.list.forEach(it => this.paintCard(it));
     if (this.sel != null && !this.find(this.sel)) this.select(null);
+    this.placeBtns();
+  }
+  // 점수를 왼쪽부터 한 장씩 드러낸다 (굴림이 끝난 뒤)
+  async reveal(gap = 70) {
+    for (const it of this.inHand()) {
+      const was = it.score;
+      this.paintCard(it);
+      if (it.score !== was) { this.o.sound?.(it.score > 0 ? 'live' : 'dead', it.score); if (!reduced()) await wait(gap); }
+    }
     this.placeBtns();
   }
 
@@ -162,10 +173,12 @@ export class Hand {
     this.kick();
     this.placeBtns();
   }
-  select(u, html = '') {
+  // wide: 손패 폭만큼 넓은 판 (공격 · 방어 나누기)
+  select(u, html = '', { wide = false } = {}) {
     this.sel = u;
-    this.list.forEach(it => it.el.classList.toggle('sel', it.u === u));
+    this.list.forEach(it => { it.el.classList.toggle('sel', it.u === u); it.el.classList.remove('splitting'); if (it.u !== u) it.el.style.removeProperty('--mix'); });
     this.btns.innerHTML = u != null ? html : '';
+    this.btns.classList.toggle('wide', u != null && wide);
     this.layout();
   }
   placeBtns() {
@@ -173,9 +186,16 @@ export class Hand {
     if (!it) { this.btns.style.display = 'none'; return; }
     this.btns.style.display = '';
     const W = this.host.clientWidth;
+    if (this.btns.classList.contains('wide')) {
+      this.btns.style.left = '4px';
+      this.btns.style.width = `${W - 8}px`;
+      this.btns.style.top = `${it.ty - (this.btns.offsetHeight || 110) - 8}px`;
+      return;
+    }
+    this.btns.style.width = '';
     const bw = this.btns.offsetWidth || 180;
     this.btns.style.left = `${clamp(it.tx + this.cw / 2 - bw / 2, 2, W - bw - 2)}px`;
-    this.btns.style.top = `${it.ty - 46}px`;
+    this.btns.style.top = `${it.ty - (this.btns.offsetHeight || 38) - 8}px`;
   }
 
   // ── 물리 ─────────────────────────────────────────────────────────────────

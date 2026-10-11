@@ -117,6 +117,84 @@ test('관통은 적 보호막을 무시한다', () => {
   Run.playCard(R, 0, 'enemy');
   assert.equal(R.C.e.hp, 70);                               // 보호막 50 을 지나 30 이 그대로
 });
+test('공격 · 방어 나누기: 한 장의 점수를 피해와 보호막으로 나눠 낸다', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  R.C.dice = [6, 6, 6, 6, 6];
+  R.C.e.block = 0;
+  R.C.e.hp = R.C.e.maxHp = 100;
+  R.C.e.intent = { ko: '테스트', atk: 1 };
+  R.C.hand[0] = { u: 9001, cat: 'choice', up: 0, kw: null };
+  const p = Run.preview(R, 0, 18);
+  assert.equal(p.score, 30);
+  assert.equal(p.atk, 18); assert.equal(p.def, 12);
+  assert.equal(p.dmg, 18); assert.equal(p.block, 12);
+  assert.deepEqual([Run.preview(R, 0, 'enemy').dmg, Run.preview(R, 0, 'enemy').block], [30, 0]);
+  assert.deepEqual([Run.preview(R, 0, 'self').dmg, Run.preview(R, 0, 'self').block], [0, 30]);
+  assert.equal(Run.preview(R, 0, 99).atk, 30);               // 범위를 넘으면 끝으로
+  assert.equal(Run.preview(R, 0, -5).atk, 0);
+  assert.throws(() => Run.playCard(R, 0, 'foo'));
+  Run.playCard(R, 0, 18);
+  const play = Run.drainFx(R).find(f => f.type === 'play');
+  assert.equal(play.dmg, 18);
+  assert.equal(play.block, 12);
+  assert.equal(play.target, 'enemy');
+  assert.equal(R.C.e.hp, 82);
+});
+test('수호: 방어로 돌린 점수의 보호막 +50%, 공격 몫에는 붙지 않는다', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  R.C.dice = [6, 6, 6, 6, 6];
+  R.C.hand[0] = { u: 9001, cat: 'choice', up: 0, kw: 'guard' };
+  assert.equal(Run.preview(R, 0, 'self').block, 45);
+  assert.equal(Run.preview(R, 0, 'enemy').block, 0);
+  const p = Run.preview(R, 0, 20);
+  assert.equal(p.dmg, 20);
+  assert.equal(p.block, 15);
+});
+test('공격 몫 키워드: 흡혈 · 황금 · 화상은 공격한 점수 기준, 약화는 절반 이상 공격해야', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  R.C.dice = [6, 6, 6, 6, 6];
+  R.C.e.block = 0;
+  R.C.e.hp = R.C.e.maxHp = 200;
+  R.hp = 10;
+  R.C.hand[0] = { u: 9001, cat: 'choice', up: 0, kw: 'vamp' };
+  R.C.hand[1] = { u: 9002, cat: 'choice', up: 0, kw: 'gold' };
+  R.C.hand[2] = { u: 9003, cat: 'choice', up: 0, kw: 'burn' };
+  R.C.hand[3] = { u: 9004, cat: 'choice', up: 0, kw: 'weak' };
+  assert.equal(Run.preview(R, 0, 12).heal, 4);
+  assert.equal(Run.preview(R, 0, 'self').heal, 0);
+  assert.equal(Run.preview(R, 1, 9).gold, 3);
+  assert.equal(Run.preview(R, 2, 20).burn, 5);
+  assert.equal(Run.preview(R, 2, 3).burn, 0);
+  assert.equal(Run.preview(R, 3, 14).weak, false);
+  assert.equal(Run.preview(R, 3, 15).weak, true);
+  assert.equal(Run.preview(R, 3, 'self').weak, false);
+});
+test('다 막을 만큼만 방어하고 나머지는 공격 (coverAtk)', () => {
+  const R = run('rogue');
+  intoFight(R);
+  Run.roll(R);
+  R.C.dice = [6, 6, 6, 6, 6];
+  R.C.e.hp = R.C.e.maxHp = 200;
+  R.C.e.intent = { ko: '테스트', atk: 6, hits: 2 };
+  R.C.hand[0] = { u: 9001, cat: 'choice', up: 0, kw: null };
+  R.C.hand[1] = { u: 9002, cat: 'choice', up: 0, kw: 'guard' };
+  const inc = Run.incoming(R) - R.C.block;
+  assert.ok(inc > 0 && inc < 30);
+  const c = Run.coverAtk(R, 0);
+  assert.equal(c.full, true);
+  assert.equal(c.atk, 30 - inc);
+  assert.equal(Run.takenAfter(R, Run.preview(R, 0, c.atk)), 0);
+  assert.ok(Run.takenAfter(R, Run.preview(R, 0, c.atk + 1)) > 0);
+  assert.ok(Run.coverAtk(R, 1).atk > c.atk);                // 수호는 덜 방어해도 다 막는다
+  R.C.e.intent = { ko: '큰 공격', atk: 200 };
+  assert.deepEqual(Run.coverAtk(R, 0), { atk: 0, full: false });
+});
 test('봉인 · 얼음: 첫 굴림 뒤 걸리고, 봉인은 다시 굴리면 풀린다', () => {
   const R = run('monk', 11);
   intoFight(R);

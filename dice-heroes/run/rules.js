@@ -23,6 +23,7 @@ export const REST_HEAL = 0.3;     // 휴식: 최대 체력의 30%
 export const ACT_HEAL = 0.6;      // 막을 넘어갈 때: 잃은 체력의 60%
 export const DANCE_NEED = 25, DANCE_CAP = 3;
 export const BURN_TURNS = 3;
+export const GUARD_MUL = 0.5;     // 수호: 방어로 돌린 점수의 보호막 +50%
 export const HYDRA_CUT = 30;      // 세머리 용: 카드 한 장으로 이만큼 피해를 주면 이번 턴의 머리가 잘린다
 // 격앙: 전투가 길어지면 적이 턴마다 힘을 얻는다 (막기만 하며 버티는 것을 막는다). from 턴부터 적의 턴이 끝날 때마다 힘 +str
 export const FURY = { normal: { from: 5, str: 1 }, elite: { from: 6, str: 2 }, boss: { from: 8, str: 2 } };
@@ -63,14 +64,14 @@ function log(R, text) {
 export const UPPER = CAT_IDS.slice(0, 6);
 export const isUpper = cat => UPPER.includes(cat);
 export const KEYWORDS = {
-  guard:  { ko: '수호',   icon: 'shield',  color: '#4FB3FF', desc: '공격해도 점수의 1/3만큼 보호막을 얻는다' },
-  vamp:   { ko: '흡혈',   icon: 'heart',   color: '#FF5A6A', desc: '공격하면 점수의 1/3만큼 체력을 회복한다' },
-  burn:   { ko: '화염',   icon: 'fire',    color: '#FF8A1A', desc: `공격하면 적에게 화상: ${BURN_TURNS}턴 동안 적의 턴이 끝날 때마다 점수의 1/4 피해` },
-  pierce: { ko: '관통',   icon: 'dagger',  color: '#B98CFF', desc: '적의 보호막을 무시하고 체력에 바로 피해를 준다' },
+  guard:  { ko: '수호',   icon: 'shield',  color: '#4FB3FF', desc: `방어로 돌린 점수의 보호막 +${GUARD_MUL * 100}%` },
+  vamp:   { ko: '흡혈',   icon: 'heart',   color: '#FF5A6A', desc: '공격한 점수의 1/3만큼 체력을 회복한다' },
+  burn:   { ko: '화염',   icon: 'fire',    color: '#FF8A1A', desc: `적에게 화상: ${BURN_TURNS}턴 동안 적의 턴이 끝날 때마다 공격한 점수의 1/4 피해` },
+  pierce: { ko: '관통',   icon: 'dagger',  color: '#B98CFF', desc: '공격이 적의 보호막을 무시하고 체력에 바로 들어간다' },
   quick:  { ko: '속공',   icon: 'bolt',    color: '#FFC83D', desc: '첫 굴림 그대로(다시 굴리지 않고) 내면 점수 ×1.5' },
   lucky:  { ko: '행운',   icon: 'clover',  color: '#3EE6B4', desc: '내면 뒤집기 +1' },
-  weak:   { ko: '약화',   icon: 'snow',    color: '#7CE0FF', desc: '공격하면 적의 다음 공격 피해가 절반이 된다' },
-  gold:   { ko: '황금',   icon: 'coins',   color: '#FFD24A', desc: '공격하면 점수의 1/3만큼 골드를 얻는다' },
+  weak:   { ko: '약화',   icon: 'snow',    color: '#7CE0FF', desc: '점수의 절반 이상으로 공격하면 적의 다음 공격 피해가 절반이 된다' },
+  gold:   { ko: '황금',   icon: 'coins',   color: '#FFD24A', desc: '공격한 점수의 1/3만큼 골드를 얻는다' },
   echo:   { ko: '메아리', icon: 'recycle', color: '#6BBE45', desc: '내고 나면 버린 더미 대신 다음 턴 손패로 돌아온다' },
 };
 export const KW_IDS = Object.keys(KEYWORDS);
@@ -92,27 +93,27 @@ function mkCard(R, cat, up = 0, kw = null) { return { u: ++R.uid, cat, up: up ? 
 // sig: 직업마다 시작 덱에 한 장 더 들어가는 대표 카드
 export const BASE_DECK = ['choice', 'choice', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];
 export const RUN_CLASSES = {
-  gambler: { hp: 80, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
+  gambler: { hp: 70, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}. 전투에서 얻는 골드 +25%`; } },
-  monk:    { hp: 86, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
+  monk:    { hp: 80, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
     get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1 · 보호막 +${CLASS_TUNE.monkBlock}`; } },
   rogue:   { hp: 86, flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
     get desc() { return `전투를 시작할 때마다 뒤집기 +${CLASS_TUNE.rogueFlip}. 뒤집기를 쓴 턴에 내는 카드는 점수 +${Math.round(CLASS_TUNE.rogueMul * 100)}%, 적 보호막을 무시한다`; } },
   warrior: { hp: 98, flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
-    get desc() { return `숫자 카드(에이스~식스) 점수 +${Math.round(CLASS_TUNE.warriorMul * 100)}%. 숫자 카드로 공격해도 점수의 절반만큼 보호막`; } },
-  bard:    { hp: 86, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
+    get desc() { return `숫자 카드(에이스~식스) 점수 +${Math.round(CLASS_TUNE.warriorMul * 100)}%. 숫자 카드로 공격하면 공격한 점수의 절반만큼 보호막도 얻는다`; } },
+  bard:    { hp: 92, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
     get desc() { return `매 턴 시작에 보호막 +${CLASS_TUNE.bardBlock}. 전투에서 이기면 체력 ${CLASS_TUNE.bardHeal} 회복`; } },
-  mage:    { hp: 78, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
-    get desc() { return `손패 5장. 카드로 공격할 때 손에 남은 카드 1장당 피해 +${CLASS_TUNE.mageBonus}. 카드 보상을 한 장 더 보고 고른다`; } },
-  dancer:  { hp: 76, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
+  mage:    { hp: 84, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
+    get desc() { return `손패 5장. 카드로 공격할 때 손에 남은 카드 1장당 피해 +${CLASS_TUNE.mageBonus} (나눠 내면 공격 비율만큼). 카드 보상을 한 장 더 보고 고른다`; } },
+  dancer:  { hp: 77, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
     get desc() { return `${DANCE_NEED}점 이상 카드를 내면 춤사위 +1 (최대 ${DANCE_CAP}, 원정 내내 유지). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로), 그 턴 카드 점수 +${Math.round(CLASS_TUNE.danceMul * 100)}% (턴당 1번)`; } },
   outlaw:  { hp: 84, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
     get desc() { return `첫 굴림 그대로(다시 굴리지 않고) 카드를 내면 점수 ×${CLASS_TUNE.rushAny}, 포카인드 · 풀하우스 · 스트레이트 · 요트면 ×${CLASS_TUNE.rushMul}. 남은 굴림 1회당 보호막 +${CLASS_TUNE.rushBlock}`; } },
-  sharper: { hp: 92, flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
+  sharper: { hp: 84, flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
     get desc() { return `굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다. 턴마다 ${CLASS_TUNE.dealsTurn}번, 전투마다 ${CLASS_TUNE.deals}번까지`; } },
 };
 // 직업 수치 (sim/run.mjs 로 맞춘다)
-export const CLASS_TUNE = { mageBonus: 1, betMul: 1.25, monkBlock: 3, rogueFlip: 2, rogueMul: 0.3, warriorMul: 0.3, bardBlock: 2, bardHeal: 2,
+export const CLASS_TUNE = { mageBonus: 1, betMul: 1.25, monkBlock: 3, rogueFlip: 2, rogueMul: 0.4, warriorMul: 0.5, bardBlock: 3, bardHeal: 2,
   rushAny: 1.2, rushMul: 1.5, rushBlock: 4, deals: 6, dealsTurn: 2, danceMul: 0.1, gamblerGold: 0.25 };
 
 // ── 유물 (판 내내 켜져 있는 패시브) — 대부분 원래 특성 카드에서 옮겨 왔다 ──
@@ -129,7 +130,7 @@ export const RELICS = [
   { id: 'drum',      ko: '전쟁 북',         icon: 'drum',      r: 1, desc: '전투 첫 턴에 내는 카드 점수 ×1.5' },
   { id: 'bone',      ko: '뼈 방패',         icon: 'bone',      r: 1, desc: '전투를 시작할 때 보호막 16' },
   { id: 'lotus',     ko: '연꽃',            icon: 'lotus',     r: 1, desc: '전투에서 이기면 체력 6 회복' },
-  { id: 'whet',      ko: '숫돌',            icon: 'axe',       r: 1, desc: '공격 피해 +3' },
+  { id: 'whet',      ko: '숫돌',            icon: 'axe',       r: 1, desc: '공격 피해 +3 (나눠 내면 공격 비율만큼)' },
   { id: 'full',      ko: '풀하우스 장인',   icon: 'house',     r: 2, desc: '풀하우스 점수 ×1.5' },
   { id: 'straight',  ko: '질주',            icon: 'boot',      r: 2, desc: '스몰 · 라지 스트레이트 점수 ×1.3' },
   { id: 'fourk',     ko: '사냥 본능',       icon: 'wolf',      r: 2, desc: '포카인드 점수 ×1.5' },
@@ -142,7 +143,7 @@ export const RELICS = [
   { id: 'hourglass', ko: '모래시계',        icon: 'hourglass', r: 2, desc: '카드를 낼 때 남은 굴림 1회당 보호막 +3' },
   { id: 'horn',      ko: '사냥꾼의 뿔피리', icon: 'horn',      r: 2, desc: '엘리트 · 보스에게 주는 피해 +25%' },
   { id: 'medal',     ko: '훈장',            icon: 'medal',     r: 2, desc: '턴마다 카드 교체 +1' },
-  { id: 'scale',     ko: '수호자의 저울',   icon: 'scale',     r: 2, desc: '방어로 낸 카드의 보호막 ×1.3' },
+  { id: 'scale',     ko: '수호자의 저울',   icon: 'scale',     r: 2, desc: '방어로 돌린 점수의 보호막 +30%' },
   { id: 'reroll',    ko: '재굴림의 반지',   icon: 'recycle',   r: 3, desc: '매 턴 굴림 기회 +1' },
   { id: 'crown',     ko: '지혜의 왕관',     icon: 'crown',     r: 3, desc: '손패 +1' },
   { id: 'sixth',     ko: '여섯 번째 주사위', icon: 'star',     r: 3, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
@@ -249,7 +250,7 @@ export const ACT_INFO = {
 // 밸런스 조절용 배율 [1막, 2막, 3막] — 적 종류별 (sim/run.mjs 가 바꿔 가며 잰다)
 export const TUNE = {
   hp:  { normal: [0.92, 0.95, 0.9], elite: [0.75, 0.8, 0.85], boss: [0.75, 0.75, 0.8] },
-  atk: { normal: [1.84, 1.73, 1.62], elite: [1.67, 1.62, 1.35], boss: [1.7, 1.52, 1.3] },
+  atk: { normal: [2.06, 1.94, 1.81], elite: [1.87, 1.81, 1.51], boss: [1.9, 1.7, 1.46] },
 };
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
@@ -732,55 +733,86 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   return { base, parts, total, notes };
 }
 
-// 이 카드를 공격(enemy) / 방어(self)로 내면 어떻게 되는지 (화면 표시 · 봇 공용)
-export function preview(R, hi, target) {
+// 카드 점수를 공격 · 방어로 나눠 내면 어떻게 되는지 (화면 표시 · 봇 공용).
+// atk: 공격에 쓰는 점수 (0 ~ 카드 점수). 'enemy' = 전부 공격, 'self' = 전부 방어. 나머지 점수는 방어(보호막)로 간다.
+// 공격 몫: 피해 · 관통 · 흡혈 · 황금 · 화상 · 약화(절반 이상일 때), 고정 보너스(숫돌 · 비전 지식)는 공격 비율만큼.
+// 방어 몫: 보호막 (수호 +50% · 수호자의 저울 +30%).
+export function splitAtk(score, want) {
+  if (want === 'enemy') return score;
+  if (want === 'self') return 0;
+  const n = Math.round(Number(want));
+  return Number.isFinite(n) ? Math.max(0, Math.min(score, n)) : null;
+}
+export function preview(R, hi, want = 'enemy', sc = null) {
   const C = R.C, card = C.hand[hi];
-  const sc = scoreCard(R, card);
-  const e = C.e;
-  const out = { score: sc.total, dmg: 0, pierce: false, block: 0, heal: 0, gold: 0, burn: 0, weak: false, kill: false };
-  const fang = hasRelic(R, 'fang');
-  if (target === 'enemy') {
-    let d = sc.total;
-    if (d > 0 && hasRelic(R, 'whet')) d += 3;
-    if (d > 0 && R.cls === 'mage') { out.arcane = (C.hand.length - 1) * CLASS_TUNE.mageBonus; d += out.arcane; }
-    if (d > 0 && hasRelic(R, 'horn') && isBossKind(e)) d = Math.round(d * 1.25);
-    if (hexActive(R, 'poison') && d > 0 && d <= 15) d = Math.floor(d / 2);
+  return splitOut(R, card, sc || scoreCard(R, card), want);
+}
+function splitOut(R, card, sc, want) {
+  const C = R.C, e = C.e;
+  const S = sc.total;
+  const atk = splitAtk(S, want) ?? S, def = S - atk, share = S > 0 ? atk / S : 0;
+  const out = { score: S, atk, def, dmg: 0, pierce: false, block: 0, heal: 0, gold: 0, burn: 0, weak: false, kill: false,
+    whet: 0, arcane: 0, horn: false, poison: false, defMul: 1, wblk: 0, always: 0 };
+  if (atk > 0) {
+    if (hasRelic(R, 'whet')) out.whet = Math.round(3 * share);
+    if (R.cls === 'mage') out.arcane = Math.round((C.hand.length - 1) * CLASS_TUNE.mageBonus * share);
+    let d = atk + out.whet + out.arcane;
+    if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
+    if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
     out.dmg = d;
     out.pierce = card.kw === 'pierce' || (R.cls === 'rogue' && C.flipped);
     const through = out.pierce ? d : Math.max(0, d - e.block);
     out.kill = through >= e.hp;
-    if (card.kw === 'guard' && sc.total > 0) out.block += Math.floor(sc.total / 3);
-    if (R.cls === 'warrior' && isUpper(card.cat) && sc.total > 0) out.block += Math.floor(sc.total / 2);
-    if (card.kw === 'vamp') out.heal += Math.floor(sc.total / 3);
-    if (fang) out.heal += Math.floor(through * 0.15);
-    if (card.kw === 'gold') out.gold = Math.floor(sc.total / 3);
-    if (card.kw === 'burn' && sc.total > 0) out.burn = Math.max(1, Math.floor(sc.total / 4));
-    if (card.kw === 'weak' && sc.total > 0) out.weak = true;
-  } else {
-    out.block = Math.round(sc.total * (hasRelic(R, 'scale') ? 1.3 : 1));
+    if (card.kw === 'vamp') out.heal += Math.floor(atk / 3);
+    if (hasRelic(R, 'fang')) out.heal += Math.floor(through * 0.15);
+    if (card.kw === 'gold') out.gold = Math.floor(atk / 3);
+    if (card.kw === 'burn') out.burn = Math.floor(atk / 4);
+    if (card.kw === 'weak') out.weak = atk * 2 >= S;
+    if (R.cls === 'warrior' && isUpper(card.cat)) out.wblk = Math.floor(atk / 2);
   }
-  // 낼 때 늘 붙는 것 (공격 · 방어 둘 다)
+  out.defMul = 1 + (card.kw === 'guard' ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0);
+  out.block = Math.round(def * out.defMul) + out.wblk;
+  // 낼 때 늘 붙는 것 (나누는 것과 상관없이)
   const left = C.rollsLeft;
-  if (R.cls === 'monk') out.block += left * CLASS_TUNE.monkBlock;
-  if (hasRelic(R, 'hourglass')) out.block += left * 3;
-  if (R.cls === 'outlaw' && C.rollNo === 1) out.block += left * CLASS_TUNE.rushBlock;
-  if (sc.total === 0 && hasRelic(R, 'insure')) out.block += 14;
+  if (R.cls === 'monk') out.always += left * CLASS_TUNE.monkBlock;
+  if (hasRelic(R, 'hourglass')) out.always += left * 3;
+  if (R.cls === 'outlaw' && C.rollNo === 1) out.always += left * CLASS_TUNE.rushBlock;
+  if (S === 0 && hasRelic(R, 'insure')) out.always += 14;
+  out.block += out.always;
   return { ...out, sc };
+}
+// 다음 적 공격의 총 피해 (보호막 빼기 전). weak: 이번 카드로 약화를 걸 때
+export function incomingAfter(R, weak = false) {
+  const e = R.C?.e, m = e?.intent;
+  if (!m?.atk) return 0;
+  let per = atkOf(R, m.atk);
+  if (weak && !(e.weak > 0)) per = Math.floor(per / 2);
+  return per * (m.hits || 1);
+}
+// 이 미리보기대로 내면 다음 적의 턴에 잃을 체력
+export const takenAfter = (R, p) => Math.max(0, incomingAfter(R, p.weak) - R.C.block - p.block);
+// 다음 공격을 다 막으면서 공격에 쓸 수 있는 가장 큰 점수. 다 못 막으면 { atk: 0, full: false }
+export function coverAtk(R, hi, sc = null) {
+  const card = R.C.hand[hi];
+  sc ||= scoreCard(R, card);
+  for (let a = sc.total; a >= 0; a--) if (!takenAfter(R, splitOut(R, card, sc, a))) return { atk: a, full: true };
+  return { atk: 0, full: false };
 }
 
 export function playCard(R, hi, target) {
   const C = inCombat(R);
   if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
-  if (target !== 'enemy' && target !== 'self') fail('공격할지 방어할지 골라 주세요.');
   const card = C.hand[hi];
   if (!card) fail('없는 카드예요.');
+  if (target !== 'enemy' && target !== 'self' && !(typeof target === 'number' && Number.isFinite(target))) fail('공격할지 방어할지 골라 주세요.');
   const p = preview(R, hi, target);
   C.hand.splice(hi, 1);
   R.stats.cards++;
-  const ev = { type: 'play', u: card.u, cat: card.cat, kw: card.kw, up: card.up, target, score: p.score, parts: p.sc.parts, base: p.sc.base, notes: p.sc.notes, dmg: 0, blocked: 0, block: 0, heal: 0, gold: 0 };
+  const ev = { type: 'play', u: card.u, cat: card.cat, kw: card.kw, up: card.up, target: p.atk > 0 ? 'enemy' : 'self', atk: p.atk, def: p.def,
+    score: p.score, parts: p.sc.parts, base: p.sc.base, notes: p.sc.notes, dmg: 0, blocked: 0, block: 0, heal: 0, gold: 0 };
   fx(R, ev);
   // 피해
-  if (target === 'enemy' && p.dmg > 0) {
+  if (p.atk > 0 && p.dmg > 0) {
     const r = hitEnemy(R, p.dmg, { pierce: p.pierce, why: 'card', quiet: true });
     ev.dmg = r.dmg; ev.blocked = r.blocked;
     R.stats.maxHit = Math.max(R.stats.maxHit, p.dmg);
@@ -804,7 +836,7 @@ export function playCard(R, hi, target) {
   if (R.cls === 'dancer' && p.score >= DANCE_NEED && R.dance < DANCE_CAP) { R.dance++; ev.dance = true; }
   // 카드는 버린 더미로 (메아리는 다음 턴 손패로)
   (card.kw === 'echo' ? C.top : C.discard).push(card);
-  log(R, `${cardName(card)} ${target === 'enemy' ? `공격 ${p.dmg}` : `방어 ${p.block}`}`);
+  log(R, `${cardName(card)} ${[p.atk > 0 ? `공격 ${p.dmg}` : '', p.block ? `방어 ${p.block}` : ''].filter(Boolean).join(' · ') || '0점'}`);
   if (C.e.hp <= 0) return winCombat(R);
   enemyTurn(R);
 }
@@ -1219,19 +1251,20 @@ export const floorOf = R => (R.pos == null ? 0 : mapNode(R, R.pos).row);
 
 // ── 봇 (밸런스 시뮬레이션 · 화면 점검용) ─────────────────────────────────────
 // 전투: 굴림은 '손패 중 가장 좋은 카드의 값'을 최대로 하는 잡기를 표본으로 고르고,
-// 카드는 공격 · 방어 중 이득이 큰 쪽으로 낸다. 표본 계산은 빠른 점수(배율을 미리 계산)로 한다.
+// 카드는 공격 · 방어 배분 후보(전부 공격 · 다 막을 만큼 방어 · 절반 · 전부 방어) 중 이득이 큰 것으로 낸다.
+// 표본 계산은 빠른 점수(배율을 미리 계산)로 한다.
 // 값의 단위는 '아끼는 체력'. 막은 1점 = 체력 1점. 때린 1점 = 전투가 그만큼 빨리 끝나 덜 맞는 체력 (k = 적 턴당 피해 ÷ 내 턴당 피해).
 // 체력이 적으면 지금 막는 쪽에 무게를 더 준다 (bw)
 function botCtx(R) {
   const C = R.C, e = C.e;
-  const inc = Math.max(0, incoming(R) - C.block);
+  const raw = incoming(R), have = C.block;
   const moves = movesOf(R);
   const eAvg = moves.reduce((a, m) => a + (m.atk ? atkOf(R, m.atk) * (m.hits || 1) : 0), 0) / moves.length;
   const hAvg = R.stats.atkN > 2 ? R.stats.atkSum / R.stats.atkN : 20;
   const k = Math.min(1.6, Math.max(0.3, eAvg / Math.max(8, hAvg)));
   const frac = R.hp / R.maxHp;
   const bw = frac < 0.25 ? 1.8 : frac < 0.5 ? 1.3 : 1;
-  return { inc, bw, k, ehp: e.hp };
+  return { raw, have, base: Math.max(0, raw - have), bw, k, ehp: e.hp, miss: R.maxHp - R.hp };
 }
 // 손패 카드마다 배율 · 성질을 한 번만 계산해 둔다 (rollNo: 그 주사위가 몇 번째 굴림인지)
 function prepHand(R, rollNo) {
@@ -1257,9 +1290,11 @@ function prepHand(R, rollNo) {
     if (C.power) mul += 0.5;
     if (C.weak > 0) mul *= 0.75;
     return {
-      cat: up, mul, zero: C.gazed.includes(card.u) && !C.pure, arcane: R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0,
+      cat: up, mul, zero: C.gazed.includes(card.u) && !C.pure,
+      flat: (R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0) + (hasRelic(R, 'whet') ? 3 : 0),
+      horn: hasRelic(R, 'horn') && isBossKind(C.e), poison: hexActive(R, 'poison'),
       pierce: card.kw === 'pierce' || (R.cls === 'rogue' && C.flipped),
-      guard: card.kw === 'guard' || (R.cls === 'warrior' && isUpper(up)), kwGuard: card.kw === 'guard' && !(R.cls === 'warrior' && isUpper(up)),
+      dmul: 1 + (card.kw === 'guard' ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0), wblk: R.cls === 'warrior' && isUpper(up),
       vamp: card.kw === 'vamp', burn: card.kw === 'burn', weak: card.kw === 'weak', gold: card.kw === 'gold',
     };
   });
@@ -1279,18 +1314,34 @@ function fastBase(cat, d) {
     default: { const f = CAT_IDS.indexOf(cat) + 1; return c[f] * f; }
   }
 }
+// 점수 s 를 공격 a · 방어 s-a 로 나눴을 때의 값 (빠른 근사)
+function fastSplit(R, info, s, a, ctx) {
+  const e = R.C.e;
+  let v = 0, weak = false;
+  if (a > 0) {
+    let d = a + Math.round(info.flat * a / s);
+    if (info.horn) d = Math.round(d * 1.25);
+    if (info.poison && d <= 15) d = Math.floor(d / 2);
+    const through = info.pierce ? d : Math.max(0, d - e.block);
+    if (through >= e.hp) return 1000 + through;
+    weak = info.weak && a * 2 >= s;
+    v += through * ctx.k + (info.vamp ? Math.min(a / 3, ctx.miss) * 0.8 : 0) + (info.burn ? a / 2 * ctx.k : 0) + (info.gold ? a / 10 : 0);
+  }
+  const blk = (s - a) * info.dmul + (info.wblk ? a / 2 : 0);
+  const taken = Math.max(0, (weak ? ctx.raw / 2 : ctx.raw) - ctx.have - blk);
+  return v + (ctx.base - taken) * ctx.bw;
+}
 function fastValue(R, info, s, ctx) {
   if (s <= 0) return 0;
-  const e = R.C.e;
-  let d = s + (hasRelic(R, 'whet') ? 3 : 0) + info.arcane;
-  if (hasRelic(R, 'horn') && isBossKind(e)) d = Math.round(d * 1.25);
-  if (hexActive(R, 'poison') && d <= 15) d = Math.floor(d / 2);
-  const through = info.pierce ? d : Math.max(0, d - e.block);
-  const atk = through >= e.hp ? 1000 + through
-    : through * ctx.k + (info.guard ? Math.min(s / (info.kwGuard ? 3 : 2), ctx.inc) * ctx.bw : 0) + (info.vamp ? Math.min(s / 3, R.maxHp - R.hp) * 0.8 : 0)
-      + (info.burn ? s / 2 * ctx.k : 0) + (info.weak ? ctx.inc / 2 * ctx.bw : 0) + (info.gold ? s / 10 : 0);
-  const def = Math.min(s * (hasRelic(R, 'scale') ? 1.3 : 1), ctx.inc) * ctx.bw;
-  return Math.max(atk, def);
+  let best = fastSplit(R, info, s, s, ctx);
+  if (best >= 1000 || !ctx.base) return best;
+  // 다 막을 만큼만 방어하고 나머지로 공격 (약화 카드는 절반 이상 공격해 피해를 반으로 줄이는 경우도)
+  best = Math.max(best, fastSplit(R, info, s, s - Math.min(s, Math.ceil(ctx.base / info.dmul)), ctx));
+  if (info.weak) {
+    const h = Math.ceil(s / 2);
+    best = Math.max(best, fastSplit(R, info, s, Math.max(h, s - Math.ceil(Math.max(0, ctx.raw / 2 - ctx.have) / info.dmul)), ctx));
+  }
+  return best;
 }
 function handFast(R, infos, dice, ctx) {
   let best = 0;
@@ -1302,24 +1353,24 @@ function handFast(R, infos, dice, ctx) {
   return best;
 }
 // 실제로 낼 카드: 정확한 미리보기로 비교
-function playValue(R, p, target, ctx) {
+function playValue(R, p, ctx) {
   const e = R.C.e;
   let v = 0;
-  if (target === 'enemy') {
+  if (p.atk > 0) {
     const through = p.pierce ? p.dmg : Math.max(0, p.dmg - e.block);
     if (through >= e.hp) return 1000 + through;
-    v += through * ctx.k + p.burn * 2 * ctx.k + (p.weak ? ctx.inc / 2 * ctx.bw : 0) + p.gold * 0.1;
+    v += through * ctx.k + p.burn * 2 * ctx.k + p.gold * 0.1;
   }
-  v += Math.min(p.block, ctx.inc) * ctx.bw + Math.min(p.heal, R.maxHp - R.hp) * 0.8;
-  return v;
+  return v + (ctx.base - takenAfter(R, p)) * ctx.bw + Math.min(p.heal, ctx.miss) * 0.8;
 }
 function bestPlay(R) {
   const C = R.C, ctx = botCtx(R);
-  let best = { v: -Infinity, hi: 0, target: 'enemy' };
+  let best = { v: -Infinity, hi: 0, atk: 'enemy' };
   C.hand.forEach((card, hi) => {
-    for (const target of ['enemy', 'self']) {
-      const v = playValue(R, preview(R, hi, target), target, ctx);
-      if (v > best.v) best = { v, hi, target };
+    const sc = scoreCard(R, card), S = sc.total;
+    for (const a of new Set([S, 0, Math.ceil(S / 2), coverAtk(R, hi, sc).atk])) {
+      const v = playValue(R, preview(R, hi, a, sc), ctx);
+      if (v > best.v + 1e-9) best = { v, hi, atk: a };
     }
   });
   return best;
@@ -1409,7 +1460,7 @@ export function botCombat(R, rng = Math.random, samples = 12) {
     if (bm !== all) return { type: 'reroll', hold: [...Array(n)].map((_, i) => !!(bm & (1 << i)) && !isSealed(R, i) && !isFrozen(R, i)) };
   }
   const b = bestPlay(R);
-  return { type: 'play', hi: b.hi, target: b.target };
+  return { type: 'play', hi: b.hi, target: b.atk };
 }
 export function applyCombat(R, a) {
   switch (a.type) {

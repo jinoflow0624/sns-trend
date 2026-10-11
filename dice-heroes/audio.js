@@ -754,4 +754,48 @@ export const sfx = {
     voice(sfxGain, { type: 'p50', f: 110, slide: 55, t: t + 0.05, dur: 0.8, vol: 0.03 });
     buzz(90);
   },
+  // ── 원정 ──
+  // 카드가 적에게 꽂힌다: 짧게 베는 소리 + 둔탁한 타격
+  strike(power = 1) {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.06, vol: 0.16, hp: 2500, lp: 12000 });
+    voice(sfxGain, { type: 'tri', f: 240, slide: 70, t: t + 0.02, dur: 0.18 + power * 0.05, vol: 0.26 });
+    noise(sfxGain, { t: t + 0.02, dur: 0.12 + power * 0.05, vol: 0.14, hp: 250, lp: 3500 });
+  },
+  // 영웅이 맞는다: 퍽 + 쿵 + 아래로 꺾이는 '윽' (power 0~2, 크게 맞을수록 무겁고 길게)
+  hurt(power = 1) {
+    buzz(50 + power * 45);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.1 + power * 0.06, vol: 0.24, hp: 300, lp: 5000 });
+    voice(sfxGain, { type: 'tri', f: 170, slide: 42, t, dur: 0.22 + power * 0.1, vol: 0.32 });
+    voice(sfxGain, { type: 'p50', f: 560 + power * 80, slide: 150, t: t + 0.03, dur: 0.16 + power * 0.04, vol: 0.09 });
+    if (power > 1.2) noise(sfxGain, { t: t + 0.06, dur: 0.28, vol: 0.12, hp: 1200, lp: 8000 });
+  },
+  // 공격이 보호막에 막힌다: 방패가 '쨍' (v: 세기)
+  clang(v = 1) {
+    buzz(25);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.03, vol: 0.14 * v, hp: 2500, lp: 12000 });
+    ping(sfxGain, { f: 1250, t, dur: 0.35, vol: 0.07 * v, type: 'square' });
+    ping(sfxGain, { f: 1258, t, dur: 0.3, vol: 0.03 * v });
+    ping(sfxGain, { f: 1250 * 2.76, t, dur: 0.16, vol: 0.04 * v });
+    voice(sfxGain, { type: 'tri', f: 230, slide: 120, t, dur: 0.1, vol: 0.12 * v });
+  },
+  // 공격 · 방어 나누기 막대를 밀 때 '틱' (k: 공격 비율 0~1, 공격 쪽일수록 높다)
+  tick(k = 0.5) {
+    if (!unlock()) return;
+    voice(sfxGain, { type: 'p25', f: 420 + k * 760, t: ctx.currentTime, dur: 0.025, vol: 0.07 });
+  },
+  // 적이 쓰러진다: 펑 터지며 흩어지는 소리 (승리 팡파레는 보상 화면에서 한 번만)
+  foeDie(power = 1) {
+    buzz(60 + power * 30);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 200, slide: 40, t, dur: 0.5, vol: 0.26 });
+    noise(sfxGain, { t, dur: 0.45 + power * 0.2, vol: 0.16, hp: 150, lp: 5000 });
+    ['G5', 'D5', 'A4', 'E4'].forEach((n, i) => voice(sfxGain, { type: 'p25', f: freq(n), t: t + 0.08 + i * 0.06, dur: 0.08, vol: 0.06 }));
+  },
 };
