@@ -286,8 +286,13 @@
 @keyframes slam { 0% { filter: brightness(3) drop-shadow(0 0 20px #fff); } 100% { filter: brightness(1.4); opacity: .85; } }
 .rc.leaving { pointer-events: none; transition: opacity .35s; opacity: 0; }
 .rc.gazed .rc-in { filter: drop-shadow(0 4px 0 var(--ink)) grayscale(.9) brightness(.7); }
-.rc-gaze { position: absolute; left: 50%; top: 42%; width: 34px; height: 22px; transform: translate(-50%, -50%); pointer-events: none;
-  background: radial-gradient(circle, #FF3B3B 0 22%, #FFF 24% 40%, transparent 42%), radial-gradient(ellipse at center, rgba(255,59,59,.5), transparent 70%); border-radius: 50%; animation: blink 1s steps(2, jump-none) infinite; }
+.rc-gaze { position: absolute; left: 50%; top: 42%; width: 16px; height: 16px; pointer-events: none;   /* 예전의 3분의 2, 가로로 누운 아몬드 눈이 카드를 지그시 본다 */
+  background: radial-gradient(circle at 50% 50%, #1A1030 0 17%, #E8435A 19% 36%, #F2EEDD 38% 100%); border: 2px solid #1A1030; border-radius: 100% 0;
+  transform: translate(-50%, -50%) rotate(45deg); box-shadow: 0 0 6px rgba(255,90,106,.6); animation: gazeLook 2.6s ease-in-out infinite; }
+@keyframes gazeLook {
+  0%, 84%, 100% { transform: translate(-50%, -50%) rotate(45deg); }
+  0%, 100% { background-position: 0 0; } 35% { background-position: -2px 2px; } 65% { background-position: 2px -2px; }
+  90% { transform: translate(-50%, -50%) scaleY(.15) rotate(45deg); } }
 .rc.bet .rc-in { box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255,200,61,.8); }
 .rc-bet { position: absolute; top: -8px; right: -6px; font-style: normal; font-size: 10px; font-weight: 700; padding: 0 4px; background: var(--gold); color: #3B2300; border: 2px solid var(--ink); }
 .hand-btns { position: absolute; z-index: 300; display: flex; gap: 6px; }
