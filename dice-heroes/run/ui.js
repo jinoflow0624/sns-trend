@@ -179,10 +179,10 @@ function paintSelect() {
 function ascPicker(b, cls) {
   const open = ascOpen(b, cls), a = ui.asc;
   if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} 이 직업으로 원정을 끝내면 <b>승천</b>이 열려요 (더 어려운 원정 0~${Run.ASC_MAX})</p>`;
-  const list = Run.ASCENSION.slice(1, a + 1).map((x, k) => `<li><b>${k + 1}</b> ${x.ko} · ${x.desc}</li>`).join('');
+  const list = Run.ASCENSION.slice(1, a + 1).map((x, k) => `<li>${runIco('asc', String(k + 1), 'skull', 'xs')}<b>${k + 1}</b> ${x.ko} · ${x.desc}</li>`).join('');
   return `<section class="rs-asc frame">
     <div class="asc-row"><button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="승천 낮추기">◀</button>
-      <div class="asc-lv"><span class="asc-badge${a ? '' : ' off'}">${runIco('ui', 'asc', 'skull')}<b>${a}</b></span><span><small>승천</small><small>열린 단계 ${open}</small></span></div>
+      <div class="asc-lv"><span class="asc-badge${a ? '' : ' off'}">${a ? runIco('asc', String(a), 'skull') : runIco('ui', 'asc', 'skull')}<b>${a}</b></span><span><small>승천</small><small>열린 단계 ${open}</small></span></div>
       <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button></div>
     ${a ? `<ol class="asc-list">${list}</ol>` : '<p class="hint">승천 0: 기본 원정</p>'}
   </section>`;
@@ -198,7 +198,7 @@ function showMeta() {
   }).join('');
   const dice = Run.DICE.map(d => {
     const own = m.dice.includes(d.id), on = m.equip.includes(d.id);
-    return `<div class="meta-row die-row${on ? ' on' : ''}" style="--dc:${d.color}">${runIco('die', d.id, 'die6')}<span><b>${d.ko}</b><small>${d.desc}</small></span>
+    return `<div class="meta-row die-row${on ? ' on' : ''}" style="--dc:${d.color}"><button class="die-peek" data-act="run-diepeek" data-id="${d.id}" aria-label="${d.ko} 크게 보기">${runIco('die', d.id, 'die6')}</button><span><b>${d.ko}</b><small>${d.desc}</small></span>
       ${own ? `<button class="pbtn small${on ? ' gold' : ''}" data-act="run-dieequip" data-id="${d.id}" ${!on && m.equip.length >= slots ? 'disabled' : ''}>${on ? '빼기' : slots ? '넣기' : '칸 없음'}</button>`
         : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${starIco()}${d.cost}</button>`}</div>`;
   }).join('');
@@ -212,6 +212,15 @@ function showMeta() {
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
   </div></div>`;
   ui.walletWas = m.stars;
+}
+// 특수 주사위 크게 보기: 트레이에서 굴릴 때의 면 그림 6장 · 휘장 · 설명 (assets/run/dice/<id>_1~6.webp)
+function diePeek(t) {
+  const d = Run.diceInfo(t.dataset.id);
+  if (!d) return;
+  sfx.tap();
+  X.popover(t, `<div class="die-pop" style="--dc:${d.color}">${runIco('sdie', d.id, 'die6')}<b>${d.ko}</b>
+    <div class="die-faces">${[1, 2, 3, 4, 5, 6].map(v => `<img src="assets/run/dice/${d.id}_${v}.webp?v=${X.version}" alt="${v}">`).join('')}</div>
+    <p>${d.desc}</p></div>`);
 }
 function metaAct(act, id) {
   const b = best(), m = b.meta;
@@ -798,6 +807,23 @@ function clawAt(p, big) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 520);
 }
+// 적 보호막이 다 깎였다: 보호막 칸의 방패가 두 쪽으로 쪼개져 튀고, 얼음 같은 파편 · 쨍 (보호막 칸이 지워지기 전에 자리를 잰다)
+const shieldRect = () => document.querySelector('.foe-blk .shield-badge')?.getBoundingClientRect() || null;
+function shieldBreak(r) {
+  if (!r) return;
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  sfx.clang?.(1.3);
+  floatAt(x, y - 22, '보호막 파괴!', 'sky');
+  if (X.prefs.fx === 'min') return;
+  const el = document.createElement('div');
+  el.className = 'shbreak';
+  el.style.left = `${x}px`; el.style.top = `${y}px`;
+  el.innerHTML = '<i class="l"></i><i class="r"></i>';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+  FX().ring(x, y, { color: '#8FD0FF', r1: 46, dur: 320, width: 4 });
+  FX().burst(x, y, { n: 22, pal: PALETTES.frost, speed: [120, 300], size: [2, 4], life: [0.3, 0.6], grav: 420 });
+}
 // 적의 입 (방해 광선이 나가는 곳)
 function mouth() { const c = foeAt(); return { x: c.x, y: c.y + 6 }; }
 // 패기: 협동 마왕의 패기와 같은 연출 — 붉은 기운 · 큰 글씨 (이번 턴 뒤집기 · 조정 금지)
@@ -852,8 +878,10 @@ async function playOne(f) {
           const art = $('foe-art');
           art?.classList.remove('hit'); void art?.offsetWidth; art?.classList.add('hit');
           shake($('rc'), power * 0.8);
+          const sr = ui.show.eblk > 0 && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
           setShow({ ehp: ui.show.ehp - f.dmg, eblk: Math.max(0, ui.show.eblk - f.blocked) });
           repaintBars();
+          shieldBreak(sr);
           if (f.blocked) floatAt(e.x + 30, e.y - 20, `${ico('shield', 'xs')}${f.blocked}`, 'dim');
           floatAt(e.x, e.y - 10, `${f.dmg}`, `dmg big${power >= 2 ? ' huge' : ''}`);
           if (f.behead) { await wait(250); floatAt(e.x, e.y + 30, '머리 베기!', 'gold'); sfx.slash?.(); if (fxOn) FX().slash?.(e, 140); }
@@ -934,8 +962,10 @@ async function playOne(f) {
       const e = foeAt();
       if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.dmg}`, 'dmg'); sfx.fire?.(); }
       else if (f.why === 'potion') { if (fxOn) FX().impact(e.x, e.y, PALETTES.fire, 1.8); floatAt(e.x, e.y - 10, `${f.dmg}`, 'dmg big'); sfx.boom?.(1); }
+      const sr = ui.show.eblk > 0 && f.blocked && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
       setShow({ ehp: ui.show.ehp - f.dmg, eblk: Math.max(0, ui.show.eblk - f.blocked) });
       repaintBars();
+      shieldBreak(sr);
       await wait(380);
       return;
     }
@@ -1037,7 +1067,7 @@ async function playOne(f) {
       hand.refresh();
       return;
     }
-    // 특수 주사위가 힘을 썼다: 그 색 빛 · 소리와 함께 눈이 바뀐다 (재굴림: 1을 다시 · 따라쟁이: 같은 눈 · 이음: 이어지는 눈)
+    // 특수 주사위가 힘을 썼다: 그 색 빛 · 소리와 함께 눈이 바뀐다 (리롤: 1을 다시 · 카피: 같은 눈 · 커넥트: 이어지는 눈)
     case 'sdie': {
       if (!t) return;
       const p = t.screenPos(f.i), d = Run.diceInfo(f.k);
@@ -1052,7 +1082,7 @@ async function playOne(f) {
           FX().burst(p.x, p.y, { n: 16, pal: PALETTES.hell, speed: [60, 160], life: [0.3, 0.6] });
         } else FX().burst(p.x, p.y, { n: 22, pal: PALETTES.heal, speed: [80, 220], grav: -160, life: [0.4, 0.8] });
       }
-      floatAt(p.x, p.y - 44, `${runIco('die', d.id, 'die6', 'xs')} ${f.k === 'gold' ? '다시 굴림!' : f.k === 'twin' ? '따라 하기!' : '이어 붙이기!'}`, f.k === 'gold' ? 'gold' : 'mint');
+      floatAt(p.x, p.y - 44, `${runIco('die', d.id, 'die6', 'xs')} ${f.k === 'gold' ? '리롤!' : f.k === 'twin' ? '카피!' : '커넥트!'}`, f.k === 'gold' ? 'gold' : 'mint');
       if (f.k === 'gold') sfx.coin?.(); else if (f.k === 'twin') sfx.card?.(); else sfx.quest?.();
       await t.morph(f.i, f.to, f.k, 700);
       if (ui.dice) ui.dice[f.i] = f.to;
@@ -1401,6 +1431,7 @@ export function onAct(act, t) {
   if (act === 'run-feats') { sfx.select(); return showFeats(); }
   if (act === 'run-meta') { sfx.select(); return showMeta(); }
   if (act === 'run-metabuy' || act === 'run-diebuy' || act === 'run-dieequip') return metaAct(act, t.dataset.id);
+  if (act === 'run-diepeek') return diePeek(t);
   if (act === 'run-start' || act === 'run-again') {
     sfx.start();
     const cls = act === 'run-again' ? R?.cls || ui.cls : ui.cls;
