@@ -631,3 +631,17 @@
 .rl-box small { font-size: 11px; color: var(--muted); }
 .rl-tip { margin: 6px 0 0; font-size: 11px; line-height: 1.4; color: #D8D2FF; }
 @media (prefers-reduced-motion: reduce) { .rl-die { animation: none; } }
+
+/* 원정 준비: 보유 별조각 지갑 (금테 캡슐, 사면 숫자가 톡 튄다) */
+.meta-head { flex-wrap: wrap; }
+.star-wallet { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 3px 10px 3px 6px;
+  background: linear-gradient(180deg, #3B2300, #1E1200); border: 2px solid var(--ink); box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px rgba(255,200,61,.45); }
+.star-wallet .run-ico { width: 28px; height: 28px; filter: drop-shadow(0 0 4px rgba(255,226,122,.8)); animation: starTwinkle 2.4s ease-in-out infinite; }
+.star-wallet span { display: grid; line-height: 1.05; }
+.star-wallet small { font-size: 9px; color: #FFE27A; opacity: .85; }
+.star-wallet b { font-size: 20px; color: #FFE27A; text-shadow: 2px 2px 0 var(--ink); }
+.star-wallet.bump b { animation: walletBump .45s cubic-bezier(.2,1.8,.4,1); }
+@keyframes walletBump { 0% { transform: scale(1.5); color: #fff; } 100% { transform: none; } }
+@keyframes starTwinkle { 50% { filter: drop-shadow(0 0 8px rgba(255,226,122,1)) brightness(1.15); } }
+@media (prefers-reduced-motion: reduce) { .star-wallet .run-ico, .star-wallet.bump b { animation: none; } }
+.run-meta .meta-head { justify-content: flex-start; align-self: stretch; }
