@@ -296,12 +296,12 @@ function hud() {
   const fl = Run.floorOf(R);
   return `<header class="rhud">
     <button class="icon-btn" data-act="run-menu" aria-label="메뉴">☰</button>
-    <div class="rh-act"><small>${R.act}막${R.asc ? ` · 승천${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
+    <div class="rh-act" ${X.tipAttr(`${R.act}막${R.asc ? ` · 승천 ${R.asc}` : ''}`, `${Run.ROWS}층 + 보스 · 3막까지`)}><small>${R.act}막${R.asc ? ` · 승천${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
     <div class="rh-res">
-      <span class="res gold" id="r-gold">${ico('coins', 'xs')}<b>${ui.show?.gold ?? R.gold}</b></span>
-      <span class="res">${ico('flip', 'xs')}<b>${R.flip}</b></span>
-      <span class="res">${ico('nudge', 'xs')}<b>${R.nudge}</b></span>
-      ${R.cls === 'dancer' ? `<span class="res">${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
+      <span class="res gold" id="r-gold" ${X.tipAttr('골드', '상점에서 써요')}>${ico('coins', 'xs')}<b>${ui.show?.gold ?? R.gold}</b></span>
+      <span class="res" ${X.tipAttr('뒤집기', '1↔6 · 2↔5 · 3↔4')}>${ico('flip', 'xs')}<b>${R.flip}</b></span>
+      <span class="res" ${X.tipAttr('조정', '주사위 눈 ±1')}>${ico('nudge', 'xs')}<b>${R.nudge}</b></span>
+      ${R.cls === 'dancer' ? `<span class="res" ${X.tipAttr('춤사위', Run.RUN_CLASSES.dancer.desc)}>${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
     </div>
     <div class="potions">${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : '빈 칸'}">${p ? runIco('potion', p.id, p.icon, 'xs') : ''}</button>`; }).join('')}</div>
     <button class="pile" data-act="run-deck" aria-label="덱 보기">${ico('card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
@@ -314,10 +314,10 @@ function heroStrip() {
   return `<section class="rhero" id="rhero" style="--c:${info.color}">
     <div class="rh-por" id="rh-por">${hero(R.cls)}</div>
     <div class="rh-main">
-      <div class="rh-name"><b>${esc(R.name)}</b><button class="rh-skill" data-act="run-skill">${ico('star', 'xs')}${ci.skill}</button>${weak ? `<span class="st weak">${ico('snow', 'xs')}약화 ${R.C.weak}</span>` : ''}</div>
+      <div class="rh-name"><b>${esc(R.name)}</b><button class="rh-skill" data-act="run-skill">${ico('star', 'xs')}${ci.skill}</button>${weak ? `<span class="st weak" ${X.tipAttr(`약화 ${R.C.weak}턴`, '카드 점수 ×0.75')}>${ico('snow', 'xs')}약화 ${R.C.weak}</span>` : ''}</div>
       <div class="hp rh-hp${hp / R.maxHp < 0.3 ? ' low' : ''}"><i style="width:${(hp / R.maxHp) * 100}%"></i><em>${hp} / ${R.maxHp}</em></div>
     </div>
-    <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk">${ico('shield', 'xs')}<b>${blk}</b></div>
+    <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(`방어도 ${blk}`, '적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요')}>${ico('shield', 'xs')}<b>${blk}</b></div>
     <div class="rh-relics">${R.relics.map(id => { const r = Run.relicInfo(id); return `<button class="relic r${r.r}" data-act="run-relic" data-id="${id}" aria-label="${r.ko}">${relicIco(r, 'xs')}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
   </section>`;
 }
@@ -513,7 +513,7 @@ function foePanel() {
       <div class="hp-row"><div class="hp foe-hp"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
       <div class="foe-st">${st.join('')}</div>
     </div>
-    ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : fog && !ui.show?.hideIntent ? '<div class="intent fog" aria-label="짙은 안개">?</div>' : ''}`;
+    ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : fog && !ui.show?.hideIntent ? `<div class="intent fog" aria-label="짙은 안개" ${X.tipAttr('짙은 안개', '적의 다음 행동이 안 보여요')}>?</div>` : ''}`;
 }
 
 // 특수 주사위 3D 표시: 플레이어 스킨은 그대로, 주사위마다 그 색 테두리 껍질 (dice3d setMarks)
@@ -1594,7 +1594,11 @@ export function onAct(act, t) {
   if (act === 'run-node') {
     if (R.phase !== 'map') return;
     const id = Number(t.dataset.id);
-    if (!Run.nextNodes(R).includes(id)) { sfx.back(); return; }
+    if (!Run.nextNodes(R).includes(id)) {         // 못 가는 칸: 무슨 칸인지만 알려 준다
+      const ty = Run.mapNode(R, id).type, nd = Run.NODE[ty];
+      sfx.tap();
+      return X.popover(t, `<b>${ty === 'boss' ? '' : `${runIco('node', ty, nd.icon, 'xs')} `}${nd.ko}${ty === 'boss' && R.act < Run.ACTS ? ' ???' : ''}</b>`);
+    }
     sfx.start();
     try { Run.enterNode(R, id); } catch (e) { return X.toast(ico('warn'), '갈 수 없어요', e.message, 1400); }
     Run.drainFx(R);

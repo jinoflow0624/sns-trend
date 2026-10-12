@@ -219,7 +219,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, nopeDie, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
     });
@@ -1638,6 +1638,11 @@ function popover(anchor, html, { afterRelease = false } = {}) {
   else arm();
 }
 let popClose = null;
+const tipAttr = (title, text = '') => `data-tip="${esc(title)}"${text ? ` data-tipd="${esc(text)}"` : ''}`;
+function showTip(el) {
+  const d = el.dataset.tipd;
+  popover(el, `<b>${esc(el.dataset.tip)}</b>${d ? `<p>${esc(d)}</p>` : ''}`);
+}
 function closePopover() {
   document.querySelectorAll('.popover').forEach(p => p.remove());
   if (popClose) { document.removeEventListener('click', popClose); popClose = null; }
@@ -3991,6 +3996,9 @@ addEventListener('popstate', () => {
 
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
+  // 이름표 없는 아이콘 · 숫자: 누르면 짧은 설명 (data-tip="제목" data-tipd="설명")
+  const tipEl = e.target.closest('[data-tip]');
+  if (tipEl && (!t || t.contains(tipEl))) { sfx.tap(); return showTip(tipEl); }
   if (!t) return;
   if (unlocked) unlock();
   onAct(t.dataset.act, t);
