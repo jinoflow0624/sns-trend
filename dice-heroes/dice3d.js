@@ -10,6 +10,9 @@ import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
 import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
 
+// 원정 특수 주사위가 눈을 바꿀 때의 빛 색
+const MORPH_COLOR = { gold: 0xFFC83D, twin: 0xFF9AD0, stair: 0x3EE6B4, heavy: 0x9AA4B8 };
+
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
 const TRAY_W = 10, TRAY_D = 6.4;  // 트레이 안쪽 크기 (x, z)
@@ -601,6 +604,35 @@ export class DiceTray {
     this.frozen = s;
     this.dirty = true;
   }
+  // 원정 특수 주사위: 주사위마다 색 테두리 껍질을 입힌다 (marks[i] = { kind, color } 또는 null). 부르지 않으면 아무것도 바뀌지 않는다
+  // kind 'twin' 은 구르는 동안 반투명 잔상이 따라오고, 'heavy' 는 조금 둔하게 구른다. 'heavy' 가 바닥 · 벽에 부딪히면 onMarkHit(v, i)
+  setMarks(marks = null) {
+    this.marks = marks && marks.some(Boolean) ? marks : null;
+    this.dirty = true;
+  }
+  markMat(kind, color) {
+    this.markMats ||= {};
+    const key = `${kind}:${color}`;
+    if (this.markMats[key]) return this.markMats[key];
+    const S = 128, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    // 가운데는 비우고 가장자리만 그 색 띠 (어두운 선으로 감싸 상아색 · 흰 스킨 위에서도 또렷하게), 안쪽으로 옅게 번진다
+    const B = 9;
+    g.fillStyle = 'rgba(26,16,48,0.85)'; g.fillRect(0, 0, S, S);
+    g.clearRect(B + 3, B + 3, S - (B + 3) * 2, S - (B + 3) * 2);
+    g.fillStyle = color; g.fillRect(1, 1, S - 2, B);  g.fillRect(1, S - 1 - B, S - 2, B); g.fillRect(1, 1, B, S - 2); g.fillRect(S - 1 - B, 1, B, S - 2);
+    g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(2, 2, S - 4, 2); g.fillRect(2, 2, 2, S - 4);       // 왼쪽 위 빛
+    for (let k = 0; k < 8; k++) { g.strokeStyle = color; g.globalAlpha = 0.28 * (1 - k / 8); g.lineWidth = 2; g.strokeRect(B + 4 + k * 2, B + 4 + k * 2, S - (B + 4 + k * 2) * 2, S - (B + 4 + k * 2) * 2); }
+    g.globalAlpha = 1;
+    g.fillStyle = '#FFFFFF';
+    if (kind === 'gold') for (const [x, y] of [[6, 6], [122, 6], [6, 122], [122, 122]]) { g.fillRect(x - 1, y - 7, 3, 15); g.fillRect(x - 7, y - 1, 15, 3); }   // 모서리 반짝
+    if (kind === 'heavy') { g.fillStyle = '#3A4050'; for (const [x, y] of [[5, 5], [119, 5], [5, 119], [119, 119]]) g.fillRect(x, y, 5, 5); }      // 리벳
+    if (kind === 'stair') { g.fillStyle = '#0F7A5C'; for (let k = 0; k < 4; k++) g.fillRect(S - B - 1, S - B - 1 - k * 7, -k * 7 - 7, 4); }       // 계단 무늬
+    const t = this.canvasTex(c);
+    const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false });
+    return (this.markMats[key] = m);
+  }
   ghostMat(v) {
     this.ghostMats ||= {};
     return (this.ghostMats[v] ||= Object.assign(this.faceMats[v].clone(), { transparent: true, opacity: 0.28, depthWrite: false }));
@@ -668,7 +700,7 @@ export class DiceTray {
     if (!d) return Promise.resolve();
     return new Promise(resolve => {
       d.morph = { t0: performance.now(), ms, kind, v, swapped: false, resolve, base: d.mesh.quaternion.clone() };
-      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : kind === 'lucky' ? 0x3EE6B4 : 0x9A5BFF);
+      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : kind === 'lucky' ? 0x3EE6B4 : MORPH_COLOR[kind] ?? 0x9A5BFF);
       d.auraI = 1;
     });
   }
@@ -718,6 +750,8 @@ export class DiceTray {
       // 바닥을 움켜쥐고(마찰 큼) 모서리로 넘어가며 데굴데굴 구르게: 회전은 오래 유지, 던지는 힘·회전은 크게
       b.linearDamping = 0.08;
       b.angularDamping = 0.06;
+      const heavy = this.marks?.[i]?.kind === 'heavy';
+      if (heavy) { b.linearDamping = 0.14; b.angularDamping = 0.12; }     // 무거운 주사위: 덜 미끄러지고 덜 돈다
       // 오른쪽 위에서 한 줌 던지되, 주사위마다 트레이 가운데 기준으로 고르게 흩어진 목표 지점을 향해 알맞은 힘으로
       // (예전엔 모두 같은 방향으로 세게 던져 왼쪽 벽에 몰렸다: 평균 x -1.9, 왼쪽 벽 25%)
       if (live) {
@@ -1028,7 +1062,7 @@ export class DiceTray {
         }
       });
       for (const sw of a.swaps) if (!sw.done && (f >= sw.f || f >= a.frames.length - 1)) { sw.done = true; this.setFaces(this.dice[sw.i], sw.faces); }
-      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); }
+      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
         a.t1 = t + 50;
@@ -1104,6 +1138,23 @@ export class DiceTray {
         d.aura.material.color.set(0x9A5BFF);
         d.auraI = Math.max(d.auraI, 0.55 + Math.sin(t / 140) * 0.2);
       } else d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank || !!m.userData.baseTransparent; });
+      // 원정 특수 주사위 표시 (setMarks)
+      const mk = this.marks?.[i];
+      if (mk && !d.mark) { d.mark = new THREE.Mesh(this.geo, this.markMat(mk.kind, mk.color)); d.mark.userData.key = `${mk.kind}:${mk.color}`; d.mark.scale.setScalar(1.045); d.mark.renderOrder = 3; d.mesh.add(d.mark); }
+      if (d.mark) {
+        if (mk && d.mark.userData.key !== `${mk.kind}:${mk.color}`) { d.mark.material = this.markMat(mk.kind, mk.color); d.mark.userData.key = `${mk.kind}:${mk.color}`; }
+        d.mark.visible = !!mk && !d.blank && !ghost;
+      }
+      const trail = mk?.kind === 'twin' && this.anim && this.anim.ids?.has(i) && !d.blank;
+      if (trail && !d.trail) { d.trail = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(mk.color), transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending })); this.scene.add(d.trail); d.trail.position.copy(d.mesh.position); }
+      if (d.trail) {
+        d.trail.visible = !!trail;
+        if (trail) {                                 // 쌍둥이: 반 박자 늦게 따라오는 분홍 잔상
+          d.trail.position.lerp(d.mesh.position, 0.22);
+          d.trail.quaternion.slerp(d.mesh.quaternion, 0.25);
+          d.trail.scale.setScalar(0.98 * scale);
+        } else d.trail.position.copy(d.mesh.position);
+      }
     });
     const jo = this.live?.jolt;
     if (jo) this.camera.position.set(this.camBase.x + jo.x, this.camBase.y, this.camBase.z - jo.y);

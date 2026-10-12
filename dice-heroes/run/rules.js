@@ -40,9 +40,10 @@ const pick = (R, arr) => arr[Math.floor(rand(R) * arr.length)];
 const die = R => 1 + Math.floor(rand(R) * 6);
 // 특수 주사위 한 개 굴리기 (금 · 무거운). 쌍둥이 · 계단은 다 굴린 뒤 specialDice 가 맞춘다
 const dkind = (R, i) => R.dset?.[i] || null;
-function rollFace(R, i) {
+// procs: 특수 주사위가 힘을 쓴 기록 (화면 연출용, 'sdie' fx). 금 주사위가 1을 다시 굴리면 { i, k, raw: 1 }
+function rollFace(R, i, procs) {
   const k = dkind(R, i);
-  if (k === 'gold') { const v = die(R); return v === 1 ? die(R) : v; }
+  if (k === 'gold') { const v = die(R); if (v !== 1) return v; procs?.push({ i, k, raw: 1 }); return die(R); }
   if (k === 'heavy') return rand(R) < 0.1 ? 6 : die(R);
   return die(R);
 }
@@ -55,6 +56,7 @@ function specialDice(R, rolled) {
     if (k === 'twin') {                    // 다른 주사위 중 가장 많이 나온 눈 (같으면 큰 눈)
       const cnt = [0, 0, 0, 0, 0, 0, 0]; others.forEach(x => cnt[x]++);
       let best = 1; for (let f = 1; f <= 6; f++) if (cnt[f] >= cnt[best]) best = f;
+      if (best !== D[i]) fx(R, { type: 'sdie', k, i, from: D.slice(), to: best });
       D[i] = best;
     } else {                               // 없는 눈 중 가장 긴 연속을 만드는 눈
       const has = new Set(others);
@@ -66,6 +68,7 @@ function specialDice(R, rolled) {
         while (has.has(hi + 1)) hi++;
         if (hi - lo > bl) { bl = hi - lo; best = f; }
       }
+      if (best !== D[i]) fx(R, { type: 'sdie', k, i, from: D.slice(), to: best });
       D[i] = best;
     }
   });
@@ -670,7 +673,14 @@ export function roll(R) {
   if (C.rolled && C.held.every((h, i) => h || isSealed(R, i) || isFrozen(R, i))) fail('모든 주사위를 잡고 있어요.');
   if (R.cls === 'gambler' && !C.rolled && C.bet == null && C.hand.length) fail('먼저 이번 턴에 배팅할 카드를 고르세요.');
   const rolled = C.dice.map((v, i) => !(C.rolled && (C.held[i] || isSealed(R, i) || isFrozen(R, i))));
-  C.dice = C.dice.map((v, i) => (rolled[i] ? rollFace(R, i) : v));
+  const procs = [];
+  C.dice = C.dice.map((v, i) => (rolled[i] ? rollFace(R, i, procs) : v));
+  // 금 주사위: 처음 나온 1을 먼저 보여 주고 다시 굴린 눈으로 바뀐다
+  if (procs.length) {
+    const cur = C.dice.slice();
+    procs.forEach(p => { cur[p.i] = p.raw; });
+    procs.forEach(p => { const from = cur.slice(); cur[p.i] = C.dice[p.i]; fx(R, { type: 'sdie', k: p.k, i: p.i, from, to: C.dice[p.i] }); });
+  }
   specialDice(R, rolled);
   if (!C.rolled) C.held = C.held.map(() => false);
   C.rolled = true;

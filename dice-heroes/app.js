@@ -1442,6 +1442,7 @@ function diceOverlay(myTurn) {
   }).join('') : '';
   // 세머리 용의 얼음: 주사위 자체가 얼음 껍질을 입는다 (뒤집어도 주사위에 붙어 다닌다)
   tray.setFrozen?.(S.rolled && !ui.hideIce ? S.frozen || [] : []);
+  tray.setMarks?.(null);                   // 원정 특수 주사위 표시는 협동 · 대전 트레이에 남기지 않는다
   const frost = '';
   if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals + frost; return; }
   const box = box0;

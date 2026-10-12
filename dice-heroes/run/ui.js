@@ -87,6 +87,7 @@ export function resume() {
 function enterView(fresh = false) {
   ui.tool = null; ui.sel = null; ui.dealDie = null;
   if (R.phase === 'combat') return showCombat(fresh);
+  X.tray()?.setMarks?.(null);
   if (R.phase === 'won' || R.phase === 'lost') return showEnd();
   hand?.destroy(); hand = null;
   if (R.phase === 'map') return showMap();
@@ -415,6 +416,8 @@ function foePanel() {
     ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : ''}`;
 }
 
+// 특수 주사위 3D 표시: 플레이어 스킨은 그대로, 주사위마다 그 색 테두리 껍질 (dice3d setMarks)
+const diceMarks = () => R?.C ? R.C.dice.map((_, i) => { const d = Run.diceInfo(R.dset?.[i]); return d ? { kind: d.id, color: d.color } : null; }) : null;
 // 주사위 위 표시: 봉인 · 얼음 · 뒤집기 · 조정 · 밑장빼기
 function paintTray() {
   const t = X.tray(), ovl = $('dice-ovl'), C = R?.C;
@@ -422,6 +425,7 @@ function paintTray() {
   t.setTarget?.(!!ui.tool && ui.tool !== 'swap' && canAct());
   const box = ovl.getBoundingClientRect();
   t.setFrozen?.(C.rolled && !ui.hideIce ? C.frozen : []);
+  t.setMarks?.(diceMarks());
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
   // 특수 주사위: 주사위 아래 색 보석 표시
@@ -622,13 +626,23 @@ async function doRoll() {
   sfx.rollPress?.();
   const r = await act(() => Run.roll(R));
   if (!r) { ui.sealRoll = null; return; }
-  const first = r.list.find(f => (f.type === 'hexDice' || f.type === 'lucky') && f.from);
+  const first = r.list.find(f => (f.type === 'hexDice' || f.type === 'lucky' || f.type === 'sdie') && f.from);
   ui.dice = first ? first.from.slice() : null;
   ui.hideIce = r.list.some(f => f.type === 'hexDice' && f.t === 'freeze');   // 얼음 창이 박히기 전에는 얼려 보이지 않는다
   ui.busy = true;
   ui.rolling = true;                    // 주사위가 다 멈출 때까지 카드 점수는 '?'
   paint();
   t.setSealed?.(ui.sealRoll);
+  t.setMarks?.(diceMarks());
+  // 무거운 주사위: 처음 세게 떨어질 때 '쿵' + 먼지 (주사위마다 한 번)
+  const thud = new Set();
+  t.onMarkHit = (v, i) => {
+    if (v < 5 || thud.has(i)) return;
+    thud.add(i);
+    sfx.drum?.();
+    const p = t.screenPos(i);
+    if (X.prefs.fx !== 'min') FX().burst(p.x, p.y + 14, { n: 14, pal: PALETTES.smoke, speed: [40, 120], life: [0.3, 0.6], grav: -40, dir: -Math.PI / 2, spread: Math.PI });
+  };
   try {
     await t.roll(ui.dice || C.dice, mask, X.prefs.fx === 'min' ? 1.6 : X.prefs.fx === 'fast' ? 1.3 : 1);
     ui.sealRoll = null;
@@ -984,6 +998,27 @@ async function playOne(f) {
       hand.refresh();
       return;
     }
+    // 특수 주사위가 힘을 썼다: 그 색 빛 · 소리와 함께 눈이 바뀐다 (금: 1을 다시 · 쌍둥이: 같은 눈 · 계단: 이어지는 눈)
+    case 'sdie': {
+      if (!t) return;
+      const p = t.screenPos(f.i), d = Run.diceInfo(f.k);
+      if (fxOn) {
+        FX().ring(p.x, p.y, { color: d.color, r1: 64 });
+        if (f.k === 'gold') FX().burst(p.x, p.y, { n: 26, pal: PALETTES.gold, speed: [90, 240], grav: 320, life: [0.4, 0.8] });
+        else if (f.k === 'twin') {
+          const src = f.from.findIndex((v, j) => j !== f.i && v === f.to);
+          const q = src >= 0 ? t.screenPos(src) : p;
+          FX().ring(q.x, q.y, { color: d.color, r1: 44 });
+          FX().burst(q.x, q.y, { n: 16, pal: PALETTES.hell, speed: [60, 160], life: [0.3, 0.6] });
+          FX().burst(p.x, p.y, { n: 16, pal: PALETTES.hell, speed: [60, 160], life: [0.3, 0.6] });
+        } else FX().burst(p.x, p.y, { n: 22, pal: PALETTES.heal, speed: [80, 220], grav: -160, life: [0.4, 0.8] });
+      }
+      floatAt(p.x, p.y - 44, `${runIco('die', d.id, 'die6', 'xs')} ${f.k === 'gold' ? '한 번 더!' : f.k === 'twin' ? '쌍둥이!' : '이어지는 눈!'}`, f.k === 'gold' ? 'gold' : 'mint');
+      if (f.k === 'gold') sfx.coin?.(); else if (f.k === 'twin') sfx.card?.(); else sfx.quest?.();
+      await t.morph(f.i, f.to, f.k, 700);
+      if (ui.dice) ui.dice[f.i] = f.to;
+      return;
+    }
     case 'lucky': {
       if (!t) return;
       const p = t.screenPos(f.dice[0]);
@@ -1316,7 +1351,7 @@ export function onAct(act, t) {
   const now = performance.now();
   if (act === 'run-open') { sfx.select(); return open(); }
   if (act === 'run-resume') { sfx.start(); return resume(); }
-  if (act === 'run-home') { sfx.back(); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
+  if (act === 'run-home') { sfx.back(); X.tray()?.setMarks?.(null); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
   if (act === 'run-cls') { sfx.tap(); ui.cls = t.dataset.id; X.store.set('diceheroes.runCls', ui.cls); return paintSelect(); }
   if (act === 'run-asc') {
     const b = best(), v = Math.max(0, Math.min(ascOpen(b, ui.cls), (ui.asc || 0) + Number(t.dataset.d)));
