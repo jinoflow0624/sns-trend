@@ -1,7 +1,7 @@
 // 원정(로그라이크) 룰 엔진 테스트 — node test/run.test.mjs
 import assert from 'node:assert/strict';
 import * as Run from '../run/rules.js';
-import { RELIC_ART } from '../run/relic-art.js';
+import { RELIC_ART, SEAL_ART, OMEN_ART } from '../run/relic-art.js';
 import * as AC from '../achievements.js';
 
 let passed = 0, failed = 0;
@@ -9,7 +9,9 @@ function test(name, fn) {
   try { fn(); passed++; console.log(`  ✓ ${name}`); }
   catch (err) { failed++; console.error(`  ✗ ${name}\n    ${err.stack}`); }
 }
-const run = (cls = 'gambler', seed = 7) => Run.createRun({ cls, seed });
+// 막 징조는 따로 시험한다 (여기서는 징조 없이)
+function mk(o) { const R = Run.createRun(o); R.omenOpts = null; return R; }
+const run = (cls = 'gambler', seed = 7) => mk({ cls, seed });
 // 지도에서 첫 전투 칸으로 들어간다
 function intoFight(R) {
   const id = Run.nextNodes(R).find(i => Run.mapNode(R, i).type === 'fight');
@@ -238,14 +240,14 @@ test('덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다',
   assert.ok(count(['ace', 'small']) > count([]) * 2);
 });
 test('승천: 단계가 쌓이며 적 · 회복 · 체력이 바뀐다', () => {
-  const a0 = Run.createRun({ cls: 'warrior', seed: 9 }), a10 = Run.createRun({ cls: 'warrior', seed: 9, asc: 10 });
+  const a0 = mk({ cls: 'warrior', seed: 9 }), a10 = mk({ cls: 'warrior', seed: 9, asc: 10 });
   assert.equal(a10.asc, 10);
   assert.ok(a10.maxHp < a0.maxHp);
   assert.ok(Run.restAmount(a10) < Run.restAmount(a0));
   Run.startCombat(a0, 'slime'); Run.startCombat(a10, 'slime');
   assert.ok(Run.atkOf(a10, 10) > Run.atkOf(a0, 10));
   assert.equal(Run.furyOf(a10).from, Run.furyOf(a0).from - 2);
-  assert.equal(Run.createRun({ cls: 'warrior', asc: 99 }).asc, Run.ASC_MAX);
+  assert.equal(mk({ cls: 'warrior', asc: 99 }).asc, Run.ASC_MAX);
 });
 test('원정 도전과제: 요트 카드로 공격하면 기록된다', () => {
   const R = run('rogue');
@@ -258,9 +260,10 @@ test('원정 도전과제: 요트 카드로 공격하면 기록된다', () => {
   assert.ok(R.feats.includes('yacht'));
   assert.ok(Run.drainFx(R).some(f => f.type === 'feat' && f.id === 'yacht'));
 });
-test('유물 그림(relic-art.js): 16줄 × 16글자, 팔레트에 있는 글자만, 6색 이하, 있는 유물 id', () => {
-  for (const [id, a] of Object.entries(RELIC_ART)) {
-    assert.ok(Run.relicInfo(id), `없는 유물: ${id}`);
+test('유물 · 인장 · 징조 그림(relic-art.js): 16줄 × 16글자, 팔레트에 있는 글자만, 6색 이하, 있는 id', () => {
+  const all = [...Object.entries(RELIC_ART).map(([id, a]) => [id, a, Run.relicInfo(id)]), ...Object.entries(SEAL_ART).map(([id, a]) => [id, a, Run.sealInfo(id)]), ...Object.entries(OMEN_ART).map(([id, a]) => [id, a, Run.omenInfo(id)])];
+  for (const [id, a, known] of all) {
+    assert.ok(known, `없는 id: ${id}`);
     assert.equal(a.rows.length, 16, `${id} 줄 수`);
     const pal = { k: 1, ...a.pal };
     assert.ok(Object.keys(pal).length <= 6, `${id} 색이 6개를 넘는다`);
@@ -272,8 +275,8 @@ test('유물 그림(relic-art.js): 16줄 × 16글자, 팔레트에 있는 글자
   }
 });
 test('원정 준비(원정 밖 성장): 체력 · 골드 · 도구 · 물약 · 대표 카드 · 시작 유물 · 주사위 칸', () => {
-  const base = Run.createRun({ cls: 'warrior', seed: 5 });
-  const R = Run.createRun({ cls: 'warrior', seed: 5, meta: { lv: { hp: 5, gold: 3, tools: 2, potion: 1, sharp: 1, relic: 1, slot: 1 }, equip: ['gold', 'twin'] } });
+  const base = mk({ cls: 'warrior', seed: 5 });
+  const R = mk({ cls: 'warrior', seed: 5, meta: { lv: { hp: 5, gold: 3, tools: 2, potion: 1, sharp: 1, relic: 1, slot: 1 }, equip: ['gold', 'twin'] } });
   assert.equal(R.maxHp, base.maxHp + 10);
   assert.equal(R.gold, base.gold + 60);
   assert.equal(R.flip, base.flip + 1); assert.equal(R.nudge, base.nudge + 1);
@@ -285,7 +288,7 @@ test('원정 준비(원정 밖 성장): 체력 · 골드 · 도구 · 물약 · 
   assert.equal(R.relics.length, 1); assert.equal(R.phase, 'map');
 });
 test('특수 주사위: 금 주사위는 1이 드물고, 쌍둥이 · 계단은 다른 주사위에 맞춘다', () => {
-  const R = Run.createRun({ cls: 'rogue', seed: 8, meta: { lv: { slot: 2 }, equip: ['gold', 'twin'] } });
+  const R = mk({ cls: 'rogue', seed: 8, meta: { lv: { slot: 2 }, equip: ['gold', 'twin'] } });
   intoFight(R);
   let ones = 0, twins = 0, n = 0;
   for (let k = 0; k < 400; k++) {
@@ -298,7 +301,7 @@ test('특수 주사위: 금 주사위는 1이 드물고, 쌍둥이 · 계단은 
   assert.ok(twins / n > 0.6, `쌍둥이 맞춤 비율 ${twins / n}`);
 });
 test('별조각: 지난 층 · 엘리트 · 보스 · 클리어, 승천이 높을수록 더', () => {
-  const R = Run.createRun({ cls: 'rogue', seed: 1 });
+  const R = mk({ cls: 'rogue', seed: 1 });
   Object.assign(R.stats, { floors: 10, elites: 2, bosses: 1 });
   assert.equal(Run.starsOf(R), 20 + 8 + 10);
   R.asc = 5; R.won = true;
@@ -534,7 +537,7 @@ console.log('\n봇 · 저장');
 test('봇이 모든 직업으로 원정을 끝까지 진행한다 (막히지 않음)', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {
     for (let k = 0; k < 3; k++) {
-      const R = Run.createRun({ cls, seed: 100 + k });
+      const R = mk({ cls, seed: 100 + k });
       Run.botRun(R, mulberry(k + 1), 6);
       assert.ok(R.ended, `${cls} 원정이 끝나지 않았다 (${R.phase})`);
       assert.ok(R.won || R.hp === 0);
@@ -542,13 +545,13 @@ test('봇이 모든 직업으로 원정을 끝까지 진행한다 (막히지 않
   }
 });
 test('같은 시드 · 같은 선택이면 같은 결과, 상태는 JSON 으로 저장된다', () => {
-  const a = Run.createRun({ cls: 'outlaw', seed: 42 });
-  const b = Run.createRun({ cls: 'outlaw', seed: 42 });
+  const a = mk({ cls: 'outlaw', seed: 42 });
+  const b = mk({ cls: 'outlaw', seed: 42 });
   Run.botRun(a, mulberry(9), 6);
   Run.botRun(b, mulberry(9), 6);
   assert.equal(a.hp, b.hp);
   assert.equal(a.stats.floors, b.stats.floors);
-  const R = Run.createRun({ cls: 'rogue', seed: 5 });
+  const R = mk({ cls: 'rogue', seed: 5 });
   intoFight(R);
   Run.roll(R);
   const copy = JSON.parse(JSON.stringify(R));
@@ -557,11 +560,11 @@ test('같은 시드 · 같은 선택이면 같은 결과, 상태는 JSON 으로 
 });
 
 console.log('\n덱 빌딩 유물');
-const fight = (relics, setup) => { const R = Run.createRun({ cls: 'bard', seed: 4 }); R.relics.push(...relics); Run.startCombat(R, 'slime'); setup?.(R); return R; };
+const fight = (relics, setup) => { const R = mk({ cls: 'bard', seed: 4 }); R.relics.push(...relics); Run.startCombat(R, 'slime'); setup?.(R); return R; };
 test('자석 주사위: 같은 눈 3개면 다른 주사위 1개가 그 눈으로 (턴마다 1번)', () => {
   let hit = 0;
   for (let s = 1; s < 200 && !hit; s++) {
-    const R = Run.createRun({ cls: 'warrior', seed: s }); R.relics.push('magnet'); Run.startCombat(R, 'slime');
+    const R = mk({ cls: 'warrior', seed: s }); R.relics.push('magnet'); Run.startCombat(R, 'slime');
     Run.roll(R);
     const cnt = [0, 0, 0, 0, 0, 0, 0]; R.C.dice.forEach(v => cnt[v]++);
     if (R.C.magnet) { hit++; assert.ok(Math.max(...cnt) >= 4); assert.ok(Run.drainFx(R).some(f => f.type === 'lucky' && f.why === 'magnet')); }
@@ -609,6 +612,91 @@ test('원정 도전과제: 원정 기록이 진행도로 옮겨지고(늘기만)
   const run = AC.ACHIEVEMENTS.filter(a => a.cat === 'run');
   assert.ok(run.length >= 10 && run.every(a => !AC.achShown(a, {}) && AC.achShown(a, { run: true })));
   assert.ok(AC.achClaimable(ach, {}).every(a => a.cat !== 'run'));
+});
+
+console.log('\n인장 · 새 유물 · 합연산 · 막 징조');
+const duel = (relics = [], setup) => { const R = mk({ cls: 'bard', seed: 4 }); relics.forEach(id => Run.gainRelic(R, id)); Run.startCombat(R, 'slime'); R.C.e.hp = 999; R.C.rolled = true; setup?.(R); return R; };
+test('합연산: 유물 +% 끼리 더하고, 카드 자신의 강화 · 속공만 곱한다', () => {
+  const R = duel(['glasscannon', 'bloodpact']); R.C.dice = [6, 6, 6, 1, 2]; R.C.rollNo = 1;
+  const sc = Run.scoreCard(R, { u: 1, cat: 'sixes', up: 1, kws: ['quick'] });
+  // 18 × (1 + 0.6 + 0.5) = 37.8 → 38, 강화 ×1.3 → 49, 속공 ×1.5 → 74
+  assert.equal(sc.total, Math.round(Math.round(38 * 1.3) * 1.5));
+  assert.ok(sc.parts.find(p => p.ko === '강화').mul);
+});
+test('인장: 해 ×2 피해 · 구름 보호막 20 · 별 골드 15 · 달은 일회성 복사본', () => {
+  const R = duel([], R => { R.C.dice = [6, 6, 6, 6, 6]; });
+  R.C.hand[0] = { u: 8001, cat: 'sixes', up: 0, kws: [], seal: 'sun' };
+  assert.equal(Run.preview(R, 0, 'enemy').dmg, 60);
+  R.C.hand[1] = { u: 8002, cat: 'sixes', up: 0, kws: [], seal: 'cloud' };
+  assert.equal(Run.preview(R, 1, 'self').block - Run.preview(R, 1, 'self').def, 20);
+  const M = duel([], R => { R.C.dice = [6, 6, 6, 6, 6]; });
+  M.deck.push({ u: 8003, cat: 'sixes', up: 0, kws: [], seal: 'moon' });
+  M.C.hand[0] = { u: 8003, cat: 'sixes', up: 0, kws: [], seal: 'moon' };
+  Run.playCard(M, 0, 'enemy');
+  assert.equal(M.deck.find(c => c.u === 8003).seal, null);         // 인장은 덱에서도 사라진다
+  const copy = M.C.hand.find(c => c.temp);
+  assert.ok(copy && copy.cat === 'sixes');                          // 다음 턴 손패에 달빛 복사본
+  M.C.rolled = true; M.C.dice = [6, 6, 6, 6, 6];
+  const n0 = M.C.draw.length + M.C.discard.length + M.C.hand.length;
+  Run.playCard(M, M.C.hand.indexOf(copy), 'enemy');
+  assert.ok(![...M.C.draw, ...M.C.discard, ...M.C.hand].some(c => c.u === copy.u));   // 쓰고 나면 사라진다
+});
+test('상점 인장: 사면 붙일 카드를 고르고, 이미 붙은 카드엔 못 붙인다', () => {
+  const R = mk({ cls: 'monk', seed: 2 }); R.phase = 'shop'; R.gold = 200; R.shop = { cards: [], relics: [], potions: [], tools: [], seals: [{ id: 'star', price: 30, sold: false }], removed: false, smithed: false };
+  Run.buy(R, 'seal', 0);
+  assert.equal(R.pick.why, 'seal');
+  Run.pickDeck(R, R.deck[0].u);
+  assert.equal(R.deck[0].seal, 'star'); assert.equal(R.gold, 170); assert.ok(R.shop.seals[0].sold);
+});
+test('메아리 북 · 만화경 · 페어 반지 · 장인의 망치', () => {
+  const R = duel(['echodrum', 'kaleido', 'hammer'], R => { R.C.dice = [6, 6, 6, 6, 6]; });
+  const six = u => ({ u, cat: 'sixes', up: 0, kws: [] });
+  R.C.hand = [six(1), { ...six(2), kws: ['keep'] }, { u: 3, cat: 'choice', up: 0, kws: ['keep'] }];
+  Run.playCard(R, 0, 'enemy');
+  R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6];
+  assert.ok(Run.scoreCard(R, R.C.hand.find(c => c.u === 2)).parts.some(p => p.ko === '메아리 북'));
+  assert.equal(R.hammer.sixes, 1);
+  const ci = R.C.hand.findIndex(c => c.cat === 'choice');
+  assert.ok(Run.preview(R, ci, 'enemy').kal >= 4);                 // 다른 족보 → 만화경
+  const P = duel(['pairring'], R => { R.C.dice = [6, 6, 6, 1, 2]; R.C.hand = [six(1), six(2)]; });
+  assert.ok(Run.scoreCard(P, P.C.hand[0]).parts.some(p => p.ko === '페어 반지'));
+});
+test('균형의 추: 1을 6으로 셀 수 있다', () => {
+  const R = duel(['balance'], R => { R.C.dice = [6, 6, 6, 6, 1]; });
+  assert.equal(Run.scoreCard(R, { u: 1, cat: 'yacht', up: 0, kws: [] }).base, 50);
+});
+test('엘리트는 유물 3개 중 고르기, 감정사의 돋보기면 4개', () => {
+  for (const [rel, n] of [[[], 3], [['loupe'], 4]]) {
+    const R = mk({ cls: 'monk', seed: 9 }); rel.forEach(id => Run.gainRelic(R, id));
+    Run.startCombat(R, Run.ACT_INFO[1].elite[0]); R.C.e.hp = 1; R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6];
+    Run.playCard(R, 0, 'enemy');
+    const it = R.reward.items.find(x => x.t === 'relicPick');
+    assert.equal(it.opts.length, n);
+  }
+});
+test('초이스는 실버 등급 · 일반 카드 보상에서는 나오지 않는다', () => {
+  assert.equal(Run.cardRarity({ cat: 'choice', up: 0, kws: [] }), 2);
+  const R = mk({ cls: 'monk', seed: 3 });
+  for (let k = 0; k < 200; k++) assert.notEqual(Run.rollCard(R, 1).cat, 'choice');
+});
+test('막 징조: 막마다 2장 중 1장, 고르기 전엔 지도를 못 움직인다', () => {
+  const R = Run.createRun({ cls: 'monk', seed: 5 });
+  assert.equal(R.omenOpts.length, 2);
+  assert.throws(() => Run.enterNode(R, Run.nextNodes(R)[0]));
+  const id = R.omenOpts[1];
+  Run.chooseOmen(R, 1);
+  assert.equal(R.omen, id); assert.equal(R.omenOpts, null);
+  Run.enterNode(R, Run.nextNodes(R)[0]);
+  const F = mk({ cls: 'monk', seed: 5 }); F.omen = 'feast'; Run.startCombat(F, 'slime'); F.C.rolled = true; F.C.dice = [6, 6, 6, 1, 2];
+  assert.ok(Run.scoreCard(F, { u: 1, cat: 'sixes', up: 0, kws: [] }).parts.some(p => p.ko === '피의 축제'));
+});
+test('새 유물을 모두 가진 봇도 원정을 끝까지 진행한다 (막히지 않음)', () => {
+  for (const cls of ['gambler', 'mage', 'sharper']) {
+    const R = Run.createRun({ cls, seed: 11 });
+    for (const r of Run.RELICS.slice(-29)) Run.gainRelic(R, r.id);
+    Run.botRun(R, mulberry(3), 4);
+    assert.ok(R.ended);
+  }
 });
 
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
