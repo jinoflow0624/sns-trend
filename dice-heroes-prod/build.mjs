@@ -55,6 +55,9 @@ const shared = join(here, 'functions', 'shared');
 rmSync(shared, { recursive: true, force: true });
 mkdirSync(shared, { recursive: true });
 for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js']) cpSync(join(src, f), join(shared, f));
+// 원정 규칙: 서버가 행동 기록을 다시 돌려 결과를 계산한다 (배포판 화면에는 원정이 없어도 서버 쪽은 준비해 둔다)
+mkdirSync(join(shared, 'run'), { recursive: true });
+cpSync(join(src, 'run', 'rules.js'), join(shared, 'run', 'rules.js'));
 writeFileSync(join(shared, 'package.json'), '{ "type": "module" }\n');
 
 // 6. 애드센스 게시자 ID (비밀 값 아님) — 게임의 ads.js 와 같은 값을 쓴다. 사이트 소유 확인 + ads.txt 용.

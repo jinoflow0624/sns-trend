@@ -9,6 +9,11 @@
 //   buy       직업 · 주사위 · 트레이 사기
 //   claimAch  도전과제 보상 받기 — 진행도(지갑 ach)는 claimRun 이 판마다 쌓는다
 //   dailyRoll 일일 보상 — 하루(한국 자정 기준) 한 번, 서버가 주사위 5개를 굴려 합만큼 (요트면 10배)
+//   원정(로그라이크) — 별조각 · 원정 기록은 지갑(wallets/<uid>/run)에, 진행 중인 원정은 xruns/<uid> 에 (둘 다 앱이 못 쓴다)
+//     xStart  원정 시작: 서버가 시드를 정하고, 그때의 원정 준비(강화 · 주사위)를 함께 적어 둔다
+//     xFinish 원정 끝: 앱이 보낸 행동 기록을 서버가 같은 규칙(run/rules.js)으로 처음부터 다시 돌려 결과를 직접 계산한다.
+//             승패 · 층 · 보스 · 도전과제 · 별조각을 앱이 보내는 값으로 믿지 않는다 → 기기에서 숫자를 고쳐도 소용없다
+//     xBuy    원정 준비 강화 · 특수 주사위 사기, xEquip 주사위 칸에 넣기
 //
 // 가격 · 보상 규칙은 게임과 같은 파일(dice-heroes/wallet-rules.js)을 build.mjs 가 shared/ 로 복사해 쓴다.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -19,6 +24,7 @@ import { randomInt } from 'node:crypto';
 import * as R from './shared/wallet-rules.js';
 import * as E from './shared/engine.js';
 import * as AC from './shared/achievements.js';
+import * as X from './shared/run/rules.js';
 
 // 데이터베이스는 싱가포르(asia-southeast1) — 함수도 같은 곳에 둔다 (한국에서도 가깝다)
 const DB_URL = 'https://diceheroes-4fbbb-default-rtdb.asia-southeast1.firebasedatabase.app';
@@ -40,7 +46,7 @@ function fix(w, now) {
   if (w.daily?.day !== today) w.daily = { day: today, n: 0 };
   return w;
 }
-const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null, ach: w.ach || null });
+const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null, ach: w.ach || null, run: w.run || null });
 
 // 지갑을 바꾼다. mutate 가 문자열을 돌려주면 그 이유로 취소
 async function change(uid, mutate) {
@@ -195,4 +201,60 @@ export const claimAch = onCall(async req => {
     return { gems };
   });
   return { wallet, ...out };
+});
+
+// ── 원정 (로그라이크) ─────────────────────────────────────────────────────────
+// 기록 · 사기 규칙은 게임과 같은 run/rules.js (recordRun · buyProgress · equipProgress)
+const xOf = w => (w.run = X.fixProgress(w.run));
+
+export const xProgress = onCall(async req => {
+  const uid = needUser(req);
+  const snap = await db().ref(`wallets/${uid}`).get();
+  return { run: X.fixProgress(snap.val()?.run) };
+});
+
+export const xStart = onCall(async req => {
+  const uid = needUser(req);
+  const { cls, asc } = req.data || {};
+  if (!X.RUN_CLASSES[cls]) fail('없는 직업이에요.', 'invalid-argument');
+  const w = (await db().ref(`wallets/${uid}`).get()).val() || {};
+  const p = X.fixProgress(w.run);
+  const a = Math.floor(Number(asc) || 0);
+  const open = Math.min(X.ASC_MAX, (p.best.asc[cls] ?? -1) + 1);
+  if (a < 0 || a > open) fail('아직 열리지 않은 승천이에요.');
+  if (R.priceOf('cls', cls) && !w.owned?.cls?.[cls]) fail('아직 해금하지 않은 직업이에요.');
+  const seed = randomInt(1, 2 ** 31);
+  const id = `${Date.now().toString(36)}${randomInt(1e6).toString(36)}`;
+  const meta = X.progressMeta(p);
+  await db().ref(`xruns/${uid}`).set({ id, seed, cls, asc: a, meta, t: Date.now() });
+  return { id, seed, meta };
+});
+
+// 앱이 보낸 행동 기록을 같은 규칙으로 처음부터 다시 돌려 결과를 서버가 직접 계산한다
+export const xFinish = onCall(async req => {
+  const uid = needUser(req);
+  const { id, acts } = req.data || {};
+  if (!Array.isArray(acts) || acts.length > 40000) fail('행동 기록이 이상해요.', 'invalid-argument');
+  const live = (await db().ref(`xruns/${uid}`).get()).val();
+  if (!live || live.id !== id) fail('서버에 시작 기록이 없는 원정이에요.');
+  let Rx;
+  try { Rx = X.replay({ seed: live.seed, cls: live.cls, asc: live.asc, meta: live.meta, acts }); }
+  catch (e) { fail(`행동 기록을 다시 돌리지 못했어요 (${e.message}).`, 'invalid-argument'); }
+  if (!Rx.ended) fail('아직 끝나지 않은 원정이에요.');
+  const { wallet, out } = await change(uid, w => X.recordRun(xOf(w), Rx));
+  await db().ref(`xruns/${uid}`).remove();
+  return { run: wallet.run, ...out };
+});
+
+export const xBuy = onCall(async req => {
+  const uid = needUser(req);
+  const { kind, id } = req.data || {};
+  const { wallet } = await change(uid, w => X.buyProgress(xOf(w), kind, id));
+  return { run: wallet.run };
+});
+
+export const xEquip = onCall(async req => {
+  const uid = needUser(req);
+  const { wallet } = await change(uid, w => X.equipProgress(xOf(w), req.data?.equip));
+  return { run: wallet.run };
 });

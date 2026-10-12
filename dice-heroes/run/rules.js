@@ -94,6 +94,38 @@ function log(R, text) {
   if (R.log.length > 60) R.log.shift();
 }
 
+// ── 행동 기록 · 재현 (서버 검증) ─────────────────────────────────────────────
+// 플레이어 행동(아래 act 로 감싼 함수)은 성공할 때마다 R.acts 에 [이름, 인자…] 로 남는다.
+// 규칙이 결정적(난수는 R.rng 하나)이라, 서버는 시드 · 직업 · 승천 · 원정 준비 + 행동 기록만으로 판을 처음부터 다시 돌려
+// 결과(승패 · 층 · 보스 · 도전과제 · 별조각)를 직접 계산한다 — 기기에서 숫자를 고쳐도 소용없다.
+const ACTIONS = {};
+let depth = 0;
+function act(name, fn) {
+  ACTIONS[name] = fn;
+  return (R, ...a) => {
+    depth++;
+    try {
+      const out = fn(R, ...a);
+      if (depth === 1) (R.acts ||= []).push([name, ...a]);
+      return out;
+    } finally { depth--; }
+  };
+}
+// 원정 포기 (행동으로 남긴다)
+export const giveUp = act('giveUp', R => { if (R.ended) fail('이미 끝난 원정이에요.'); loseRun(R); });
+export function replay({ seed, cls, asc = 0, meta = null, acts = [] }) {
+  const R = createRun({ cls, seed, asc, meta, name: '' });
+  for (const [name, ...a] of acts) {
+    const f = ACTIONS[name];
+    if (!f) fail(`모르는 행동: ${name}`);
+    depth++;
+    try { f(R, ...a); } finally { depth--; }
+    R.fx = [];
+    if (R.ended) break;
+  }
+  return R;
+}
+
 // ── 족보 카드 ────────────────────────────────────────────────────────────────
 // 카드 = { u: 고유 번호, cat: 족보, up: 강화(0/1), kws: [키워드, … 최대 KW_MAX] } (예전 저장본은 kw: 키워드 하나)
 export const UPPER = CAT_IDS.slice(0, 6);
@@ -136,7 +168,7 @@ export const META = [
   { id: 'gold',  ko: '여비',       icon: 'coins',  max: 3, cost: [30, 50, 70],           desc: n => `시작 골드 +${n * 20}` },
   { id: 'tools', ko: '도구 주머니', icon: 'flip',  max: 2, cost: [50, 90],               desc: n => (n >= 2 ? '시작 뒤집기 +1 · 조정 +1' : '시작 뒤집기 +1') },
   { id: 'potion', ko: '물약 띠',   icon: 'bag',    max: 1, cost: [80],                   desc: () => '회복 물약 1개를 들고 출발' },
-  { id: 'relic', ko: '보물 지도',   icon: 'scroll', max: 1, cost: [200],                  desc: () => '출발할 때 일반 유물 1개 (무작위)' },
+  { id: 'relic', ko: '보물 지도',   icon: 'scroll', max: 1, cost: [200],                  desc: () => '출발할 때 직업 유물 1개 (직업마다 어울리는 유물)' },
   { id: 'sharp', ko: '연마된 덱',   icon: 'axe',    max: 1, cost: [100],                  desc: () => '대표 카드 점수 +30%' },
   { id: 'slot',  ko: '주사위 칸',   icon: 'die6',   max: 2, cost: [60, 150],              desc: n => `특수 주사위 ${n}개를 넣는다` },
 ];
@@ -149,8 +181,68 @@ export const DICE = [
   { id: 'stair', ko: '커넥트 주사위',   color: '#3EE6B4', cost: 120, desc: '1/3 확률로 빈 눈을 메워 숫자를 이어 준다 (스트레이트)' },
 ];
 export const diceInfo = id => DICE.find(d => d.id === id);
+// 보물 지도: 직업마다 정해진 출발 유물
+export const START_RELIC = { gambler: 'purse', monk: 'nudge', rogue: 'flip', warrior: 'basic', bard: 'lotus', mage: 'choice', dancer: 'drum', outlaw: 'whet', sharper: 'yacht' };
 // 원정이 끝나면 얻는 별조각(✦): 지난 층 2 · 엘리트 4 · 보스 10 · 클리어 20, 승천 1단계마다 +10%
 export const starsOf = R => Math.round((R.stats.floors * 2 + R.stats.elites * 4 + R.stats.bosses * 10 + (R.won ? 20 : 0)) * (1 + (R.asc || 0) * 0.1));
+
+// 원정 기록 · 별조각 (서버 지갑 wallets/<uid>/run 과 테스트판 기기 저장이 같은 모양 · 같은 규칙)
+//   { stars, lv: { 강화 id: 단계 }, dice: [가진 특수 주사위], equip: [넣은 주사위], best: { runs, wins, top, cls, asc, feats } }
+export const blankProgress = () => ({ stars: 0, lv: {}, dice: [], equip: [], best: { runs: 0, wins: 0, top: 0, cls: {}, asc: {}, feats: [] } });
+export function fixProgress(p) {
+  p ||= blankProgress();
+  p.stars ||= 0; p.lv ||= {}; p.dice ||= []; p.equip ||= []; p.best ||= blankProgress().best;
+  const b = p.best; b.runs ||= 0; b.wins ||= 0; b.top ||= 0; b.cls ||= {}; b.asc ||= {}; b.feats ||= [];
+  return p;
+}
+export const progressMeta = p => ({ lv: { ...p.lv }, equip: [...p.equip] });
+// 끝난 원정을 기록에 더한다 (서버는 행동 기록을 다시 돌린 R 로 부른다)
+export function recordRun(p, R) {
+  fixProgress(p);
+  const b = p.best, stars = starsOf(R);
+  b.runs++;
+  if (R.won) b.wins++;
+  b.top = Math.max(b.top, R.won ? 21 : (R.act - 1) * 7 + Math.min(7, floorOf(R)));
+  const c = (b.cls[R.cls] ||= { runs: 0, wins: 0 });
+  c.runs++;
+  const opened = R.won && (b.asc[R.cls] ?? -1) < (R.asc || 0) && (R.asc || 0) < ASC_MAX;
+  if (R.won) { c.wins++; b.asc[R.cls] = Math.max(b.asc[R.cls] ?? -1, R.asc || 0); }
+  const feats = [...(R.feats || [])];
+  if (Object.values(b.cls).filter(x => x.wins > 0).length >= 5) feats.push('five');
+  const fresh = [...new Set(feats)].filter(f => !b.feats.includes(f));
+  b.feats.push(...fresh);
+  p.stars += stars;
+  return { stars, won: !!R.won, opened, fresh };
+}
+// 원정 준비에서 사기 · 주사위 넣기. 안 되면 이유 문자열
+export function buyProgress(p, kind, id) {
+  fixProgress(p);
+  if (kind === 'meta') {
+    const u = META.find(m => m.id === id), n = p.lv[id] || 0;
+    if (!u) return '없는 강화예요.';
+    if (n >= u.max) return '이미 다 올렸어요.';
+    if (p.stars < u.cost[n]) return '별조각이 모자라요.';
+    p.stars -= u.cost[n]; p.lv[id] = n + 1;
+    return null;
+  }
+  if (kind === 'die') {
+    const d = diceInfo(id);
+    if (!d) return '없는 주사위예요.';
+    if (p.dice.includes(id)) return '이미 가지고 있어요.';
+    if (p.stars < d.cost) return '별조각이 모자라요.';
+    p.stars -= d.cost; p.dice.push(id);
+    if (p.equip.length < (p.lv.slot || 0)) p.equip.push(id);
+    return null;
+  }
+  return '이상한 요청이에요.';
+}
+export function equipProgress(p, list) {
+  fixProgress(p);
+  const eq = [...new Set(list || [])].filter(id => p.dice.includes(id));
+  if (eq.length > (p.lv.slot || 0)) return '주사위 칸이 모자라요.';
+  p.equip = eq;
+  return null;
+}
 
 // ── 승천 (원정을 깬 직업은 한 단계씩 더 어려운 원정을 열 수 있다, 0~10. 단계는 쌓인다) ──
 export const ASC_MAX = 10;
@@ -444,7 +536,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   const ml = id => Math.max(0, Math.min(META.find(m => m.id === id).max, Math.floor(meta?.lv?.[id] || 0)));
   const hp = Math.round((ci.hp + ml('hp') * 2) * (a >= 6 ? 0.92 : 1));
   const R = {
-    v: 1, seed: seed >>> 0, rng: seed >>> 0, uid: 0, asc: a, feats: [],
+    v: 1, seed: seed >>> 0, rng: seed >>> 0, uid: 0, asc: a, feats: [], meta0: meta ? JSON.parse(JSON.stringify(meta)) : null, acts: [],
     cls: k, name, hp, maxHp: hp, gold: 0,
     flip: ci.flip, nudge: ci.nudge, dance: k === 'dancer' ? 1 : 0,
     deck: [], relics: [], potions: [],
@@ -466,7 +558,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   R.dset = (meta?.equip || []).filter(id => diceInfo(id)).slice(0, ml('slot'));
   newAct(R);
   if (ml('relic')) {
-    const id = rollRelic(R, 1);
+    const id = START_RELIC[k] || rollRelic(R, 1);
     R.phase = 'reward';
     R.reward = { kind: 'start', items: [{ t: 'relic', id }] };
   }
@@ -482,7 +574,7 @@ function newAct(R) {
 }
 
 // ── 칸 들어가기 ─────────────────────────────────────────────────────────────
-export function enterNode(R, id) {
+export const enterNode = act('enterNode', function enterNode(R, id) {
   if (R.phase !== 'map') fail('지금은 지도를 움직일 수 없어요.');
   if (!nextNodes(R).includes(id)) fail('갈 수 없는 칸이에요.');
   const n = mapNode(R, id);
@@ -501,7 +593,7 @@ export function enterNode(R, id) {
     return;
   }
   if (n.type === 'event') return startEvent(R);
-}
+});
 function pickFoe(R, kind) {
   const pool = ACT_INFO[R.act][kind].filter(id => id !== R.lastFoe);
   const id = pick(R, pool);
@@ -668,7 +760,7 @@ function drawCards(R, n) {
 
 const inCombat = R => { if (R.phase !== 'combat' || !R.C || R.C.phase !== 'roll') fail('지금은 할 수 없어요.'); return R.C; };
 
-export function roll(R) {
+export const roll = act('roll', function roll(R) {
   const C = inCombat(R);
   if (C.rollsLeft <= 0) fail('굴림 기회를 다 썼어요.');
   if (C.rolled && C.held.every((h, i) => h || isSealed(R, i) || isFrozen(R, i))) fail('모든 주사위를 잡고 있어요.');
@@ -698,7 +790,7 @@ export function roll(R) {
     }
   }
   afterRollHex(R);
-}
+});
 
 // 적의 방해가 굴림 직후에 걸린다
 function afterRollHex(R) {
@@ -741,16 +833,16 @@ function afterRollHex(R) {
   }
 }
 
-export function toggleHold(R, i) {
+export const toggleHold = act('toggleHold', function toggleHold(R, i) {
   const C = inCombat(R);
   if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (i < 0 || i >= C.dice.length) fail('없는 주사위예요.');
   if (isSealed(R, i)) fail('봉인된 주사위는 움직일 수 없어요. 다시 굴리면 풀려요.');
   if (isFrozen(R, i)) fail('얼어붙은 주사위는 이번 턴에 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.');
   C.held[i] = !C.held[i];
-}
+});
 
-export function useFlip(R, i) {
+export const useFlip = act('useFlip', function useFlip(R, i) {
   const C = inCombat(R);
   if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (R.flip <= 0) fail('뒤집기가 없어요.');
@@ -759,9 +851,9 @@ export function useFlip(R, i) {
   C.dice[i] = 7 - C.dice[i];
   R.flip--;
   C.flipped = true;
-}
+});
 
-export function useNudge(R, i, d) {
+export const useNudge = act('useNudge', function useNudge(R, i, d) {
   const C = inCombat(R);
   if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
   if (R.nudge <= 0) fail('조정이 없어요.');
@@ -771,10 +863,10 @@ export function useNudge(R, i, d) {
   if (v < 1 || v > 6) fail('주사위는 1~6 사이여야 해요.');
   C.dice[i] = v;
   R.nudge--;
-}
+});
 
 // 카드 교체: 손패 1장을 버리고 새로 1장 (턴마다 1번, 훈장이면 2번)
-export function swapCard(R, hi) {
+export const swapCard = act('swapCard', function swapCard(R, hi) {
   const C = inCombat(R);
   if (C.swaps <= 0) fail('이번 턴에는 더 바꿀 수 없어요.');
   const c = C.hand[hi];
@@ -788,9 +880,9 @@ export function swapCard(R, hi) {
   // 새 카드를 같은 자리에
   if (got.length) { const nc = C.hand.pop(); C.hand.splice(hi, 0, nc); }
   fx(R, { type: 'swap', out: c.u, in: got[0] ?? null });
-}
+});
 
-export function placeBet(R, hi) {
+export const placeBet = act('placeBet', function placeBet(R, hi) {
   const C = inCombat(R);
   if (R.cls !== 'gambler') fail('도박사만 배팅할 수 있어요.');
   if (C.rolled) fail('배팅은 굴리기 전에만 할 수 있어요.');
@@ -798,10 +890,10 @@ export function placeBet(R, hi) {
   if (!c) fail('없는 카드예요.');
   C.bet = c.u;
   fx(R, { type: 'bet', u: c.u });
-}
+});
 
 export const canDance = R => R.cls === 'dancer' && R.phase === 'combat' && R.C?.phase === 'roll' && R.C.rolled && R.dance > 0 && !R.C.danced && !toolsLocked(R);
-export function useDance(R) {
+export const useDance = act('useDance', function useDance(R) {
   const C = inCombat(R);
   if (!canDance(R)) fail(toolsLocked(R) ? '패기! 이번 턴은 춤출 수 없어요.' : '지금은 춤사위를 쓸 수 없어요.');
   const from = C.dice.slice();
@@ -809,10 +901,10 @@ export function useDance(R) {
   R.dance--;
   C.danced = true;
   fx(R, { type: 'dance', from, to: C.dice.slice() });
-}
+});
 
 export const canDeal = R => R.cls === 'sharper' && R.phase === 'combat' && R.C?.phase === 'roll' && R.C.rolled && R.C.deals > 0 && (R.C.dealtTurn !== R.C.turn || R.C.dealtN < CLASS_TUNE.dealsTurn) && !toolsLocked(R);
-export function useDeal(R, i, v) {
+export const useDeal = act('useDeal', function useDeal(R, i, v) {
   const C = inCombat(R);
   if (!canDeal(R)) fail(toolsLocked(R) ? '패기! 이번 턴은 밑장빼기를 할 수 없어요.' : '지금은 밑장빼기를 할 수 없어요.');
   if (isSealed(R, i)) fail('봉인된 주사위는 바꿀 수 없어요.');
@@ -824,9 +916,9 @@ export function useDeal(R, i, v) {
   C.dealtN = C.dealtTurn === C.turn ? (C.dealtN || 0) + 1 : 1;
   C.dealtTurn = C.turn;
   fx(R, { type: 'deal', i, from, v });
-}
+});
 
-export function usePotion(R, slot) {
+export const usePotion = act('usePotion', function usePotion(R, slot) {
   const C = inCombat(R);
   const id = R.potions[slot];
   if (!id) fail('빈 칸이에요.');
@@ -844,8 +936,8 @@ export function usePotion(R, slot) {
     C.sealed = []; C.frozen = []; C.gazed = [];
   }
   if (C.e.hp <= 0) winCombat(R);
-}
-export const dropPotion = (R, slot) => { R.potions.splice(slot, 1); };
+});
+export const dropPotion = act('dropPotion', (R, slot) => { R.potions.splice(slot, 1); });
 
 // ── 카드 점수 ────────────────────────────────────────────────────────────────
 // 기본 점수(요트 원룰) + 보너스 목록. 보너스는 모두 기본 점수에 대한 배율이라 더해서 쌓는다
@@ -963,7 +1055,7 @@ export function coverAtk(R, hi, sc = null) {
   return { atk: 0, full: false };
 }
 
-export function playCard(R, hi, target) {
+export const playCard = act('playCard', function playCard(R, hi, target) {
   const C = inCombat(R);
   if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
   const card = C.hand[hi];
@@ -1008,7 +1100,7 @@ export function playCard(R, hi, target) {
   log(R, `${cardName(card)} ${[p.atk > 0 ? `공격 ${p.dmg}` : '', p.block ? `방어 ${p.block}` : ''].filter(Boolean).join(' · ') || '0점'}`);
   if (C.e.hp <= 0) return winCombat(R);
   enemyTurn(R);
-}
+});
 
 // 적에게 피해. 보호막이 먼저 깎인다 (관통은 무시)
 function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
@@ -1216,7 +1308,7 @@ function genReward(R, kind) {
 
 function inReward(R) { if (R.phase !== 'reward' || !R.reward) fail('보상을 받을 때가 아니에요.'); return R.reward; }
 // 보상 하나 받기. choice: 카드 · 유물 고르기 보상에서 고른 번호 (-1 = 건너뛰기)
-export function takeReward(R, idx, choice = 0) {
+export const takeReward = act('takeReward', function takeReward(R, idx, choice = 0) {
   const rw = inReward(R);
   const it = rw.items[idx];
   if (!it || it.done) fail('이미 받은 보상이에요.');
@@ -1232,7 +1324,7 @@ export function takeReward(R, idx, choice = 0) {
   it.done = true;
   checkFeats(R);
   fx(R, { type: 'take', t: it.t });
-}
+});
 export function gainRelic(R, id) {
   if (!id || hasRelic(R, id)) return;
   R.relics.push(id);
@@ -1241,7 +1333,7 @@ export function gainRelic(R, id) {
   fx(R, { type: 'relic', id });
 }
 // 보상 화면을 떠난다 (남은 보상은 버린다). 보스 보상이면 다음 막으로
-export function leaveReward(R) {
+export const leaveReward = act('leaveReward', function leaveReward(R) {
   const rw = inReward(R);
   R.reward = null;
   R.C = null;
@@ -1255,7 +1347,7 @@ export function leaveReward(R) {
     return;
   }
   R.phase = 'map';
-}
+});
 
 // ── 상점 ─────────────────────────────────────────────────────────────────────
 export const PRICE = { card: { 1: 48, 2: 76, 3: 140 }, relic: { 1: 140, 2: 200, 3: 300 }, potion: 40, flip: 30, nudge: 20, remove: 60, removeStep: 20 };
@@ -1276,13 +1368,13 @@ function shopRelics(R) {
 }
 // 상점 대장장이: 카드 1장 강화 (상점마다 한 번, 쓸수록 비싸진다)
 export const smithPrice = R => Math.round((70 + (R.smiths || 0) * 25) * (asc(R, 7) ? 1.25 : 1));
-export function startSmith(R) {
+export const startSmith = act('startSmith', function startSmith(R) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
   if (R.shop.smithed) fail('이 상점에서는 이미 강화했어요.');
   startUpgrade(R, 'shop', smithPrice(R));
-}
+});
 export const removePrice = R => Math.round((PRICE.remove + R.removes * PRICE.removeStep) * (asc(R, 7) ? 1.25 : 1));
-export function buy(R, kind, idx) {
+export const buy = act('buy', function buy(R, kind, idx) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
   const list = { card: R.shop.cards, relic: R.shop.relics, potion: R.shop.potions, tool: R.shop.tools }[kind];
   const it = list?.[idx];
@@ -1297,31 +1389,31 @@ export function buy(R, kind, idx) {
   if (kind === 'potion') R.potions.push(it.id);
   if (kind === 'tool') addTool(R, it.kind, 1);
   fx(R, { type: 'buy', kind });
-}
-export function startRemove(R) {
+});
+export const startRemove = act('startRemove', function startRemove(R) {
   if (R.phase !== 'shop' || R.shop.removed) fail('카드 제거는 상점마다 한 번이에요.');
   if (R.gold < removePrice(R)) fail('골드가 모자라요.');
   if (R.deck.length <= 5) fail('덱이 너무 작아요 (최소 5장).');
   R.pick = { why: 'remove', cost: removePrice(R), from: 'shop' };
-}
-export function leaveShop(R) {
+});
+export const leaveShop = act('leaveShop', function leaveShop(R) {
   if (R.phase !== 'shop') fail('상점이 아니에요.');
   R.shop = null; R.pick = null;
   R.phase = 'map';
-}
+});
 
 // ── 휴식 ─────────────────────────────────────────────────────────────────────
 export const restAmount = R => Math.round(R.maxHp * (asc(R, 4) ? 0.2 : REST_HEAL)) + (hasRelic(R, 'camp') ? 20 : 0);
-export function restHeal(R) {
+export const restHeal = act('restHeal', function restHeal(R) {
   if (R.phase !== 'rest') fail('휴식처가 아니에요.');
   healHero(R, restAmount(R), 'rest');
   R.phase = 'map';
-}
-export function startUpgrade(R, from = 'rest', cost = 0) {
+});
+export const startUpgrade = act('startUpgrade', function startUpgrade(R, from = 'rest', cost = 0) {
   if (!R.deck.some(canUpgrade)) fail('강화할 카드가 없어요.');
   if (cost && R.gold < cost) fail('골드가 모자라요.');
   R.pick = { why: 'upgrade', from, cost };
-}
+});
 // 강화 고르기: 점수 +30% (아직 안 했으면) 또는 새 효과 3개 중 하나 (효과가 KW_MAX 개 미만이면)
 function upgradeOpts(R, c) {
   const out = [];
@@ -1332,7 +1424,7 @@ function upgradeOpts(R, c) {
   }
   return out;
 }
-export function chooseUpgrade(R, k) {
+export const chooseUpgrade = act('chooseUpgrade', function chooseUpgrade(R, k) {
   const pk = R.pick;
   if (!pk || pk.why !== 'upgrade' || !pk.opts) fail('고를 때가 아니에요.');
   const c = R.deck.find(x => x.u === pk.u), o = pk.opts[k];
@@ -1344,9 +1436,9 @@ export function chooseUpgrade(R, k) {
   R.pick = null;
   if (pk.from === 'rest') R.phase = 'map';
   if (pk.from === 'event') finishEvent(R, pk.done);
-}
+});
 // 덱에서 카드 한 장 고르기 (강화 · 제거 · 복제)
-export function pickDeck(R, u) {
+export const pickDeck = act('pickDeck', function pickDeck(R, u) {
   const pk = R.pick;
   if (!pk) fail('고를 때가 아니에요.');
   const c = R.deck.find(x => x.u === u);
@@ -1361,7 +1453,7 @@ export function pickDeck(R, u) {
     if (R.deck.length <= 5) fail('덱이 너무 작아요 (최소 5장).');
     R.deck = R.deck.filter(x => x.u !== u);
     if (pk.cost) { R.gold -= pk.cost; R.removes++; R.shop.removed = true; }
-    if (pk.hp) hurtHero(R, pk.hp, 'event');
+    if (pk.hp) { hurtHero(R, pk.hp, 'event'); if (R.hp <= 0 && !revive(R)) { R.pick = null; return loseRun(R); } }
     fx(R, { type: 'remove', u });
   }
   if (pk.why === 'dup') {
@@ -1371,13 +1463,13 @@ export function pickDeck(R, u) {
   }
   R.pick = null;
   if (pk.from === 'event') finishEvent(R, pk.done);
-}
-export function cancelPick(R) {
+});
+export const cancelPick = act('cancelPick', function cancelPick(R) {
   const pk = R.pick;
   if (!pk) return;
   R.pick = null;
   if (pk.from === 'event') finishEvent(R, '그만두고 떠났다.');
-}
+});
 
 // ── 이벤트 (? 칸) ────────────────────────────────────────────────────────────
 // opts[k].can(R) 이 거짓이면 그 선택지는 잠긴다. go(R) 는 결과 문장을 돌려준다 (전투 · 카드 고르기로 이어질 수도 있다)
@@ -1448,7 +1540,7 @@ function startEvent(R) {
   R.phase = 'event';
   R.event = { id: ev.id, result: null, dice: null, fight: null };
 }
-export function eventChoose(R, k) {
+export const eventChoose = act('eventChoose', function eventChoose(R, k) {
   if (R.phase !== 'event' || !R.event || R.event.result != null || R.pick) fail('지금은 고를 수 없어요.');
   const o = eventDef(R.event.id).opts[k];
   if (!o) fail('없는 선택지예요.');
@@ -1457,15 +1549,15 @@ export function eventChoose(R, k) {
   R.event.choice = k;
   if (text != null) R.event.result = text;
   if (R.hp <= 0 && !revive(R)) loseRun(R);
-}
+});
 // 결과를 보고 지도로 (또는 이벤트 전투로)
-export function eventLeave(R) {
+export const eventLeave = act('eventLeave', function eventLeave(R) {
   if (R.phase !== 'event') fail('이벤트가 아니에요.');
   const fight = R.event?.fight;
   R.event = null;
   if (fight) return startCombat(R, fight);
   R.phase = 'map';
-}
+});
 function finishEvent(R, text) { if (R.phase === 'event' && R.event && R.event.result == null) R.event.result = text || '끝났다.'; }
 
 // ── 화면 · 저장용 ────────────────────────────────────────────────────────────
@@ -1706,7 +1798,7 @@ export function botCombat(R, rng = Math.random, samples = 12) {
 export function applyCombat(R, a) {
   switch (a.type) {
     case 'roll': return roll(R);
-    case 'reroll': R.C.held = a.hold.slice(); return roll(R);
+    case 'reroll': a.hold.forEach((h, i) => { if (!!R.C.held[i] !== h && !isSealed(R, i) && !isFrozen(R, i)) toggleHold(R, i); }); return roll(R);
     case 'flip': return useFlip(R, a.i);
     case 'nudge': return useNudge(R, a.i, a.d);
     case 'swap': return swapCard(R, a.hi);
