@@ -213,7 +213,7 @@ let runMod = null, runLoading = null;
 function runMenu() {
   const s = store.get('diceheroes.run');
   const can = s && s.v === 1 && !s.ended;
-  return `<div class="run-menu"><button class="pbtn${can ? ' gold' : ''}" data-act="${can ? 'run-resume' : 'run-open'}">원정${can ? ' 이어하기' : ''} <small>${can ? `${s.act}막 · 체력 ${s.hp}/${s.maxHp}` : '테스트판 · 로그라이크'}</small></button>${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
+  return `<div class="run-menu"><button class="pbtn${can ? ' gold' : ''}" data-act="${can ? 'run-resume' : 'run-open'}">원정${can ? ' 이어하기' : ''}${can ? ` <small>${s.act}막 · 체력 ${s.hp}/${s.maxHp}</small>` : ''}</button>${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
 }
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
@@ -455,7 +455,6 @@ function showDemonUnlock() {
     <div class="dr-boss">${portrait('demon', 'dr-img')}</div>
     <p class="dr-l1">세 마물을 쓰러뜨려 마왕성에 도달했다.</p>
     <h1 class="dr-title">마왕 릴리스</h1>
-    <p class="dr-l2">보스 선택에서 마왕에게 도전할 수 있어요</p>
     <button class="pbtn gold dr-ok" data-act="demon-ok">도전을 받아들인다</button>`;
   document.body.appendChild(el);
   setTimeout(() => { FX().flash('#C21E56', 600, 0.6); sfx.boom(3); if (el.isConnected) playBgm('boss_demon'); }, 1400);   // 마왕 테마가 깔린다
@@ -574,15 +573,14 @@ function showSetup() {
   const shown = steps;
   const o = pick.o;
   let body = '';
-  if (pick.step === 'mode') body = `${modeCards(o)}<p class="hint">모드를 누르면 다음 단계로 넘어가요.</p>`;
-  if (pick.step === 'rule') body = `${ruleCards(o)}<p class="hint">규칙을 누르면 다음 단계로 넘어가요.</p>`;
+  if (pick.step === 'mode') body = `${modeCards(o)}`;
+  if (pick.step === 'rule') body = `${ruleCards(o)}`;
   if (pick.step === 'boss') body = `${bossPicker(o)}
       <button class="pbtn gold big" data-act="pick-next">${last ? (pick.for === 'create' ? '방 만들기' : '완료') : '다음 ▶'}</button>`;
   if (pick.step === 'party') body = `
       ${optsSummary(o)}
       ${setup.map((pl, i) => seatCard(pl, i, { editable: true, removable: setup.length > 1, humanToggle: true })).join('')}
       <button class="pbtn small" data-act="add" ${setup.length >= 4 ? 'disabled' : ''}>＋ ${o.mode === 'coop' ? '동료' : '상대'} 추가</button>
-      <p class="hint">사람이 여럿이면 한 기기를 돌려 가며 합니다. 각자 기기로 하려면 메뉴의 <b>온라인 방</b>을 쓰세요.</p>
       <button class="pbtn gold big" data-act="start">${o.mode === 'coop' ? '토벌 출발' : '모험 출발'}</button>`;
   app.innerHTML = `
   <div class="screen page">
@@ -703,7 +701,6 @@ function showOnlineMenu(error = '', detail = '') {
       <section class="frame online-box">
         <label class="field">내 이름<input id="my-name" value="${esc(myName)}" maxlength="10"></label>
         <button class="pbtn gold big" data-act="room-create">방 만들기</button>
-        <p class="hint">방을 만들면 초대 링크가 생깁니다. 링크를 보내면 친구가 바로 같은 방에 들어옵니다 (2~4인).</p>
       </section>
       <section class="frame online-box">
         <label class="field">방 코드<input id="join-code" placeholder="예) K7MQ2" maxlength="8" autocapitalize="characters"></label>
@@ -872,10 +869,8 @@ function showLobby() {
         <b class="room-code">${online.code}</b>
         <input id="invite-link" class="link" value="${esc(link)}" readonly>
         <button class="pbtn gold" data-act="copy-link">초대 링크 복사</button>
-        <p class="hint">링크를 받은 친구가 열면 이 방으로 바로 들어옵니다.</p>
       </section>
       ${optsSummary(room.opts, host ? 'lobby-opts' : '')}
-      ${!host ? '<p class="hint">모드와 보스는 방장이 정합니다.</p>' : ''}
       ${need.length ? `<div class="ready-bar"><b>준비 ${readyN} / ${need.length}</b>${need.map(s => `<span class="rb${s.ready ? ' on' : ''}">${s.ready ? '✔' : '…'} ${esc(s.name)}</span>`).join('')}</div>` : ''}
       ${room.seats.map((s, i) => {
         const me = s.token === online.token;
@@ -1324,7 +1319,7 @@ function render() {
     </section>
 
     <section class="controls${S.classic ? ' two' : ''}">
-      ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
+      ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll${canRoll && !S.rolled ? ' next' : ''}" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>`}
       ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && (!['haki', 'midnight'].includes(E.event(S)) || (S.sealPerm && S.sealed?.length)) ? '' : 'disabled'}>
@@ -2646,8 +2641,6 @@ async function playOne(f) {
 const TERM_TIPS = [
   ['flip', p => p.flip > 0, 'flip', '뒤집기를 얻었어요', '주사위 하나를 반대 면으로 바꿔요 (1↔6, 2↔5, 3↔4). 굴린 뒤 뒤집기 버튼 → 주사위.'],
   ['nudge', p => p.nudge > 0, 'nudge', '조정을 얻었어요', '주사위 하나를 1만큼 올리거나 내려요. 굴린 뒤 조정 버튼 → 주사위 위 +1/−1.'],
-  ['perk', p => Object.keys(p.perks).length > 0, 'star', '특성 카드', '고른 특성은 게임 끝까지 적용돼요. 아래 영웅 줄의 아이콘을 누르면 효과를 볼 수 있어요.'],
-  ['hold', p => S.rolled && S.rollsLeft > 0, 'sheet', '주사위 잡기', '주사위를 눌러 잡고 다시 굴려요. 꾹 누르면 그 주사위 정보를 볼 수 있어요.'],
 ];
 function termTips() {
   if (tut || !S || S.ended || !myControl() || ui.busy) return;
@@ -3106,7 +3099,6 @@ async function showSkins(tab = 'dice') {
     </div>
     <div class="buy-slot">${buyBar()}</div>
     <div class="skin-grid" data-tab="${tab}">${cards}</div>
-    <p class="hint">보석은 대전 승리 · 보스 토벌 · 높은 점수로 모아요. 잠긴 스킨은 눌러서 미리 볼 수 있어요.</p>
     <button class="pbtn gold" data-act="close">닫기</button>
   </div></div>`;
   const host = layer.querySelector('.skin-preview');
@@ -3687,7 +3679,7 @@ async function onGameAct(act, t) {
   if (act === 'info-event') {
     const ev = E.eventInfo(E.event(S));
     sfx.tap();
-    return popover(t, `<b>${eventIco(ev.id)} 이번 라운드 · ${ev.ko}</b><p>${ev.desc}</p><small>라운드마다 모두에게 적용되는 이벤트가 바뀝니다.</small>`);
+    return popover(t, `<b>${eventIco(ev.id)} 이번 라운드 · ${ev.ko}</b><p>${ev.desc}</p>`);
   }
   if (act === 'perk') {
     if (ui.sending) return;

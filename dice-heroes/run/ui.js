@@ -116,7 +116,6 @@ export function warm() {
   })());
 }
 const RUN_SONGS = ['run_map', 'run_battle', 'run_elite', 'run_win', 'run_lose'];
-const LOAD_TIPS = ['카드를 누르면 공격 · 방어로 점수를 나눠 낼 수 있어요', '「딱 막기」는 다음 공격을 딱 막을 만큼만 방어해요', '원정이 끝나면 별조각으로 「원정 준비」에서 영구 강화', '같은 계열 유물을 모으면 그 계열 카드가 더 자주 나와요', '카드는 효과를 3개까지 새길 수 있어요'];
 async function preloadRun() {
   const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
   const songs = [...RUN_SONGS, bossSong(R.boss)].map(n => BGM_FILES[n]).filter(Boolean);
@@ -128,7 +127,7 @@ async function preloadRun() {
   X.app.innerHTML = `<div class="screen run-loading">
     <div class="rl-box"><div class="rl-walk"><i class="rl-mon goblin"></i><i class="rl-mon slime"></i><s class="rl-ground"></s></div><b>원정 준비 중…</b>
       <div class="rl-bar"><i id="rl-fill"></i></div><small id="rl-n">0%</small>
-      <p class="rl-tip">${LOAD_TIPS[Math.floor(Math.random() * LOAD_TIPS.length)]}</p></div></div>`;
+</div></div>`;
   const tick = () => { done++; const k = Math.round((done / total) * 100); const f = $('rl-fill'); if (f) f.style.width = `${k}%`; const n = $('rl-n'); if (n) n.textContent = `${k}%`; };
   const img = url => loadImg(url).then(tick);
   const file = url => fetch(url).then(r => r.arrayBuffer()).catch(() => {}).then(tick);
@@ -173,7 +172,7 @@ function paintSelect() {
   <div class="screen run-select">
     <header class="rs-head">
       <button class="icon-btn" data-act="run-home" aria-label="뒤로">◀</button>
-      <div><b>원정</b><small>테스트판 · 로그라이크 · 혼자 하기</small></div>
+      <div><b>원정</b></div>
     </header>
     <div class="rs-grid">
       ${Object.keys(Run.RUN_CLASSES).map(id => {
@@ -187,7 +186,6 @@ function paintSelect() {
       <div class="rs-top">${hero(sel)}<div><b>${info.ko}</b><small>체력 ${ci.hp} · 뒤집기 ${ci.flip} · 조정 ${ci.nudge}</small></div></div>
       <p class="rs-skill"><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>
       <div class="rs-deck"><small>시작 덱 9장 · 대표 카드</small><div class="rc rc-static">${cardFace(sig)}</div></div>
-      ${X.owns(sel) ? '' : `<p class="hint">보석으로 해금하는 직업이에요. 테스트판에서는 바로 해 볼 수 있어요.</p>`}
     </section>
     ${ascButton(b, sel)}
     <div class="rs-foot">
@@ -249,8 +247,8 @@ function showMeta() {
   }).join('');
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
     <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비</h2></div>
-    <h3 class="meta-sub"><span>영구 강화 <small>모든 직업에 적용</small></span>
-      <span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}" title="원정이 끝날 때마다 얻어요">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></h3>
+    <h3 class="meta-sub"><span>영구 강화</span>
+      <span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></h3>
     <div class="meta-list">${ups}</div>
     <h3>특수 주사위 <small>주사위 칸 ${m.equip.length}/${slots}</small></h3>
     <div class="meta-list">${dice}</div>
@@ -467,7 +465,7 @@ function paint() {
   const locked = Run.toolsLocked(R);
   $('rolls-left').innerHTML = [...Array(Run.maxRolls(R))].map((_, i) => `<i class="${i < C.rollsLeft ? 'on' : ''}"></i>`).join('');
   $('rctl').innerHTML = `
-    <button class="pbtn gold roll" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? '배팅 먼저' : rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${C.rollsLeft}회</small></button>
+    <button class="pbtn gold roll${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? '배팅 먼저' : rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${C.rollsLeft}회</small></button>
     <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${R.flip}</b></button>
     <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${R.nudge}</b></button>
     <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('recycle')}${ui.tool === 'swap' ? '카드 고르기' : '교체'}<b>${C.swaps}</b></button>`;
@@ -482,7 +480,6 @@ function tipText(needBet) {
   const C = R.C;
   if (ui.busy) return '';
   // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 도박사 배팅만 남긴다 (배팅해야 굴릴 수 있다)
-  if (R.cls === 'gambler' && !C.rolled && ui.sel != null) return '배팅할지 정해 주세요';
   if (needBet) return `${ico('coins', 'xs')} 배팅: 이번 턴에 노릴 카드를 누르세요 (그 카드 ×${Run.CLASS_TUNE.betMul})`;
   return '';
 }
@@ -549,13 +546,15 @@ function paintTray() {
 
 // 카드에 손가락을 올렸을 때 공격 · 방어 미리보기 (길게 누르기)
 function playTip(c) {
-  if (!R.C.rolled) return '<small>굴린 뒤에 낼 수 있어요</small>';
+  if (!R.C.rolled) return '';
   const hi = R.C.hand.findIndex(x => x.u === c.u);
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
-  return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p><small>누르면 공격 · 방어로 나눠 낼 수 있어요</small>`;
+  return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p>`;
 }
 
 // ── 전투 조작 ────────────────────────────────────────────────────────────────
+// 굴리기 전에 카드를 누르면: 안내 글 대신 굴리기 버튼이 톡 튀어 "여기부터" 를 알려 준다
+function nudgeRoll() { const b = X.app.querySelector('[data-act=run-roll]'); b?.classList.remove('poke'); void b?.offsetWidth; b?.classList.add('poke'); }
 function tapCard(u) {
   if (!canAct()) return;
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
@@ -570,7 +569,7 @@ function tapCard(u) {
     $('rtip').innerHTML = tipText(false);
     return;
   }
-  if (!C.rolled) { sfx.back(); X.toast(ico('dice'), '먼저 굴려 주세요', '', 1100); return; }
+  if (!C.rolled) { sfx.back(); nudgeRoll(); return; }   // 굴리기 전: 글자 대신 굴리기 버튼이 톡 튄다
   sfx.card();
   if (ui.sel === u && hand.sel === u) return closeSplit();
   openSplit(u);
@@ -1355,7 +1354,7 @@ function showShop() {
   X.app.innerHTML = `
   <div class="screen run-shop">
     ${hud()}
-    <div class="shop-head"><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b><small>"좋은 물건 있어요, 모험가님!"</small></div></div>
+    <div class="shop-head"><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div></div>
     <div class="shop-scroll">
       <h3>족보 카드</h3>
       <div class="shop-cards">${sh.cards.map((it, i) => `<button class="shop-item${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="card" data-i="${i}" ${it.sold ? 'disabled' : ''}><div class="rc rc-static">${cardFace(it.c)}</div>${price(it.price, it.sold)}</button>`).join('')}</div>
@@ -1382,7 +1381,7 @@ function showRest() {
   X.app.innerHTML = `
   <div class="screen run-rest">
     ${hud()}
-    <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>모닥불</b><small>잠시 쉬어 갈 수 있다</small></div>
+    <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>모닥불</b></div>
     <div class="rest-opts">
       <button class="pbtn big rest-btn" data-act="run-rest">${ico('heart')}<span>휴식<small>체력 ${Run.restAmount(R)} 회복</small></span></button>
       <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(Run.canUpgrade) ? '' : 'disabled'}>${runIco('ui', 'smith', 'axe')}<span>단련<small>카드 1장 강화 (+30% 또는 효과)</small></span></button>
@@ -1502,7 +1501,7 @@ function paintEnd(arrived) {
   const stars = !out ? `<p class="end-stars wait">${starIco()} 별조각 계산 중…</p>`
     : out.error ? `<p class="end-stars off">${ico('warn', 'xs')} 기록을 저장하지 못했어요 <small>인터넷 연결을 확인해 주세요</small></p>`
     : out.offline ? `<p class="end-stars off">${starIco()} 오프라인 원정 <small>인터넷 없이 시작한 원정은 별조각 · 기록이 없어요</small></p>`
-    : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b> <small>원정 준비에서 영구 강화에 써요</small></p>`;
+    : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b></p>`;
   const st = R.stats;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
@@ -1534,7 +1533,7 @@ function showMenu() {
       <button class="pbtn gold" data-act="close">계속하기</button>
       <button class="pbtn" data-act="run-deck">덱 보기</button>
       <button class="pbtn" data-act="settings">설정</button>
-      <button class="pbtn" data-act="run-home">메인 메뉴로 <small>원정은 저장돼요</small></button>
+      <button class="pbtn" data-act="run-home">메인 메뉴로</button>
       <button class="pbtn danger" data-act="run-giveup">원정 포기</button>
     </div>
   </div></div>`;
@@ -1807,7 +1806,7 @@ function intentInfo(t) {
   });
   const fury = Run.furyOf(R);
   sfx.tap();
-  X.popover(t, `<b>${esc(m.ko)}</b>${parts.map(x => `<p>${x}</p>`).join('')}<small>공격은 내가 카드를 낸 뒤에 들어와요. 보호막이 먼저 막아요.<br>${fury.from}턴부터 격앙: 적의 턴마다 힘 +${fury.str}</small>`);
+  X.popover(t, `<b>${esc(m.ko)}</b>${parts.map(x => `<p>${x}</p>`).join('')}<small>${fury.from}턴부터 격앙: 적의 턴마다 힘 +${fury.str}</small>`);
 }
 function potionMenu(k, t) {
   const id = R.potions[k];
@@ -1815,7 +1814,7 @@ function potionMenu(k, t) {
   const p = Run.potionInfo(id);
   const can = canAct();
   sfx.tap();
-  X.popover(t, `<b style="color:${p.color}">${ico(p.icon, 'xs')} ${p.ko}</b><p>${p.desc}</p><div class="pot-acts">${can ? `<button class="pbtn small gold" data-act="run-potuse" data-k="${k}">마시기</button>` : '<small>전투 중 내 턴에 쓸 수 있어요</small>'}<button class="pbtn small" data-act="run-potdrop" data-k="${k}">버리기</button></div>`);
+  X.popover(t, `<b style="color:${p.color}">${ico(p.icon, 'xs')} ${p.ko}</b><p>${p.desc}</p><div class="pot-acts">${can ? `<button class="pbtn small gold" data-act="run-potuse" data-k="${k}">마시기</button>` : ''}<button class="pbtn small" data-act="run-potdrop" data-k="${k}">버리기</button></div>`);
 }
 async function usePotion(k) {
   X.closePopover();
