@@ -955,3 +955,9 @@
 .rs-back { width: 100px; height: 140px; }
 .rs-front { --cw: 100px; --ch: 140px; }
 .rs-front .rc-in { width: 80px; height: 112px; zoom: 1.25; }
+/* 교체를 누른 동안: 바꿀 수 있는 카드가 민트빛으로 숨 쉬듯 반짝 (배팅한 카드는 빼고) */
+.hand .rc.swappable .rc-in { animation: cardBob 2.6s ease-in-out infinite, swapGlow .8s ease-in-out infinite alternate; }
+.hand .rc.swappable .rc-in::before { content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; border: 3px solid #3EE6B4; opacity: .9; animation: swapRim .8s ease-in-out infinite alternate; }
+@keyframes swapGlow { from { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 2px #3EE6B4); } to { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 12px #3EE6B4) brightness(1.1); } }
+@keyframes swapRim { from { opacity: .35; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hand .rc.swappable .rc-in, .hand .rc.swappable .rc-in::before { animation: none; } }
