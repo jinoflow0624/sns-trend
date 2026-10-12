@@ -316,6 +316,7 @@ const UI = {
   potion: ['heal', 'block', 'fire', 'time', 'power', 'pure'],
   meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'slot'],
   die: ['gold', 'heavy', 'twin', 'stair'],
+  sdie: ['gold', 'heavy', 'twin', 'stair'],       // 트레이 주사위 아래 휘장 (192×96, 디자인 세션)
   ui: ['star', 'asc', 'smith', 'shield', 'split_knob'],
   feat: ['act1', 'clear', 'flawless', 'ace30', 'lstr60', 'yacht', 'wall', 'rich', 'hoard', 'asc5', 'asc10', 'five'],                                   // 종류 없이 이름 그대로인 그림 (assets/run/ui/<id>.webp)
 };
