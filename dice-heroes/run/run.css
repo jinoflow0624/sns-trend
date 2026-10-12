@@ -454,6 +454,11 @@
 .ev-dice { display: flex; gap: 6px; }
 .ev-dice .md { width: 30px; height: 30px; padding: 4px; animation: dealIn .5s cubic-bezier(.2,1.4,.4,1) backwards; }
 .ev-dice .md i { width: 5px; height: 5px; }
+/* 이벤트 주사위 굴리기 (일일 보상처럼): 흔들리다가 앞에서부터 하나씩 멈춘다 */
+.ev-dice.rolling .md, .ev-dice.settled .md { animation: none; }
+.ev-dice.rolling .dd-die:not(.set) { animation: ddShake .12s steps(2, jump-none) infinite; }
+.ev-dice .dd-die.set { animation: ddLand .3s cubic-bezier(.2, 1.8, .4, 1); }
+.ev-result.wait { opacity: .7; }
 
 /* ── 덱 보기 · 고르기 ─────────────────────────────────────────────────── */
 .deck-box { max-height: calc(100dvh - 40px); overflow-y: auto; padding: 4px; }

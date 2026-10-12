@@ -10,13 +10,13 @@ import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT } from './art.js';
 import { relicIco, relicURLs } from './relic-art.js';
 import { Hand } from './hand.js';
+import * as Prog from './progress.js';
 
 const SAVE = 'diceheroes.run';
-const BEST = 'diceheroes.runBest';
 let X = null;            // app.js 도구
 let R = null;            // 원정 상태
 let hand = null;         // 손패 (스프링 카드)
-const ui = { busy: false, tool: null, dealDie: null, sel: null, split: null, rolling: false, show: null, dice: null, view: null, sealRoll: null, pickU: null, cardPick: null, relicPick: null, last: 0 };
+const ui = { busy: false, tool: null, dealDie: null, sel: null, split: null, rolling: false, show: null, dice: null, view: null, sealRoll: null, pickU: null, cardPick: null, relicPick: null, last: 0, featShown: new Set(), end: null };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -36,6 +36,7 @@ const KIND_KO = { normal: '', elite: '엘리트', boss: '보스' };
 let cssReady = null;
 export function init(ctx) {
   X = ctx;
+  Prog.initProgress(X.store);
   return (cssReady ||= new Promise(resolve => {
     let l = document.getElementById('run-css');
     if (l?.sheet) return resolve();
@@ -55,28 +56,29 @@ function save() {
   syncFeats();
   if (R.ended) X.store.del(SAVE); else X.store.set(SAVE, R);
 }
-function best() { const b = X.store.get(BEST) || { runs: 0, wins: 0, top: 0, cls: {} }; b.asc ||= {}; b.feats ||= []; b.meta ||= { stars: 0, lv: {}, dice: [], equip: [] }; return b; }
+// 기록 · 별조각은 progress.js 가 맡는다 (배포판은 서버 지갑, 테스트판은 이 기기). 화면은 읽기만 한다
+function best() { const p = Prog.progress(); return { ...p.best, meta: { stars: p.stars, lv: p.lv, dice: p.dice, equip: p.equip } }; }
 const mlv = (b, id) => b.meta.lv[id] || 0;
 // 승천: 원정을 깬 단계 + 1 까지 고를 수 있다 (직업마다)
 // 시험용: 이 직업은 승천을 처음부터 끝까지 열어 둔다 (원정은 테스트판에만 있다. 정식 출시 전에 비울 것)
 const ASC_ALL_OPEN = new Set(['dancer']);
 const ascOpen = (b, cls) => (ASC_ALL_OPEN.has(cls) ? Run.ASC_MAX : Math.min(Run.ASC_MAX, (b.asc[cls] ?? -1) + 1));
 // 판 안에서 이룬 도전과제를 기록에 옮기고, 처음 이룬 것은 알린다
-function syncFeats() {
+// (기록에 옮기는 것은 원정이 끝날 때 progress.js 가 한다. 여기서는 알리기만)
+function syncFeats(extra = []) {
   const b = best();
-  const got = [...(R.feats || [])];
-  if (Object.values(b.cls).filter(c => c.wins > 0).length >= 5) got.push('five');
-  const fresh = got.filter(id => !b.feats.includes(id));
-  if (!fresh.length) return;
-  b.feats.push(...fresh);
-  X.store.set(BEST, b);
+  const fresh = [...new Set([...(R?.feats || []), ...extra])].filter(id => !b.feats.includes(id) && !ui.featShown.has(id));
   fresh.forEach((id, k) => {
+    ui.featShown.add(id);
     const f = Run.FEATS.find(x => x.id === id);
     if (f) setTimeout(() => { sfx.legend?.(); X.toast(ico(f.icon), `원정 도전과제 · ${f.ko}`, f.desc, 2200); }, k * 900);
   });
 }
 
-export function open() { ui.view = 'select'; X.setScreen('run'); paintSelect(); }
+export function open() {
+  ui.view = 'select'; X.setScreen('run'); paintSelect();
+  Prog.refresh().then(() => ui.view === 'select' && !R && !X.layer.innerHTML && paintSelect());   // 배포판: 서버 기록 새로 받기
+}
 export async function resume() {
   const s = savedRun(X.store);
   if (!s) return open();
@@ -222,19 +224,16 @@ function diePeek(t) {
     <div class="die-faces">${[1, 2, 3, 4, 5, 6].map(v => `<img src="assets/run/dice/${d.id}_${v}.webp?v=${X.version}" alt="${v}">`).join('')}</div>
     <p>${d.desc}</p></div>`);
 }
-function metaAct(act, id) {
-  const b = best(), m = b.meta;
-  if (act === 'run-metabuy') {
-    const u = Run.META.find(x => x.id === id), n = mlv(b, id);
-    if (!u || n >= u.max || m.stars < u.cost[n]) return;
-    m.stars -= u.cost[n]; m.lv[id] = n + 1;
-  }
-  if (act === 'run-diebuy') { const d = Run.diceInfo(id); if (!d || m.dice.includes(id) || m.stars < d.cost) return; m.stars -= d.cost; m.dice.push(id); if (m.equip.length < mlv(b, 'slot')) m.equip.push(id); }
-  if (act === 'run-dieequip') {
-    if (m.equip.includes(id)) m.equip = m.equip.filter(x => x !== id);
-    else if (m.dice.includes(id) && m.equip.length < mlv(b, 'slot')) m.equip.push(id);
-  }
-  X.store.set(BEST, b);
+async function metaAct(act, id) {
+  if (ui.metaBusy) return;
+  const m = best().meta;
+  ui.metaBusy = true;
+  try {
+    if (act === 'run-metabuy') await Prog.buy('meta', id);
+    if (act === 'run-diebuy') await Prog.buy('die', id);
+    if (act === 'run-dieequip') await Prog.equip(m.equip.includes(id) ? m.equip.filter(x => x !== id) : [...m.equip, id]);
+  } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+  finally { ui.metaBusy = false; }
   if (act === 'run-dieequip') sfx.select(); else sfx.forge?.();
   paintSelect();                         // 직업 고르기 화면의 별조각 수를 바꾸고 (창을 지운다)
   showMeta();
@@ -258,7 +257,7 @@ function hud() {
     <button class="icon-btn" data-act="run-menu" aria-label="메뉴">☰</button>
     <div class="rh-act"><small>${R.act}막${R.asc ? ` · 승천${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
     <div class="rh-res">
-      <span class="res gold" id="r-gold">${ico('coins', 'xs')}<b>${R.gold}</b></span>
+      <span class="res gold" id="r-gold">${ico('coins', 'xs')}<b>${ui.show?.gold ?? R.gold}</b></span>
       <span class="res">${ico('flip', 'xs')}<b>${R.flip}</b></span>
       <span class="res">${ico('nudge', 'xs')}<b>${R.nudge}</b></span>
       ${R.cls === 'dancer' ? `<span class="res">${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
@@ -1293,7 +1292,7 @@ function showRest() {
 }
 
 // ── 이벤트 ───────────────────────────────────────────────────────────────────
-function showEvent() {
+function showEvent(rolled = false) {
   playBgm('run_map');
   const ev = Run.eventDef(R.event.id);
   const res = R.event.result;
@@ -1305,12 +1304,35 @@ function showEvent() {
       <div class="ev-art">${sceneURL(ev.id) ? `<img class="run-scene" src="${sceneURL(ev.id)}" alt="">` : ico(ev.art, 'lg')}</div>
       <h2>${esc(ev.ko)}</h2>
       <p class="ev-text">${esc(ev.text)}</p>
-      ${R.event.dice ? `<div class="ev-dice">${R.event.dice.map(v => `<i class="dd-die" data-v="${v}">${miniDie(v)}</i>`).join('')}</div>` : ''}
-      ${res != null ? `<p class="ev-result">${esc(res)}</p><button class="pbtn gold" data-act="run-evleave">계속</button>`
+      ${R.event.dice ? `<div class="ev-dice${ui.evRoll ? ' rolling' : rolled ? ' settled' : ''}">${R.event.dice.map(v => `<i class="dd-die" data-v="${v}">${miniDie(ui.evRoll ? 1 + Math.floor(Math.random() * 6) : v)}</i>`).join('')}</div>` : ''}
+      ${ui.evRoll ? '<p class="ev-result wait">주사위를 굴린다…</p>'
+        : res != null ? `<p class="ev-result">${esc(res)}</p><button class="pbtn gold" data-act="run-evleave">계속</button>`
         : `<div class="ev-opts">${ev.opts.map((o, k) => { const ok = o.can(R); const d = typeof o.desc === 'function' ? o.desc(R) : o.desc; return `<button class="pbtn ev-opt" data-act="run-evopt" data-k="${k}" ${ok ? '' : 'disabled'}><span>${esc(o.ko)}</span><small>${esc(d)}</small></button>`; }).join('')}</div>`}
     </div>
     ${heroStrip()}
   </div>`;
+}
+// 이벤트 주사위: 일일 보상처럼 다 같이 흔들리다가 앞에서부터 하나씩 멈춘다. 결과(체력 · 골드)는 다 멈춘 뒤에 보인다
+async function rollEventDice(before) {
+  const d = R.event.dice, r0 = R;
+  ui.show = before; ui.evRoll = true; ui.busy = true;
+  showEvent();
+  const dice = [...X.app.querySelectorAll('.ev-dice .dd-die')];
+  sfx.shake?.();
+  const spin = setInterval(() => dice.forEach(e => { if (!e.classList.contains('set')) e.innerHTML = miniDie(1 + Math.floor(Math.random() * 6)); }), 90);
+  await wait(650);
+  for (let i = 0; i < d.length; i++) {
+    const tense = d.length === 5 && i === 4 && d.slice(0, 4).every(v => v === d[0]);   // 요트가 될 수 있으면 마지막 하나는 뜸 들인다
+    await wait(tense ? 700 : 260);
+    dice[i].classList.add('set'); dice[i].innerHTML = miniDie(d[i]); dice[i].dataset.v = d[i];
+    sfx.clack?.();
+  }
+  clearInterval(spin);
+  await wait(380);
+  ui.show = null; ui.evRoll = false; ui.busy = false;
+  if (R !== r0) return;
+  if (R.phase === 'lost') return showEnd();
+  showEvent(true);
 }
 
 // ── 덱 고르기 (강화 · 제거 · 복제) / 덱 보기 ─────────────────────────────────
@@ -1359,24 +1381,27 @@ function showDeck() {
 function showEnd() {
   hand?.destroy(); hand = null;
   const won = R.won;
-  const b = best();
-  const opened = won && (b.asc[R.cls] ?? -1) < (R.asc || 0) && (R.asc || 0) < Run.ASC_MAX;
   const fresh = !ui.recorded;
   if (!ui.recorded) {
-    ui.recorded = true;
-    b.runs++;
-    if (won) b.wins++;
-    const reach = (R.act - 1) * 7 + Math.min(7, Run.floorOf(R));
-    b.top = Math.max(b.top, won ? 21 : reach);
-    (b.cls[R.cls] ||= { runs: 0, wins: 0 }).runs++;
-    if (won) { b.cls[R.cls].wins++; b.asc[R.cls] = Math.max(b.asc[R.cls] ?? -1, R.asc || 0); }
-    ui.gotStars = Run.starsOf(R);
-    b.meta.stars += ui.gotStars;
-    X.store.set(BEST, b);
-    syncFeats();
+    // 기록 · 별조각 (배포판: 서버가 행동 기록을 다시 돌려 계산 — 받을 때까지 기다린다)
+    const r0 = R;
+    ui.recorded = Prog.finishRun(R).then(out => { if (R !== r0) return; ui.end = out; syncFeats(out.fresh); paintEnd(true); });
+    ui.end = null;
   }
   X.store.del(SAVE);
-  playBgm(won ? 'run_win' : 'run_lose');
+  paintEnd(false);
+  if (fresh) {
+    playBgm(won ? 'run_win' : 'run_lose');
+    if (won && X.prefs.fx !== 'min') { FX().burst(innerWidth / 2, innerHeight * 0.3, { n: 90, pal: PALETTES.rainbow, speed: [100, 420] }); sfx.levelup?.(); }
+  }
+}
+function paintEnd(arrived) {
+  const won = R.won, out = ui.end;
+  const opened = !!out?.opened;
+  const stars = !out ? `<p class="end-stars wait">${starIco()} 별조각 계산 중…</p>`
+    : out.error ? `<p class="end-stars off">${ico('warn', 'xs')} 기록을 저장하지 못했어요 <small>인터넷 연결을 확인해 주세요</small></p>`
+    : out.offline ? `<p class="end-stars off">${starIco()} 오프라인 원정 <small>인터넷 없이 시작한 원정은 별조각 · 기록이 없어요</small></p>`
+    : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b> <small>원정 준비에서 영구 강화에 써요</small></p>`;
   const st = R.stats;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
@@ -1390,14 +1415,13 @@ function showEnd() {
       </div>
       <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
       <p class="hint">${R.asc ? `승천 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
-      <p class="end-stars">${starIco()} 별조각 <b>+${ui.gotStars || 0}</b> <small>원정 준비에서 영구 강화에 써요</small></p>
+      ${stars}
       ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 승천 ${(R.asc || 0) + 1} 열림!</p>` : ''}
       <div class="res-actions"><button class="pbtn" data-act="run-home">메인으로</button><button class="pbtn gold" data-act="run-again">다시 원정</button></div>
     </div>
   </div>`;
-  if (won && X.prefs.fx !== 'min') { FX().burst(innerWidth / 2, innerHeight * 0.3, { n: 90, pal: PALETTES.rainbow, speed: [100, 420] }); sfx.levelup?.(); }
-  if (fresh && ui.gotStars) setTimeout(() => sfx.stars?.(ui.gotStars), won ? 1100 : 600);
-  if (fresh && opened) setTimeout(() => sfx.ascend?.(), 2000);
+  if (arrived && out?.stars) setTimeout(() => sfx.stars?.(out.stars), won ? 1100 : 600);
+  if (arrived && opened) setTimeout(() => sfx.ascend?.(), 2000);
 }
 
 // ── 메뉴 ─────────────────────────────────────────────────────────────────────
@@ -1436,17 +1460,23 @@ export function onAct(act, t) {
     sfx.start();
     const cls = act === 'run-again' ? R?.cls || ui.cls : ui.cls;
     const lv = act === 'run-again' && R ? R.asc || 0 : ui.asc || 0;
-    R = Run.createRun({ cls, name: X.name(), asc: lv, meta: best().meta });
-    ui.recorded = false;
-    save();
-    const r0 = R;
-    return preloadRun().then(() => R === r0 && enterView(true));   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
+    if (ui.starting) return;
+    ui.starting = true;
+    // 배포판은 서버가 시드를 정하고 그때의 원정 준비를 적어 둔다 (끝날 때 행동 기록을 다시 돌려 맞춰 본다)
+    return Prog.startRun(cls, lv).then(s => {
+      R = Run.createRun({ cls, name: X.name(), asc: lv, seed: s.seed, meta: s.meta });
+      R.xid = s.id;
+      ui.recorded = false; ui.end = null; ui.featShown.clear();
+      save();
+      const r0 = R;
+      return preloadRun().then(() => R === r0 && enterView(true));   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
+    }).finally(() => { ui.starting = false; });   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
   }
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
   if (act === 'run-giveup') {
     if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = '한 번 더 누르면 포기해요'; sfx.select(); return; }
-    R.ended = true; R.won = false; R.phase = 'lost';
+    try { Run.giveUp(R); } catch { /* 이미 끝남 */ }
     X.layer.innerHTML = '';
     return showEnd();
   }
@@ -1537,13 +1567,16 @@ export function onAct(act, t) {
     if (R.pick?.opts) { sfx.select(); ui.pickU = null; return showUpgrade(); }
     why === 'upgrade' ? sfx.levelup?.() : sfx.select();
     ui.pickU = null; X.layer.innerHTML = ''; save();
-    if (R.hp <= 0) { R.ended = true; R.phase = 'lost'; return showEnd(); }
+    if (R.ended) return showEnd();
     return enterView();
   }
   // 이벤트
   if (act === 'run-evopt') {
+    if (ui.evRoll) return;
+    const had = R.event.dice, before = { hp: R.hp, blk: 0, gold: R.gold };
     try { Run.eventChoose(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '고를 수 없어요', e.message, 1400); }
     Run.drainFx(R); sfx.select(); save();
+    if (R.event?.dice && R.event.dice !== had) return rollEventDice(before);
     if (R.phase === 'lost') return showEnd();
     if (R.pick) { ui.pickU = null; showEvent(); return showPick(); }
     return showEvent();

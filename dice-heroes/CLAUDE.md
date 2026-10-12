@@ -19,3 +19,11 @@
 ## 원정 밸런스
 - 수치는 `run/rules.js` 의 `TUNE` · `RUN_CLASSES` · `CLASS_TUNE`. `node sim/run.mjs 300` 으로 직업별 클리어율을 잰다.
 - 목표: 무료 직업(도박사 · 수도승) 약 25%, 보석 직업 30~35%, 평균 약 31%.
+
+## 원정 기록 · 별조각 (조작 방지)
+- 저장은 `run/progress.js` 한 곳. 배포판은 서버 지갑 `wallets/<uid>/run` (앱은 읽기만), 테스트판은 이 기기(localStorage).
+- 배포판 흐름: `xStart` 가 시드를 정하고 원정 준비를 적어 둔다 → 원정 중 행동은 `act()` 로 `R.acts` 에 쌓인다 →
+  `xFinish` 가 같은 `run/rules.js` 로 `replay()` 해서 승패 · 층 · 도전과제 · 별조각을 서버에서 계산한다.
+- 그래서 **판의 상태를 바꾸는 행동은 반드시 `act('이름', fn)` 으로 감싼 함수로만** 한다 (화면에서 `R` 을 직접 고치면 서버 다시 돌리기와 어긋난다).
+  `node test/run.test.mjs` 의 다시 돌리기 테스트가 지켜 본다. 배포판 빌드는 `run/rules.js` 를 `functions/shared/run/` 에 복사한다.
+- 서버 함수(xProgress · xStart · xFinish · xBuy · xEquip)는 원정을 배포판에 넣을 때 함께 배포한다.

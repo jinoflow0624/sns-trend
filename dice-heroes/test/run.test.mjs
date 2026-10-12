@@ -555,5 +555,56 @@ test('같은 시드 · 같은 선택이면 같은 결과, 상태는 JSON 으로 
   assert.ok(copy.C.turn >= 1);
 });
 
+console.log('\n기록 · 별조각 (서버 다시 돌리기)');
+test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
+  for (const [cls, seed] of [['gambler', 3], ['warrior', 11], ['bard', 21], ['sharper', 8]]) {
+    const meta = { lv: { relic: 1, hp: 2 }, equip: [] };
+    const R = Run.createRun({ cls, seed, meta });
+    Run.botRun(R, mulberry(seed), 4);
+    const Rx = Run.replay({ seed, cls, meta, acts: R.acts });
+    assert.equal(Rx.hp, R.hp); assert.equal(Rx.won, R.won); assert.equal(Rx.act, R.act);
+    assert.equal(Run.starsOf(Rx), Run.starsOf(R));
+    assert.deepEqual(Rx.feats, R.feats);
+  }
+});
+test('고친 행동 기록은 맞지 않는다', () => {
+  const R = Run.createRun({ cls: 'monk', seed: 4 });
+  Run.botRun(R, mulberry(4), 4);
+  const acts = R.acts.slice(0, -1);
+  const Rx = Run.replay({ seed: 4, cls: 'monk', acts });
+  assert.ok(!Rx.ended || Rx.hp !== R.hp || Rx.won !== R.won || Run.starsOf(Rx) !== Run.starsOf(R) || Rx.stats.turns !== R.stats.turns);
+  assert.throws(() => Run.replay({ seed: 4, cls: 'monk', acts: [['cheat']] }));
+  // 다른 시드로는 같은 기록이 통하지 않는다
+  assert.throws(() => { const Ry = Run.replay({ seed: 5, cls: 'monk', acts: R.acts }); if (!Ry.ended || Ry.hp !== R.hp) throw new Error('다름'); });
+});
+test('기록에 더하기 · 사기 · 넣기', () => {
+  const p = Run.blankProgress();
+  const R = Run.createRun({ cls: 'gambler', seed: 9 });
+  Run.giveUp(R);
+  const out = Run.recordRun(p, R);
+  assert.equal(p.best.runs, 1); assert.equal(p.stars, out.stars);
+  p.stars = 1000;
+  assert.equal(Run.buyProgress(p, 'meta', 'nope'), '없는 강화예요.');
+  assert.equal(Run.buyProgress(p, 'meta', 'slot'), null);
+  assert.equal(p.lv.slot, 1);
+  assert.equal(Run.buyProgress(p, 'die', Run.DICE[0].id), null);
+  assert.ok(Run.buyProgress(p, 'die', Run.DICE[0].id));          // 두 번은 못 산다
+  p.stars = 0;
+  assert.ok(Run.buyProgress(p, 'die', Run.DICE[1].id));          // 별조각 부족
+  p.stars = 1000;
+  assert.equal(Run.buyProgress(p, 'die', Run.DICE[1].id), null);
+  assert.ok(Run.equipProgress(p, [Run.DICE[0].id, Run.DICE[1].id]));   // 칸보다 많이
+  assert.equal(Run.equipProgress(p, [Run.DICE[1].id, 'fake']), null);  // 없는 주사위는 빠진다
+  assert.deepEqual(p.equip, [Run.DICE[1].id]);
+});
+test('출발 유물은 직업마다 하나로 정해져 있다', () => {
+  for (const cls of Object.keys(Run.RUN_CLASSES)) {
+    const id = Run.START_RELIC[cls];
+    assert.ok(Run.relicInfo(id), cls);
+    const R = Run.createRun({ cls, seed: 1, meta: { lv: { relic: 1 }, equip: [] } });
+    assert.ok(R.relics.includes(id) || (R.pickRelic || []).includes?.(id) || JSON.stringify(R).includes(`"${id}"`), cls);
+  }
+});
+
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
