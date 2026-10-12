@@ -142,6 +142,8 @@ function showTitle() {
   Wal.loadWallet().then(syncOwned, () => {});
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
+  // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게, 테스트판만)
+  if (!PROD) setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;

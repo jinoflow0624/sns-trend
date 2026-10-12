@@ -76,6 +76,7 @@ function syncFeats(extra = []) {
 }
 
 export function open() {
+  warm();
   ui.view = 'select'; X.setScreen('run'); paintSelect();
   Prog.refresh().then(() => ui.view === 'select' && !R && !X.layer.innerHTML && paintSelect());   // 배포판: 서버 기록 새로 받기
 }
@@ -93,6 +94,24 @@ export async function resume() {
 // 한 번 받으면 같은 화면에서는 다시 받지 않는다. 나머지 보스 곡은 지도에 들어간 뒤 뒤에서 받는다.
 let loaded = false;
 const keepImgs = [];                      // 받은 그림을 붙잡아 둔다 (메모리 캐시에서 바로 그려진다)
+// 그림 한 장 받기 (같은 주소는 한 번만). 받고 풀어 둔 뒤에 끝난다
+const imgJobs = new Map();
+const loadImg = url => imgJobs.get(url) || (imgJobs.set(url, new Promise(res => { const i = new Image(); keepImgs.push(i); i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(res); i.onerror = res; i.src = url; })), imgJobs.get(url));
+const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_${k + 1}.webp?v=${X.version}`);
+// 미리 받기 (규칙: 그림 · 음악은 사람이 누르기 전에 이미 받아져 있어야 한다 — CLAUDE.md)
+// 시작 화면에 원정 버튼이 보이면 app.js 가 부른다. 화면에 바로 쓰일 것(승천 문장 등)부터, 나머지는 천천히 뒤에서
+let warming = null;
+export function warm() {
+  return (warming ||= (async () => {
+    await Promise.all(ascURLs().map(loadImg));
+    const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
+    const jobs = [...runAssetURLs(bosses), ...relicURLs()].map(u => () => loadImg(u));
+    const go = async () => { while (jobs.length) await jobs.shift()(); };
+    await Promise.all([...Array(3)].map(go));
+    [...RUN_SONGS].map(n => BGM_FILES[n]).filter(Boolean).forEach(u => fetch(u).catch(() => {}));
+    document.fonts?.load('12px Galmuri9').catch(() => {});   // 글꼴은 CSS 의 글꼴로 받아야 다시 받지 않는다
+  })());
+}
 const RUN_SONGS = ['run_map', 'run_battle', 'run_elite', 'run_win', 'run_lose'];
 const LOAD_TIPS = ['카드를 누르면 공격 · 방어로 점수를 나눠 낼 수 있어요', '「딱 막기」는 다음 공격을 딱 막을 만큼만 방어해요', '원정이 끝나면 별조각으로 「원정 준비」에서 영구 강화', '같은 계열 유물을 모으면 그 계열 카드가 더 자주 나와요', '카드는 효과를 3개까지 새길 수 있어요'];
 async function preloadRun() {
@@ -108,7 +127,7 @@ async function preloadRun() {
       <div class="rl-bar"><i id="rl-fill"></i></div><small id="rl-n">0%</small>
       <p class="rl-tip">${LOAD_TIPS[Math.floor(Math.random() * LOAD_TIPS.length)]}</p></div></div>`;
   const tick = () => { done++; const k = Math.round((done / total) * 100); const f = $('rl-fill'); if (f) f.style.width = `${k}%`; const n = $('rl-n'); if (n) n.textContent = `${k}%`; };
-  const img = url => new Promise(res => { const i = new Image(); keepImgs.push(i); i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(res); i.onerror = res; i.src = url; }).then(tick);
+  const img = url => loadImg(url).then(tick);
   const file = url => fetch(url).then(r => r.arrayBuffer()).catch(() => {}).then(tick);
   // 동시에 6개씩
   const jobs = [...imgs.map(u => () => img(u)), ...songs.map(u => () => file(u)), () => file(RUN_FONT)];
@@ -167,7 +186,7 @@ function paintSelect() {
       <div class="rs-deck"><small>시작 덱 9장 · 대표 카드</small><div class="rc rc-static">${cardFace(sig)}</div></div>
       ${X.owns(sel) ? '' : `<p class="hint">보석으로 해금하는 직업이에요. 테스트판에서는 바로 해 볼 수 있어요.</p>`}
     </section>
-    ${ascPicker(b, sel)}
+    ${ascButton(b, sel)}
     <div class="rs-foot">
       ${b.runs ? `<p class="rs-best">지금까지 ${b.runs}번 원정 · 클리어 ${b.wins}번 · 최고 ${b.top >= 3 * 7 ? '클리어' : `${Math.floor(b.top / 7) + 1}막`}</p>` : '<p class="rs-best">첫 원정이에요</p>'}
       <button class="pbtn small" data-act="run-feats">${ico('trophy', 'xs')} 도전과제 ${b.feats.length}/${Run.FEATS.length}</button>
@@ -177,17 +196,38 @@ function paintSelect() {
   </div>`;
 }
 
-// 승천 고르기: 이 직업으로 깬 단계 + 1 까지. 단계마다 어려움이 쌓인다
-function ascPicker(b, cls) {
+// 승천: 직업 고르기 화면에는 버튼 하나. 누르면 승천 창에서 단계를 고른다 (이 직업으로 깬 단계 + 1 까지)
+const ascEmblem = (n, cls = '') => (n ? runIco('asc', String(n), 'skull', cls) : runIco('ui', 'asc', 'skull', cls));
+function ascButton(b, cls) {
   const open = ascOpen(b, cls), a = ui.asc;
-  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} 이 직업으로 원정을 끝내면 <b>승천</b>이 열려요 (더 어려운 원정 0~${Run.ASC_MAX})</p>`;
-  const list = Run.ASCENSION.slice(1, a + 1).map((x, k) => `<li>${runIco('asc', String(k + 1), 'skull', 'xs')}<b>${k + 1}</b> ${x.ko} · ${x.desc}</li>`).join('');
-  return `<section class="rs-asc frame">
-    <div class="asc-row"><button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="승천 낮추기">◀</button>
-      <div class="asc-lv"><span class="asc-badge${a ? '' : ' off'}">${a ? runIco('asc', String(a), 'skull') : runIco('ui', 'asc', 'skull')}<b>${a}</b></span><span><small>승천</small><small>열린 단계 ${open}</small></span></div>
-      <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button></div>
-    ${a ? `<ol class="asc-list">${list}</ol>` : '<p class="hint">승천 0: 기본 원정</p>'}
-  </section>`;
+  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} 이 직업으로 원정을 끝내면 <b>승천</b>이 열려요 (더 어려운 원정 1~${Run.ASC_MAX})</p>`;
+  return `<button class="rs-ascbtn frame${a ? ' on' : ''}" data-act="run-ascopen" style="--t:${a / Run.ASC_MAX}">
+    <span class="asc-badge${a ? '' : ' off'}">${ascEmblem(a)}<b>${a}</b></span>
+    <span class="ab-txt"><b>${a ? `승천 ${a}` : '승천 없음'}</b><small>${a ? `어려움 ${a}가지 적용` : '기본 원정'} · 열린 단계 ${open}/${Run.ASC_MAX}</small></span>
+    <span class="ab-go">바꾸기 ▸</span></button>`;
+}
+function showAsc() {
+  const b = best(), open = ascOpen(b, ui.cls), a = ui.asc;
+  const rows = Run.ASCENSION.slice(1).map((x, k) => {
+    const n = k + 1, st = n <= a ? 'on' : n <= open ? 'can' : 'lock';
+    return `<button class="asc-step ${st}${n === a ? ' cur' : ''}" data-act="run-ascset" data-v="${n}" ${st === 'lock' ? 'disabled' : ''} style="--i:${k}">
+      <span class="as-emb">${st === 'lock' ? ico('lock', 'xs') : ascEmblem(n)}</span>
+      <span class="as-n">${n}</span>
+      <span class="as-txt"><b>${x.ko}</b><small>${x.desc}</small></span></button>`;
+  }).reverse().join('');
+  X.layer.innerHTML = `<div class="overlay run-ascbox" data-act="close-bg"><div class="deck-box" data-act="noop" style="--t:${a / Run.ASC_MAX}">
+    <div class="asc-hero">
+      <button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="승천 낮추기">◀</button>
+      <div class="ah-mid"><span class="ah-emb${a ? '' : ' off'}">${ascEmblem(a)}</span>
+        <b>${a ? `승천 ${a}` : '승천 0'}</b><small>${a ? `아래 ${a}가지 어려움이 모두 쌓여요` : '기본 원정 · 단계를 올리면 어려움이 쌓여요'}</small></div>
+      <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button>
+    </div>
+    <div class="asc-ladder">${rows}</div>
+    <p class="hint">${esc(classInfo(ui.cls).ko)}: 승천 ${open}까지 열렸어요${open < Run.ASC_MAX ? ` · 승천 ${open}을 깨면 다음 단계가 열려요` : ''}</p>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">승천 끄기</button><button class="pbtn small gold" data-act="close">정하기</button></div>
+  </div></div>`;
+  const cur = X.layer.querySelector('.asc-step.cur'), lad = X.layer.querySelector('.asc-ladder');
+  if (cur && lad) lad.scrollTop = cur.offsetTop - lad.offsetTop - lad.clientHeight / 2 + cur.offsetHeight / 2;   // 고른 단계가 가운데 오게
 }
 // 원정 준비: 별조각(✦)으로 영구 강화 · 특수 주사위. 원정이 끝날 때마다 별조각을 얻는다
 function showMeta() {
@@ -1446,11 +1486,15 @@ export function onAct(act, t) {
   if (act === 'run-resume') { sfx.start(); return resume(); }
   if (act === 'run-home') { sfx.back(); X.tray()?.setMarks?.(null); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
   if (act === 'run-cls') { sfx.tap(); ui.cls = t.dataset.id; X.store.set('diceheroes.runCls', ui.cls); return paintSelect(); }
-  if (act === 'run-asc') {
-    const b = best(), v = Math.max(0, Math.min(ascOpen(b, ui.cls), (ui.asc || 0) + Number(t.dataset.d)));
+  if (act === 'run-ascopen') { sfx.select(); return showAsc(); }
+  if (act === 'run-asc' || act === 'run-ascset') {
+    const b = best(), want = act === 'run-asc' ? (ui.asc || 0) + Number(t.dataset.d) : Number(t.dataset.v);
+    const v = Math.max(0, Math.min(ascOpen(b, ui.cls), want));
+    if (v === ui.asc && act === 'run-ascset') return;
     X.store.set('diceheroes.runAsc', { ...(X.store.get('diceheroes.runAsc') || {}), [ui.cls]: v });
     sfx.select();
-    return paintSelect();
+    paintSelect();                       // 버튼 · 떠나기 문구를 바꾸고 (창을 지운다)
+    return showAsc();
   }
   if (act === 'run-feats') { sfx.select(); return showFeats(); }
   if (act === 'run-meta') { sfx.select(); return showMeta(); }
