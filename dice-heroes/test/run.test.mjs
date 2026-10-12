@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import * as Run from '../run/rules.js';
 import { RELIC_ART } from '../run/relic-art.js';
+import * as AC from '../achievements.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -595,6 +596,19 @@ test('불씨 항아리 · 피의 성배 · 성벽 설계도 · 보존 상자', (
   K.C.rolled = true; K.C.dice = [1, 1, 1, 1, 1]; K.C.e.hp = 999;
   Run.playCard(K, 1, 'self');                  // 보존 카드는 손패에 남는다 → 다음 턴 첫 카드 +15%
   if (K.phase === 'combat') { assert.equal(K.C.keepUp, 0.15); K.C.rolled = true; K.C.dice = [6, 6, 6, 6, 6]; assert.ok(Run.scoreCard(K, { u: 1, cat: 'sixes', up: 0 }).parts.some(p => p.ko === '보존 상자')); }
+});
+
+test('원정 도전과제: 원정 기록이 진행도로 옮겨지고(늘기만), 원정이 없는 곳에서는 숨긴다', () => {
+  const p = Run.blankProgress();
+  Object.assign(p.best, { runs: 12, wins: 2, top: 21, cls: { gambler: { runs: 6, wins: 1 }, monk: { runs: 6, wins: 0 } }, asc: { gambler: 5 }, feats: ['act1', 'clear'] });
+  const ach = AC.syncRunAch({}, p);
+  assert.deepEqual(ach.m, { 'r:top': 21, 'r:wins': 2, 'r:runs': 12, 'r:cls': 1, 'r:asc': 5, 'r:feats': 2 });
+  for (const id of ['run_act1', 'run_act2', 'run_win_1', 'run_runs_1', 'run_asc_1', 'run_asc_2']) assert.ok(AC.achDone(AC.achInfo(id), ach), id);
+  assert.ok(!AC.achDone(AC.achInfo('run_win_2'), ach));
+  p.best.runs = 3; AC.syncRunAch(ach, p); assert.equal(ach.m['r:runs'], 12);
+  const run = AC.ACHIEVEMENTS.filter(a => a.cat === 'run');
+  assert.ok(run.length >= 10 && run.every(a => !AC.achShown(a, {}) && AC.achShown(a, { run: true })));
+  assert.ok(AC.achClaimable(ach, {}).every(a => a.cat !== 'run'));
 });
 
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');

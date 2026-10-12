@@ -241,7 +241,7 @@ export const xFinish = onCall(async req => {
   try { Rx = X.replay({ seed: live.seed, cls: live.cls, asc: live.asc, meta: live.meta, acts }); }
   catch (e) { fail(`행동 기록을 다시 돌리지 못했어요 (${e.message}).`, 'invalid-argument'); }
   if (!Rx.ended) fail('아직 끝나지 않은 원정이에요.');
-  const { wallet, out } = await change(uid, w => X.recordRun(xOf(w), Rx));
+  const { wallet, out } = await change(uid, w => { const o = X.recordRun(xOf(w), Rx); AC.syncRunAch((w.ach ||= {}), w.run); return o; });   // 원정 도전과제 진행도도 서버 기록으로
   await db().ref(`xruns/${uid}`).remove();
   return { run: wallet.run, ...out };
 });

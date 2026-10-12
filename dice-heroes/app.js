@@ -2822,6 +2822,7 @@ function showAchievements() {
   screen = 'ach';
   setStage(null);
   layer.innerHTML = '';
+  if (!PROD) runMod?.syncAch?.();          // 테스트판: 원정 기록을 도전과제에 옮겨 둔다
   const ach = Wal.ach(), open = achOpen();
   const shown = AC.ACHIEVEMENTS.filter(a => AC.achShown(a, open));
   const done = shown.filter(a => ach?.got?.[a.id]).length;
@@ -2838,7 +2839,7 @@ function showAchievements() {
       <span class="count">${done} / ${shown.length}</span>
     </header>
     <div class="wrap">
-      <div class="seg ach-tabs" role="tablist">${AC.ACH_CATS.map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
+      <div class="seg ach-tabs" role="tablist" style="--n:${AC.ACH_CATS.filter(([id]) => shown.some(a => a.cat === id)).length}">${AC.ACH_CATS.filter(([id]) => shown.some(a => a.cat === id)).map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
       ${Wal.wallet() ? '' : '<p class="hint">지갑을 불러오는 중… (인터넷 연결이 필요해요)</p>'}
       <div class="ach-list">
       ${blocks.map(({ a, steps, step, got, ok, v }) => {
@@ -2859,7 +2860,7 @@ function showAchievements() {
   </div>`;
 }
 // 비밀 도전과제가 열렸나: 마왕은 봉인이 풀린 뒤에만 보인다
-const achOpen = () => ({ demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()), archdemon: upgradeOpen('archdemon') });
+const achOpen = () => ({ run: !PROD, demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()), archdemon: upgradeOpen('archdemon') });
 async function claimAchUI(id, btn) {
   if (btn) btn.disabled = true;
   const r = await Wal.claimAch(id);

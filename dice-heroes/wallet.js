@@ -31,7 +31,12 @@ const emit = () => listeners.forEach(cb => { try { cb(W); } catch { /* 무시 */
 
 function readLocal() { try { return JSON.parse(localStorage.getItem(LOCAL)); } catch { return null; } }
 function writeLocal(w) { try { localStorage.setItem(LOCAL, JSON.stringify(w)); } catch { /* 무시 */ } }
-function set(w) { W = fix(w); writeLocal(W); emit(); return W; }
+function set(w) {
+  W = fix(w); writeLocal(W); emit();
+  if (pendingRun) { const p = pendingRun; pendingRun = null; queueMicrotask(() => syncRunAch(p)); }   // 지갑보다 먼저 온 원정 기록
+  return W;
+}
+let pendingRun = null;
 
 // 서버(또는 이 기기)에서 지갑을 불러온다. 처음이면 기본 보석을 넣어 만든다
 export function loadWallet() {
@@ -175,6 +180,14 @@ export async function earn(info) {
 
 // ── 도전과제 ──
 export const ach = () => W?.ach || null;
+// 원정 기록을 도전과제 진행도로 옮긴다 (테스트판: 이 기기의 지갑. 배포판은 서버가 원정 끝에 직접 옮긴다)
+export function syncRunAch(p) {
+  if (PROD || !p?.best) return;
+  if (!W) { pendingRun = p; return; }
+  const before = JSON.stringify(W.ach?.m || {});
+  const next = AC.syncRunAch(structuredClone(W.ach || {}), p);
+  if (JSON.stringify(next.m) !== before) changeLocal(w => { w.ach = next; });
+}
 export const achClaimable = open => AC.achClaimable(W?.ach, open);
 export async function claimAch(id) {
   try { await loadWallet(); } catch { return { ok: false, why: '인터넷 연결이 필요해요.' }; }
