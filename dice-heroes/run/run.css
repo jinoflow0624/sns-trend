@@ -961,3 +961,7 @@
 @keyframes swapGlow { from { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 2px #3EE6B4); } to { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 12px #3EE6B4) brightness(1.1); } }
 @keyframes swapRim { from { opacity: .35; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .hand .rc.swappable .rc-in, .hand .rc.swappable .rc-in::before { animation: none; } }
+/* 상단 직업 설명 칸: 9개 직업을 한 칸에 겹쳐 두고 고른 것만 보인다 → 칸 높이가 늘 같고 설명은 다 보인다 */
+.rs-info { display: grid; }
+.rs-info-in { grid-area: 1 / 1; display: grid; gap: 5px; align-content: start; visibility: hidden; }
+.rs-info-in.on { visibility: visible; }
