@@ -329,3 +329,18 @@ export const starIco = (cls = 'xs') => runIco('ui', 'star', 'star', cls);
 const SCENES = ['start', 'shop', 'rest', 'treasure', 'chest', 'spring', 'altar', 'smith', 'gamble', 'shrine', 'library', 'trap', 'fairy'];
 export const sceneURL = id => (SCENES.includes(id) ? `assets/run/scene/${id}.webp${AV}` : null);
 export const actBgURL = act => `assets/run/bg_act${Math.min(3, Math.max(1, act))}.webp${AV}`;
+
+// 원정 시작 전에 미리 받아 둘 그림 · 글꼴 주소 전부 (로딩 화면). bosses: 보스 id (협동 보스 그림)
+export function runAssetURLs(bosses = []) {
+  const out = [
+    ...FILES.map(id => `assets/run/${id}.webp${AV}`),
+    ...[1, 2, 3].map(actBgURL),
+    ...SCENES.map(sceneURL),
+    ...Object.entries(UI).flatMap(([kind, ids]) => ids.map(id => `assets/run/ui/${kind === 'ui' ? id : `${kind}_${id}`}.webp${AV}`)),
+    ...['card_common', 'card_rare', 'card_legend'].map(n => `assets/run/ui/${n}.webp`),
+    ...['claw', 'bite', 'star'].map(n => `assets/run/fx/${n}.webp`),
+    ...bosses.map(id => foeURL(id)),
+  ];
+  return [...new Set(out)];
+}
+export const RUN_FONT = 'assets/run/fonts/Galmuri9-cards.woff2';

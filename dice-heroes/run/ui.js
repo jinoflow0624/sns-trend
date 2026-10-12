@@ -5,10 +5,10 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
-import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble } from '../audio.js';
+import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL } from './art.js';
-import { relicIco } from './relic-art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT } from './art.js';
+import { relicIco, relicURLs } from './relic-art.js';
 import { Hand } from './hand.js';
 
 const SAVE = 'diceheroes.run';
@@ -75,12 +75,48 @@ function syncFeats() {
 }
 
 export function open() { ui.view = 'select'; X.setScreen('run'); paintSelect(); }
-export function resume() {
+export async function resume() {
   const s = savedRun(X.store);
   if (!s) return open();
   R = s; R.fx = [];
   X.setScreen('run');
-  enterView(true);
+  await preloadRun();
+  if (R === s) enterView(true);
+}
+
+// ── 로딩 화면 ────────────────────────────────────────────────────────────────
+// 원정에 들어가기 전에 그림(적 · 배경 · 장면 · 아이콘 · 카드 틀 · 유물 · 보스) · 글꼴 · 원정 곡 · 이번 막 보스 곡을 다 받는다.
+// 한 번 받으면 같은 화면에서는 다시 받지 않는다. 나머지 보스 곡은 지도에 들어간 뒤 뒤에서 받는다.
+let loaded = false;
+const keepImgs = [];                      // 받은 그림을 붙잡아 둔다 (메모리 캐시에서 바로 그려진다)
+const RUN_SONGS = ['run_map', 'run_battle', 'run_elite', 'run_win', 'run_lose'];
+const LOAD_TIPS = ['카드를 누르면 공격 · 방어로 점수를 나눠 낼 수 있어요', '「딱 막기」는 다음 공격을 딱 막을 만큼만 방어해요', '원정이 끝나면 별조각으로 「원정 준비」에서 영구 강화', '같은 계열 유물을 모으면 그 계열 카드가 더 자주 나와요', '카드는 효과를 3개까지 새길 수 있어요'];
+async function preloadRun() {
+  const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
+  const songs = [...RUN_SONGS, bossSong(R.boss)].map(n => BGM_FILES[n]).filter(Boolean);
+  if (loaded) { preloadBgm(bossSong(R.boss)); return; }
+  const imgs = [...runAssetURLs(bosses), ...relicURLs()];
+  const total = imgs.length + songs.length + 1;
+  let done = 0;
+  X.layer.innerHTML = '';
+  X.app.innerHTML = `<div class="screen run-loading">
+    <div class="rl-box"><div class="rl-die"><i></i></div><b>원정 준비 중…</b>
+      <div class="rl-bar"><i id="rl-fill"></i></div><small id="rl-n">0%</small>
+      <p class="rl-tip">${LOAD_TIPS[Math.floor(Math.random() * LOAD_TIPS.length)]}</p></div></div>`;
+  const tick = () => { done++; const k = Math.round((done / total) * 100); const f = $('rl-fill'); if (f) f.style.width = `${k}%`; const n = $('rl-n'); if (n) n.textContent = `${k}%`; };
+  const img = url => new Promise(res => { const i = new Image(); keepImgs.push(i); i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(res); i.onerror = res; i.src = url; }).then(tick);
+  const file = url => fetch(url).then(r => r.arrayBuffer()).catch(() => {}).then(tick);
+  // 동시에 6개씩
+  const jobs = [...imgs.map(u => () => img(u)), ...songs.map(u => () => file(u)), () => file(RUN_FONT)];
+  const run = async () => { while (jobs.length) await jobs.shift()(); };
+  const t0 = performance.now();
+  await Promise.race([Promise.all([...Array(6)].map(run)), wait(25000)]);
+  // 지도 곡과 이번 막 보스 곡은 바로 틀 수 있게 풀어 둔다
+  await Promise.race([Promise.all([preloadBgm('run_map'), preloadBgm(bossSong(R.boss))]), wait(4000)]);
+  if (performance.now() - t0 < 500) await wait(500 - (performance.now() - t0));   // 너무 짧게 번쩍이지 않게
+  loaded = true;
+  // 나머지 보스 곡은 뒤에서 (HTTP 캐시에만)
+  bosses.map(bossSong).map(n => BGM_FILES[n]).filter(u => u && !songs.includes(u)).forEach(u => fetch(u).catch(() => {}));
 }
 
 // R.phase 에 맞는 화면을 연다
@@ -1371,7 +1407,8 @@ export function onAct(act, t) {
     R = Run.createRun({ cls, name: X.name(), asc: lv, meta: best().meta });
     ui.recorded = false;
     save();
-    return enterView(true);              // 원정 준비 '보물 지도'가 있으면 출발 유물부터
+    const r0 = R;
+    return preloadRun().then(() => R === r0 && enterView(true));   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
   }
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
