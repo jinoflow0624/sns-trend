@@ -38,6 +38,38 @@ export function rand(R) {
 const int = (R, a, b) => a + Math.floor(rand(R) * (b - a + 1));
 const pick = (R, arr) => arr[Math.floor(rand(R) * arr.length)];
 const die = R => 1 + Math.floor(rand(R) * 6);
+// 특수 주사위 한 개 굴리기 (금 · 무거운). 쌍둥이 · 계단은 다 굴린 뒤 specialDice 가 맞춘다
+const dkind = (R, i) => R.dset?.[i] || null;
+function rollFace(R, i) {
+  const k = dkind(R, i);
+  if (k === 'gold') { const v = die(R); return v === 1 ? die(R) : v; }
+  if (k === 'heavy') return rand(R) < 0.1 ? 6 : die(R);
+  return die(R);
+}
+function specialDice(R, rolled) {
+  const D = R.C.dice;
+  D.forEach((v, i) => {
+    const k = dkind(R, i);
+    if (!rolled[i] || (k !== 'twin' && k !== 'stair') || rand(R) >= 1 / 3) return;
+    const others = D.filter((x, j) => j !== i);
+    if (k === 'twin') {                    // 다른 주사위 중 가장 많이 나온 눈 (같으면 큰 눈)
+      const cnt = [0, 0, 0, 0, 0, 0, 0]; others.forEach(x => cnt[x]++);
+      let best = 1; for (let f = 1; f <= 6; f++) if (cnt[f] >= cnt[best]) best = f;
+      D[i] = best;
+    } else {                               // 없는 눈 중 가장 긴 연속을 만드는 눈
+      const has = new Set(others);
+      let best = D[i], bl = -1;
+      for (let f = 1; f <= 6; f++) {
+        if (has.has(f)) continue;
+        let lo = f, hi = f;
+        while (has.has(lo - 1)) lo--;
+        while (has.has(hi + 1)) hi++;
+        if (hi - lo > bl) { bl = hi - lo; best = f; }
+      }
+      D[i] = best;
+    }
+  });
+}
 function shuffle(R, arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rand(R) * (i + 1));
@@ -94,6 +126,28 @@ function mkCard(R, cat, up = 0, kws = []) { return { u: ++R.uid, cat, up: up ? 1
 // 강화할 수 있는 카드: 아직 +30% 강화를 안 했거나, 효과 칸이 남았다
 export const canUpgrade = c => !c.up || kwsOf(c).length < KW_MAX;
 
+// ── 원정 성장 (게임 밖 성장) ─────────────────────────────────────────────
+// 원정이 끝날 때마다 별조각(✦)을 얻고, 원정 준비에서 영구 강화 · 주사위 세트를 산다. 쌓일수록 원정이 쉬워진다.
+export const META = [
+  { id: 'hp',    ko: '강인함',     icon: 'heart',  max: 5, cost: [40, 60, 80, 100, 120], desc: n => `원정 시작 최대 체력 +${n * 2}` },
+  { id: 'gold',  ko: '여비',       icon: 'coins',  max: 3, cost: [30, 50, 70],           desc: n => `시작 골드 +${n * 20}` },
+  { id: 'tools', ko: '도구 주머니', icon: 'flip',  max: 2, cost: [50, 90],               desc: n => (n >= 2 ? '시작 뒤집기 +1 · 조정 +1' : '시작 뒤집기 +1') },
+  { id: 'potion', ko: '물약 띠',   icon: 'bag',    max: 1, cost: [80],                   desc: () => '회복 물약 1개를 들고 출발' },
+  { id: 'relic', ko: '보물 지도',   icon: 'scroll', max: 1, cost: [200],                  desc: () => '출발할 때 일반 유물 1개 (무작위)' },
+  { id: 'sharp', ko: '연마된 덱',   icon: 'axe',    max: 1, cost: [100],                  desc: () => '대표 카드 점수 +30%' },
+  { id: 'slot',  ko: '주사위 칸',   icon: 'die6',   max: 2, cost: [60, 150],              desc: n => `특수 주사위 ${n}개를 넣는다` },
+];
+// 특수 주사위 (눈은 그대로 1~6, 나오는 눈이 다르다). 원정 준비에서 사서 주사위 칸에 넣는다
+export const DICE = [
+  { id: 'gold',  ko: '금 주사위',     color: '#FFC83D', cost: 80,  desc: '1이 나오면 한 번 더 굴린다' },
+  { id: 'heavy', ko: '무거운 주사위', color: '#9AA4B8', cost: 100, desc: '6이 조금 더 자주 나온다 (1/6 → 약 1/4)' },
+  { id: 'twin',  ko: '쌍둥이 주사위', color: '#FF9AD0', cost: 120, desc: '1/3 확률로 다른 주사위와 같은 눈 (포카인드 · 요트)' },
+  { id: 'stair', ko: '계단 주사위',   color: '#3EE6B4', cost: 120, desc: '1/3 확률로 다른 주사위에 없는 이어지는 눈 (스트레이트)' },
+];
+export const diceInfo = id => DICE.find(d => d.id === id);
+// 원정이 끝나면 얻는 별조각(✦): 지난 층 2 · 엘리트 4 · 보스 10 · 클리어 20, 승천 1단계마다 +10%
+export const starsOf = R => Math.round((R.stats.floors * 2 + R.stats.elites * 4 + R.stats.bosses * 10 + (R.won ? 20 : 0)) * (1 + (R.asc || 0) * 0.1));
+
 // ── 승천 (원정을 깬 직업은 한 단계씩 더 어려운 원정을 열 수 있다, 0~10. 단계는 쌓인다) ──
 export const ASC_MAX = 10;
 export const ASCENSION = [
@@ -107,7 +161,7 @@ export const ASCENSION = [
   { ko: '바가지', desc: '상점 가격 +25%' },
   { ko: '정예의 칼날', desc: '엘리트 공격 +15%' },
   { ko: '폭군', desc: '보스 공격 +10%' },
-  { ko: '조급함', desc: '격앙이 2턴 빨리 시작된다' },
+  { ko: '마왕의 시대', desc: '격앙이 2턴 빨리 시작되고, 보스 체력 +10%' },
 ];
 export const asc = (R, n) => (R.asc || 0) >= n;
 export const furyOf = R => { const f = FURY[ENEMIES[R.C.e.id].kind]; return asc(R, 10) ? { ...f, from: f.from - 2 } : f; };
@@ -312,8 +366,8 @@ export const ACT_INFO = {
 };
 // 밸런스 조절용 배율 [1막, 2막, 3막] — 적 종류별 (sim/run.mjs 가 바꿔 가며 잰다)
 export const TUNE = {
-  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.75, 0.75, 0.81] },
-  atk: { normal: [2.06, 1.94, 1.85], elite: [1.87, 1.81, 1.55], boss: [1.9, 1.7, 1.47] },
+  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.75, 0.85, 0.92] },
+  atk: { normal: [2.06, 1.94, 1.85], elite: [1.87, 1.81, 1.55], boss: [1.9, 1.85, 1.6] },
 };
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
@@ -378,11 +432,13 @@ export function nextNodes(R) {
 }
 
 // ── 원정 만들기 ─────────────────────────────────────────────────────────────
-export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>> 0, name = '모험가', asc: lv = 0 } = {}) {
+// meta: 원정 성장 { lv: { hp, gold, tools, potion, relic, sharp, slot }, equip: [특수 주사위 id …] }
+export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>> 0, name = '모험가', asc: lv = 0, meta = null } = {}) {
   const k = RUN_CLASSES[cls] ? cls : 'gambler';
   const ci = RUN_CLASSES[k];
   const a = Math.max(0, Math.min(ASC_MAX, Math.floor(Number(lv) || 0)));
-  const hp = a >= 6 ? Math.round(ci.hp * 0.92) : ci.hp;
+  const ml = id => Math.max(0, Math.min(META.find(m => m.id === id).max, Math.floor(meta?.lv?.[id] || 0)));
+  const hp = Math.round((ci.hp + ml('hp') * 2) * (a >= 6 ? 0.92 : 1));
   const R = {
     v: 1, seed: seed >>> 0, rng: seed >>> 0, uid: 0, asc: a, feats: [],
     cls: k, name, hp, maxHp: hp, gold: 0,
@@ -396,7 +452,20 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   };
   for (const cat of BASE_DECK) R.deck.push(mkCard(R, cat));
   R.deck.push(mkCard(R, ci.sig.cat, 0, ci.sig.kw || []));
+  // 원정 성장
+  R.gold += ml('gold') * 20;
+  if (ml('tools') >= 1) R.flip = Math.min(TOOL_CAP, R.flip + 1);
+  if (ml('tools') >= 2) R.nudge = Math.min(TOOL_CAP, R.nudge + 1);
+  for (let n = 0; n < ml('potion'); n++) R.potions.push('heal');
+  const sig = R.deck[R.deck.length - 1];
+  if (ml('sharp') >= 1) sig.up = 1;
+  R.dset = (meta?.equip || []).filter(id => diceInfo(id)).slice(0, ml('slot'));
   newAct(R);
+  if (ml('relic')) {
+    const id = rollRelic(R, 1);
+    R.phase = 'reward';
+    R.reward = { kind: 'start', items: [{ t: 'relic', id }] };
+  }
   return R;
 }
 
@@ -455,7 +524,7 @@ export const toolsLocked = R => hexActive(R, 'haki');
 export function startCombat(R, foeId) {
   const def = ENEMIES[foeId];
   const a = R.act - 1;
-  const hpMul = TUNE.hp[def.kind][a] * (def.kind === 'elite' && asc(R, 1) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 3) ? 1.15 : 1);
+  const hpMul = TUNE.hp[def.kind][a] * (def.kind === 'elite' && asc(R, 1) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 3) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 10) ? 1.1 : 1);
   const hp = Math.round(int(R, def.hp[0], def.hp[1]) * hpMul);
   const e = { id: foeId, hp, maxHp: hp, block: 0, str: 0, weak: 0, burn: 0, burnT: 0, mi: -1, intent: null, raged: false, last: [], cut: def.ai === 'heads' ? {} : null, regrew: false };
   R.C = {
@@ -600,7 +669,9 @@ export function roll(R) {
   if (C.rollsLeft <= 0) fail('굴림 기회를 다 썼어요.');
   if (C.rolled && C.held.every((h, i) => h || isSealed(R, i) || isFrozen(R, i))) fail('모든 주사위를 잡고 있어요.');
   if (R.cls === 'gambler' && !C.rolled && C.bet == null && C.hand.length) fail('먼저 이번 턴에 배팅할 카드를 고르세요.');
-  C.dice = C.dice.map((v, i) => (C.rolled && (C.held[i] || isSealed(R, i) || isFrozen(R, i)) ? v : die(R)));
+  const rolled = C.dice.map((v, i) => !(C.rolled && (C.held[i] || isSealed(R, i) || isFrozen(R, i))));
+  C.dice = C.dice.map((v, i) => (rolled[i] ? rollFace(R, i) : v));
+  specialDice(R, rolled);
   if (!C.rolled) C.held = C.held.map(() => false);
   C.rolled = true;
   C.rollsLeft--;

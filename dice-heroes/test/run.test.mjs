@@ -270,6 +270,39 @@ test('유물 그림(relic-art.js): 16줄 × 16글자, 팔레트에 있는 글자
     for (const c of Object.values(a.pal)) assert.match(c, /^#[0-9A-Fa-f]{6}$/, `${id} 색 형식`);
   }
 });
+test('원정 준비(원정 밖 성장): 체력 · 골드 · 도구 · 물약 · 대표 카드 · 시작 유물 · 주사위 칸', () => {
+  const base = Run.createRun({ cls: 'warrior', seed: 5 });
+  const R = Run.createRun({ cls: 'warrior', seed: 5, meta: { lv: { hp: 5, gold: 3, tools: 2, potion: 1, sharp: 1, relic: 1, slot: 1 }, equip: ['gold', 'twin'] } });
+  assert.equal(R.maxHp, base.maxHp + 10);
+  assert.equal(R.gold, base.gold + 60);
+  assert.equal(R.flip, base.flip + 1); assert.equal(R.nudge, base.nudge + 1);
+  assert.deepEqual(R.potions, ['heal']);
+  assert.equal(R.deck.at(-1).up, 1);
+  assert.deepEqual(R.dset, ['gold']);                       // 칸 수만큼만
+  assert.equal(R.phase, 'reward'); assert.equal(R.reward.kind, 'start');
+  Run.takeReward(R, 0); Run.leaveReward(R);
+  assert.equal(R.relics.length, 1); assert.equal(R.phase, 'map');
+});
+test('특수 주사위: 금 주사위는 1이 드물고, 쌍둥이 · 계단은 다른 주사위에 맞춘다', () => {
+  const R = Run.createRun({ cls: 'rogue', seed: 8, meta: { lv: { slot: 2 }, equip: ['gold', 'twin'] } });
+  intoFight(R);
+  let ones = 0, twins = 0, n = 0;
+  for (let k = 0; k < 400; k++) {
+    R.C.rolled = false; R.C.rollsLeft = 3; R.C.held = R.C.held.map(() => false);
+    Run.roll(R); n++;
+    if (R.C.dice[0] === 1) ones++;
+    if (R.C.dice.slice(2).includes(R.C.dice[1]) || R.C.dice[0] === R.C.dice[1]) twins++;
+  }
+  assert.ok(ones / n < 0.06, `금 주사위 1 비율 ${ones / n}`);
+  assert.ok(twins / n > 0.6, `쌍둥이 맞춤 비율 ${twins / n}`);
+});
+test('별조각: 지난 층 · 엘리트 · 보스 · 클리어, 승천이 높을수록 더', () => {
+  const R = Run.createRun({ cls: 'rogue', seed: 1 });
+  Object.assign(R.stats, { floors: 10, elites: 2, bosses: 1 });
+  assert.equal(Run.starsOf(R), 20 + 8 + 10);
+  R.asc = 5; R.won = true;
+  assert.equal(Run.starsOf(R), Math.round((38 + 20) * 1.5));
+});
 test('봉인 · 얼음: 첫 굴림 뒤 걸리고, 봉인은 다시 굴리면 풀린다', () => {
   const R = run('monk', 11);
   intoFight(R);

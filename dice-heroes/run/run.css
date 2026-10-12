@@ -528,3 +528,20 @@
 .up-opt b { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--gold); }
 .up-opt small { display: block; font-size: 10px; color: var(--muted); line-height: 1.35; }
 .up-opt .rc.mini { pointer-events: none; }
+
+/* ── 원정 준비 (원정 밖 성장) ─────────────────────────────────────────── */
+.meta-btn b { color: #3B2300; margin-left: 2px; }
+.run-meta .stars { color: var(--gold); margin-left: 4px; }
+.run-meta h3 { margin: 6px 0 2px; font-size: 13px; } .run-meta h3 small { font-size: 10px; color: var(--muted); }
+.meta-list { display: grid; gap: 4px; max-height: 32vh; overflow-y: auto; }
+.meta-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 4px 6px; background: #0E0A2C; border: 2px solid #2A2270; }
+.meta-row.full { border-color: var(--gold); }
+.meta-row b { display: block; font-size: 12px; } .meta-row b small { color: var(--muted); font-weight: 400; }
+.meta-row span > small { display: block; font-size: 10px; color: var(--muted); line-height: 1.35; }
+.meta-row em { font-style: normal; color: var(--mint); }
+.meta-row .pbtn.small { min-width: 58px; }
+.die-row.on { border-color: var(--dc); box-shadow: inset 0 0 10px color-mix(in srgb, var(--dc) 40%, transparent); }
+.sdie { width: 22px; height: 22px; background: #F5F1FF; border: 2px solid var(--ink); box-shadow: inset 0 -3px 0 var(--dc), 0 0 8px var(--dc); position: relative; }
+.sdie::after { content: ''; position: absolute; left: 7px; top: 6px; width: 4px; height: 4px; background: var(--dc); box-shadow: 0 0 0 1px var(--ink); }
+.sdie-tag { position: absolute; z-index: 2; width: 10px; height: 10px; transform: translate(-50%, 0) rotate(45deg); background: var(--dc); border: 2px solid var(--ink); box-shadow: 0 0 8px var(--dc); pointer-events: none; }
+.end-stars { margin: 0; color: var(--gold); } .end-stars small { display: block; font-size: 10px; color: var(--muted); }
