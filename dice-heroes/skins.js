@@ -1,5 +1,4 @@
 // 꾸미기 — 주사위 스킨 · 트레이 스킨.
-import { GAME } from './config.js';
 // 그림은 모두 캔버스로 그린다(이미지 파일 없음). three.js 에 의존하지 않아서 목록 미리보기(2D)에도 같은 그림을 쓴다.
 //
 // 각 스킨의 tier ('free' | 'special'). 스페셜 스킨은 보석으로 산다 (가격·보유 여부는 wallet.js).
@@ -64,9 +63,11 @@ const DIE_MAT = {
 };
 export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;
-// 그림 주소 끝에 게임 버전을 붙인다 — 오프라인 캐시(sw.js)가 주소가 같으면 저장해 둔 그림을 먼저 쓰기 때문에,
-// 파일 이름이 그대로면 새 버전에서도 예전 그림이 계속 보였다 (주사위 모서리가 검던 예전 그림 등)
-const AV = `?v=${GAME.version}`;
+// 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
+// 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
+// (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
+export const ART_VER = 'a1';
+const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 
 // 면 그림을 미리 받아 둔다 (꾸미기에서 고르면 바로 바뀌게). 받은 그림은 READY 에 남는다
@@ -383,7 +384,7 @@ export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_ST
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
 export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 // 트레이 그림도 미리 받아 둔다 (꾸미기에서 고르면 바닥이 비었다가 뒤늦게 뜨지 않게)
-const RAIL_FILES = ['rail_top', 'rail_side', 'corner_side', 'corner_top'];
+export const RAIL_FILES = ['rail_top', 'rail_side', 'corner_side', 'corner_top'];
 const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
 export const trayReady = id => trayImages(id).every(u => READY.has(u));
 export const preloadTray = id => Promise.all(trayImages(id).map(loadImage));
