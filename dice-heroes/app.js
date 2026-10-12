@@ -224,7 +224,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, stageReady, turnSkin, speak, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
     });
@@ -624,12 +624,32 @@ function pickBack() {
 
 // 지금 고르는 판이 클래식 야추인가 (캐릭터 설명을 '겉모습만'으로)
 const classicPick = () => { const o = pick?.for === 'room' ? online?.room?.opts || pick.o : pick?.o || opts; return o?.mode === 'versus' && o?.rule === 'classic'; };
+// 직업 다이얼: 가운데가 지금 직업, 양옆으로 돌린다 (◀ ▶ · 옆 그림 누르기 · 밀기). 잠긴 직업은 옆에 보석 값이 보이고, 그쪽으로 돌리면 사기 창
+let dialSpin = null;      // 방금 돌린 다이얼 (그 다이얼만 도는 연출)
+const dialDirOf = t => (t.closest('.cls-dial') ? Math.sign([...t.closest('.cls-dial').querySelectorAll('[data-cls]')].indexOf(t) - 3) : 0);
+function clsDial(pl, i) {
+  const ids = E.CLASSES.map(k => k.id), k = Math.max(0, ids.indexOf(pl.cls));
+  const at = d => ids[(k + d + ids.length * 2) % ids.length];
+  const slot = d => {
+    const id = at(d), c = E.classInfo(id), lock = !pl.bot && !Wal.owns('cls', id);
+    const act = d === 0 ? 'cls-talk' : lock ? 'cls-buy' : 'cls';
+    return `<button class="dial-hero d${d}${lock ? ' locked' : ''}" style="--c:${c.color}" data-act="${act}" data-i="${i}" data-cls="${id}" aria-label="${c.ko}">
+      ${portrait(id, d ? 'mini' : '')}${lock && d ? `<span class="dial-price">${ico('gem', 'xs')}${Wal.priceOf('cls', id).toLocaleString()}</span>` : ''}</button>`;
+  };
+  const step = d => { const id = at(d), lock = !pl.bot && !Wal.owns('cls', id); return `data-act="${lock ? 'cls-buy' : 'cls'}" data-i="${i}" data-cls="${id}"`; };
+  const spin = dialSpin && dialSpin.i === i && Date.now() - dialSpin.t < 400 ? (dialSpin.d > 0 ? ' spin-r' : ' spin-l') : '';
+  return `<div class="cls-dial${spin}" data-i="${i}">
+    <button class="dial-arrow" ${step(-1)} aria-label="이전 직업">◀</button>
+    <div class="dial-track">${[-2, -1, 0, 1, 2].map(slot).join('')}</div>
+    <button class="dial-arrow" ${step(1)} aria-label="다음 직업">▶</button>
+  </div>`;
+}
 function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
   const c = E.classInfo(pl.cls);
   return `
   <section class="frame slot">
     <div class="slot-top">
-      <div class="portrait" style="--c:${c.color}" data-cls="${pl.cls}">${portrait(pl.cls)}</div>
+      ${editable ? '' : `<div class="portrait" style="--c:${c.color}" data-cls="${pl.cls}" data-act="cls-talk">${portrait(pl.cls)}</div>`}
       <div class="slot-main">
         ${editable ? `<input id="name-${i}" data-name="${i}" value="${esc(pl.name)}" maxlength="10" aria-label="${i + 1}번 이름">`
                    : `<b class="seat-name">${esc(pl.name)}</b>`}
@@ -640,14 +660,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
       </div>
       ${removable ? `<button class="x" data-act="remove" data-i="${i}" aria-label="빼기">✕</button>` : ''}
     </div>
-    ${editable ? `<div class="classes">
-      ${E.CLASSES.map(k => {
-        const lock = !pl.bot && !Wal.owns('cls', k.id);
-        return `<button class="cls${pl.cls === k.id ? ' on' : ''}${lock ? ' locked' : ''}" style="--c:${k.color}" data-act="${lock ? 'cls-buy' : 'cls'}" data-i="${i}" data-cls="${k.id}">
-          ${portrait(k.id, 'mini')}<span>${lock ? `${ico('gem', 'xs')}${Wal.priceOf('cls', k.id).toLocaleString()}` : k.ko}</span>
-        </button>`;
-      }).join('')}
-    </div>` : ''}
+    ${editable ? clsDial(pl, i) : ''}
     <p class="cls-desc"><b style="color:${c.color}">${c.ko}</b> ${classicPick() ? '겉모습만' : c.desc}</p>
   </section>`;
 }
@@ -672,7 +685,8 @@ function onSetupAct(act, t) {
   if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; store.set(KEYS.setup, setup); showSetup(); });
   if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
-  if (act === 'cls') setup[i].cls = t.dataset.cls;
+  if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
+  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
   if (act === 'remove') setup.splice(i, 1);
   if (act === 'add' && setup.length < 4) {
     const used = new Set(setup.map(p => p.cls));
@@ -907,6 +921,7 @@ function onLobbyAct(act, t) {
     me?.ready ? sfx.back() : sfx.start();
     return lobbyTxn(r => { const s = r.seats.find(x => x.token === online.token); if (s) s.ready = !s.ready; });
   }
+  if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
   if (act === 'cls-buy') {
     const i = Number(t.dataset.i);
     return classBuyDialog(t.dataset.cls, id => lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = id; }));
@@ -914,6 +929,7 @@ function onLobbyAct(act, t) {
   if (act === 'cls') {
     sfx.select();
     const i = Number(t.dataset.i);
+    dialSpin = { i, d: dialDirOf(t), t: Date.now() };
     return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = t.dataset.cls; });
   }
   if (act === 'lobby-bot' && isHost()) {
@@ -3242,6 +3258,38 @@ function showSettings(inGame = false) {
     </div>
   </div></div>`;
 }
+// 캐릭터를 누르면 하는 한마디 (스킬 특징에 맞게). 원정 직업 대사는 run/ui.js
+const CLASS_LINES = {
+  warrior: ['위쪽 칸은 내가 다 채운다!', '50점이면 충분하지. 보너스는 내 거다!'],
+  rogue: ['뒤집기 하나쯤은 늘 품에 있지.', '운? 뒤집으면 그만이야.'],
+  mage: ['배움에는 끝이 없지… 경험치도!', '책 한 장 더 넘기면 레벨 업이다.'],
+  bard: ['의뢰 하나 깰 때마다 노래 한 소절!', '박수는 조정으로 받을게요~'],
+  gambler: ['이번 판, 풀하우스에 건다!', '걸었으면 끝까지 가는 거야.'],
+  monk: ['서두르지 않는다. 남은 굴림이 곧 힘이다.', '마음을 비우면 눈이 보인다.'],
+  dancer: ['한 박자 쉬고… 모두 +1!', '큰 점수로 리듬을 타 볼까?'],
+  outlaw: ['두 번 굴리는 건 겁쟁이나 하는 짓!', '첫 굴림에 끝낸다. 빵!'],
+  sharper: ['손은 눈보다 빠르다…', '밑장은 아무도 못 봤지?'],
+};
+let lineK = 0;
+const classLine = id => { const l = CLASS_LINES[id] || ['…']; return l[lineK++ % l.length]; };
+// 말풍선: 그림 위에 잠깐 떴다가 사라진다 (원정도 X.speak 로 쓴다)
+function speak(el, text) {
+  if (!el || !text) return;
+  document.querySelectorAll('.speech').forEach(b => b.remove());
+  const r = el.getBoundingClientRect();
+  const b = document.createElement('div');
+  b.className = 'speech';
+  b.textContent = text;
+  document.body.appendChild(b);
+  const w = b.offsetWidth;
+  b.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+  b.style.top = `${Math.max(8, r.top - b.offsetHeight - 10)}px`;
+  b.style.setProperty('--ax', `${Math.max(12, Math.min(w - 12, r.left + r.width / 2 - parseFloat(b.style.left)))}px`);
+  sfx.tap();
+  el.classList.remove('talk'); void el.offsetWidth; el.classList.add('talk');
+  setTimeout(() => b.classList.add('out'), 2000);
+  setTimeout(() => b.remove(), 2350);
+}
 // 직업 한 줄 요령 (캐릭터를 길게 누르면 스킬과 함께 보인다)
 const CLASS_TIP = {
   warrior: '상단 6칸만 잘 모아도 보너스 35점. 에이스~식스를 꾸준히 채우세요',
@@ -4022,8 +4070,25 @@ document.addEventListener('pointerdown', e => {
   clsHold = setTimeout(() => { stop(); clsFired = true; buzz(15); sfx.tap(); showClsTip(el); }, 450);
 });
 document.addEventListener('contextmenu', e => { if (e.target.closest?.('[data-cls],[data-rcls]')) e.preventDefault(); });
+// 직업 다이얼은 좌우로 밀어서도 돌린다 (왼쪽으로 밀면 다음). 민 뒤에 생기는 click 은 버린다
+let dialSwiped = 0;
+document.addEventListener('pointerdown', e => {
+  const d = e.target.closest?.('.cls-dial, .rs-dial');
+  if (!d) return;
+  const x0 = e.clientX, y0 = e.clientY;
+  const up = ev => {
+    removeEventListener('pointerup', up);
+    const dx = ev.clientX - x0;
+    if (Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(ev.clientY - y0)) return;
+    clearTimeout(clsHold);
+    d.querySelectorAll('.dial-arrow')[dx < 0 ? 1 : 0]?.click();
+    dialSwiped = Date.now();
+  };
+  addEventListener('pointerup', up);
+});
 document.addEventListener('click', e => {
   if (clsFired) { clsFired = false; e.preventDefault(); e.stopPropagation(); return; }
+  if (e.isTrusted && Date.now() - dialSwiped < 350) return;
   const t = e.target.closest('[data-act]');
   // 이름표 없는 아이콘 · 숫자: 누르면 짧은 설명 (data-tip="제목" data-tipd="설명")
   const tipEl = e.target.closest('[data-tip]');

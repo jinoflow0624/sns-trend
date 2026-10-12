@@ -166,6 +166,21 @@ function enterView(fresh = false) {
 }
 
 // ── 직업 고르기 ──────────────────────────────────────────────────────────────
+// 원정 대사: 직업 그림을 누르면 스킬에 맞는 한마디 (대전 직업 대사는 app.js CLASS_LINES)
+const RUN_LINES = {
+  gambler: ['오늘의 한 장에 전부 건다!', '골드 냄새가 나는군.'],
+  monk: ['굴림을 아끼면 마음이 단단해진다.', '고요함이 곧 방패다.'],
+  rogue: ['그림자에서 뒤집고, 방패째 꿰뚫는다.', '보호막? 그런 건 없는 셈 치지.'],
+  warrior: ['숫자 카드면 공격도 방어도 내가 맡는다!', '쓰러지지 않는다. 그게 불굴이다.'],
+  bard: ['노래하면 방패가 생겨요~', '이기면 한 곡 더! 체력도 조금!'],
+  mage: ['손에 든 카드가 곧 마력이지.', '카드 보상은 한 장 더 보고 고르겠어.'],
+  dancer: ['춤사위가 쌓일수록 눈이 올라가요!', '박자에 맞춰 모두 +1!'],
+  outlaw: ['첫 굴림이 곧 방아쇠다.', '빨리 쏘고, 남은 굴림으로 막는다.'],
+  sharper: ['원하는 눈? 손끝으로 만들어 주지.', '요트도 내 손 안에 있다.'],
+};
+let runLineK = 0;
+// 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
+const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
 function paintSelect() {
   const sel = ui.cls || X.store.get('diceheroes.runCls') || 'gambler';
   ui.cls = sel;
@@ -173,7 +188,14 @@ function paintSelect() {
   ui.asc = Math.min(ascOpen(bb, sel), (X.store.get('diceheroes.runAsc') || {})[sel] ?? ascOpen(bb, sel));
   const ci = Run.RUN_CLASSES[sel], info = classInfo(sel);
   const b = best();
-  const sig = { u: 0, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null };
+  const ids = Object.keys(Run.RUN_CLASSES), k = ids.indexOf(sel);
+  const at = d => ids[(k + d + ids.length * 2) % ids.length];
+  const deck = startDeck(sel), sig = deck[deck.length - 1];
+  const kw = sig.kw ? Run.KEYWORDS[sig.kw] : null;
+  const relic = mlv(b, 'relic') && Run.START_RELIC[sel] ? Run.relicInfo(Run.START_RELIC[sel]) : null;
+  const spin = ui.spin && Date.now() - ui.spin.t < 400 ? (ui.spin.d > 0 ? ' spin-r' : ' spin-l') : '';
+  const slot = d => { const id = at(d), c = classInfo(id), owned = X.owns(id);
+    return `<button class="dial-hero d${d}${owned ? '' : ' locked'}" style="--c:${c.color}" data-act="${d ? 'run-cls' : 'run-talk'}" data-id="${id}" data-d="${d}" ${d ? '' : `data-rcls="${id}"`} aria-label="${c.ko}">${hero(id)}</button>`; };
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-select">
@@ -182,38 +204,33 @@ function paintSelect() {
       <div><b>원정</b></div>
       <button class="pbtn small rs-feats" data-act="run-feats">${ico('trophy', 'xs')} ${b.feats.length}/${Run.FEATS.length}</button>
     </header>
-    <div class="rs-grid">
-      ${Object.keys(Run.RUN_CLASSES).map(id => {
-        const c = classInfo(id), owned = X.owns(id);
-        return `<button class="rs-cls${id === sel ? ' on' : ''}${owned ? '' : ' locked'}" data-act="run-cls" data-id="${id}" data-rcls="${id}" style="--c:${c.color}">
-          ${hero(id)}<b>${c.ko}</b><small>${ico('heart', 'xs')}${Run.RUN_CLASSES[id].hp}</small>${b.cls[id]?.wins ? `<i class="rs-won">${ico('crown', 'xs')}${b.cls[id].wins}</i>` : ''}
-        </button>`;
-      }).join('')}
-    </div>
     <section class="rs-info frame" style="--c:${info.color}">
-      <div class="rs-top">${hero(sel)}<div><b>${info.ko}</b><small>체력 ${ci.hp} · 뒤집기 ${ci.flip} · 조정 ${ci.nudge}</small></div></div>
+      <div class="rs-stats"><span>${ico('heart', 'xs')}<b>${ci.hp}</b></span><span>${ico('flip', 'xs')}<b>${ci.flip}</b></span><span>${ico('nudge', 'xs')}<b>${ci.nudge}</b></span>${relic ? `<span>${relicIco(relic, 'xs')}${relic.ko}</span>` : ''}</div>
       <p class="rs-skill"><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>
-      <div class="rs-deck"><small>${ico('card', 'xs')} 9</small><div class="rc rc-static">${cardFace(sig)}</div></div>
+      <p class="rs-sig"><b>${ico('card', 'xs')} ${Run.cardName(sig)}</b> ${Run.CAT_RULE[sig.cat]}${kw ? ` · ${runIco('kw', sig.kw, kw.icon, 'xs')}${kw.ko}: ${kw.desc}` : ''}</p>
     </section>
-    ${ascButton(b, sel)}
-    <div class="rs-foot">
-      ${b.runs ? `<p class="rs-best">지금까지 ${b.runs}번 원정 · 클리어 ${b.wins}번 · 최고 ${b.top >= 3 * 7 ? '클리어' : `${Math.floor(b.top / 7) + 1}막`}</p>` : ''}
-      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 잡화점 <b>${starIco()}${b.meta.stars}</b></span></button>
+    <div class="rs-dial${spin}">
+      <button class="dial-arrow" data-act="run-cls" data-id="${at(-1)}" data-d="-1" aria-label="이전 직업">◀</button>
+      <div class="dial-track">${[-2, -1, 0, 1, 2].map(slot).join('')}</div>
+      <button class="dial-arrow" data-act="run-cls" data-id="${at(1)}" data-d="1" aria-label="다음 직업">▶</button>
     </div>
-    <button class="pbtn gold big" data-act="run-start">원정 떠나기${ui.asc ? ` <span class="go-hard">${ascEmblem(ui.asc, 'xs')}하드모드 ${ui.asc}</span>` : ''}</button>
+    <b class="rs-name" style="--c:${info.color}">${info.ko}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${X.owns(sel) ? '' : ` ${ico('lock', 'xs')}`}</b>
+    <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
+      ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n}"></i>`).join('')}
+      <div class="rc rc-static rs-front">${cardFace(sig)}</div>
+      <span class="rs-count">${ico('card', 'xs')}${deck.length}</span>
+    </div>
+    <div class="rs-go">
+      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 잡화점 <b>${starIco()}${b.meta.stars}</b></span></button>
+      <button class="pbtn gold big" data-act="run-go">원정 떠나기</button>
+    </div>
   </div>`;
+  // 덱 더미를 길게 누르면 시작 덱 9장
+  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${ico('card', 'xs')} 시작 덱 ${deck.length}장</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div>`, { afterRelease: true }));
 }
 
 // 승천: 직업 고르기 화면에는 버튼 하나. 누르면 승천 창에서 단계를 고른다 (이 직업으로 깬 단계 + 1 까지)
 const ascEmblem = (n, cls = '') => (n ? runIco('asc', String(n), 'skull', cls) : runIco('ui', 'asc', 'skull', cls));
-function ascButton(b, cls) {
-  const open = ascOpen(b, cls), a = ui.asc;
-  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} <b>하드모드</b></p>`;
-  return `<button class="rs-ascbtn frame${a ? ' on' : ''}" data-act="run-ascopen" style="--t:${a / Run.ASC_MAX}">
-    <span class="asc-badge${a ? '' : ' off'}">${ascEmblem(a)}<b>${a}</b></span>
-    <span class="ab-txt"><b>${a ? `하드모드 ${a}` : '하드모드 없음'}</b><small>${a ? `어려움 ${a}가지 적용` : '기본 원정'} · 열린 단계 ${open}/${Run.ASC_MAX}</small></span>
-    <span class="ab-go">바꾸기 ▸</span></button>`;
-}
 function showAsc() {
   const b = best(), open = ascOpen(b, ui.cls), a = ui.asc;
   const rows = Run.ASCENSION.slice(1).map((x, k) => {
@@ -232,7 +249,7 @@ function showAsc() {
     </div>
     <div class="asc-ladder">${rows}</div>
     <p class="hint">${esc(classInfo(ui.cls).ko)}: 하드모드 ${open}까지 열렸어요${open < Run.ASC_MAX ? ` · 하드모드 ${open}을 깨면 다음 단계가 열려요` : ''}</p>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">하드모드 끄기</button><button class="pbtn small gold" data-act="close">정하기</button></div>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">하드모드 끄기</button><button class="pbtn gold" data-act="run-start">${a ? `${ascEmblem(a, 'xs')} 하드모드 ${a}로 ` : ''}출발</button></div>
   </div></div>`;
   const cur = X.layer.querySelector('.asc-step.cur'), lad = X.layer.querySelector('.asc-ladder');
   if (cur && lad) lad.scrollTop = cur.offsetTop - lad.offsetTop - lad.clientHeight / 2 + cur.offsetHeight / 2;   // 고른 단계가 가운데 오게
@@ -1671,7 +1688,10 @@ export function onAct(act, t) {
   if (act === 'run-open') { sfx.select(); return open(); }
   if (act === 'run-resume') { sfx.start(); return resume(); }
   if (act === 'run-home') { sfx.back(); X.tray()?.setMarks?.(null); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
-  if (act === 'run-cls') { sfx.tap(); ui.cls = t.dataset.id; X.store.set('diceheroes.runCls', ui.cls); return paintSelect(); }
+  if (act === 'run-cls') { sfx.tap(); ui.cls = t.dataset.id; ui.spin = { d: Number(t.dataset.d) || 0, t: Date.now() }; X.store.set('diceheroes.runCls', ui.cls); return paintSelect(); }
+  if (act === 'run-talk') { const l = RUN_LINES[t.dataset.id] || ['…']; return X.speak(t, l[runLineK++ % l.length]); }
+  // 원정 떠나기: 하드모드가 열렸으면 단계를 고르는 창, 아니면 바로 출발
+  if (act === 'run-go') { if (!ascOpen(best(), ui.cls)) return onAct('run-start', t); sfx.select(); return showAsc(); }
   if (act === 'run-ascopen') { sfx.select(); return showAsc(); }
   if (act === 'run-asc' || act === 'run-ascset') {
     const b = best(), want = act === 'run-asc' ? (ui.asc || 0) + Number(t.dataset.d) : Number(t.dataset.v);
