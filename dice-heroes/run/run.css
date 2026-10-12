@@ -644,4 +644,7 @@
 @keyframes walletBump { 0% { transform: scale(1.5); color: #fff; } 100% { transform: none; } }
 @keyframes starTwinkle { 50% { filter: drop-shadow(0 0 8px rgba(255,226,122,1)) brightness(1.15); } }
 @media (prefers-reduced-motion: reduce) { .star-wallet .run-ico, .star-wallet.bump b { animation: none; } }
-.run-meta .meta-head { justify-content: flex-start; align-self: stretch; }
+.run-meta .meta-head { justify-content: center; }
+/* 「영구 강화」 줄: 왼쪽 부제 · 오른쪽 보유 별조각 */
+.run-meta h3.meta-sub { justify-self: stretch; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.meta-sub .star-wallet { margin-left: 0; }

@@ -203,9 +203,9 @@ function showMeta() {
         : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${starIco()}${d.cost}</button>`}</div>`;
   }).join('');
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비</h2>
-      <div class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}" title="원정이 끝날 때마다 얻어요">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></div></div>
-    <h3>영구 강화 <small>모든 직업에 적용</small></h3>
+    <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비</h2></div>
+    <h3 class="meta-sub"><span>영구 강화 <small>모든 직업에 적용</small></span>
+      <span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}" title="원정이 끝날 때마다 얻어요">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></h3>
     <div class="meta-list">${ups}</div>
     <h3>특수 주사위 <small>주사위 칸 ${m.equip.length}/${slots}</small></h3>
     <div class="meta-list">${dice}</div>
