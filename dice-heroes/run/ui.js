@@ -181,18 +181,24 @@ const RUN_LINES = {
 let runLineK = 0;
 // 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
 const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
+// 상단 직업 설명 (모든 직업을 같은 칸에 겹쳐 두고 고른 직업만 보인다 → 칸 높이가 가장 긴 설명에 맞춰 고정)
+function classInfoHTML(id, b) {
+  const ci = Run.RUN_CLASSES[id], sig = startDeck(id).at(-1), kw = sig.kw ? Run.KEYWORDS[sig.kw] : null;
+  const relic = mlv(b, 'relic') && Run.START_RELIC[id] ? Run.relicInfo(Run.START_RELIC[id]) : null;
+  return `<div class="rs-stats"><span>${ico('heart', 'xs')}<b>${ci.hp}</b></span><span>${ico('flip', 'xs')}<b>${ci.flip}</b></span><span>${ico('nudge', 'xs')}<b>${ci.nudge}</b></span>${relic ? `<span>${relicIco(relic, 'xs')}${relic.ko}</span>` : ''}</div>
+      <p class="rs-skill"><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>
+      <p class="rs-sig"><b>${ico('card', 'xs')} ${Run.cardName(sig)}</b> ${Run.CAT_RULE[sig.cat]}${kw ? ` · ${runIco('kw', sig.kw, kw.icon, 'xs')}${kw.ko}: ${kw.desc}` : ''}</p>`;
+}
 function paintSelect() {
   const sel = ui.cls || X.store.get('diceheroes.runCls') || 'gambler';
   ui.cls = sel;
   const bb = best();
   ui.asc = Math.min(ascOpen(bb, sel), (X.store.get('diceheroes.runAsc') || {})[sel] ?? ascOpen(bb, sel));
-  const ci = Run.RUN_CLASSES[sel], info = classInfo(sel);
+  const info = classInfo(sel);
   const b = best();
   const ids = Object.keys(Run.RUN_CLASSES), k = ids.indexOf(sel);
   const at = d => ids[(k + d + ids.length * 2) % ids.length];
   const deck = startDeck(sel), sig = deck[deck.length - 1];
-  const kw = sig.kw ? Run.KEYWORDS[sig.kw] : null;
-  const relic = mlv(b, 'relic') && Run.START_RELIC[sel] ? Run.relicInfo(Run.START_RELIC[sel]) : null;
   const spin = ui.spin && Date.now() - ui.spin.t < 400 ? (ui.spin.d > 0 ? ' spin-r' : ' spin-l') : '';
   const slot = d => { const id = at(d), c = classInfo(id), owned = X.owns(id);
     return `<button class="dial-hero d${d}${owned ? '' : ' locked'}" style="--c:${c.color}" data-act="${d ? 'run-cls' : 'run-talk'}" data-id="${id}" data-d="${d}" ${d ? '' : `data-rcls="${id}"`} aria-label="${c.ko}">${hero(id)}</button>`; };
@@ -204,11 +210,7 @@ function paintSelect() {
       <div><b>원정</b></div>
       <button class="pbtn small rs-feats" data-act="run-feats">${ico('trophy', 'xs')} ${b.feats.length}/${Run.FEATS.length}</button>
     </header>
-    <section class="rs-info frame" style="--c:${info.color}">
-      <div class="rs-stats"><span>${ico('heart', 'xs')}<b>${ci.hp}</b></span><span>${ico('flip', 'xs')}<b>${ci.flip}</b></span><span>${ico('nudge', 'xs')}<b>${ci.nudge}</b></span>${relic ? `<span>${relicIco(relic, 'xs')}${relic.ko}</span>` : ''}</div>
-      <p class="rs-skill"><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>
-      <p class="rs-sig"><b>${ico('card', 'xs')} ${Run.cardName(sig)}</b> ${Run.CAT_RULE[sig.cat]}${kw ? ` · ${runIco('kw', sig.kw, kw.icon, 'xs')}${kw.ko}: ${kw.desc}` : ''}</p>
-    </section>
+    <section class="rs-info frame">${ids.map(id => `<div class="rs-info-in${id === sel ? ' on' : ''}" style="--c:${classInfo(id).color}" ${id === sel ? '' : 'aria-hidden="true"'}>${classInfoHTML(id, b)}</div>`).join('')}</section>
     <div class="rs-dial${spin}">
       <button class="dial-arrow" data-act="run-cls" data-id="${at(-1)}" data-d="-1" aria-label="이전 직업">◀</button>
       <div class="dial-track">${[-2, -1, 0, 1, 2].map(slot).join('')}</div>
