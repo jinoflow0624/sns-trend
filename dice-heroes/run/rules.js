@@ -140,18 +140,17 @@ export const SEAL_PRICE = 30;
 // ── 막 징조 (막을 시작할 때 2장 중 1장. 그 막 내내 깔린다) ──
 // tier: 1 순함 ~ 3 거침. 1막은 순한 것 위주, 3막은 거친 것 위주로 뽑는다
 export const OMENS = [
-  { id: 'feast',    ko: '피의 축제',     icon: 'anger',   tier: 3, desc: '주는 피해 +50% · 받는 피해 ×1.5' },
+  { id: 'feast',    ko: '피의 축제',     icon: 'anger',   tier: 3, desc: '모든 카드 +50% (합연산) · 받는 피해 ×1.5' },
   { id: 'bounty',   ko: '풍요의 땅',     icon: 'leaf',    tier: 2, desc: '적 체력 +25% · 전투에서 이기면 25% 확률로 유물 하나 더' },
   { id: 'fog',      ko: '짙은 안개',     icon: 'fog',     tier: 2, desc: '적의 다음 행동이 보이지 않는다 · 골드 +50%' },
   { id: 'forbid',   ko: '금지된 족보',   icon: 'lock',    tier: 3, desc: '무작위 족보 하나가 0점 · 나머지 족보 +20%' },
-  { id: 'small',    ko: '작은 수의 축제', icon: 'party',  tier: 1, desc: '에이스 · 듀스 · 트레이 +100% · 포스 · 파이브 · 식스 −50%' },
   { id: 'rush',     ko: '질주의 계절',   icon: 'boot',    tier: 1, desc: '스트레이트 +50% · 포카인드 · 풀하우스 · 요트 −30%' },
-  { id: 'merchant', ko: '상인의 길',     icon: 'coins',   tier: 1, desc: '지도에 상점이 많아진다 · 전투 골드 −30%' },
-  { id: 'war',      ko: '전쟁의 북소리', icon: 'drum',    tier: 2, desc: '엘리트가 많아진다 · 엘리트가 유물 고르기를 두 번 준다' },
+  { id: 'merchant', ko: '상인의 길',     icon: 'coins',   tier: 1, desc: '지도에 상점이 많아진다 · 전투 골드 +30%' },
+  { id: 'war',      ko: '전쟁의 북소리', icon: 'drum',    tier: 2, desc: '엘리트 체력 ×1.5 · 대신 엘리트 유물이 더 희귀하다' },
   { id: 'rift',     ko: '시간의 균열',   icon: 'hourglass', tier: 2, desc: '매 턴 굴림 +1 · 손패 −1' },
-  { id: 'sealrain', ko: '인장의 비',     icon: 'sparkle', tier: 1, desc: '전투를 시작할 때마다 손패에 인장 2개가 붙는다' },
+  { id: 'sealrain', ko: '인장의 비',     icon: 'sparkle', tier: 1, desc: '전투를 시작할 때마다 손패에 인장 1개가 붙는다' },
   { id: 'drought',  ko: '메마른 땅',     icon: 'sun',     tier: 2, desc: '휴식 회복 절반 · 상점 가격 −30%' },
-  { id: 'glass',    ko: '유리 세계',     icon: 'gem',     tier: 3, desc: '고르는 즉시 체력이 절반으로 · 전투에서 이길 때마다 체력 15% 회복' },
+  { id: 'glass',    ko: '유리 세계',     icon: 'gem',     tier: 3, desc: '모든 회복 절반 · 대신 모든 카드 +30% (합연산)' },
 ];
 export const omenInfo = id => OMENS.find(o => o.id === id);
 export const omen = (R, id) => R.omen === id;
@@ -179,7 +178,7 @@ export const cardTitle = cat => catInfo(cat).ko;
 export const CAT_RULE = {
   ones: '1의 개수 × 1', twos: '2의 개수 × 2', threes: '3의 개수 × 3', fours: '4의 개수 × 4', fives: '5의 개수 × 5', sixes: '6의 개수 × 6',
   choice: '주사위 5개 합', four: '같은 눈 4개 → 5개 합', full: '3개 + 2개 → 5개 합',
-  sstr: '연속 4개 → 15', lstr: '연속 5개 → 30', yacht: '5개 모두 같음 → 50',
+  sstr: '연속 4개 → 20', lstr: '연속 5개 → 30', yacht: '5개 모두 같음 → 50',
 };
 export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${catInfo(c.cat).ko}${c.up ? '+' : ''}`;
 // 희귀도: 1 일반(키워드 없음) · 2 희귀(키워드) · 3 전설(키워드 + 강화, 또는 강화 요트)
@@ -202,6 +201,7 @@ export const META = [
   { id: 'relic', ko: '보물 지도',   icon: 'scroll', max: 1, cost: [200],                  desc: () => '출발할 때 직업 유물 1개 (직업마다 어울리는 유물)' },
   { id: 'sharp', ko: '연마된 덱',   icon: 'axe',    max: 1, cost: [100],                  desc: () => '대표 카드 점수 +30%' },
   { id: 'slot',  ko: '주사위 칸',   icon: 'die6',   max: 2, cost: [60, 150],              desc: n => `특수 주사위 ${n}개를 넣는다` },
+  { id: 'seal',  ko: '인장 상자',   icon: 'sparkle', max: 3, cost: [50, 90, 140],         desc: n => `출발할 때 덱의 무작위 카드 ${n}장에 무작위 인장` },
 ];
 // 특수 주사위 (눈은 그대로 1~6, 나오는 눈이 다르다). 원정 준비에서 사서 주사위 칸에 넣는다
 // id 는 저장 호환 때문에 처음 이름(gold · heavy · twin · stair) 그대로. 화면 이름은 효과대로: 리롤 · 식스 · 카피 · 커넥트
@@ -322,7 +322,7 @@ function checkFeats(R) {
 // ── 직업 (원정용 능력) ──────────────────────────────────────────────────────
 // 보석 해금 직업이 무료 직업(도박사 · 수도승)보다 조금 더 잘 이기도록 맞춘다 (sim/run.mjs).
 // sig: 직업마다 시작 덱에 한 장 더 들어가는 대표 카드
-export const BASE_DECK = ['choice', 'choice', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];
+export const BASE_DECK = ['choice', 'fours', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];   // 초이스는 1장만 (나머지 한 장은 포스)
 export const RUN_CLASSES = {
   gambler: { hp: 76, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}. 전투에서 얻는 골드 +25%`; } },
@@ -635,6 +635,8 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   if (ml('tools') >= 1) R.flip = Math.min(TOOL_CAP, R.flip + 1);
   if (ml('tools') >= 2) R.nudge = Math.min(TOOL_CAP, R.nudge + 1);
   for (let n = 0; n < ml('potion'); n++) R.potions.push('heal');
+  // 인장 상자: 덱의 무작위 카드에 인장 (원정 내내 붙어 있다가, 그 카드를 내면 터진다)
+  for (let n = 0; n < ml('seal'); n++) { const free = R.deck.filter(c => !c.seal); if (free.length) pick(R, free).seal = pick(R, SEAL_IDS); }
   const sig = R.deck[R.deck.length - 1];
   if (ml('sharp') >= 1) sig.up = 1;
   R.dset = (meta?.equip || []).filter(id => diceInfo(id)).slice(0, ml('slot'));
@@ -669,9 +671,8 @@ export const chooseOmen = act('chooseOmen', function chooseOmen(R, k) {
   if (!id) fail('없는 징조예요.');
   R.omen = id; R.omenOpts = null;
   if (id === 'forbid') R.omenCat = pick(R, SAME_CATS_ALL.filter(c => c !== 'choice'));
-  if (id === 'glass') R.hp = Math.max(1, Math.min(R.hp, Math.round(R.maxHp / 2)));
-  // 상인의 길: 전투 칸 일부가 상점으로 · 전쟁의 북소리: 전투 칸 일부가 엘리트로 (1층 · 마지막 층 제외)
-  const to = id === 'merchant' ? 'shop' : id === 'war' ? 'elite' : null;
+  // 상인의 길: 전투 칸 일부가 상점으로 (1층 · 마지막 층 제외)
+  const to = id === 'merchant' ? 'shop' : null;
   if (to) for (const n of R.map.nodes) if (n.type === 'fight' && n.row >= 2 && n.row < ROWS - 1 && rand(R) < 0.3) n.type = to;
   fx(R, { type: 'omen', id });
 });
@@ -725,7 +726,7 @@ export function startCombat(R, foeId) {
   const def = ENEMIES[foeId];
   const a = R.act - 1;
   const hpMul = TUNE.hp[def.kind][a] * (def.kind === 'elite' && asc(R, 1) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 3) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 10) ? 1.1 : 1);
-  const hp = Math.round(int(R, def.hp[0], def.hp[1]) * hpMul * (omen(R, 'bounty') ? 1.25 : 1));
+  const hp = Math.round(int(R, def.hp[0], def.hp[1]) * hpMul * (omen(R, 'bounty') ? 1.25 : 1) * (def.kind === 'elite' && omen(R, 'war') ? 1.5 : 1));
   const e = { id: foeId, hp, maxHp: hp, block: 0, str: 0, weak: 0, burn: 0, burnT: 0, mi: -1, intent: null, raged: false, last: [], cut: def.ai === 'heads' ? {} : null, regrew: false };
   R.C = {
     e, turn: 0, phase: 'roll',
@@ -750,7 +751,7 @@ export function startCombat(R, foeId) {
   startTurn(R);
   if (hasRelic(R, 'bone')) { R.C.block += 16; fx(R, { type: 'heroBlock', n: 16, why: 'bone' }); }
   // 인장 주머니 · 인장의 비: 손패의 무작위 카드에 그 전투 동안 인장
-  const n = (hasRelic(R, 'sealbag') ? 1 : 0) + (omen(R, 'sealrain') ? 2 : 0);
+  const n = (hasRelic(R, 'sealbag') ? 1 : 0) + (omen(R, 'sealrain') ? 1 : 0);
   for (let k = 0; k < n; k++) {
     const free = R.C.hand.filter(c => !c.seal);
     if (!free.length) break;
@@ -1078,6 +1079,8 @@ export const dropPotion = act('dropPotion', (R, slot) => { R.potions.splice(slot
 // ── 카드 점수 ────────────────────────────────────────────────────────────────
 // 기본 점수(요트 원룰) + 보너스 목록. 보너스는 모두 기본 점수에 대한 배율이라 더해서 쌓는다
 // (강화 +30% 와 장인 +50% 가 같이 있으면 +80%). 응시 · 약화 · 독은 마지막에 전체에 곱한다.
+// 숫자 카드 같은 눈 보너스 (맞는 주사위 수 → 추가 배율)
+export const SAME_BONUS = { 3: 0.2, 4: 0.5, 5: 1 };
 // 균형의 추: 1의 눈을 6으로 셀 수 있다 → 1을 6으로 바꾼 모든 경우 중 가장 좋은 점수
 function bestBase(R, cat, dice) {
   const one = (d) => Math.max(0, ...fiveSets(d).map(set => baseScore(cat, set)));
@@ -1102,6 +1105,8 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
       const f = UPPER.indexOf(card.cat) + 1, n = Math.round(base / f);
       if (card.cat === 'ones' && hasRelic(R, 'ace')) { parts.push({ ko: '에이스의 긍지', amt: n * 8 - base }); adj = n * 8; }
       if (hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * 3 }); adj += n * 3; }
+    } else if (card.cat === 'sstr' && !hasRelic(R, 'flow')) {
+      adj = 20; parts.push({ ko: '스몰 스트레이트', amt: 5 });          // 원정에서는 15 → 20 (낮은 족보 살리기)
     } else if (hasRelic(R, 'flow') && (card.cat === 'sstr' || card.cat === 'lstr')) {
       adj = card.cat === 'sstr' ? 25 : 45;
       parts.push({ ko: '질풍', amt: adj - base });
@@ -1143,7 +1148,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     // 막 징조
     if (omen(R, 'feast')) add('피의 축제', 0.5);
     if (omen(R, 'forbid')) add('금지된 족보', 0.2);
-    if (omen(R, 'small')) add('작은 수의 축제', ['ones', 'twos', 'threes'].includes(card.cat) ? 1 : isUpper(card.cat) ? -0.5 : 0);
+    if (omen(R, 'glass')) add('유리 세계', 0.3);
     if (omen(R, 'rush')) add('질주의 계절', card.cat === 'sstr' || card.cat === 'lstr' ? 0.5 : ['four', 'full', 'yacht'].includes(card.cat) ? -0.3 : 0);
     if (C) {
       if (hasRelic(R, 'echodrum') && C.lastCat === card.cat && C.chainN > 0) add('메아리 북', 0.25 * C.chainN);
@@ -1164,6 +1169,8 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   // 곱연산: 카드 자신의 강화 · 효과
   const mulBy = (ko, m) => { const amt = Math.round(total * m); if (amt) { parts.push({ ko, amt, mul: true }); total += amt; } };
   if (total > 0) {
+    // 같은 눈 보너스 (숫자 카드 자신의 효과라 곱연산): 맞는 주사위 3개 ×1.2 · 4개 ×1.5 · 5개 ×2
+    if (isUpper(card.cat)) { const n = Math.round(base / (UPPER.indexOf(card.cat) + 1)); const m = SAME_BONUS[Math.min(5, n)] || 0; if (m) mulBy(`같은 눈 ${n}개`, m); }
     if (card.up) mulBy('강화', UP_MUL);
     if (C && hasKw(card, 'quick') && C.rollNo === 1) mulBy('속공', 0.5);
   }
@@ -1379,6 +1386,7 @@ function checkRage(R) {
 }
 
 function healHero(R, n, why, quiet = false) {
+  if (omen(R, 'glass')) n /= 2;
   const add = Math.max(0, Math.min(Math.round(n), R.maxHp - R.hp));
   R.hp += add;
   R.stats.healed += add;
@@ -1501,7 +1509,6 @@ function winCombat(R) {
     const top = Object.entries(C.played).map(([u, n]) => [deckCard(R, Number(u)), n]).filter(([c]) => c).sort((a, b) => b[1] - a[1])[0];
     if (top) { const nc = { ...top[0], u: ++R.uid, seal: null, waxUp: 0 }; R.deck.push(nc); R.trinity = (R.trinity || 0) + 1; fx(R, { type: 'gainCard', u: nc.u, why: 'trinity' }); }
   }
-  if (omen(R, 'glass')) healHero(R, Math.round(R.maxHp * 0.15), 'omen');
   if (R.cls === 'bard') healHero(R, CLASS_TUNE.bardHeal, 'bard');
   if (hasRelic(R, 'lotus')) healHero(R, 6, 'lotus');
   if (def.kind === 'boss' && R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
@@ -1510,7 +1517,7 @@ function winCombat(R) {
 }
 
 // ── 보상 ─────────────────────────────────────────────────────────────────────
-const CAT_W = { choice: 14, four: 12, full: 14, sstr: 12, lstr: 10, yacht: 6, sixes: 8, fives: 6, fours: 4, threes: 2, twos: 1, ones: 1 };
+const CAT_W = { choice: 8, four: 12, full: 14, sstr: 15, lstr: 10, yacht: 6, sixes: 13, fives: 11, fours: 7, threes: 3, twos: 1, ones: 1 };   // 초이스는 줄이고 식스 · 파이브 · 스몰 스트레이트를 늘렸다
 const KW_W = { guard: 14, vamp: 12, burn: 12, pierce: 10, quick: 12, lucky: 10, weak: 8, gold: 8, echo: 10, keep: 10 };
 // 덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다
 function catWeights(R) {
@@ -1566,7 +1573,7 @@ export function rollRelic(R, r, exclude = []) {
   return null;
 }
 const rollPotion = R => pick(R, POTIONS).id;
-function goldMul(R) { return Math.max(0.1, 1 + (hasRelic(R, 'purse') ? 0.3 : 0) + (R.cls === 'gambler' ? CLASS_TUNE.gamblerGold : 0) + (omen(R, 'fog') ? 0.5 : 0) - (omen(R, 'merchant') ? 0.3 : 0)); }
+function goldMul(R) { return Math.max(0.1, 1 + (hasRelic(R, 'purse') ? 0.3 : 0) + (R.cls === 'gambler' ? CLASS_TUNE.gamblerGold : 0) + (omen(R, 'fog') ? 0.5 : 0) + (omen(R, 'merchant') ? 0.3 : 0)); }
 function genReward(R, kind) {
   const items = [];
   const g = kind === 'boss' ? int(R, 70, 85) + R.act * 10 : kind === 'elite' ? int(R, 28, 36) + R.act * 6 : int(R, 12, 18) + R.act * 4;
@@ -1577,7 +1584,7 @@ function genReward(R, kind) {
     for (let k = 0; k < relicChoices(R); k++) { const id = rollRelic(R, rarity(), opts); if (id) opts.push(id); }
     if (opts.length) items.push({ t: 'relicPick', opts, kind });
   };
-  if (kind === 'elite') for (let n = 0; n < (omen(R, 'war') ? 2 : 1); n++) relicPick(() => weighted(R, { 1: 60, 2: 40 }));
+  if (kind === 'elite') relicPick(() => weighted(R, omen(R, 'war') ? { 2: 70, 3: 30 } : { 1: 60, 2: 40 }));   // 전쟁의 북소리: 더 희귀하게
   if (kind === 'boss' && R.act < ACTS) relicPick(() => 3);
   if (kind === 'normal' && omen(R, 'bounty') && rand(R) < 0.25) relicPick(() => weighted(R, { 1: 70, 2: 30 }));
   if (rand(R) < (kind === 'normal' ? 0.4 : 0.6)) items.push({ t: 'potion', id: rollPotion(R) });
@@ -1624,7 +1631,7 @@ export const leaveReward = act('leaveReward', function leaveReward(R) {
   if (rw.kind === 'boss') {
     if (R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
     R.act++;
-    const heal = Math.round((R.maxHp - R.hp) * (asc(R, 5) ? 0.4 : ACT_HEAL));
+    const heal = Math.round((R.maxHp - R.hp) * (asc(R, 5) ? 0.4 : ACT_HEAL) * (omen(R, 'glass') ? 0.5 : 1));
     R.hp += heal;
     newAct(R);
     fx(R, { type: 'act', act: R.act, heal });
@@ -1905,7 +1912,7 @@ function prepHand(R, rollNo) {
     if (C.keepUp && !C.plays) mul += C.keepUp;
     // 새 유물 · 징조 (합연산)
     mul += (hasRelic(R, 'madscale') ? 1 : 0) + (hasRelic(R, 'bloodpact') ? 0.5 : 0) + (hasRelic(R, 'glasscannon') ? 0.6 : 0) + (hasRelic(R, 'emptyhand') ? 0.6 : 0)
-      + (R.palette?.done && hasRelic(R, 'palette') ? 0.5 : 0) + (omen(R, 'feast') ? 0.5 : 0) + (omen(R, 'forbid') ? 0.2 : 0)
+      + (R.palette?.done && hasRelic(R, 'palette') ? 0.5 : 0) + (omen(R, 'feast') ? 0.5 : 0) + (omen(R, 'forbid') ? 0.2 : 0) + (omen(R, 'glass') ? 0.3 : 0)
       + (hasRelic(R, 'echodrum') && C.lastCat === up ? 0.25 * (C.chainN || 0) : 0) + (hasRelic(R, 'pairring') && C.hand.filter(c => c.cat === up).length >= 2 ? 0.5 : 0)
       + (card.zeroUp || 0) + (card.waxUp || 0);
     if (omen(R, 'forbid') && R.omenCat === up) mul = 0;
@@ -1979,7 +1986,9 @@ function fastScore(info, dice) {
     if (info.ace) adj = n * 8;
     if (info.pairs) adj += n * 3;
     if (n >= 4) mul += info.quad;
+    return Math.round(adj * mul * (1 + (SAME_BONUS[Math.min(5, n)] || 0)));
   } else if (info.flow) adj = info.cat === 'sstr' ? 25 : 45;
+  else if (info.cat === 'sstr') adj = 20;
   return Math.round(adj * mul);
 }
 function handFast(R, infos, dice, ctx) {
