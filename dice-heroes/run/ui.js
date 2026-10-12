@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, walkStrip, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT } from './art.js';
 import { relicIco, relicURLs } from './relic-art.js';
 import { Hand } from './hand.js';
 
@@ -102,7 +102,7 @@ async function preloadRun() {
   let done = 0;
   X.layer.innerHTML = '';
   X.app.innerHTML = `<div class="screen run-loading">
-    <div class="rl-box"><div class="rl-walk"><i class="rl-mon goblin" style="background-image:url(${walkStrip('goblin')})"></i><i class="rl-mon slime" style="background-image:url(${walkStrip('slime')})"></i><s class="rl-ground"></s></div><b>원정 준비 중…</b>
+    <div class="rl-box"><div class="rl-walk"><i class="rl-mon goblin"></i><i class="rl-mon slime"></i><s class="rl-ground"></s></div><b>원정 준비 중…</b>
       <div class="rl-bar"><i id="rl-fill"></i></div><small id="rl-n">0%</small>
       <p class="rl-tip">${LOAD_TIPS[Math.floor(Math.random() * LOAD_TIPS.length)]}</p></div></div>`;
   const tick = () => { done++; const k = Math.round((done / total) * 100); const f = $('rl-fill'); if (f) f.style.width = `${k}%`; const n = $('rl-n'); if (n) n.textContent = `${k}%`; };
