@@ -338,6 +338,42 @@ for fid, (rib, ink, glyph) in EMBLEM.items():
     ICONS[f'feat_{fid}'] = ({'r': rib, 'R': '#1A1030' if rib != '#1A1030' else '#5A5290', 'y': '#FFC83D', 'Y': '#C8860E', 'l': '#FFE27A', 'x': ink}, rows)
 
 
+# 승천 1~10단계: 같은 붉은 문장(방패꼴 · 금테)에 단계마다 8×8 문양
+ASC_GLYPH = [   # (이름, 주색 a, 보조색 b, 문양)
+  ('정예의 갑옷', '#C9D3E8', '#5A6478', ['..aaaa..', '.aaaaaa.', 'aawaaaaa', 'aabbbbaa', 'aab..baa', 'aab..baa', '.aa..aa.', '..a..a..']),
+  ('거친 길',     '#B8AE92', '#6A5A48', ['........', '...a....', '..aaa...', '..aaaa.a', '.aaaaaaa', '.awaaaaa', 'aaaaaaaa', 'bbbbbbbb']),
+  ('두꺼운 가죽', '#C8864A', '#6A3A1E', ['.a....a.', 'aaaaaaaa', '.aawaaa.', '.aaaaaa.', '.aabbaa.', '.aaaaaa.', 'aa....aa', 'a......a']),
+  ('짧은 휴식',   '#FF8A1A', '#9A6232', ['...a....', '...aa...', '..aawa..', '..aaaa..', '.aaaaaa.', '..aaaa..', 'bb.bb.bb', '.bbbbbb.']),
+  ('고된 행군',   '#9A6232', '#5A3A1E', ['..aaa...', '..aaa...', '..aaa...', '..aaa...', '..aaaa..', '..awaaaa', '.aaaaaaa', '.bbbbbbb']),
+  ('오래된 상처', '#FF5A6A', '#1A1030', ['.aa..aa.', 'aaaaaaaa', 'aaawaaaa', 'aaaabaaa', '.aabaaa.', '..aaba..', '...aa...', '........']),
+  ('바가지',      '#FFC83D', '#3EE6B4', ['...b....', '..bbb...', '...b....', '.aaaaa..', 'aawaaaa.', 'aaa.aaa.', 'aaaaaaa.', '.aaaaa..']),
+  ('정예의 칼날', '#E4E9F2', '#C8860E', ['......aa', '.....aaw', '....aaa.', '.b.aaa..', '..bba...', '..bb....', '.b..b...', 'b.......']),
+  ('폭군',        '#FFC83D', '#E8435A', ['a..a..a.', 'a..a..a.', 'aa.aa.aa', 'aaaaaaaa', 'awaaaaaa', 'abababab', 'aaaaaaaa', '........']),
+  ('마왕의 시대', '#F2EEDD', '#E8435A', ['a......a', 'aa....aa', '.aaaaaa.', '.abaaba.', '.aaaaaa.', '..awwa..', '..a..a..', '........']),
+]
+
+
+def crest(glyph):
+    """방패꼴 문장 16×16: 외곽선 k · 금테 y/Y · 안쪽 짙은 붉은색 R, 가운데 8×8 문양"""
+    W = [(1, 14)] * 10 + [(2, 13), (3, 12), (5, 10), (7, 8)]           # 줄마다 좌우 끝 (1~14행)
+    rows = [['.'] * 16 for _ in range(16)]
+    for k, (l, r) in enumerate(W):
+        y = 1 + k
+        for x in range(l, r + 1):
+            edge = x in (l, r) or y in (1, 14)
+            rim = x in (l + 1, r - 1) or y == 2 or (k >= 10 and (x == l + 1 or x == r - 1))
+            rows[y][x] = 'k' if edge else ('y' if (rim and (x <= 7 or y == 2)) else 'Y' if rim else 'R')
+    for gy, line in enumerate(glyph):
+        for gx, ch in enumerate(line):
+            if ch != '.':
+                rows[3 + gy][4 + gx] = {'a': 'a', 'b': 'b', 'w': 'w'}[ch]
+    return [''.join(r) for r in rows]
+
+
+for lv, (_, ca, cb, glyph) in enumerate(ASC_GLYPH, 1):
+    ICONS[f'asc_{lv}'] = ({'y': '#FFC83D', 'Y': '#C8860E', 'R': '#5A0A1C', 'a': ca, 'b': cb, 'w': '#FFFFFF'}, crest(glyph))
+
+
 def render(pal, rows, scale=8):
     assert len(rows) == 16 and all(len(r) == 16 for r in rows), rows
     pal = {'k': K, **pal}

@@ -141,12 +141,12 @@ export const META = [
   { id: 'slot',  ko: '주사위 칸',   icon: 'die6',   max: 2, cost: [60, 150],              desc: n => `특수 주사위 ${n}개를 넣는다` },
 ];
 // 특수 주사위 (눈은 그대로 1~6, 나오는 눈이 다르다). 원정 준비에서 사서 주사위 칸에 넣는다
-// id 는 저장 호환 때문에 처음 이름(gold · heavy · twin · stair) 그대로. 화면 이름은 효과대로: 재굴림 · 식스 · 따라쟁이 · 이음
+// id 는 저장 호환 때문에 처음 이름(gold · heavy · twin · stair) 그대로. 화면 이름은 효과대로: 리롤 · 식스 · 카피 · 커넥트
 export const DICE = [
-  { id: 'gold',  ko: '재굴림 주사위',   color: '#FFC83D', cost: 80,  desc: '1이 나오면 저절로 한 번 더 굴린다' },
+  { id: 'gold',  ko: '리롤 주사위',     color: '#FFC83D', cost: 80,  desc: '1이 나오면 저절로 한 번 더 굴린다' },
   { id: 'heavy', ko: '식스 주사위',     color: '#9AA4B8', cost: 100, desc: '추가 달려 6이 더 자주 나온다 (1/6 → 약 1/4)' },
-  { id: 'twin',  ko: '따라쟁이 주사위', color: '#FF9AD0', cost: 120, desc: '1/3 확률로 다른 주사위 눈을 따라 한다 (가장 많이 나온 눈 → 포카인드 · 요트)' },
-  { id: 'stair', ko: '이음 주사위',     color: '#3EE6B4', cost: 120, desc: '1/3 확률로 빈 눈을 메워 숫자를 이어 준다 (스트레이트)' },
+  { id: 'twin',  ko: '카피 주사위',     color: '#FF9AD0', cost: 120, desc: '1/3 확률로 다른 주사위 눈을 따라 한다 (가장 많이 나온 눈 → 포카인드 · 요트)' },
+  { id: 'stair', ko: '커넥트 주사위',   color: '#3EE6B4', cost: 120, desc: '1/3 확률로 빈 눈을 메워 숫자를 이어 준다 (스트레이트)' },
 ];
 export const diceInfo = id => DICE.find(d => d.id === id);
 // 원정이 끝나면 얻는 별조각(✦): 지난 층 2 · 엘리트 4 · 보스 10 · 클리어 20, 승천 1단계마다 +10%

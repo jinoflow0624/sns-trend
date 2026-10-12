@@ -661,3 +661,23 @@
 .meta-sub .star-wallet > span { display: flex; align-items: baseline; gap: 4px; }
 .meta-sub .star-wallet small { font-size: 10px; }
 .meta-sub .star-wallet b { font-size: 13px; text-shadow: 1px 1px 0 var(--ink); }
+/* 승천 단계 문장 */
+.asc-list li { display: flex; align-items: center; gap: 3px; }
+.asc-list .run-ico { width: 14px; height: 14px; flex: none; image-rendering: pixelated; }
+
+/* 적 보호막 깨짐: 방패가 왼쪽 · 오른쪽 두 쪽으로 쪼개져 날아간다 */
+.shbreak { position: fixed; z-index: 85; width: 0; height: 0; pointer-events: none; }
+.shbreak i { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; background: url(../assets/run/ui/shield.webp) center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 0 6px #8FD0FF); }
+.shbreak i.l { clip-path: polygon(0 0, 55% 0, 42% 38%, 58% 62%, 45% 100%, 0 100%); animation: shbL .62s cubic-bezier(.2,.7,.4,1) forwards; }
+.shbreak i.r { clip-path: polygon(55% 0, 100% 0, 100% 100%, 45% 100%, 58% 62%, 42% 38%); animation: shbR .62s cubic-bezier(.2,.7,.4,1) forwards; }
+@keyframes shbL { 0% { transform: scale(1.3); } 25% { transform: scale(1.3) translateX(-2px); } 100% { transform: translate(-26px, 22px) rotate(-38deg) scale(1); opacity: 0; } }
+@keyframes shbR { 0% { transform: scale(1.3); } 25% { transform: scale(1.3) translateX(2px); } 100% { transform: translate(26px, 24px) rotate(42deg) scale(1); opacity: 0; } }
+
+/* 특수 주사위 크게 보기 */
+.die-peek { display: grid; place-items: center; padding: 0; background: none; border: 0; cursor: zoom-in; }
+.die-pop { display: grid; justify-items: center; gap: 6px; max-width: 220px; text-align: center; }
+.die-pop > .run-ico { width: 72px; height: 36px; image-rendering: pixelated; }
+.die-pop b { color: var(--dc); font-size: 14px; text-shadow: 1px 1px 0 var(--ink); }
+.die-faces { display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; }
+.die-faces img { width: 56px; height: 56px; border-radius: 8px; box-shadow: 0 2px 0 var(--ink), 0 0 8px color-mix(in srgb, var(--dc) 40%, transparent); }
+.die-pop p { margin: 0; font-size: 11px; line-height: 1.4; }
