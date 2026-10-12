@@ -364,14 +364,16 @@ const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
 // 지도 · 이벤트 · 상점 · 휴식 · 전투 보상은 모두 지도 곡(run_map) — 같은 곡이면 playBgm 이 다시 틀지 않아 화면을 오가도 끊기지 않는다
-function showMap() {
+function showMap(again = false) {
   playBgm('run_map');
   preloadBgm(bossSong(R.boss));          // 이번 막 보스 곡 · 전투 곡을 미리 받아 둔다 (전투에 들어가자마자 나오게)
   preloadBgm('run_battle');
   const nodes = R.map.nodes;
   const next = new Set(Run.nextNodes(R));
-  const H = MAP_PAD * 2 + Run.ROWS * MAP_ROW + 40;
-  const pos = n => ({ x: 12 + n.col * 25.3, y: n.row > Run.ROWS ? MAP_PAD - 6 : H - MAP_PAD - (n.row - 1) * MAP_ROW });
+  // 층 간격: 지도 칸 높이에 맞춰 한 화면에 다 보이게 (너무 좁으면 스크롤)
+  const ROW = ui.mapRow || MAP_ROW;
+  const H = MAP_PAD * 2 + Run.ROWS * ROW + 40;
+  const pos = n => ({ x: 12 + n.col * 25.3, y: n.row > Run.ROWS ? MAP_PAD - 6 : H - MAP_PAD - (n.row - 1) * ROW });
   const visited = new Set(R.path);
   const lines = nodes.flatMap(n => n.next.map(j => {
     const a = pos(n), b = pos(nodes[j]);
@@ -399,11 +401,14 @@ function showMap() {
         </button>`;
       }).join('')}
     </div></div>
-    <p class="tip"></p>
     ${heroStrip()}
   </div>`;
   // 지금 갈 수 있는 층이 보이게
   const sc = $('map-scroll');
+  if (sc && !again) {
+    const fit = Math.max(52, Math.min(96, Math.floor((sc.clientHeight - 6 - MAP_PAD * 2 - 40) / Run.ROWS)));
+    if (fit !== ROW) { ui.mapRow = fit; return showMap(true); }
+  }
   const tgt = X.app.querySelector('.mnode.can') || X.app.querySelector('.mnode.here');
   if (sc && tgt) sc.scrollTop = Math.max(0, tgt.offsetTop - sc.clientHeight * 0.6);
   if (R.omenOpts) showOmens();
