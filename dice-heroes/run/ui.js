@@ -416,6 +416,8 @@ function foePanel() {
     ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : ''}`;
 }
 
+// 트레이 주사위 아래 이름표 (짧은 이름)
+const SDIE_SHORT = { gold: '금', heavy: '무게', twin: '쌍둥이', stair: '계단' };
 // 특수 주사위 3D 표시: 플레이어 스킨은 그대로, 주사위마다 그 색 테두리 껍질 (dice3d setMarks)
 const diceMarks = () => R?.C ? R.C.dice.map((_, i) => { const d = Run.diceInfo(R.dset?.[i]); return d ? { kind: d.id, color: d.color } : null; }) : null;
 // 주사위 위 표시: 봉인 · 얼음 · 뒤집기 · 조정 · 밑장빼기
@@ -429,7 +431,7 @@ function paintTray() {
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
   // 특수 주사위: 주사위 아래 색 보석 표시
-  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 24}px;--dc:${d.color}" title="${d.ko}">${runIco('die', d.id, 'die6', 'xs')}</i>`; }).join('');
+  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 30}px;--dc:${d.color}" title="${d.ko}">${SDIE_SHORT[id] || d.ko}</i>`; }).join('');
   if (!ui.tool || ui.tool === 'swap' || !canAct() || !C.rolled || t.anim) { ovl.innerHTML = seals + sp; return; }
   ovl.innerHTML = seals + sp + C.dice.map((v, i) => {
     const p = t.screenPos(i);
