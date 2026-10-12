@@ -198,7 +198,7 @@ function bootGate() {
   if (!bootT0) bootT0 = performance.now();
   if (bootDone()) return '<button class="touch" data-act="touch">화면을 터치하세요</button>';
   const k = Math.round(bgmState('title').p * 100);
-  return `<div class="boot-load"><div class="boot-bar"><i style="width:${k}%"></i></div><small>음악 불러오는 중… ${k}%</small></div>`;
+  return `<div class="boot-load" role="progressbar" aria-label="불러오는 중" aria-valuenow="${k}"><div class="boot-bar"><i style="width:${k}%"></i></div></div>`;
 }
 function waitBoot() {
   const el = document.getElementById('touch-wrap');
