@@ -9,6 +9,26 @@ v0.38.7 에서 적 16종 · 유물 37종 · 지도 · 카드 틀 · 장면 그�
   - UI 아이콘은 128px webp, 장면 그림은 512px webp.
 - 그림을 넣는 곳은 항목마다 적었습니다. 대부분 `run/art.js` 의 목록에 id 만 더하면 화면이 그 그림을 씁니다.
 
+## 반영 현황 (v0.38.12, 디자인 세션)
+
+| 항목 | 상태 | 파일 |
+|---|---|---|
+| 1 보존 아이콘 | 완료 | `assets/run/ui/kw_keep.webp` |
+| 2 효과 2~3개 카드 | 완료: 카드 아래 보석 홈 3칸(키워드 색 보석 + 아이콘), 효과 3개는 무지갯빛 흐르는 테두리 · 무지개 빛줄기 | `run/ui.js` `cardFace()`, `run/run.css` `.rc-gems` `.k3` |
+| 3 별조각 | 완료 | `assets/run/ui/star.webp` (`starIco()`) |
+| 4 원정 준비 | 완료: 강화 아이콘 7종 · 단계 칸(◆) · 모닥불 머리 그림 · 테두리 있는 창 | `assets/run/ui/meta_*.webp` |
+| 5(가) 특수 주사위 2D | 완료 (원정 준비 목록 · 트레이 주사위 아래 표시) | `assets/run/ui/die_*.webp` |
+| 5(나) 특수 주사위 3D 면 | **면 그림만 완료, 3D 연결은 시스템 세션** | `assets/run/dice/<id>_1~6.webp`, 재질 메모는 `tools/make_special_dice.py` 의 `mat` |
+| 6 승천 휘장 | 완료 (단계 숫자를 겹쳐 그림). 단계별 10종은 안 함 | `assets/run/ui/asc.webp` |
+| 7 도전과제 메달 12종 | 완료 (못 이룬 것은 흑백) | `assets/run/ui/feat_*.webp` |
+| 8 나누기 막대 | 완료: 금속 틀 · 광택 · 칼과 방패 손잡이 · 끝 단추 | `assets/run/ui/split_knob.webp`, `.sp-*` |
+| 9 피격 · 보호막 | 완료: 할퀴기 · 물기 · 타격 별 6프레임 시트(적마다 다름), 보호막 칸 아이콘. 깨짐 파편은 안 함 | `assets/run/fx/*.webp`, `assets/run/ui/shield.webp` |
+| 10 대장장이 | 완료: 아이콘, 강화 고르기 창 머리에 대장장이 장면 | `assets/run/ui/smith.webp` |
+| 11 장면 | `treasure.webp` 는 원래 있음. 출발 장면 완료 · 연결함 | `assets/run/scene/start.webp` |
+| 소리 | 완료: 별조각(`sfx.stars`) · 강화 사기(`sfx.forge`) · 승천 열림(`sfx.ascend`) · 원정 춤사위(`sfx.danceRun`, 협동 `sfx.dance` 는 그대로). 원정 준비 곡은 안 함 | `audio.js` |
+
+도트 아이콘은 `tools/run_icons.py` (16×16 문자열 → 128px), 주사위 면은 `tools/make_special_dice.py`, 피격 시트는 `tools/make_hit_fx.py` 로 다시 만들 수 있습니다.
+
 ## 우선순위 A — 지금 화면에서 가장 어색한 것
 
 ### 1. 「보존」 키워드 아이콘

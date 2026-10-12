@@ -806,6 +806,51 @@ export const sfx = {
     if (!unlock()) return;
     voice(sfxGain, { type: 'p25', f: 420 + k * 760, t: ctx.currentTime, dur: 0.025, vol: 0.07 });
   },
+  // 원정 춤사위 (협동 무희의 dance 보다 신나게): 캐스터네츠 셋잇단 + 두 바퀴 도는 아르페지오 + 탬버린 + 반짝 끝음 (약 0.8초)
+  danceRun() {
+    buzz(50);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    [0, 0.05, 0.1, 0.2].forEach(d => noise(sfxGain, { t: t + d, dur: 0.025, vol: 0.13, hp: 3000, lp: 9000 }));
+    voice(sfxGain, { type: 'tri', f: freq('A3'), t, dur: 0.12, vol: 0.2 });
+    voice(sfxGain, { type: 'tri', f: freq('E4'), t: t + 0.2, dur: 0.12, vol: 0.18 });
+    ['A5', 'C#6', 'E6', 'A6', 'C#7', 'B6', 'A6', 'E6', 'A6', 'C#7', 'E7'].forEach((n, i) => voice(sfxGain, { type: i % 2 ? 'p12' : 'p25', f: freq(n), t: t + 0.1 + i * 0.045, dur: 0.07, vol: 0.085 }));
+    for (let i = 0; i < 5; i++) noise(sfxGain, { t: t + 0.32 + i * 0.07, dur: 0.04, vol: 0.05, hp: 6000, lp: 14000 });   // 탬버린
+    ping(sfxGain, { f: freq('E7'), t: t + 0.62, dur: 0.45, vol: 0.05, type: 'triangle' });
+    ping(sfxGain, { f: freq('A7'), t: t + 0.66, dur: 0.4, vol: 0.035, type: 'triangle' });
+  },
+  // 별조각을 얻는다: 반짝이며 쌓이는 소리 (n: 개수에 따라 조금 길게)
+  stars(n = 10) {
+    if (!unlock()) return;
+    const t = ctx.currentTime, k = Math.min(10, 4 + Math.round(n / 10));
+    const notes = ['E6', 'G#6', 'B6', 'E7', 'G#7', 'B7'];
+    for (let i = 0; i < k; i++) ping(sfxGain, { f: freq(notes[i % notes.length]) * (i >= notes.length ? 1 : 1), t: t + i * 0.06, dur: 0.3, vol: 0.05, type: 'triangle' });
+    for (let i = 0; i < k; i++) noise(sfxGain, { t: t + i * 0.06, dur: 0.02, vol: 0.04, hp: 7000, lp: 14000 });
+    buzz(20);
+  },
+  // 원정 준비에서 강화를 산다: 망치 '깡' 두 번 + 각인이 차오르는 상승음
+  forge() {
+    buzz(45);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    [0, 0.14].forEach((d, i) => {
+      noise(sfxGain, { t: t + d, dur: 0.04, vol: 0.16, hp: 2000, lp: 11000 });
+      ping(sfxGain, { f: 980 + i * 120, t: t + d, dur: 0.3, vol: 0.07, type: 'square' });
+      ping(sfxGain, { f: (980 + i * 120) * 2.71, t: t + d, dur: 0.14, vol: 0.03 });
+      voice(sfxGain, { type: 'tri', f: 160, slide: 70, t: t + d, dur: 0.12, vol: 0.18 });
+    });
+    voice(sfxGain, { type: 'p25', f: freq('C5'), slide: freq('C6'), t: t + 0.3, dur: 0.32, vol: 0.06 });
+    ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => voice(sfxGain, { type: 'p12', f: freq(n), t: t + 0.42 + i * 0.05, dur: 0.08, vol: 0.07 }));
+  },
+  // 승천 단계가 열린다: 낮고 장엄한 단조 징글 (약 1.4초)
+  ascend() {
+    buzz(90);
+    fanfare(0.11, {
+      p25: [[0, 'A4', 2], [2, 'C5', 1], [3, 'E5', 2], [5, 'F5', 1], [6, 'E5', 1], [7, 'A5', 5, 1]],
+      p12: [[0, 'E4', 2], [2, 'A4', 1], [3, 'C5', 2], [5, 'D5', 1], [6, 'C5', 1], [7, 'E5', 5]],
+      tri: [[0, 'A2', 3], [3, 'F2', 2], [5, 'D2', 1], [6, 'E2', 1], [7, 'A2', 5]],
+    }, { kick: [0, 3, 7], snare: [6, 6.5], crash: 7 });
+  },
   // 적이 쓰러진다: 펑 터지며 흩어지는 소리 (승리 팡파레는 보상 화면에서 한 번만)
   foeDie(power = 1) {
     buzz(60 + power * 30);

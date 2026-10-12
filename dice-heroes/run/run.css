@@ -497,9 +497,15 @@
 .rs-asc { padding: 6px 8px; display: grid; gap: 4px; }
 .rs-asc.locked { margin: 0; font-size: 11px; color: var(--muted); display: block; text-align: center; padding: 4px 0; }
 .asc-row { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 6px; }
-.asc-lv { display: grid; justify-items: center; line-height: 1.1; }
-.asc-lv b { font-size: 24px; color: #FF8A8A; text-shadow: 2px 2px 0 var(--ink); }
+.asc-lv { display: flex; justify-content: center; align-items: center; gap: 8px; line-height: 1.2; }
+.asc-lv > span:last-child { display: grid; }
 .asc-lv small { font-size: 10px; color: var(--muted); }
+.asc-lv small:first-child { font-size: 12px; font-weight: 700; color: #FF8A8A; }
+/* 승천 휘장: 해골 왕관 위에 단계 숫자 */
+.asc-badge { position: relative; width: 44px; height: 44px; display: grid; place-items: center; filter: drop-shadow(0 0 6px rgba(232,67,90,.7)); }
+.asc-badge .ico { width: 44px; height: 44px; }
+.asc-badge b { position: absolute; right: -6px; bottom: -4px; min-width: 20px; padding: 0 3px; text-align: center; font-size: 15px; line-height: 18px; color: #fff; background: #8E2226; border: 2px solid var(--ink); box-shadow: inset 0 0 0 1px #FF8A8A; }
+.asc-badge.off { filter: grayscale(1) brightness(.7); }
 .asc-list { margin: 0; padding: 0 0 0 4px; list-style: none; display: grid; gap: 1px; max-height: 92px; overflow-y: auto; font-size: 10px; line-height: 1.35; color: #FFD0D0; }
 .asc-list b { display: inline-block; min-width: 16px; color: #FF8A8A; }
 .rs-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -507,6 +513,8 @@
 .asc-open { margin: 0; color: #FF8A8A; font-weight: 700; animation: blink .7s steps(2, jump-none) 4; }
 .feat-list { display: grid; gap: 4px; max-height: 60vh; overflow-y: auto; }
 .feat { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; padding: 5px 8px; background: #0E0A2C; border: 2px solid #2A2270; opacity: .6; }
+.feat > .run-ico { width: 36px; height: 36px; filter: grayscale(1) brightness(.6); }
+.feat.ok > .run-ico { filter: drop-shadow(0 0 5px rgba(255,200,61,.6)); }
 .feat.ok { opacity: 1; border-color: var(--gold); box-shadow: inset 0 0 10px rgba(255,200,61,.25); }
 .feat b { display: block; font-size: 12px; } .feat small { font-size: 10px; color: var(--muted); }
 
@@ -517,10 +525,27 @@
 .run-reward .rw .run-ico, .shop-good .run-ico { width: 28px; height: 28px; }
 
 /* 효과가 여러 개인 카드: 효과 칩을 한 줄로 (3개면 아이콘만) */
-.rc-kws { display: flex; justify-content: center; gap: 1px; max-width: 100%; }
-.rc-kws .rc-kw { font-style: normal; font-size: 8px; padding: 0 2px; gap: 0; min-height: 13px; }
-.rc-kws.n3 .rc-kw { font-size: 0; padding: 0 3px; }
-.rc-kws.n3 .rc-kw .ico, .rc-kws .rc-kw .ico { width: 9px; height: 9px; }
+/* 효과 2~3개: 카드 아래에 박힌 보석 홈 3칸. 효과가 붙은 칸에 그 키워드 색 보석이 끼워진다 */
+.rc-gems { display: flex; justify-content: center; gap: 3px; padding: 2px 4px; margin-top: 1px;
+  background: linear-gradient(180deg, #2A0A1E, #12040E); border: 1px solid #C8860E; box-shadow: inset 0 1px 0 rgba(255,226,122,.35), 0 0 0 1px #2A0614; }
+.gem { width: 15px; height: 15px; display: grid; place-items: center; font-style: normal;
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  background: radial-gradient(circle at 34% 28%, #FFFFFF 0 10%, color-mix(in srgb, var(--kc) 70%, #FFFFFF) 22%, var(--kc) 52%, color-mix(in srgb, var(--kc) 50%, #1A1030) 100%); }
+.gem .ico { width: 10px; height: 10px; filter: drop-shadow(0 0 1px #1A1030); }
+.gem.empty { background: radial-gradient(circle at 60% 70%, #3A2030, #0B0410 70%); box-shadow: inset 0 0 0 1px #5A3A1E; }
+.hand .rc .gem:not(.empty) { animation: gemGlint 2.8s ease-in-out infinite; }
+.hand .rc .gem:nth-child(2) { animation-delay: -.9s; } .hand .rc .gem:nth-child(3) { animation-delay: -1.8s; }
+@keyframes gemGlint { 50% { filter: brightness(1.35); } }
+
+/* 효과 3개: 전설보다 한 단계 위. 무지갯빛 테두리가 흐르고 빛줄기가 무지개색 */
+.rc-in.k3 { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 4px rgba(255,120,200,.75)) drop-shadow(0 0 6px rgba(80,200,255,.55)); }
+.rc-in.k3::after { inset: 0; border: 2px solid transparent; animation: prism 2.6s linear infinite;
+  border-image: linear-gradient(135deg, #FF5A6A, #FFC83D, #3EE6B4, #4FB3FF, #B98CFF, #FF5A6A) 1; box-shadow: inset 0 0 12px rgba(255,255,255,.35); }
+@keyframes prism { to { filter: hue-rotate(360deg); } }
+.rc-in.k3 .rc-sheen { opacity: max(var(--so, 0), .4); background-image: linear-gradient(110deg, transparent 28%, rgba(255,120,200,.5) 40%, rgba(255,240,160,.6) 47%, rgba(120,220,255,.5) 54%, transparent 66%); }
+.rc-in.k3 .rc-gems { border-color: #FFF0A8; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 0 6px rgba(255,200,255,.6); }
+.rc-in.k3 .rc-name { text-shadow: 1px 0 0 #2A0614, -1px 0 0 #2A0614, 0 1px 0 #2A0614, 0 -1px 0 #2A0614, 1px 1px 0 #2A0614, 0 0 8px rgba(255,160,230,.9); }
+@media (prefers-reduced-motion: reduce) { .rc-in.k3::after, .hand .rc .gem { animation: none; } }
 /* 강화 고르기 */
 .up-opts { display: grid; gap: 6px; }
 .up-opt { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; text-align: left; padding: 6px; background: #0E0A2C; border: 2px solid #2A2270; box-shadow: 0 3px 0 var(--ink); }
@@ -541,7 +566,53 @@
 .meta-row em { font-style: normal; color: var(--mint); }
 .meta-row .pbtn.small { min-width: 58px; }
 .die-row.on { border-color: var(--dc); box-shadow: inset 0 0 10px color-mix(in srgb, var(--dc) 40%, transparent); }
-.sdie { width: 22px; height: 22px; background: #F5F1FF; border: 2px solid var(--ink); box-shadow: inset 0 -3px 0 var(--dc), 0 0 8px var(--dc); position: relative; }
-.sdie::after { content: ''; position: absolute; left: 7px; top: 6px; width: 4px; height: 4px; background: var(--dc); box-shadow: 0 0 0 1px var(--ink); }
-.sdie-tag { position: absolute; z-index: 2; width: 10px; height: 10px; transform: translate(-50%, 0) rotate(45deg); background: var(--dc); border: 2px solid var(--ink); box-shadow: 0 0 8px var(--dc); pointer-events: none; }
+.die-row > .run-ico { width: 32px; height: 32px; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--dc) 70%, transparent)); }
+.die-row.on { border-color: var(--dc); box-shadow: inset 0 0 10px color-mix(in srgb, var(--dc) 35%, transparent); }
+.sdie-tag { position: absolute; z-index: 2; transform: translate(-50%, 0); pointer-events: none; filter: drop-shadow(0 0 4px var(--dc)); }
+.sdie-tag .ico { width: 16px; height: 16px; }
+.meta-row > .run-ico { width: 32px; height: 32px; }
+.mpips { display: inline-flex; gap: 2px; margin-left: 4px; vertical-align: 1px; }
+.mpips i { width: 7px; height: 7px; background: #0B0824; border: 1px solid #5A5290; transform: rotate(45deg); }
+.mpips i.on { background: var(--gold); border-color: #FFF0A8; box-shadow: 0 0 4px var(--gold); }
 .end-stars { margin: 0; color: var(--gold); } .end-stars small { display: block; font-size: 10px; color: var(--muted); }
+/* 별조각: 작은 칸에서도 별 모양이 또렷하게 */
+.run-ico.xs[src*="ui/star."] { width: 14px; height: 14px; vertical-align: -3px; }
+
+/* 대장장이 · 강화 고르기 */
+.shop-good.smith .run-ico, .rest-btn .run-ico { width: 32px; height: 32px; }
+.up-head { display: grid; justify-items: center; gap: 2px; margin-top: -6px; }
+.up-head .run-scene { width: 112px; height: 112px; filter: drop-shadow(0 0 12px rgba(255,138,26,.45)); }
+.up-head h2 { margin: 0; }
+
+/* 적 보호막 칸 */
+.shield-badge.run-shield { background: linear-gradient(180deg, #1E4A86, #0E2650); border-color: #8FD0FF; padding-left: 3px; }
+.shield-badge.run-shield .ico { width: 16px; height: 16px; }
+
+/* 공격 · 방어 나누기 막대: 금속 틀 · 칼과 방패 손잡이 */
+.split { background: linear-gradient(180deg, #1C1450, #0E0A2C); box-shadow: inset 0 0 0 2px #5A4FC8, inset 0 0 0 4px #1A1030, 0 4px 0 var(--ink), 0 10px 24px rgba(0,0,0,.5); }
+.sp-bar { height: 30px; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #C9D3E8, inset 0 0 0 3px #7A86A8, 0 2px 0 var(--ink);
+  background: linear-gradient(180deg, rgba(255,255,255,.28) 0 30%, transparent 30% 70%, rgba(0,0,0,.25) 70%), repeating-linear-gradient(90deg, #4FB3FF 0 6px, #2E86D6 6px 8px); }
+.sp-a { background: linear-gradient(180deg, rgba(255,255,255,.3) 0 30%, transparent 30% 70%, rgba(0,0,0,.25) 70%), repeating-linear-gradient(90deg, #FF8A3D 0 6px, #E8592A 6px 8px); box-shadow: inset -2px 0 0 #FFE27A; }
+.sp-knob::before { display: none; }
+.sp-knob .run-ico { position: absolute; left: 0; top: 0; width: 34px; height: 34px; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 0 var(--ink)) drop-shadow(0 0 4px rgba(255,255,255,.6)); pointer-events: none; z-index: 1; }
+.sp-knob em { top: -26px; }
+.sp-end { position: relative; border: 3px solid var(--ink); box-shadow: inset 0 2px 0 rgba(255,255,255,.45), inset 0 -3px 0 rgba(0,0,0,.25), 0 3px 0 var(--ink); }
+.sp-end.atk { background: linear-gradient(180deg, #FFB070, #FF7A2D); }
+.sp-end.def { background: linear-gradient(180deg, #9AD6FF, #3E9BEF); }
+.sp-cover { background: linear-gradient(180deg, #E4F4FF, #A8D8FF); box-shadow: inset 0 2px 0 #fff, inset 0 -2px 0 rgba(0,0,0,.15), 0 3px 0 var(--ink); }
+
+/* 영웅 피격 스프라이트 (6프레임) */
+.hitfx { position: fixed; z-index: 80; width: 96px; height: 96px; margin: -48px 0 0 -48px; pointer-events: none; image-rendering: pixelated;
+  background: url(../assets/run/fx/claw.webp) 0 0 / 600% 100% no-repeat; animation: hitfx .45s steps(6, jump-none) forwards; }
+.hitfx.big { width: 136px; height: 136px; margin: -68px 0 0 -68px; }
+.hitfx.k-bite { background-image: url(../assets/run/fx/bite.webp); }
+.hitfx.k-star { background-image: url(../assets/run/fx/star.webp); }
+@keyframes hitfx { to { background-position: 100% 0; } }
+
+/* 원정 준비: 모닥불 야영지 머리 그림 */
+.meta-head { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: -6px; }
+.meta-head .run-scene { width: 72px; height: 72px; filter: drop-shadow(0 0 10px rgba(255,138,26,.5)); }
+.meta-head h2 { margin: 0; }
+.run-meta .stars .run-ico { width: 20px; height: 20px; vertical-align: -3px; }
+.run-meta .deck-box, .run-feats .deck-box { padding: 10px 8px; background: linear-gradient(180deg, #1C1450, #0E0A2C); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #5A4FC8, 0 10px 30px rgba(0,0,0,.6); }
+.run-meta .meta-head { margin-top: 0; }
