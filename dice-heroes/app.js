@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
 import { titleScene } from './scenes.js';
-import { sfx, playBgm, preloadBgm, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
+import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
@@ -179,7 +179,7 @@ function showTitle() {
           <button class="pbtn small" data-act="settings">설정</button>
           <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
-      </nav>` : `<button class="touch" data-act="touch">화면을 터치하세요</button>`}
+      </nav>` : `<div class="touch-wrap" id="touch-wrap">${bootGate()}</div>`}
       ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 대전(봇) · 보스전은 그대로 할 수 있어요</p>' : ''}
       <div id="live-bar"></div>
       <footer class="ver">v${GAME.version} · © ${GAME.year} ${esc(GAME.studio)}</footer>
@@ -188,6 +188,23 @@ function showTitle() {
   showLiveBar();
   setStage(titleScene(app.querySelector('.scene')));
   playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
+  if (!unlocked) waitBoot();
+}
+// 첫 화면: 메뉴 곡을 다 받을 때까지 「불러오는 중」 막대를 보여 주고, 다 받으면 「화면을 터치하세요」
+// (예전엔 바로 터치할 수 있어서, 곡을 받는 몇 초 동안 음악 없이 메뉴가 떴다). 너무 오래 걸리면(8초) 그냥 터치를 받는다
+let bootT0 = 0;
+const bootDone = () => bgmState('title').ready || performance.now() - bootT0 > 8000;
+function bootGate() {
+  if (!bootT0) bootT0 = performance.now();
+  if (bootDone()) return '<button class="touch" data-act="touch">화면을 터치하세요</button>';
+  const k = Math.round(bgmState('title').p * 100);
+  return `<div class="boot-load"><div class="boot-bar"><i style="width:${k}%"></i></div><small>음악 불러오는 중… ${k}%</small></div>`;
+}
+function waitBoot() {
+  const el = document.getElementById('touch-wrap');
+  if (!el || screen !== 'title' || unlocked) return;
+  el.innerHTML = bootGate();
+  if (!bootDone()) setTimeout(waitBoot, 120);
 }
 
 // ── 원정 (로그라이크, 테스트판 전용) ────────────────────────────────────────
