@@ -214,6 +214,60 @@
   background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.55) 45%, rgba(180,220,255,.35) 52%, transparent 65%); background-size: 260% 100%; background-position: var(--sx, 50%) 0; }
 .rc-in.r3 .rc-sheen { opacity: max(var(--so, 0), .25); animation: legendSheen 3s linear infinite; }
 @keyframes legendSheen { from { background-position: 160% 0; } to { background-position: -60% 0; } }
+
+/* ── 카드 등급별 꾸밈: 일반(나무 · 양피지) · 희귀(은 · 월장석) · 전설(금 · 진홍 벨벳) ── */
+@font-face { font-family: 'Galmuri14'; src: url('../assets/run/fonts/Galmuri14-cards.woff2') format('woff2'); font-display: swap; }
+.rc-in { border-image-width: 6px; border-image-slice: 28; background-origin: border-box; }
+.rc-in.r1 { border-image-slice: 28 fill; }
+.rc-in.r1 .rc-name { font-weight: 400; color: #4A2E16; }
+.rc-in.r2, .rc-in.r3 { border-image-slice: 28; background-clip: padding-box; }
+/* 안쪽 테두리선 · 장식 */
+.rc-in::after { content: ''; position: absolute; inset: 1px; pointer-events: none; }
+
+/* 희귀: 차가운 월장석 바탕, 은빛 이름띠, 남색 글씨 */
+.rc-in.r2 {
+  color: #1B2A55;
+  background-color: #D6E2F2;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(47,95,176,.07) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, #EEF4FB 0%, #C6D6EC 100%);
+}
+.rc-in.r2::after { box-shadow: inset 0 0 0 1px rgba(79,179,255,.75), inset 0 0 6px rgba(79,179,255,.35); }
+.rc-in.r2 .rc-name {
+  justify-self: stretch; color: #14214A; text-shadow: 1px 1px 0 #FFFFFF;
+  background: linear-gradient(180deg, #FFFFFF 0%, #DDE5F2 45%, #A9B7D0 100%);
+  box-shadow: 0 1px 0 #5D6E92, 0 -1px 0 #FFFFFF; margin: 0 -2px; padding: 1px 0;
+}
+.rc-in.r2 .rc-rule { color: #3E5276; }
+.rc-in.r2 .rc-sum { color: #2F5FB0; text-shadow: 1px 1px 0 #FFFFFF; }
+.rc-in.r2 .rc-plus { color: #2F5FB0; }
+.rc-in.r2 .rc-kw { box-shadow: 0 0 0 1px #14214A; }
+
+/* 전설: 진홍 벨벳 · 금 격자, 금빛 큰 글씨, 은은한 금광 */
+.rc-in.r3 {
+  color: #FFE9B0;
+  background-color: #3A0C2A;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,200,61,.09) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(-45deg, rgba(255,200,61,.09) 0 1px, transparent 1px 8px),
+    radial-gradient(120% 75% at 50% 22%, #8A2450 0%, #4A0F33 55%, #24061A 100%);
+  filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 5px rgba(255,200,61,.65));
+}
+.rc-in.r3::after { box-shadow: inset 0 0 0 1px #FFE27A, inset 0 0 10px rgba(255,200,61,.45); animation: legendRim 2.4s ease-in-out infinite; }
+@keyframes legendRim { 50% { box-shadow: inset 0 0 0 1px #FFF6C8, inset 0 0 14px rgba(255,214,90,.7); } }
+.rc-in.r3 .rc-name {
+  justify-self: stretch; font-family: 'Galmuri14', 'Galmuri11', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.05; letter-spacing: -.06em;
+  color: #FFD24A; padding-bottom: 1px;
+  text-shadow: 1px 0 0 #2A0614, -1px 0 0 #2A0614, 0 1px 0 #2A0614, 0 -1px 0 #2A0614, 1px 1px 0 #2A0614, 0 0 6px rgba(255,200,61,.8);
+}
+.rc-in.r3 .rc-plus { display: none; }   /* 전설은 늘 강화 카드라 + 를 따로 적지 않는다 */
+.rc-in.r3 .rc-rule { color: #F1DDAE; }
+.rc-in.r3 .rc-sum { color: #FFD86A; text-shadow: 1px 1px 0 #2A0614, 0 0 6px rgba(255,200,61,.6); }
+.rc-in.r3 .rc-kw { box-shadow: 0 0 0 1px #FFE27A, 0 0 6px rgba(255,200,61,.6); }
+.rc-in.r3 .md { border-color: #C8860E; box-shadow: 0 0 3px rgba(255,200,61,.5); }
+.rc-static.mini .rc-in.r3 .rc-name, .rc-in.r3.sm .rc-name { font-size: 12px; font-family: 'Galmuri11', sans-serif; font-weight: 700; }
+@media (max-height: 640px) { .rc-in.r3 .rc-name { font-size: 12px; font-family: 'Galmuri11', sans-serif; font-weight: 700; } }
+@media (prefers-reduced-motion: reduce) { .rc-in.r3::after { animation: none; } }
 .rc.sel .rc-in { box-shadow: 0 0 0 2px var(--mint), 0 0 16px var(--mint); }
 .rc.dragging { cursor: grabbing; }
 .rc.dragging .rc-in { animation: none; filter: drop-shadow(0 16px 6px rgba(0,0,0,.55)); }
