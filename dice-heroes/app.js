@@ -170,7 +170,7 @@ function showTitle() {
           <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="coop">${ico('crown', 'xs')} 보스전</button>
         </div>
         ${PROD ? '' : runMenu()}
-        <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
+        <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : `${ico('warn', 'xs')} 오프라인`}</small></button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
         ${achBtn()}
         <div class="menu-row">
@@ -180,7 +180,6 @@ function showTitle() {
           <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
       </nav>` : `<div class="touch-wrap" id="touch-wrap">${bootGate()}</div>`}
-      ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 대전(봇) · 보스전은 그대로 할 수 있어요</p>' : ''}
       <div id="live-bar"></div>
       <footer class="ver">v${GAME.version} · © ${GAME.year} ${esc(GAME.studio)}</footer>
     </div>
@@ -285,7 +284,7 @@ function syncOwned() {
 
 function offlineToast() {
   sfx.back();
-  return toast(ico('warn'), '인터넷 연결이 없어요', '온라인 방은 인터넷이 필요해요. 대전(봇) · 보스전은 지금 바로 할 수 있어요.', 2400);
+  return toast(ico('warn'), '인터넷 연결이 없어요', '', 1600);
 }
 // 연결이 끊기거나 돌아오면 시작 화면 안내를 고친다
 addEventListener('online', () => { if (screen === 'title' && !layer.firstElementChild) showTitle(); });
@@ -385,7 +384,7 @@ async function setShake(on, input) {
   prefs.shake = on;
   store.set(KEYS.prefs, prefs);
   listenShake(on);
-  if (on) toast(ico('die5'), '흔들어 굴리기 켜짐', '내 차례에 폰을 흔들면 주사위가 굴러다니고, 멈추면 결과가 나와요.', 2400);
+  if (on) toast(ico('die5'), '흔들어 굴리기 켜짐', '', 1400);
 }
 if (SHAKE_OK && prefs.shake) {
   listenShake(true);
@@ -417,10 +416,10 @@ function ruleCards(o) {
   return `
   <div class="mode-cards">
     <button class="mode-card${o.rule !== 'classic' ? ' on' : ''}" data-act="rule" data-v="normal">
-      ${ico('swords')}<b>일반 대전</b><small>직업 능력 · 뒤집기 · 조정 · 의뢰 · 레벨업 · 라운드 이벤트로 성장하며 겨루기</small>
+      ${ico('swords')}<b>일반 대전</b><small>직업 · 의뢰 · 레벨업</small>
     </button>
     <button class="mode-card${o.rule === 'classic' ? ' on' : ''}" data-act="rule" data-v="classic">
-      ${ico('sheet')}<b>클래식 야추</b><small>순수 야추. 굴림 3번 · 12칸 · 상단 보너스만. 뒤집기 · 조정 · 직업 능력 · 의뢰 · 레벨업 · 이벤트 없음 (캐릭터는 겉모습만)</small>
+      ${ico('sheet')}<b>클래식 야추</b><small>순수 야추</small>
     </button>
   </div>`;
 }
@@ -429,10 +428,10 @@ function modeCards(o) {
   return `
   <div class="mode-cards">
     <button class="mode-card${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus">
-      ${ico('swords')}<b>대전</b><small>12라운드 동안 점수표를 채워 최종 점수가 가장 높은 영웅이 승리. 성장하는 일반 대전과 순수한 클래식 야추 중에서 골라요</small>
+      ${ico('swords')}<b>대전</b><small>12라운드 · 최고 점수</small>
     </button>
     <button class="mode-card${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop">
-      ${ico('shield')}<b>협동</b><small>다 함께 보스 토벌. 점수를 적으면 그만큼 보스에게 피해, 12라운드 안에 쓰러뜨리면 승리</small>
+      ${ico('shield')}<b>협동</b><small>함께 보스 토벌 · 점수 = 피해</small>
     </button>
   </div>`;
 }
@@ -543,7 +542,7 @@ function optsSummary(o, change = '') {
   <section class="frame opts-sum">
     ${o.mode === 'coop'
       ? `${portrait(b.id, 'sum-bp')}<div><b>${ico('shield', 'xs')} 협동 · ${b.ko}</b><small><span class="diff-chip" style="--c:${d.color}">${d.ko}</span> ${b.title}</small></div>`
-      : o.rule === 'classic' ? `<span class="sum-ico">${ico('sheet')}</span><div><b>클래식 야추</b><small>순수 야추 · 캐릭터는 겉모습만</small></div>`
+      : o.rule === 'classic' ? `<span class="sum-ico">${ico('sheet')}</span><div><b>클래식 야추</b><small>순수 야추</small></div>`
       : `<span class="sum-ico">${ico('swords')}</span><div><b>대전</b><small>최고 점수 경쟁</small></div>`}
     ${change ? `<button class="pbtn small" data-act="${change}">변경</button>` : ''}
   </section>`;
@@ -642,7 +641,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
         </button>`;
       }).join('')}
     </div>` : ''}
-    <p class="cls-desc"><b style="color:${c.color}">${c.ko}</b> ${classicPick() ? '클래식 야추 · 겉모습만 (능력 없음)' : c.desc}</p>
+    <p class="cls-desc"><b style="color:${c.color}">${c.ko}</b> ${classicPick() ? '겉모습만' : c.desc}</p>
   </section>`;
 }
 
@@ -650,7 +649,7 @@ function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
   if (act === 'pick-back') return pickBack();
   if (act === 'boss-locked' && t.dataset.base) { sfx.back(); return toast(ico('lock'), '아직 잠든 강적', `${E.bossInfo(t.dataset.base).ko}을(를) 어려움으로 토벌하면 깨어나요.`, 2400); }
-  if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), '봉인된 보스', '화염룡 · 오크 대장 · 리치 왕의 어려움을 모두 깨면 봉인이 풀려요.', 2400); }
+  if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), '봉인된 보스', '세 보스를 「어려움」으로 깨면 열려요', 1800); }
   if (act === 'diff-locked') {
     sfx.back();
     const d = Number(t.dataset.v);
@@ -880,7 +879,7 @@ function showLobby() {
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>＋ 봇 추가</button>` : ''}
       ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>게임 시작</button>
-                ${!allReady ? `<p class="waiting">모두 준비하면 시작할 수 있어요 (${readyN} / ${need.length})</p>` : ''}`
+                ${!allReady ? `<p class="waiting">준비 ${readyN} / ${need.length}</p>` : ''}`
              : `<button class="pbtn big ${mine?.ready ? '' : 'gold'}" data-act="lobby-ready">${mine?.ready ? '준비 취소' : '준비 완료!'}</button>
                 <p class="waiting">${mine?.ready ? (allReady ? '방장이 시작하기를 기다리는 중…' : '다른 사람이 준비하기를 기다리는 중…') : '캐릭터를 고르고 준비 버튼을 눌러 주세요'}</p>`}
     </div>
@@ -925,8 +924,8 @@ function onLobbyAct(act, t) {
   if (act === 'copy-link') {
     const el = document.getElementById('invite-link');
     const text = el.value;
-    const done = () => toast(ico('link'), '초대 링크를 복사했어요', '메신저로 친구에게 보내 주세요.', 1600);
-    navigator.clipboard?.writeText(text).then(done, () => { el.select(); toast(ico('link'), '링크를 선택했어요', '길게 눌러 복사해 주세요.', 1800); })
+    const done = () => toast(ico('link'), '링크 복사됨', '', 1200);
+    navigator.clipboard?.writeText(text).then(done, () => { el.select(); toast(ico('link'), '링크를 길게 눌러 복사', '', 1600); })
       ?? (el.select(), done());
     return;
   }
@@ -965,7 +964,7 @@ function onNameInput(i, value) {
 async function onRoom(room) {
   if (!online) return;
   if (!room) {
-    toast(ico('door'), '방이 닫혔습니다', '처음 화면으로 돌아갑니다.');
+    toast(ico('door'), '방이 닫혔어요', '');
     leaveRoom(); S = null;
     return showTitle();
   }
@@ -1234,7 +1233,7 @@ function to2d(why) {
   const host = document.getElementById('tray');
   try { tray?.destroy?.(); } catch { /* 무시 */ }
   tray = host ? new DiceTray2D(host, trayOpts()) : null;
-  toast(ico('warn'), '그래픽을 간단하게 바꿨어요', '이 기기에서 3D 주사위를 그리지 못해 2D 주사위로 계속해요.', 2400);
+  toast(ico('warn'), '2D 주사위로 바꿨어요', '', 1800);
   if (screen === 'run') runMod?.render(); else render();
 }
 
@@ -1273,7 +1272,7 @@ function render() {
     <header class="hud">
       <button class="icon-btn" data-act="pause" aria-label="메뉴">☰</button>
       <div class="round-chip"><small>ROUND</small><b>${shownRound}<i>/${E.ROUNDS}</i></b></div>
-      ${S.classic ? `<div class="event-chip classic-chip"><span class="ev-ic">${ico('sheet')}</span><div><b>클래식 야추</b><small>굴림 3번 · 12칸 · 상단 보너스</small></div></div>` : `<button class="event-chip" data-act="info-event"><span class="ev-ic">${eventIco(ev.id)}</span><div><b>${ev.ko}</b><small>${ev.desc}</small></div></button>`}
+      ${S.classic ? `<div class="event-chip classic-chip"><span class="ev-ic">${ico('sheet')}</span><div><b>클래식 야추</b></div></div>` : `<button class="event-chip" data-act="info-event"><span class="ev-ic">${eventIco(ev.id)}</span><div><b>${ev.ko}</b><small>${ev.desc}</small></div></button>`}
       <button class="icon-btn${ui.fast ? ' on' : ''}" data-act="fast" aria-label="봇 빨리 감기">▶▶</button>
     </header>
 
@@ -1415,7 +1414,7 @@ function autoSheet(myTurn, combos) {
   // 점수표는 사용자가 '족보 완성' 버튼으로 직접 연다. 새 족보가 완성되거나 굴림을 다 쓰면
   // 가운데에 작게 알리기만 한다 (족보 완성 버튼이 깜박인다). 튜토리얼의 기록 안내 단계에서만 바로 띄운다.
   if (!tut && fresh.length) { sfx.combo(); notice(`완성 가능한 족보 ${combos.length}개`); }
-  else if (!tut && out) notice('굴림을 다 썼어요 · 족보 완성에서 기록');
+  else if (!tut && out) notice('굴림 끝');
   if (fresh.length && tut && !ui.sheet) {
     ui.sheet = true;
     ui.view = null;
@@ -2181,7 +2180,7 @@ function showBetPicker() {
   const open = E.CATS.filter(c => p.scores[c.id] === null);
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame bet-pick" data-act="noop">
     <h2>${ico('coins')} 배팅</h2>
-    <p class="hint">이번 라운드에 노릴 족보를 고르세요. 그 족보에 적으면 점수 <b>×${E.CLASS_TUNE.betMul}</b>, 다른 칸에 적거나 0점이면 <b>점수 없음</b>.</p>
+    <p class="hint">${ico('coins', 'xs')} 맞히면 <b>×${E.CLASS_TUNE.betMul}</b> · 빗나가면 <b>0</b></p>
     <div class="bet-grid">${open.map(c => `<button class="pbtn bet-cat" data-act="bet" data-cat="${c.id}"><b>${c.ko}</b><small>${CAT_HELP[c.id].rule}</small></button>`).join('')}</div>
     <button class="pbtn small" data-act="close">닫기</button>
   </div></div>`;
@@ -2602,7 +2601,7 @@ async function playOne(f) {
       case 'levelup':
         sfx.levelup();
         if (!S.boss) bumpPts(f.player, E.LEVEL_POINTS);
-        if (!(online ? p.token === online.token : !p.bot)) await toast(ico('up'), `${p.name} 레벨 ${f.level}!`, '특성 카드를 고르는 중…', 1300);
+        if (!(online ? p.token === online.token : !p.bot)) await toast(ico('up'), `${p.name} 레벨 ${f.level}!`, '', 1100);
         break;
       case 'retro':
         sfx.quest();
@@ -2611,12 +2610,12 @@ async function playOne(f) {
         await wait(500);
         break;
       case 'dropped':
-        await toast(ico('door'), `${p.name} 연결 끊김`, '1분 안에 돌아오지 않아 봇이 대신 진행합니다.', 2200);
+        await toast(ico('door'), `${p.name} 연결 끊김`, '', 1600);
         break;
       case 'rejoined':
         if (S.players[f.player]?.token === online?.token) track('room_rejoin', { mode: S.mode });
         sfx.start?.();
-        await toast(ico('door'), `${p.name} 다시 접속`, '봇 대신 다시 직접 진행합니다.', 2000);
+        await toast(ico('door'), `${p.name} 다시 접속`, '', 1400);
         break;
       case 'midas': floatText('황금손 조정 +1', 'gold', -30, 'tray', 'crown'); break;
       case 'duel': sfx.quest(); await toast(ico('trophy'), '결투 대회 우승!', `${p.name} · 뒤집기 +1 · 조정 +1`); break;
@@ -2628,9 +2627,9 @@ async function playOne(f) {
       case 'dance': await danceBuffFx(f.player); break;
       case 'danceGain': sfx.card(); danceFx(f.player); floatText(`${p.name} · 춤사위 버프 +1 (${f.n}개)`, 'mint', 54, 'tray', 'sparkle'); await wait(350); break;
       case 'deal': await dealFx(f); break;
-      case 'dealCost': floatText('밑장빼기의 대가 · 경험치 없음', 'red', 74, 'tray', 'card'); await wait(350); break;
+      case 'dealCost': floatText('XP 0', 'red', 74, 'tray', 'card'); await wait(350); break;
       case 'bet': sfx.coin(); floatText(`${p.name} · ${E.catInfo(f.cat).ko}에 배팅! ×${E.CLASS_TUNE.betMul}`, 'gold', -20, 'tray', 'coins'); await wait(500); break;
-      case 'spill': floatText(`넘친 충전 → 경험치 +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
+      case 'spill': floatText(`XP +${f.xp}`, 'mint', 44, 'tray', 'up'); await wait(300); break;
       case 'save': floatText(`굴림 ${f.n}번 아낌 → 경험치 +${f.xp}`, 'mint', 74, 'tray', 'up'); await wait(300); break;
     }
   }
@@ -2639,8 +2638,8 @@ async function playOne(f) {
 
 // 처음 나오는 용어는 한 번씩 짧게 설명한다 (튜토리얼을 건너뛴 사람을 위해)
 const TERM_TIPS = [
-  ['flip', p => p.flip > 0, 'flip', '뒤집기를 얻었어요', '주사위 하나를 반대 면으로 바꿔요 (1↔6, 2↔5, 3↔4). 굴린 뒤 뒤집기 버튼 → 주사위.'],
-  ['nudge', p => p.nudge > 0, 'nudge', '조정을 얻었어요', '주사위 하나를 1만큼 올리거나 내려요. 굴린 뒤 조정 버튼 → 주사위 위 +1/−1.'],
+  ['flip', p => p.flip > 0, 'flip', '뒤집기', '1↔6 · 2↔5 · 3↔4'],
+  ['nudge', p => p.nudge > 0, 'nudge', '조정', '주사위 눈 ±1'],
 ];
 function termTips() {
   if (tut || !S || S.ended || !myControl() || ui.busy) return;
@@ -2779,7 +2778,7 @@ function showCoopResults() {
 }
 function resultActions() {
   if (online) return `<div class="res-actions">
-    ${isHost() ? '<button class="pbtn gold" data-act="room-again">같은 방에서 다시</button>' : '<span class="waiting">방장이 다시 시작할 수 있어요</span>'}
+    ${isHost() ? '<button class="pbtn gold" data-act="room-again">같은 방에서 다시</button>' : `<span class="waiting">${ico('crown', 'xs')} ⏳</span>`}
     <button class="pbtn" data-act="home">메인 메뉴</button></div>`;
   return `<div class="res-actions">
     <button class="pbtn gold" data-act="again">다시 하기</button>
@@ -2850,7 +2849,7 @@ function showAchievements() {
     </header>
     <div class="wrap">
       <div class="seg ach-tabs" role="tablist" style="--n:${AC.ACH_CATS.filter(([id]) => shown.some(a => a.cat === id)).length}">${AC.ACH_CATS.filter(([id]) => shown.some(a => a.cat === id)).map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
-      ${Wal.wallet() ? '' : '<p class="hint">지갑을 불러오는 중… (인터넷 연결이 필요해요)</p>'}
+      ${Wal.wallet() ? '' : `<p class="hint">${ico('warn', 'xs')} 오프라인</p>`}
       <div class="ach-list">
       ${blocks.map(({ a, steps, step, got, ok, v }) => {
         const t = AC.TIER[a.tier];
@@ -2865,7 +2864,6 @@ function showAchievements() {
         </div>`;
       }).join('')}
       </div>
-      <p class="hint">단계가 있는 과제는 보상을 받으면 다음 단계로 바뀌어요. 보석을 받은 판(인터넷 연결 · 1분 이상)만 진행도에 쌓여요. 보스 등급은 보통 이상 난이도 기준.</p>
     </div>
   </div>`;
 }
@@ -2950,7 +2948,7 @@ function showDashboard() {
         <div class="frame"><small>승률</small><b>${prof.games ? Math.round((prof.wins / prof.games) * 100) : 0}%</b></div>
         <div class="frame gold"><small>최고 점수</small><b>${prof.best?.score ?? '-'}</b></div>
       </section>
-      ${prof.best ? `<p class="hint">최고 점수 ${prof.best.score}점 · ${E.classInfo(prof.best.cls).ko} · ${prof.best.mode === 'coop' ? '협동' : '대전'} · ${date(prof.best.date)}</p>` : '<p class="hint">한 판을 끝내면 기록이 쌓여요.</p>'}
+      ${prof.best ? `<p class="hint">최고 점수 ${prof.best.score}점 · ${E.classInfo(prof.best.cls).ko} · ${prof.best.mode === 'coop' ? '협동' : '대전'} · ${date(prof.best.date)}</p>` : ''}
 
       <section class="frame">
         <h3 class="dash-h">직업</h3>
@@ -2992,7 +2990,7 @@ function showDashboard() {
         <button class="pbtn small" data-act="dash-export">백업 코드 복사</button>
         <button class="pbtn small" data-act="dash-import">백업 코드로 복원</button>
       </div>
-      <p class="hint">기록은 이 기기에만 저장돼요. 기기를 바꾸거나 앱을 지우기 전에 백업 코드를 보관하세요.</p>
+      <p class="hint">${ico('warn', 'xs')} 이 기기에만 저장</p>
       <button class="pbtn small" data-act="dash-reset">기록 초기화</button>
     </div>
   </div>`;
@@ -3175,7 +3173,7 @@ function showSettings(inGame = false) {
     <h2>${inGame ? '일시정지' : '설정'}</h2>
     <label class="set-row">배경음악<input id="set-bgm" type="range" min="0" max="1" step="0.05" value="${a.bgm}"></label>
     <label class="set-row">효과음<input id="set-sfx" type="range" min="0" max="1" step="0.05" value="${a.sfx}"></label>
-    <label class="set-row">진동${canVibrate() ? '' : ' <small>이 기기는 버튼을 누를 때만</small>'}<input id="set-vib" type="checkbox" ${a.vibrate ? 'checked' : ''}></label>
+    <label class="set-row">진동<input id="set-vib" type="checkbox" ${a.vibrate ? 'checked' : ''}></label>
     <div class="set-row">연출 속도<div class="seg" role="group" aria-label="연출 속도">
       ${[['normal', '보통'], ['fast', '빠르게'], ['min', '최소']].map(([v, k]) => `<button data-act="pref-fx" data-v="${v}" class="${prefs.fx === v ? 'on' : ''}">${k}</button>`).join('')}
     </div></div>
@@ -3189,7 +3187,7 @@ function showSettings(inGame = false) {
     <button class="pbtn small guide-btn" data-act="class-guide" data-in="${inGame ? 1 : ''}">${ico('scroll', 'xs')} 직업 안내 <small>스킬 · 특징</small></button>
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
-    ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>나가도 1분 안에 돌아오면 이어서 할 수 있어요 (메인 화면의 방으로 돌아가기). 1분이 지나면 ' + (S.mode === 'versus' && S.players.length === 2 ? '기권패' : '봇이 대신 진행') + '.' : ''}</p>` : ''}
+    ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>1분 안에 돌아오면 이어서' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
         '<button class="pbtn" data-act="tutorial">튜토리얼 다시 보기</button><button class="pbtn gold" data-act="close">닫기</button>'}
@@ -3234,8 +3232,8 @@ async function paintAccount() {
   try {
     const a = await accountInfo();
     el.innerHTML = a.guest
-      ? `계정 <small>게스트 · 이 기기에만 저장</small><button class="pbtn small gold" data-act="link-google">구글 계정 연결</button>`
-      : `계정 <small>구글 ${esc(a.email)} · 다른 기기에서도 이어서</small>`;
+      ? `계정 <small>게스트</small><button class="pbtn small gold" data-act="link-google">구글 계정 연결</button>`
+      : `계정 <small>구글 ${esc(a.email)}</small>`;
   } catch { el.innerHTML = '계정 <small>인터넷 연결이 필요해요</small>'; }
 }
 
@@ -3248,9 +3246,9 @@ function showDaily() {
   const got = !ready && last?.dice ? Wal.dailyGemsOf(last.dice) : null;
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame daily" data-act="noop">
     <h2>${ico('gem')} 일일 보상</h2>
-    <p class="daily-rule">하루 한 번 주사위 5개를 굴려 <b>눈의 합</b>만큼 보석!<br>5개가 모두 같으면 <b class="y">요트 · 10배</b></p>
+    <p class="daily-rule">${ico('gem', 'xs')} = <b>눈의 합</b> · <b class="y">요트 ×10</b></p>
     <div class="daily-dice${ready ? '' : ' done'}">${shown.map(dieFace).join('')}</div>
-    <p class="daily-out">${got ? `오늘 받은 보석 <b>${got.gems}</b>${got.yacht ? ' · 요트!' : ''}<br><small>한국 시간 0시가 지나면 다시 받을 수 있어요</small>` : ready ? '<small>서버 시간 기준 · 하루 한 번</small>' : '<small>불러오는 중…</small>'}</p>
+    <p class="daily-out">${got ? `오늘 받은 보석 <b>${got.gems}</b>${got.yacht ? ' · 요트!' : ''}` : ''}</p>
     ${ready ? '<button class="pbtn gold" data-act="daily-roll">굴리기!</button>' : '<button class="pbtn" data-act="close">닫기</button>'}
   </div></div>`;
 }
@@ -3759,8 +3757,8 @@ async function onGameAct(act, t) {
       if (tryAct(() => E.useFlip(S, i))) return step();
       return;
     }
-    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '영겁의 봉인! 다시 굴려도 안 풀려요. 뒤집기가 있으면 이 주사위를 눌러 바로 풀 수 있어요.' : '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
-    if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '이번 차례엔 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.', 1500); }
+    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '뒤집기로 풀기' : '다시 굴리면 풀려요', 1300); }
+    if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '뒤집기 · 조정만', 1300); }
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();
     if (online) return onlineAct(g => E.toggleHold(g, i));
@@ -3789,7 +3787,6 @@ async function onGameAct(act, t) {
       layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame curse-ask" data-act="noop">
         <h2>${ico('skull')} 피의 저주 칸</h2>
         <p>「${esc(E.catInfo(t.dataset.cat).ko)}」 칸은 저주받았어요.<br>지금 적으면 피해 대신 <b>마신이 체력을 ${heal}</b> 회복해요.</p>
-        <p class="hint">첫 굴림 그대로 완성해 적었다면 저주를 끊고 피해 2배였어요.</p>
         <p><b>그래도 적으시겠습니까?</b></p>
         <div class="modal-actions"><button class="pbtn" data-act="close">취소</button><button class="pbtn danger" data-act="score" data-cat="${t.dataset.cat}" data-ok="1">그래도 적기</button></div>
       </div></div>`;
@@ -3835,7 +3832,7 @@ function onAct(act, t) {
     t.disabled = true;
     return linkGoogle().then(async r => {
       if (r.switched) await Wal.reloadWallet();
-      toast(ico('up'), '구글 계정을 연결했어요', r.switched ? '이 구글 계정에 있던 보석과 구매 기록으로 이어서 해요.' : '보석과 구매 기록이 이 계정에 저장돼요. 다른 기기에서도 이어서 할 수 있어요.', 2600);
+      toast(ico('up'), '구글 계정을 연결했어요', '', 1600);
       paintAccount();
     }, err => { t.disabled = false; if (err?.code !== 'auth/popup-closed-by-user') toast(ico('warn'), '연결하지 못했어요', String(err?.message || err).slice(0, 80), 2400); });
   }
@@ -3868,7 +3865,7 @@ function onAct(act, t) {
   }
   if (act === 'dash-export') {
     const code = btoa(unescape(encodeURIComponent(JSON.stringify({ v: 1, name: myName, profile: loadProfile() }))));
-    const done = () => toast(ico('scroll'), '백업 코드를 복사했어요', '메모장 등에 붙여 넣어 보관하세요.', 1800);
+    const done = () => toast(ico('scroll'), '백업 코드 복사됨', '', 1400);
     navigator.clipboard?.writeText(code).then(done, () => prompt('아래 백업 코드를 복사해 보관하세요', code)) ?? prompt('아래 백업 코드를 복사해 보관하세요', code);
     return;
   }
@@ -3883,7 +3880,7 @@ function onAct(act, t) {
       sfx.quest();
       toast(ico('up'), '기록을 복원했어요', '', 1500);
       return showDashboard();
-    } catch { return toast(ico('warn'), '백업 코드가 올바르지 않아요', '처음부터 끝까지 빠짐없이 붙여 넣었는지 확인해 주세요.', 2200); }
+    } catch { return toast(ico('warn'), '백업 코드가 올바르지 않아요', '', 1800); }
   }
   if (act === 'rejoin') { sfx.select(); if (!navigator.onLine) return offlineToast(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
@@ -3902,7 +3899,7 @@ function onAct(act, t) {
   }
   if (act === 'online') {
     sfx.select();
-    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 대전(봇) · 보스전은 그대로 할 수 있어요.', 2200);
+    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '', 1800);
     if (!navigator.onLine) return offlineToast();
     return showOnlineMenu();
   }
