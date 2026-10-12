@@ -370,19 +370,99 @@ def crest(glyph):
     return [''.join(r) for r in rows]
 
 
+def ornate(lv, glyph):
+    """24×24: 가운데 16×16 문장에 단계가 오를수록 장식이 붙는다
+    1 문장만 · 2 위 보석 · 3 모서리 징 · 4 작은 은 날개 · 5 큰 은 날개 · 6 금 날개
+    7 작은 왕관 · 8 큰 왕관 + 보석 · 9 뒤에 붉은 불꽃 · 10 큰 보랏빛 불꽃 + 반짝임, 테가 흰 금"""
+    N, OX, OY = 24, 4, 6
+    g = [['.'] * N for _ in range(N)]
+    def put(x, y, ch):
+        if 0 <= x < N and 0 <= y < N:
+            g[y][x] = ch
+    # 4~6: 날개 (문장 양옆)
+    if lv >= 4:
+        col = 'G' if lv >= 6 else 's'
+        dark = 'Y' if lv >= 6 else 'S'
+        wing = ['..xx', '.xxx', 'xxxd', 'xxdd', '.xd.', '..d.'] if lv == 4 else ['...xx', '..xxx', '.xxxx', 'xxxxd', 'xxxdd', '.xxd.', '..xd.', '...d.']
+        for dy, line in enumerate(wing):
+            for dx, ch in enumerate(line):
+                if ch == '.':
+                    continue
+                c = col if ch == 'x' else dark
+                put(OX + 1 - len(line) + dx, OY + 2 + dy, c)        # 왼쪽 (문장 테에 붙여)
+                put(OX + 14 + len(line) - dx, OY + 2 + dy, c)       # 오른쪽 (거울)
+    # 문장
+    rows = crest(glyph)
+    for y, line in enumerate(rows):
+        for x, ch in enumerate(line):
+            if ch != '.':
+                put(OX + x, OY + y, ch)
+    if lv >= 10:                                   # 테를 흰 금으로
+        for y in range(N):
+            for x in range(N):
+                if g[y][x] == 'y':
+                    g[y][x] = 'l'
+    # 2: 위 가운데 보석 · 3: 모서리 징
+    if lv >= 2 and lv < 7:                         # 위 가운데 보석 (7부터는 왕관이 그 자리)
+        for dx, ch in enumerate('.kk.'):
+            if ch != '.': put(OX + 6 + dx, OY - 1, ch)
+        for dx, ch in enumerate('kwrk'):
+            put(OX + 6 + dx, OY, ch)
+        for dx, ch in enumerate('krRk'):
+            put(OX + 6 + dx, OY + 1, ch if ch != 'R' else 'r')
+    if lv >= 3:
+        for x, y in ((OX + 2, OY + 2), (OX + 13, OY + 2), (OX + 2, OY + 10), (OX + 13, OY + 10)):
+            put(x, y, 'w')
+    # 7~8: 왕관 (문장 위)
+    if lv >= 7:
+        crown = ['.k.k.k.', 'kykykyk', 'kyyyyyk', 'kkkkkkk'] if lv == 7 else ['k..k..k..k', 'yk.kyk.ky.', 'yykyyykyyk', 'yryyryyryk', 'kkkkkkkkkk']
+        if lv >= 8:
+            crown = ['.k..k..k.', 'kyk.kyk.kyk'[:9], 'kyykyyky', 'kryyryyrk', 'kkkkkkkkk']
+            crown = ['..k..k..k..', '.kyk.kyk.ky', 'kyyykyyykyk', 'kyryyryyryk', 'kkkkkkkkkkk']
+        w = len(crown[0])
+        for dy, line in enumerate(crown):
+            for dx, ch in enumerate(line):
+                if ch != '.':
+                    put(OX + 8 - w // 2 + dx, OY - len(crown) + 1 + dy, ch)
+    # 9~10: 둘레에 일렁이는 불꽃 (빈 칸만, 위쪽은 혀처럼 더 길게)
+    if lv >= 9:
+        filled = {(x, y) for y in range(N) for x in range(N) if g[y][x] != '.'}
+        ring1 = {(x + dx, y + dy) for x, y in filled for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))} - filled
+        for x, y in ring1:
+            if y < OY + 13: put(x, y, 'F')
+        reach = 3 if lv >= 10 else 2
+        for x, y in ring1:
+            if y < OY + 11 and (x + y) % 2 == 0:
+                for k in range(1, reach + (1 if (x % 3 == 0) else 0)):
+                    if 0 <= y - k < N and 0 <= x < N and g[y - k][x] == '.': put(x, y - k, 'f')
+    # 10: 반짝임
+    if lv >= 10:
+        for x, y in ((1, 2), (22, 3), (0, 15), (23, 14), (12, 0)):
+            put(x, y, 'w')
+    return [''.join(r) for r in g]
+
+
 for lv, (_, ca, cb, glyph) in enumerate(ASC_GLYPH, 1):
-    ICONS[f'asc_{lv}'] = ({'y': '#FFC83D', 'Y': '#C8860E', 'R': '#5A0A1C', 'a': ca, 'b': cb, 'w': '#FFFFFF'}, crest(glyph))
+    ICONS[f'asc_{lv}'] = ({'y': '#FFC83D', 'Y': '#C8860E', 'R': '#5A0A1C', 'a': ca, 'b': cb, 'w': '#FFFFFF',
+                           'l': '#FFF6C8', 'r': '#E8435A', 's': '#C9D3E8', 'S': '#7A86A8', 'G': '#FFD24A',
+                           'f': '#FF5A3A' if lv < 10 else '#C04AFF', 'F': '#FFC83D' if lv < 10 else '#FF5AC8'}, ornate(lv, glyph))
 
 
-def render(pal, rows, scale=8):
-    assert len(rows) == 16 and all(len(r) == 16 for r in rows), rows
+def render(pal, rows):
+    """N×N 도트 → 128px 안에 정수 배로 확대해 가운데 (16 → 8배, 24 → 5배)"""
+    n = len(rows)
+    assert all(len(r) == n for r in rows), rows
     pal = {'k': K, **pal}
-    im = Image.new('RGBA', (16, 16))
+    im = Image.new('RGBA', (n, n))
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):
             if ch != '.':
                 im.putpixel((x, y), Image.new('RGB', (1, 1), pal[ch]).getpixel((0, 0)) + (255,))
-    return im.resize((16 * scale, 16 * scale), Image.NEAREST)
+    sc = 128 // n
+    big = im.resize((n * sc, n * sc), Image.NEAREST)
+    out = Image.new('RGBA', (128, 128))
+    out.alpha_composite(big, ((128 - n * sc) // 2, (128 - n * sc) // 2))
+    return out
 
 
 if __name__ == '__main__':
