@@ -9,11 +9,13 @@
 // 테스트판: 서버 함수가 없으니 이 기기(localStorage)에 둔다. 규칙은 같은 함수(recordRun · buyProgress · equipProgress).
 import { PROD, callServer } from '../fire.js';
 import * as Run from './rules.js';
+import { syncRunAch } from '../wallet.js';
 
 const LOCAL = 'diceheroes.runBest';
 let store = null;
 let P = null;                      // 지금 기록 (서버 사본 또는 기기 저장)
-export function initProgress(s) { store = s; }
+export const syncAch = () => syncRunAch(progress());
+export function initProgress(s) { store = s; syncRunAch(progress()); }   // 예전 원정 기록도 도전과제에 옮긴다
 
 // 예전 기기 저장 모양 { runs, wins, top, cls, asc, feats, meta: { stars, lv, dice, equip } } → 지금 모양
 function migrate(o) {
@@ -51,7 +53,7 @@ export async function startRun(cls, asc) {
 
 // 원정 끝: { stars, won, opened, fresh } — 배포판은 서버가 행동 기록을 다시 돌려 계산한다
 export async function finishRun(R) {
-  if (!PROD) { const out = Run.recordRun(progress(), R); saveLocal(); return out; }
+  if (!PROD) { const out = Run.recordRun(progress(), R); saveLocal(); syncRunAch(progress()); return out; }
   if (!R.xid) return { stars: 0, won: !!R.won, opened: false, fresh: [], offline: true };
   try {
     const r = await callServer('xFinish', { id: R.xid, acts: R.acts || [] });

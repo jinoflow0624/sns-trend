@@ -52,6 +52,7 @@ export function init(ctx) {
     setTimeout(resolve, 3000);
   }));
 }
+export const syncAch = () => Prog.syncAch();   // 원정 기록 → 도전과제 (테스트판)
 export const savedRun = store => { const s = store.get(SAVE); return s && s.v === 1 && !s.ended ? s : null; };
 function save() {
   if (!R) return;
