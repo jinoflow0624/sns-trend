@@ -168,15 +168,15 @@ function enterView(fresh = false) {
 // ── 직업 고르기 ──────────────────────────────────────────────────────────────
 // 원정 대사: 직업 그림을 누르면 스킬에 맞는 한마디 (대전 직업 대사는 app.js CLASS_LINES)
 const RUN_LINES = {
-  gambler: ['오늘의 한 장에 전부 건다!', '골드 냄새가 나는군.'],
-  monk: ['굴림을 아끼면 마음이 단단해진다.', '고요함이 곧 방패다.'],
-  rogue: ['그림자에서 뒤집고, 방패째 꿰뚫는다.', '보호막? 그런 건 없는 셈 치지.'],
-  warrior: ['숫자 카드면 공격도 방어도 내가 맡는다!', '쓰러지지 않는다. 그게 불굴이다.'],
-  bard: ['노래하면 방패가 생겨요~', '이기면 한 곡 더! 체력도 조금!'],
-  mage: ['손에 든 카드가 곧 마력이지.', '카드 보상은 한 장 더 보고 고르겠어.'],
-  dancer: ['춤사위가 쌓일수록 눈이 올라가요!', '박자에 맞춰 모두 +1!'],
-  outlaw: ['첫 굴림이 곧 방아쇠다.', '빨리 쏘고, 남은 굴림으로 막는다.'],
-  sharper: ['원하는 눈? 손끝으로 만들어 주지.', '요트도 내 손 안에 있다.'],
+  gambler: ['숨 참고 골드 다이브!', '올인 각. 이번 판 떡상 간다', '배팅은 기세야, 기세!'],
+  monk: ['굴림 아끼는 게 진짜 갓생이지', '멘탈 방어력 만렙 찍음', '조급함? 그거 먹는 건가요'],
+  rogue: ['방패? 그거 패스할게요~', '뒤집기 한 번이면 킹받지?', '그림자에서 조용히 캐리 중'],
+  warrior: ['숫자 카드는 내가 다 씹어먹음', '공격도 방어도 원툴 아님, 투툴임', '불굴? 그냥 내 MBTI'],
+  bard: ['방패는 노래로 깔아 드림~', '이기면 앵콜에 체력까지, ㅇㅈ?', '분위기 메이커 등장했다구요'],
+  mage: ['손패가 곧 내 마력 통장', '카드 한 장 더 보는 게 국룰', '아는 만큼 세진다, 완전 럭키비키잖아'],
+  dancer: ['춤사위 쌓이는 중… 텐션 미쳤다', '박자 타고 전부 +1 가보자고', '오늘 무대 찢는다'],
+  outlaw: ['첫 굴림에 끝냄. 고민은 배송만 늦출 뿐', '빠르게 쏘고 칼퇴한다', '두 번 굴리면 지는 거야'],
+  sharper: ['원하는 눈? 손기술로 뚝딱', '밑장 빼기? 그거 실력임', '요트 각 잡혔다, 손이 기억함'],
 };
 let runLineK = 0;
 // 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
@@ -1696,7 +1696,15 @@ export function onAct(act, t) {
   if (act === 'run-open') { sfx.select(); return open(); }
   if (act === 'run-resume') { sfx.start(); return resume(); }
   if (act === 'run-home') { sfx.back(); X.tray()?.setMarks?.(null); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
-  if (act === 'run-cls') { sfx.tap(); ui.cls = t.dataset.id; ui.spin = { d: Number(t.dataset.d) || 0, t: Date.now() }; X.store.set('diceheroes.runCls', ui.cls); return paintSelect(); }
+  if (act === 'run-cls') {
+    sfx.tap(); ui.cls = t.dataset.id; ui.spin = { d: Number(t.dataset.d) || 0, t: Date.now() }; X.store.set('diceheroes.runCls', ui.cls);
+    paintSelect();
+    // 가운데 온 캐릭터가 한마디 (다이얼이 다 돈 뒤)
+    const id = ui.cls;
+    clearTimeout(ui.lineT);
+    ui.lineT = setTimeout(() => { const el = X.app.querySelector('.rs-dial .dial-hero.d0'); if (el && ui.cls === id) onAct('run-talk', el); }, 280);
+    return;
+  }
   if (act === 'run-talk') { const l = RUN_LINES[t.dataset.id] || ['…']; return X.speak(t, l[runLineK++ % l.length]); }
   // 원정 떠나기: 하드모드가 열렸으면 단계를 고르는 창, 아니면 바로 출발
   if (act === 'run-go') { if (!ascOpen(best(), ui.cls)) return onAct('run-start', t); sfx.select(); return showAsc(); }

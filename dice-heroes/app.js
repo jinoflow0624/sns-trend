@@ -625,7 +625,14 @@ function pickBack() {
 // 지금 고르는 판이 클래식 야추인가 (캐릭터 설명을 '겉모습만'으로)
 const classicPick = () => { const o = pick?.for === 'room' ? online?.room?.opts || pick.o : pick?.o || opts; return o?.mode === 'versus' && o?.rule === 'classic'; };
 // 직업 다이얼: 가운데가 지금 직업, 양옆으로 돌린다 (◀ ▶ · 옆 그림 누르기 · 밀기). 잠긴 직업은 옆에 보석 값이 보이고, 그쪽으로 돌리면 사기 창
-let dialSpin = null;      // 방금 돌린 다이얼 (그 다이얼만 도는 연출)
+let dialSpin = null;
+// 다이얼을 돌려 가운데 온 캐릭터가 한마디 (다시 그린 뒤)
+function speakDial(i, ms, want) {
+  setTimeout(() => {
+    const el = document.querySelector(`.cls-dial[data-i="${i}"] .dial-hero.d0`);
+    if (el && (!want || el.dataset.cls === want)) speak(el, classLine(el.dataset.cls));
+  }, ms);
+}      // 방금 돌린 다이얼 (그 다이얼만 도는 연출)
 const dialDirOf = t => (t.closest('.cls-dial') ? Math.sign([...t.closest('.cls-dial').querySelectorAll('[data-cls]')].indexOf(t) - 3) : 0);
 function clsDial(pl, i) {
   const ids = E.CLASSES.map(k => k.id), k = Math.max(0, ids.indexOf(pl.cls));
@@ -686,7 +693,7 @@ function onSetupAct(act, t) {
   if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
   if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
-  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
+  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; speakDial(i, 280); }
   if (act === 'remove') setup.splice(i, 1);
   if (act === 'add' && setup.length < 4) {
     const used = new Set(setup.map(p => p.cls));
@@ -930,6 +937,7 @@ function onLobbyAct(act, t) {
     sfx.select();
     const i = Number(t.dataset.i);
     dialSpin = { i, d: dialDirOf(t), t: Date.now() };
+    speakDial(i, 650, t.dataset.cls);       // 방 상태가 돌아와 다시 그린 뒤
     return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = t.dataset.cls; });
   }
   if (act === 'lobby-bot' && isHost()) {
@@ -3260,15 +3268,15 @@ function showSettings(inGame = false) {
 }
 // 캐릭터를 누르면 하는 한마디 (스킬 특징에 맞게). 원정 직업 대사는 run/ui.js
 const CLASS_LINES = {
-  warrior: ['위쪽 칸은 내가 다 채운다!', '50점이면 충분하지. 보너스는 내 거다!'],
-  rogue: ['뒤집기 하나쯤은 늘 품에 있지.', '운? 뒤집으면 그만이야.'],
-  mage: ['배움에는 끝이 없지… 경험치도!', '책 한 장 더 넘기면 레벨 업이다.'],
-  bard: ['의뢰 하나 깰 때마다 노래 한 소절!', '박수는 조정으로 받을게요~'],
-  gambler: ['이번 판, 풀하우스에 건다!', '걸었으면 끝까지 가는 거야.'],
-  monk: ['서두르지 않는다. 남은 굴림이 곧 힘이다.', '마음을 비우면 눈이 보인다.'],
-  dancer: ['한 박자 쉬고… 모두 +1!', '큰 점수로 리듬을 타 볼까?'],
-  outlaw: ['두 번 굴리는 건 겁쟁이나 하는 짓!', '첫 굴림에 끝낸다. 빵!'],
-  sharper: ['손은 눈보다 빠르다…', '밑장은 아무도 못 봤지?'],
+  warrior: ['위쪽 칸 싹쓸이 각', '보너스 50점 컷? 이건 못 참지', '탱커인데 딜도 함 ㅋ'],
+  rogue: ['뒤집기 하나 챙겨 왔지롱', '운빨? 뒤집으면 그만임', '스틸은 기본 소양이죠'],
+  mage: ['경험치 버프 받고 레벨 떡상', '공부한 보람 있다~ 경험치 +30%', '만렙까지 숨 참고 직진'],
+  bard: ['의뢰 깨고 앵콜 받아요~', '조정은 팬서비스야', '오늘도 무대 체질'],
+  gambler: ['숨 참고 골드 다이브!', '풀하우스에 올인. 가즈아!', '배팅은 기세야, 기세!'],
+  monk: ['급할수록 굴림 아끼기, 이게 갓생', '멘탈 이미 해탈함', '남은 굴림 = 내 자산'],
+  dancer: ['큰 점수 찍고 텐션 업!', '박자 맞춰서 전부 +1 갑니다', '무대 찢으러 왔어요'],
+  outlaw: ['첫 굴림 그대로 간다. 쫄?', '고민은 배송만 늦출 뿐', '속전속결, 칼퇴 각'],
+  sharper: ['손은 눈보다 빠르다… 국룰', '밑장 빼기? 그거 손기술임', '경험치는 안 줘도 승리는 내 거'],
 };
 let lineK = 0;
 const classLine = id => { const l = CLASS_LINES[id] || ['…']; return l[lineK++ % l.length]; };
