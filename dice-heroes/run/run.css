@@ -187,16 +187,16 @@
 .rc-in.r2 { border-image-source: url(../assets/run/ui/card_rare.webp); }
 .rc-in.r3 { border-image-source: url(../assets/run/ui/card_legend.webp); }
 .rc-in.up::before { content: ''; position: absolute; inset: 0; background: radial-gradient(80% 50% at 50% 0%, rgba(255,226,122,.22), transparent 70%); pointer-events: none; }
-.rc-name { max-width: 100%; overflow: hidden; text-overflow: clip; font-size: 12px; line-height: 1.15; white-space: nowrap; letter-spacing: -.02em; font-weight: 700; }
+.rc-name { max-width: 100%; overflow: hidden; font-size: 11px; line-height: 1.1; word-break: keep-all; overflow-wrap: normal; letter-spacing: -.04em; font-weight: 700; }
 .rc-in > * { max-width: 100%; }
 .rc-plus { font-style: normal; color: #C8530E; margin-left: 1px; }
-.rc-pat { min-height: 22px; display: grid; place-items: center; }
-.rc-pat .mds { gap: 1px; flex-wrap: wrap; justify-content: center; max-width: 66px; }
-.rc-pat .md { width: 12px; height: 12px; padding: 1px; }
+.rc-pat { min-height: 13px; display: grid; place-items: center; }
+.rc-pat .mds { gap: 1px; flex-wrap: wrap; justify-content: center; max-width: 64px; }
+.rc-pat .md { width: 11px; height: 11px; padding: 1px; }
 .rc-pat .md i { width: 2px; height: 2px; }
 .rc-sum { font-size: 20px; font-weight: 700; color: #B8321C; line-height: 1; text-shadow: 1px 1px 0 #FFF4D2; }
-.rc-rule { font-size: 9px; line-height: 1.2; color: #6A4A2A; padding: 0 1px; }
-.rc-kw { display: inline-flex; align-items: center; gap: 1px; font-size: 10px; font-weight: 700; padding: 0 4px; min-height: 14px; color: var(--ink); background: var(--kc, transparent); box-shadow: 0 0 0 1px #3A2412; }
+.rc-rule { font-family: 'Galmuri9', 'Galmuri11', sans-serif; font-size: 9px; line-height: 1.15; letter-spacing: -.02em; color: #6A4A2A; padding: 0 1px; }
+.rc-kw { display: inline-flex; align-items: center; gap: 1px; font-family: 'Galmuri9', 'Galmuri11', sans-serif; font-size: 9px; padding: 0 4px; min-height: 14px; color: var(--ink); background: var(--kc, transparent); box-shadow: 0 0 0 1px #3A2412; }
 .rc-kw.none { visibility: hidden; }
 .rc-kw .ico { width: 10px; height: 10px; }
 .rc-pts { font-style: normal; font-size: 18px; font-weight: 700; line-height: 1.05; min-width: 34px; padding: 0 4px; color: #6A6290; background: #0B0824; border: 2px solid #2A2270; transition: color .15s; }
@@ -216,7 +216,7 @@
 @keyframes legendSheen { from { background-position: 160% 0; } to { background-position: -60% 0; } }
 
 /* ── 카드 등급별 꾸밈: 일반(나무 · 양피지) · 희귀(은 · 월장석) · 전설(금 · 진홍 벨벳) ── */
-@font-face { font-family: 'Galmuri14'; src: url('../assets/run/fonts/Galmuri14-cards.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Galmuri9'; src: url('../assets/run/fonts/Galmuri9-cards.woff2') format('woff2'); font-display: swap; }   /* 카드 설명 · 키워드 글자만 잘라 낸 것 */
 .rc-in { border-image-width: 6px; border-image-slice: 28; background-origin: border-box; }
 .rc-in.r1 { border-image-slice: 28 fill; }
 .rc-in.r1 .rc-name { font-weight: 400; color: #4A2E16; }
@@ -256,7 +256,7 @@
 .rc-in.r3::after { box-shadow: inset 0 0 0 1px #FFE27A, inset 0 0 10px rgba(255,200,61,.45); animation: legendRim 2.4s ease-in-out infinite; }
 @keyframes legendRim { 50% { box-shadow: inset 0 0 0 1px #FFF6C8, inset 0 0 14px rgba(255,214,90,.7); } }
 .rc-in.r3 .rc-name {
-  justify-self: stretch; font-family: 'Galmuri14', 'Galmuri11', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.05; letter-spacing: -.06em;
+  justify-self: stretch;
   color: #FFD24A; padding-bottom: 1px;
   text-shadow: 1px 0 0 #2A0614, -1px 0 0 #2A0614, 0 1px 0 #2A0614, 0 -1px 0 #2A0614, 1px 1px 0 #2A0614, 0 0 6px rgba(255,200,61,.8);
 }
@@ -265,8 +265,6 @@
 .rc-in.r3 .rc-sum { color: #FFD86A; text-shadow: 1px 1px 0 #2A0614, 0 0 6px rgba(255,200,61,.6); }
 .rc-in.r3 .rc-kw { box-shadow: 0 0 0 1px #FFE27A, 0 0 6px rgba(255,200,61,.6); }
 .rc-in.r3 .md { border-color: #C8860E; box-shadow: 0 0 3px rgba(255,200,61,.5); }
-.rc-static.mini .rc-in.r3 .rc-name, .rc-in.r3.sm .rc-name { font-size: 12px; font-family: 'Galmuri11', sans-serif; font-weight: 700; }
-@media (max-height: 640px) { .rc-in.r3 .rc-name { font-size: 12px; font-family: 'Galmuri11', sans-serif; font-weight: 700; } }
 @media (prefers-reduced-motion: reduce) { .rc-in.r3::after { animation: none; } }
 .rc.sel .rc-in { box-shadow: 0 0 0 2px var(--mint), 0 0 16px var(--mint); }
 .rc.dragging { cursor: grabbing; }
@@ -367,7 +365,9 @@
 /* 고정된(움직이지 않는) 카드: 보상 · 상점 · 덱 */
 .rc-static { position: relative; display: inline-block; }
 .rc-static.mini { --cw: 70px; --ch: 98px; }
-.rc-static.mini .rc-name { font-size: 11px; }
+.rc-static.mini .rc-name { font-size: 10px; letter-spacing: -.05em; }
+.rc-static.mini .rc-pat .md { width: 10px; height: 10px; }
+.rc-name .nw { white-space: nowrap; }   /* 강화 + 가 혼자 다음 줄로 넘어가지 않게 */
 
 /* ── 떠오르는 숫자 ───────────────────────────────────────────────────── */
 .rfloat { position: fixed; transform: translate(-50%, -50%); animation: rFloat 1.3s ease-out forwards; display: inline-flex; align-items: center; gap: 2px; }
@@ -403,7 +403,7 @@
 .pick-cards .rc.taken .rc-in { animation: taken .5s ease-in forwards; }
 @keyframes taken { to { transform: translateY(-160px) scale(.4) rotate(20deg); opacity: 0; } }
 @keyframes dealIn { from { transform: translateY(120px) rotate(-20deg) scale(.5); opacity: 0; } }
-.rc-desc { width: var(--cw); font-size: 10px; line-height: 1.3; color: #D8D0FF; text-align: center; }
+.rc-desc { width: var(--cw); font-size: 9px; line-height: 1.3; color: #D8D0FF; text-align: center; }
 .pick-actions { display: flex; gap: 8px; justify-content: center; }
 .relic-picks { display: grid; gap: 8px; width: 100%; }
 .relic-card { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: auto auto; gap: 0 10px; align-items: center; text-align: left; padding: 8px 12px;

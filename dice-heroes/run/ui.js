@@ -197,7 +197,7 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const kw = c.kw ? Run.KEYWORDS[c.kw] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
   return `<div class="rc-in r${r}${c.up ? ' up' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
-    <b class="rc-name">${Run.cardTitle(c.cat)}${c.up ? '<i class="rc-plus">+</i>' : ''}</b>
+    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
     ${kw ? `<span class="rc-kw">${runIco('kw', c.kw, kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
