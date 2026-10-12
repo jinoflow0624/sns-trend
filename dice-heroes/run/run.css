@@ -620,3 +620,17 @@
 .run-meta .stars .run-ico { width: 20px; height: 20px; vertical-align: -3px; }
 .run-meta .deck-box, .run-feats .deck-box { padding: 10px 8px; background: linear-gradient(180deg, #1C1450, #0E0A2C); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #5A4FC8, 0 10px 30px rgba(0,0,0,.6); }
 .run-meta .meta-head { margin-top: 0; }
+
+/* ── 로딩 화면 (원정에 들어가기 전 그림 · 소리 받기) ─────────────────── */
+.run-loading { display: grid; place-items: center; min-height: 100%; height: 100dvh; align-content: center; background: radial-gradient(circle at 50% 40%, #241A5A, #0B0824 70%); }
+.rl-box { display: grid; justify-items: center; gap: 10px; width: min(300px, 80vw); text-align: center; }
+.rl-box b { font-size: 18px; color: var(--gold); text-shadow: 2px 2px 0 var(--ink); }
+.rl-die { width: 48px; height: 48px; background: #F5F1FF; border: 3px solid var(--ink); box-shadow: inset -4px -4px 0 #C9C2E8, 0 4px 0 var(--ink); position: relative; animation: rlDie 1s steps(4) infinite; }
+.rl-die i, .rl-die::before, .rl-die::after { content: ''; position: absolute; width: 8px; height: 8px; background: #E8435A; }
+.rl-die i { left: 17px; top: 17px; } .rl-die::before { left: 6px; top: 6px; background: var(--ink); } .rl-die::after { right: 6px; bottom: 6px; background: var(--ink); }
+@keyframes rlDie { 25% { transform: rotate(90deg) translateY(-6px); } 50% { transform: rotate(180deg); } 75% { transform: rotate(270deg) translateY(-6px); } 100% { transform: rotate(360deg); } }
+.rl-bar { width: 100%; height: 16px; background: #06041A; border: 2px solid var(--ink); box-shadow: inset 0 0 0 2px #2A2270; }
+.rl-bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--gold) 0 6px, #C8860E 6px 8px); transition: width .2s steps(4, end); }
+.rl-box small { font-size: 11px; color: var(--muted); }
+.rl-tip { margin: 6px 0 0; font-size: 11px; line-height: 1.4; color: #D8D2FF; }
+@media (prefers-reduced-motion: reduce) { .rl-die { animation: none; } }

@@ -704,3 +704,5 @@ export function relicIco(r, cls = '') {
   }
   return ico(r.icon, cls);
 }
+// 로딩 화면에서 미리 받을 유물 그림 파일 주소
+export const relicURLs = () => FILES.map(id => `assets/run/relic/${id}.webp${AV}`);
