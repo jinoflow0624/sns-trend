@@ -58,7 +58,9 @@ function save() {
 function best() { const b = X.store.get(BEST) || { runs: 0, wins: 0, top: 0, cls: {} }; b.asc ||= {}; b.feats ||= []; b.meta ||= { stars: 0, lv: {}, dice: [], equip: [] }; return b; }
 const mlv = (b, id) => b.meta.lv[id] || 0;
 // 승천: 원정을 깬 단계 + 1 까지 고를 수 있다 (직업마다)
-const ascOpen = (b, cls) => Math.min(Run.ASC_MAX, (b.asc[cls] ?? -1) + 1);
+// 시험용: 이 직업은 승천을 처음부터 끝까지 열어 둔다 (원정은 테스트판에만 있다. 정식 출시 전에 비울 것)
+const ASC_ALL_OPEN = new Set(['dancer']);
+const ascOpen = (b, cls) => (ASC_ALL_OPEN.has(cls) ? Run.ASC_MAX : Math.min(Run.ASC_MAX, (b.asc[cls] ?? -1) + 1));
 // 판 안에서 이룬 도전과제를 기록에 옮기고, 처음 이룬 것은 알린다
 function syncFeats() {
   const b = best();
@@ -149,7 +151,6 @@ function paintSelect() {
       <button class="icon-btn" data-act="run-home" aria-label="뒤로">◀</button>
       <div><b>원정</b><small>테스트판 · 로그라이크 · 혼자 하기</small></div>
     </header>
-    <p class="rs-intro">족보 카드 덱으로 3막을 돌파하세요. 주사위를 굴린 뒤 카드의 점수를 <b>공격</b>과 <b>방어</b>로 나눠 냅니다. 쓰러지면 처음부터.</p>
     <div class="rs-grid">
       ${Object.keys(Run.RUN_CLASSES).map(id => {
         const c = classInfo(id), owned = X.owns(id);
@@ -202,13 +203,15 @@ function showMeta() {
         : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${starIco()}${d.cost}</button>`}</div>`;
   }).join('');
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비 <b class="stars">${starIco('')}${m.stars}</b></h2></div>
-    <p class="hint">원정이 끝날 때마다 별조각을 얻어요 (지난 층 · 엘리트 · 보스 · 클리어, 승천이 높을수록 더). 강화는 모든 직업에 적용돼요.</p>
+    <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비</h2>
+      <div class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}" title="원정이 끝날 때마다 얻어요">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></div></div>
+    <h3>영구 강화 <small>모든 직업에 적용</small></h3>
     <div class="meta-list">${ups}</div>
     <h3>특수 주사위 <small>주사위 칸 ${m.equip.length}/${slots}</small></h3>
     <div class="meta-list">${dice}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
   </div></div>`;
+  ui.walletWas = m.stars;
 }
 function metaAct(act, id) {
   const b = best(), m = b.meta;
