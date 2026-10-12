@@ -8,7 +8,10 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
+
+// 원정 특수 주사위가 눈을 바꿀 때의 빛 색
+const MORPH_COLOR = { gold: 0xFFC83D, twin: 0xFF9AD0, stair: 0x3EE6B4, heavy: 0x9AA4B8 };
 
 const SIZE = 1.3;                 // 주사위 한 변
 const HALF = SIZE / 2;
@@ -273,6 +276,46 @@ export class DiceTray {
     return this.coreM;
   }
 
+  // 세머리 용의 얼음 숨결: 주사위를 감싸는 얼음 껍질 (가장자리는 하얀 성에, 가운데는 비쳐 보이는 얼음, 금 몇 줄)
+  iceMat() {
+    if (this.iceM) return this.iceM;
+    const S = 256, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    // 가운데는 옅은 푸른빛, 가장자리로 갈수록 짙은 성에
+    const rg = g.createRadialGradient(S / 2, S / 2, S * 0.18, S / 2, S / 2, S * 0.72);
+    rg.addColorStop(0, 'rgba(150,215,255,0.30)');
+    rg.addColorStop(0.6, 'rgba(170,228,255,0.50)');
+    rg.addColorStop(1, 'rgba(240,250,255,0.95)');
+    g.fillStyle = rg; g.fillRect(0, 0, S, S);
+    // 테두리 성에 알갱이
+    for (let k = 0; k < 900; k++) {
+      const side = k % 4, t = rnd() * S, d = Math.pow(rnd(), 2.2) * S * 0.2;
+      const [x, y] = side === 0 ? [t, d] : side === 1 ? [S - d, t] : side === 2 ? [t, S - d] : [d, t];
+      g.fillStyle = `rgba(255,255,255,${0.25 + rnd() * 0.55})`;
+      g.beginPath(); g.arc(x, y, 1 + rnd() * 3.2, 0, Math.PI * 2); g.fill();
+    }
+    // 얼음 금
+    g.lineCap = 'round';
+    for (let k = 0; k < 5; k++) {
+      let x = S * (0.15 + rnd() * 0.7), y = S * (0.15 + rnd() * 0.7), a = rnd() * Math.PI * 2;
+      g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(x, y);
+      for (let s = 0; s < 4; s++) { a += (rnd() - 0.5) * 1.4; x += Math.cos(a) * S * 0.09; y += Math.sin(a) * S * 0.09; g.lineTo(x, y); }
+      g.stroke();
+    }
+    // 반사광 띠
+    const sh = g.createLinearGradient(0, 0, S, S);
+    sh.addColorStop(0.18, 'rgba(255,255,255,0)'); sh.addColorStop(0.26, 'rgba(255,255,255,0.45)'); sh.addColorStop(0.34, 'rgba(255,255,255,0)');
+    g.fillStyle = sh; g.fillRect(0, 0, S, S);
+    const tex = this.canvasTex(c);
+    this.iceM = new THREE.MeshStandardMaterial({ map: tex, color: 0xCDEFFF, transparent: true, depthWrite: false, roughness: 0.12, metalness: 0,
+      envMap: this.envMap(), envMapIntensity: 1.3, emissive: new THREE.Color(0x3FA8F0), emissiveIntensity: 0.35 });
+    return this.iceM;
+  }
+
   // 만화풍 음영 3단계
   toonRamp() {
     if (this.ramp) return this.ramp;
@@ -283,15 +326,19 @@ export class DiceTray {
   }
 
   // 디자인 렌더로 만든 면 그림 (불러오면 다시 그린다)
+  // 받아 둔 그림의 텍스처는 버리지 않고 다시 쓴다 (스킨을 다시 고를 때 GPU에 또 올리느라 늦게 뜨지 않게)
   imageTex(url) {
+    this.texCache ||= new Map();
+    if (this.texCache.has(url)) return this.texCache.get(url);
     const img = READY.get(url);
     let t;
-    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; }
+    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; t.userData.cached = true; this.texCache.set(url, t); }
     else t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
   }
+  drop(t) { if (t && !t.userData?.cached) t.dispose(); }
 
   canvasTex(c) {
     const t = new THREE.CanvasTexture(c);
@@ -311,7 +358,12 @@ export class DiceTray {
         preloadDice(diceId).then(go, go);
       } else this.applyDice(diceId);
     }
-    this.applyTray(trayId);
+    if (trayId !== this.traySkin && this.floorMesh?.material.map && !trayReady(trayId)) {
+      // 트레이도 그림을 다 받은 뒤에 바꾼다 (그 사이엔 지금 트레이 그대로)
+      this.wantTray = trayId;
+      const go = () => { if (this.wantTray === trayId && this.running) { this.applyTray(trayId); this.dirty = true; } };
+      preloadTray(trayId).then(go, go);
+    } else { this.wantTray = trayId; this.applyTray(trayId); }
   }
 
   applyDice(diceId) {
@@ -339,7 +391,7 @@ export class DiceTray {
         m.userData.baseTransparent = !!p.clear;
         this.faceMats[v] = m;
         if (this.ghostMats) this.ghostMats[v] = null;    // 스킨이 바뀌면 봉인용 반투명 재질도 새로
-        if (old) { old.map?.dispose(); if (old.emissiveMap !== old.map) old.emissiveMap?.dispose(); old.bumpMap?.dispose(); old.dispose(); }
+        if (old) { this.drop(old.map); if (old.emissiveMap !== old.map) this.drop(old.emissiveMap); this.drop(old.bumpMap); old.dispose(); }
       }
       this.outlineOn = !!p.outline;
       this.coreOn = !!p.core;
@@ -354,11 +406,13 @@ export class DiceTray {
       this.traySkin = trayId;
       const st = trayStyle(trayId);
       const fm = this.floorMesh.material;
-      fm.map?.dispose(); fm.emissiveMap?.dispose();
-      fm.map = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
+      this.drop(fm.map); this.drop(fm.emissiveMap);
+      // 그림 트레이는 파일(바닥·발광 지도), 나머지는 캔버스로 그린 바닥
+      const img = kind => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind));
+      fm.map = img('floor') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
       if (trayGlows(trayId)) {
         fm.emissive = new THREE.Color(0xFFFFFF);
-        fm.emissiveMap = this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
+        fm.emissiveMap = img('glow') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
         fm.emissiveIntensity = st.glow;
       } else { fm.emissive = new THREE.Color(0); fm.emissiveMap = null; }
       fm.needsUpdate = true;
@@ -369,8 +423,8 @@ export class DiceTray {
       this.trimMat.envMap = st.trimEnv ? this.envMap() : null;
       this.trimMat.needsUpdate = true;
       const bm = this.boxFloor.material;
-      bm.map?.dispose();
-      bm.map = this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
+      this.drop(bm.map);
+      bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
     }
   }
@@ -411,12 +465,27 @@ export class DiceTray {
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
     const needW = (TRAY_W + 1.4) / 2 / Math.tan(hfov / 2);
     const needD = (SCENE_Z1 - SCENE_Z0 + 0.9) / 2 / Math.tan(vfov / 2);
-    const dist = Math.max(needW, needD);
+    let dist = Math.max(needW, needD);
     const cz = (SCENE_Z0 + SCENE_Z1) / 2 + 0.25;   // 트레이 + 주사위 함 가운데 (가까운 함 쪽이 원근으로 더 아래로 내려가는 만큼)
-    this.camera.position.set(0, dist * 0.93, cz - 0.35 + dist * 0.37);
+    const place = () => {
+      this.camera.position.set(0, dist * 0.93, cz - 0.35 + dist * 0.37);
+      this.camera.lookAt(0, 0, cz);
+      this.camera.updateProjectionMatrix();
+      this.camera.updateMatrixWorld();
+    };
+    place();
+    // 앞쪽 주사위 함은 트레이보다 넓고 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝 장식(보석)이 잘렸다.
+    // 함 바닥 양 끝 장식 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 벽까지 다 넣으면 주사위가 너무 작아진다)
+    const XE = TRAY_W / 2 + RAIL_T - 0.15, XR = TRAY_W / 2 + RAIL_T;
+    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
+    const v = new THREE.Vector3();
+    for (let k = 0; k < 40; k++) {
+      const out = corners.some(([x, y, z]) => { v.set(x, y, z).project(this.camera); return Math.abs(v.x) > 0.985 || Math.abs(v.y) > 0.985; });
+      if (!out) break;
+      dist *= 1.025;
+      place();
+    }
     this.camBase = this.camera.position.clone();
-    this.camera.lookAt(0, 0, cz);
-    this.camera.updateProjectionMatrix();
     this.dirty = true;
   }
 
@@ -440,6 +509,12 @@ export class DiceTray {
       core.scale.setScalar(0.58);
       core.visible = !!this.coreOn;
       mesh.add(core);
+      // 얼음 껍질: 주사위의 자식이라 뒤집거나 튀어도 그대로 붙어 다닌다 (setFrozen)
+      const ice = new THREE.Mesh(this.geo, this.iceMat());
+      ice.scale.setScalar(1.1);
+      ice.visible = false;
+      ice.renderOrder = 2;
+      mesh.add(ice);
       const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), this.glowGold);
       glow.rotation.x = -Math.PI / 2;
       glow.position.y = 0.02;
@@ -455,7 +530,7 @@ export class DiceTray {
       aura.scale.setScalar(1.14);
       aura.visible = false;
       this.scene.add(mesh, glow, ring, aura);
-      this.dice.push({ mesh, outline, core, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, boxed: false, hop: null, value: 0, lift: 0, morph: null });
+      this.dice.push({ mesh, outline, core, ice, glow, ring, aura, auraI: 0, faces: STD_FACES.slice(), held: false, boxed: false, hop: null, value: 0, lift: 0, morph: null });
     }
     while (this.dice.length > n) {
       const d = this.dice.pop();
@@ -522,6 +597,42 @@ export class DiceTray {
     this.sealed = new Set(idx);
     this.dirty = true;
   }
+  // 세머리 용의 얼음: 언 주사위는 얼음 껍질을 입는다
+  setFrozen(idx = []) {
+    const s = new Set(idx);
+    if (this.frozen && s.size === this.frozen.size && [...s].every(i => this.frozen.has(i))) return;
+    this.frozen = s;
+    this.dirty = true;
+  }
+  // 원정 특수 주사위: 주사위마다 색 테두리 껍질을 입힌다 (marks[i] = { kind, color } 또는 null). 부르지 않으면 아무것도 바뀌지 않는다
+  // kind 'twin' 은 구르는 동안 반투명 잔상이 따라오고, 'heavy' 는 조금 둔하게 구른다. 'heavy' 가 바닥 · 벽에 부딪히면 onMarkHit(v, i)
+  setMarks(marks = null) {
+    this.marks = marks && marks.some(Boolean) ? marks : null;
+    this.dirty = true;
+  }
+  markMat(kind, color) {
+    this.markMats ||= {};
+    const key = `${kind}:${color}`;
+    if (this.markMats[key]) return this.markMats[key];
+    const S = 128, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    // 가운데는 비우고 가장자리만 그 색 띠 (어두운 선으로 감싸 상아색 · 흰 스킨 위에서도 또렷하게), 안쪽으로 옅게 번진다
+    const B = 9;
+    g.fillStyle = 'rgba(26,16,48,0.85)'; g.fillRect(0, 0, S, S);
+    g.clearRect(B + 3, B + 3, S - (B + 3) * 2, S - (B + 3) * 2);
+    g.fillStyle = color; g.fillRect(1, 1, S - 2, B);  g.fillRect(1, S - 1 - B, S - 2, B); g.fillRect(1, 1, B, S - 2); g.fillRect(S - 1 - B, 1, B, S - 2);
+    g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(2, 2, S - 4, 2); g.fillRect(2, 2, 2, S - 4);       // 왼쪽 위 빛
+    for (let k = 0; k < 8; k++) { g.strokeStyle = color; g.globalAlpha = 0.28 * (1 - k / 8); g.lineWidth = 2; g.strokeRect(B + 4 + k * 2, B + 4 + k * 2, S - (B + 4 + k * 2) * 2, S - (B + 4 + k * 2) * 2); }
+    g.globalAlpha = 1;
+    g.fillStyle = '#FFFFFF';
+    if (kind === 'gold') for (const [x, y] of [[6, 6], [122, 6], [6, 122], [122, 122]]) { g.fillRect(x - 1, y - 7, 3, 15); g.fillRect(x - 7, y - 1, 15, 3); }   // 모서리 반짝
+    if (kind === 'heavy') { g.fillStyle = '#3A4050'; for (const [x, y] of [[5, 5], [119, 5], [5, 119], [119, 119]]) g.fillRect(x, y, 5, 5); }      // 리벳
+    if (kind === 'stair') { g.fillStyle = '#0F7A5C'; for (let k = 0; k < 4; k++) g.fillRect(S - B - 1, S - B - 1 - k * 7, -k * 7 - 7, 4); }       // 계단 무늬
+    const t = this.canvasTex(c);
+    const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false });
+    return (this.markMats[key] = m);
+  }
   ghostMat(v) {
     this.ghostMats ||= {};
     return (this.ghostMats[v] ||= Object.assign(this.faceMats[v].clone(), { transparent: true, opacity: 0.28, depthWrite: false }));
@@ -559,13 +670,23 @@ export class DiceTray {
     const v = this.dice[i].mesh.position.clone().project(this.camera);
     return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
   }
+  // 윗면 한가운데 (봉인 문양처럼 주사위 윗면에 올리는 표시용). 주사위 몸통 가운데보다 반 칸 위
+  topPos(i) {
+    const d = this.dice[i];
+    if (!d) return this.screenPos(i);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const v = d.mesh.position.clone().add(new THREE.Vector3(0, HALF * d.mesh.scale.y, 0)).project(this.camera);
+    return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
+  }
 
   hitIndex(e) {
     const r = this.renderer.domElement.getBoundingClientRect();
     const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(p, this.camera);
-    const hit = this.raycaster.intersectObjects(this.dice.map(d => d.mesh))[0];
-    return hit ? this.dice.findIndex(d => d.mesh === hit.object) : -1;
+    // 주사위에 붙은 얼음 껍질 등 자식 메시에 맞아도 그 주사위로 친다 (예전엔 -1 이 돼 잡기가 안 됐다)
+    const hit = this.raycaster.intersectObjects(this.dice.map(d => d.mesh), true)[0];
+    if (!hit) return -1;
+    return this.dice.findIndex(d => { for (let o = hit.object; o; o = o.parent) if (o === d.mesh) return true; return false; });
   }
 
   // ── 연출 ────────────────────────────────────────────────────────────────
@@ -579,7 +700,7 @@ export class DiceTray {
     if (!d) return Promise.resolve();
     return new Promise(resolve => {
       d.morph = { t0: performance.now(), ms, kind, v, swapped: false, resolve, base: d.mesh.quaternion.clone() };
-      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : 0x9A5BFF);
+      d.aura.material.color.set(kind === 'burn' ? 0xFF5A1F : kind === 'lucky' ? 0x3EE6B4 : MORPH_COLOR[kind] ?? 0x9A5BFF);
       d.auraI = 1;
     });
   }
@@ -629,6 +750,8 @@ export class DiceTray {
       // 바닥을 움켜쥐고(마찰 큼) 모서리로 넘어가며 데굴데굴 구르게: 회전은 오래 유지, 던지는 힘·회전은 크게
       b.linearDamping = 0.08;
       b.angularDamping = 0.06;
+      const heavy = this.marks?.[i]?.kind === 'heavy';
+      if (heavy) { b.linearDamping = 0.14; b.angularDamping = 0.12; }     // 무거운 주사위: 덜 미끄러지고 덜 돈다
       // 오른쪽 위에서 한 줌 던지되, 주사위마다 트레이 가운데 기준으로 고르게 흩어진 목표 지점을 향해 알맞은 힘으로
       // (예전엔 모두 같은 방향으로 세게 던져 왼쪽 벽에 몰렸다: 평균 x -1.9, 왼쪽 벽 25%)
       if (live) {
@@ -939,7 +1062,7 @@ export class DiceTray {
         }
       });
       for (const sw of a.swaps) if (!sw.done && (f >= sw.f || f >= a.frames.length - 1)) { sw.done = true; this.setFaces(this.dice[sw.i], sw.faces); }
-      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); }
+      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
         a.t1 = t + 50;
@@ -1002,6 +1125,7 @@ export class DiceTray {
       d.aura.position.copy(d.mesh.position);
       d.aura.quaternion.copy(d.mesh.quaternion);
       d.aura.scale.setScalar(1.14 * scale);
+      d.ice.visible = !!this.frozen?.has(i) && !d.blank;
       const ghost = !!(this.sealed?.has(i) && (this.anim || this.live) && !d.blank);
       if (ghost !== !!d.ghost) {
         d.ghost = ghost;
@@ -1014,6 +1138,23 @@ export class DiceTray {
         d.aura.material.color.set(0x9A5BFF);
         d.auraI = Math.max(d.auraI, 0.55 + Math.sin(t / 140) * 0.2);
       } else d.mesh.material.forEach(m => { m.opacity = d.blank ? 0.5 : 1; m.transparent = !!d.blank || !!m.userData.baseTransparent; });
+      // 원정 특수 주사위 표시 (setMarks)
+      const mk = this.marks?.[i];
+      if (mk && !d.mark) { d.mark = new THREE.Mesh(this.geo, this.markMat(mk.kind, mk.color)); d.mark.userData.key = `${mk.kind}:${mk.color}`; d.mark.scale.setScalar(1.045); d.mark.renderOrder = 3; d.mesh.add(d.mark); }
+      if (d.mark) {
+        if (mk && d.mark.userData.key !== `${mk.kind}:${mk.color}`) { d.mark.material = this.markMat(mk.kind, mk.color); d.mark.userData.key = `${mk.kind}:${mk.color}`; }
+        d.mark.visible = !!mk && !d.blank && !ghost;
+      }
+      const trail = mk?.kind === 'twin' && this.anim && this.anim.ids?.has(i) && !d.blank;
+      if (trail && !d.trail) { d.trail = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(mk.color), transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending })); this.scene.add(d.trail); d.trail.position.copy(d.mesh.position); }
+      if (d.trail) {
+        d.trail.visible = !!trail;
+        if (trail) {                                 // 쌍둥이: 반 박자 늦게 따라오는 분홍 잔상
+          d.trail.position.lerp(d.mesh.position, 0.22);
+          d.trail.quaternion.slerp(d.mesh.quaternion, 0.25);
+          d.trail.scale.setScalar(0.98 * scale);
+        } else d.trail.position.copy(d.mesh.position);
+      }
     });
     const jo = this.live?.jolt;
     if (jo) this.camera.position.set(this.camBase.x + jo.x, this.camBase.y, this.camBase.z - jo.y);

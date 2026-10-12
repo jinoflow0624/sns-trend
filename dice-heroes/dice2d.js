@@ -55,7 +55,7 @@ export class DiceTray2D {
 
   draw(rolling = []) {
     this.el.innerHTML = this.values.map((v, i) =>
-      `<button class="d2${v === 1 ? ' one' : ''}${this.held[i] ? ' held' : ''}${!v ? ' blank' : ''}${rolling[i] ? ' rolling' : ''}${this.target && v ? ' target' : ''}" data-i="${i}" aria-label="주사위 ${v || '-'}">${face(v)}</button>`).join('');
+      `<button class="d2${v === 1 ? ' one' : ''}${this.frozen?.has(i) && v ? ' frozen' : ''}${this.held[i] ? ' held' : ''}${!v ? ' blank' : ''}${rolling[i] ? ' rolling' : ''}${this.target && v ? ' target' : ''}" data-i="${i}" aria-label="주사위 ${v || '-'}">${face(v)}</button>`).join('');
     this.dice = this.values.map((v, i) => ({ value: v, el: this.el.children[i] }));
   }
 
@@ -66,6 +66,12 @@ export class DiceTray2D {
     this.draw();
   }
 
+  setFrozen(idx = []) {
+    const s = new Set(idx);
+    if (this.frozen && s.size === this.frozen.size && [...s].every(i => this.frozen.has(i))) return;
+    this.frozen = s;
+    if (!this.anim) this.draw();
+  }
   setHeld(held) { this.held = this.values.map((_, i) => !!held[i]); this.draw(); }
   setTarget(on) { this.target = on; this.draw(); }
 

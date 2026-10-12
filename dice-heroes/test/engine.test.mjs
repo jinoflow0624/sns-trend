@@ -560,6 +560,144 @@ test('클래식 야추: 봇끼리 끝까지, 레벨 1 · 특성 0', () => {
   assert.ok(s.ended);
   s.players.forEach(p => { assert.equal(p.level, 1); assert.equal(Object.keys(p.perks).length, 0); assert.equal(p.flip + p.nudge, 0); assert.ok(E.finalScore(p) <= 375); });
 });
+test('도전과제 기록: 족보 · 요트 눈 · 승리 · 보스 등급', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }, { name: 'B', cls: 'monk' }], 2, { rule: 'classic' });
+  E.roll(s); s.dice = [6, 6, 6, 6, 6]; E.commitScore(s, 'yacht');
+  const st = E.statsOf(s, 0);
+  assert.equal(st.c_yacht, 1); assert.equal(st.y6, 1); assert.equal(st.y1, 0); assert.equal(st.games, 1);
+  assert.equal(st.clScore, 50); assert.equal(st.vsWin, 1); assert.equal(st.clWin, 1);
+  const c = E.createGame([{ name: 'A', cls: 'monk' }], 3, { mode: 'coop', boss: 'orc', diff: 1 });
+  c.boss.won = true; c.round = 8; c.ended = true;
+  const cs = E.statsOf(c, 0);
+  assert.equal(cs['b:orc:1'], 3); assert.equal(cs.coopWin, 1);
+});
+test('세머리 용: 불 숨결 · 머리 베기 · 얼음 · 쉬움 없음', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 5, { mode: 'coop', boss: 'hydra', diff: 0 });
+  assert.equal(s.boss.diff, 1);                          // 강화 보스는 보통부터
+  assert.equal(E.hydraHead(s), 'fire');
+  E.roll(s);
+  assert.ok(s.dice.includes(1));
+  s.dice = [6, 6, 6, 6, 6]; s.board = [];
+  E.commitScore(s, 'yacht');                             // 50 피해 → 불 머리 베기
+  assert.ok(s.boss.cut.fire);
+  assert.equal(E.hydraHead(s), null);
+  s.round = 2; s.rollNo = 0; s.rolled = false; s.rollsLeft = 3; s.phase = 'roll';
+  E.roll(s);
+  assert.equal(s.frozen.length, 2);
+  const f = s.frozen[0], v = s.dice[f];
+  assert.throws(() => E.toggleHold(s, f));
+  E.roll(s);
+  assert.equal(s.dice[f], v);                            // 언 주사위는 그대로
+});
+test('키클롭스: 응시 칸은 피해 0 · 바위 칸은 못 쓴다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 6, { mode: 'coop', boss: 'cyclops', diff: 1 });
+  const g = s.boss.gaze[0];
+  assert.ok(g);
+  E.roll(s); s.board = [];
+  const hp = s.boss.hp;
+  s.dice = [1, 2, 3, 4, 5];
+  E.commitScore(s, g);
+  assert.equal(s.boss.hp, hp);
+  const r = E.createGame([{ name: 'A', cls: 'monk' }], 6, { mode: 'coop', boss: 'cyclops', diff: 1 });
+  r.round = 3; r.rollNo = 0; r.turn = 0;
+  E.applyBot(r, { type: 'roll' });
+  r.rock = 'choice';
+  assert.throws(() => E.commitScore(r, 'choice'));
+  assert.ok(E.preview(r).find(x => x.id === 'choice').rock);
+});
+test('오버로드: 해골병 회복 · 운명 역전', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 7, { mode: 'coop', boss: 'overlord', diff: 1 });
+  E.roll(s); s.board = []; s.dice = [1, 1, 2, 2, 3];
+  E.commitScore(s, 'yacht');                             // 0점 → 해골병 1
+  assert.equal(E.skeletons(s), 1);
+  s.boss.hp -= 20;
+  const hp = s.boss.hp;
+  E.drainFx(s);
+  // 1인이라 방금 기록으로 라운드가 끝났다 → 다음 라운드 시작 전 회복이 이미 됐어야 한다
+  assert.ok(true);
+  s.round = 3; s.rollNo = 1; s.rolled = true; s.dice = [4, 4, 4, 2, 1]; s.phase = 'roll'; s.rollsLeft = 1; s.held = [false, false, false, false, false];
+  E.roll(s);
+  assert.ok(E.drainFx(s).some(f => f.skill === 'reverse'));
+  void hp;
+});
+test('마신: 영겁의 봉인 · 저주 · 정화 · 미드나잇', () => {
+  const s = E.createGame([{ name: 'A', cls: 'rogue' }], 8, { mode: 'coop', boss: 'archdemon', diff: 1 });
+  assert.equal(s.boss.curse.length, 2);
+  assert.equal(s.events[1], 'midnight');
+  E.roll(s);
+  assert.equal(s.sealed.length, 1);
+  const k = s.sealed[0], v = s.dice[k];
+  E.roll(s);
+  assert.equal(s.sealed.length, 1); assert.equal(s.dice[k], v);   // 다시 굴려도 안 풀린다
+  E.useFlip(s, k);                                                  // 뒤집기로 풀린다 (눈은 그대로)
+  assert.equal(s.sealed.length, 0); assert.equal(s.dice[k], v);
+  // 저주 칸: 두 번째 굴림 이후면 회복
+  const c = s.boss.curse.find(x => x === 'lstr') ? 'lstr' : null;
+  s.board = []; s.boss.hp -= 40; const hp = s.boss.hp;
+  s.boss.curse = ['lstr']; s.dice = [2, 3, 4, 5, 6];
+  E.commitScore(s, 'lstr');
+  assert.equal(s.boss.hp, hp + 30);
+  void c;
+  // 정화: 첫 굴림 그대로면 피해 2배
+  const t = E.createGame([{ name: 'A', cls: 'monk' }], 9, { mode: 'coop', boss: 'archdemon', diff: 1 });
+  t.boss.curse = ['yacht']; E.roll(t); t.dice = [4, 4, 4, 4, 4]; t.board = [];
+  const hp2 = t.boss.hp;
+  E.commitScore(t, 'yacht');
+  assert.equal(t.boss.hp, hp2 - 100);
+  assert.equal(t.boss.curse.length, 0);
+});
+test('강화 보스 봇이 끝까지 둔다', () => {
+  let seed = 3; const rng = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  for (const boss of ['hydra', 'cyclops', 'overlord', 'archdemon']) for (const diff of [1, 2]) {
+    const s = E.createGame([{ name: 'A', cls: 'monk', bot: true }, { name: 'B', cls: 'mage', bot: true }], 13, { mode: 'coop', boss, diff });
+    let n = 0; while (!s.ended && n++ < 20000) { E.applyBot(s, E.botAction(s, rng, 8)); E.drainFx(s); }
+    assert.ok(s.ended, boss);
+  }
+});
+test('행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로 다시 굴린다', () => {
+  let hits = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = E.createGame([{ name: 'A', cls: 'monk' }], seed);
+    s.players[0].perks.lucky = 1;
+    E.roll(s);
+    const f = E.drainFx(s).find(x => x.type === 'lucky');
+    if (!f) continue;
+    hits++;
+    const i = f.dice[0];
+    assert.equal(f.from[i], Math.min(...f.from));          // 가장 낮은 눈을 골랐다
+    assert.equal(s.dice[i], f.to);
+    assert.equal(s.rollsLeft, E.maxRolls(s) - 1);           // 굴림 기회는 그대로
+    E.roll(s);
+    assert.ok(!E.drainFx(s).some(x => x.type === 'lucky')); // 두 번째 굴림엔 없다
+  }
+  assert.ok(hits > 30);
+});
+
+console.log('\n보스 예고');
+test('보스 예고(bossPlan)가 실제로 스킬을 쓰는 라운드와 같다 (화염룡 · 오크 · 리치 · 마왕)', () => {
+  const SK = { dragon: 'breath', lich: 'twist', demon: 'seal', overlord: 'reverse', orc: 'drums' };
+  for (const id of Object.keys(SK)) {
+    for (let seed = 1; seed <= 6; seed++) {
+      const s = E.createGame([{ name: 'A', cls: 'monk', bot: true }], seed, { mode: 'coop', boss: id, diff: 1 });
+      s.boss.hp = s.boss.maxHp = 99999;                        // 끝까지 가게
+      const seen = new Set();
+      let guard = 0, r = s.round;
+      const check = list => list.forEach(f => {
+        if (f.type === 'round') r = f.round;                      // 라운드 시작 연출이 있으면 그 라운드 (북은 라운드 시작에 울린다)
+        if (f.type === 'boss' && f.skill === SK[id]) { assert.ok(E.bossPlan(s, r).some(k => k.id === SK[id]), `${id} ${r}라운드에 예고 없이 ${SK[id]}`); seen.add(r); }
+      });
+      check(E.drainFx(s));
+      while (!s.ended && guard++ < 4000) { r = s.round; E.applyBot(s, E.botAction(s, () => 0.5, 4)); check(E.drainFx(s)); }
+      // 예고한 라운드에는 실제로 썼다 (봉인 · 비틀기 · 역전은 그 굴림까지 갔을 때만이라 북 · 숨결만 확인)
+      if (id === 'orc' || id === 'dragon') for (let k = 1; k <= E.ROUNDS; k++) if (E.bossPlan(s, k).some(x => x.id === SK[id])) assert.ok(seen.has(k), `${id} ${k}라운드 예고했는데 안 씀`);
+    }
+  }
+});
+test('마지막 라운드 다음은 예고가 없다', () => {
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 1, { mode: 'coop', boss: 'dragon', diff: 1 });
+  assert.deepEqual(E.bossPlan(s, E.ROUNDS + 1), []);
+  assert.ok(E.bossPlan(s, 4).some(k => k.id === 'breath'));
+});
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

@@ -6,7 +6,7 @@ import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
 import { titleScene } from './scenes.js';
-import { sfx, playBgm, preloadBgm, stopBgm, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
+import { sfx, playBgm, preloadBgm, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
@@ -15,7 +15,9 @@ import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
 import { webglOK, DiceTray2D } from './dice2d.js';
 import * as Wal from './wallet.js';
-import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice } from './skins.js';
+import * as AC from './achievements.js';
+import * as Ads from './ads.js';
+import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice, preloadTray } from './skins.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -30,12 +32,18 @@ const store = {
 };
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
-const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
+const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, adsPersonal: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
 preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
-let live = { notice: '', maintenance: false, min_version: '' };
-liveConfig().then(v => { live = v; if (screen === 'title') showLiveBar(); });
+let live = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 1 };
+// 광고: 테스트판은 늘 테스트 광고, 배포판은 Remote Config ads_enabled 가 켜졌을 때만. 광고 제거 권리 = 지갑 owned.pass.no_ads
+const adsOn = () => (PROD ? !!live.ads_enabled : true);
+liveConfig().then(v => {
+  live = v;
+  if (screen === 'title') showLiveBar();
+  Ads.initAds({ enabled: adsOn(), test: !PROD, every: v.ads_every, personalized: !!prefs.adsPersonal, adFree: () => !!Wal.wallet()?.owned?.pass?.no_ads, onPause: pauseAudio });
+});
 const FX_RATE = { normal: 1, fast: 1.8, min: 3 };
 const fxRate = () => FX_RATE[prefs.fx] || 1;
 function applyPrefs() {
@@ -78,8 +86,7 @@ const br = s => esc(s).replace(/\n/g, '<br>');
 // 분노: 어려움에서 화면에 보이는 체력(연출 중엔 아직 안 깎인 체력)이 절반 아래일 때 — 피해 연출보다 먼저 분노해 보이지 않게
 const shownHp = () => (S?.boss ? ui.hpHold ?? S.boss.hp : 0);
 const bossRaging = () => !!S?.boss && S.boss.diff === 2 && shownHp() * 2 < S.boss.maxHp && shownHp() > 0;
-const rageShown = () => bossRaging() && ui.rageSeed === S.seed;   // 분노 변신 연출을 본 뒤부터 분노한 모습
-const bossArt = () => (S?.boss?.id === 'demon' && rageShown() ? 'demon_rage' : S?.boss?.id);
+const bossArt = () => S?.boss?.id;
 const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
@@ -135,9 +142,13 @@ function showTitle() {
   Wal.loadWallet().then(syncOwned, () => {});
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
+  // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게, 테스트판만)
+  if (!PROD) setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;
+  // 판의 곡을 미리 받아 둔다: 이어하기가 있으면 그 판, 아니면 지난번에 고른 모드 · 보스 (대부분 같은 걸 또 한다)
+  if (unlocked) preloadBgm(canResume ? stateSong(saved) : optsSong(opts));
   const last = store.get(KEYS.lastRoom);
   const rejoinLeft = last ? Math.ceil((Net.DROP_MS - (Date.now() - last.t)) / 1000) : 0;
   app.innerHTML = `
@@ -154,9 +165,14 @@ function showTitle() {
       <nav class="menu">
         ${rejoinLeft > 0 ? `<button class="pbtn gold" data-act="rejoin" data-code="${esc(last.code)}">방으로 돌아가기 <small>${esc(last.code)} · ${rejoinLeft}초 안에</small></button>` : ''}
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
-        <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
+        <div class="menu-row play-row">
+          <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="versus">${ico('swords', 'xs')} 대전 <small>봇</small></button>
+          <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="coop">${ico('crown', 'xs')} 보스전</button>
+        </div>
+        ${PROD ? '' : runMenu()}
         <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
+        ${achBtn()}
         <div class="menu-row">
           <button class="pbtn small" data-act="dashboard">대시보드</button>
           <button class="pbtn small" data-act="tutorial">튜토리얼</button>
@@ -164,7 +180,7 @@ function showTitle() {
           <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
       </nav>` : `<button class="touch" data-act="touch">화면을 터치하세요</button>`}
-      ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 혼자 · 한 기기로는 그대로 할 수 있어요</p>' : ''}
+      ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 대전(봇) · 보스전은 그대로 할 수 있어요</p>' : ''}
       <div id="live-bar"></div>
       <footer class="ver">v${GAME.version} · © ${GAME.year} ${esc(GAME.studio)}</footer>
     </div>
@@ -174,10 +190,61 @@ function showTitle() {
   playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
 }
 
+// ── 원정 (로그라이크, 테스트판 전용) ────────────────────────────────────────
+// 화면 · 규칙은 run/ 폴더에 따로 있고, 처음 누를 때 불러온다. 배포판 빌드에는 run/ 폴더가 없다.
+let runMod = null, runLoading = null;
+function runMenu() {
+  const s = store.get('diceheroes.run');
+  const can = s && s.v === 1 && !s.ended;
+  return `<div class="run-menu"><button class="pbtn${can ? ' gold' : ''}" data-act="${can ? 'run-resume' : 'run-open'}">원정${can ? ' 이어하기' : ''} <small>${can ? `${s.act}막 · 체력 ${s.hp}/${s.maxHp}` : '테스트판 · 로그라이크'}</small></button>${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
+}
+function loadRun() {
+  return (runLoading ||= import('./run/ui.js').then(async m => {
+    await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, popover, closePopover,
+      showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
+      owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
+    });
+    runMod = m;
+    return m;
+  }).catch(err => { runLoading = null; throw err; }));
+}
+function runAct(act, t) {
+  if (PROD) return;
+  loadRun().then(m => (act === 'die' ? m.onDie(Number(t.dataset.i)) : m.onAct(act, t)))
+    .catch(err => {
+      noteErr(err);
+      if (healCode(err)) return toast(ico('warn'), '새 버전을 받는 중…', '잠시 뒤 다시 열려요', 2600);
+      toast(ico('warn'), '원정을 열지 못했어요', String(err?.message || err).slice(0, 80), 2200);
+    });
+}
+// 새 버전 파일과 예전 버전 파일이 섞여 불러와지면 (신호가 약할 때 오프라인 캐시에서 예전 파일을 꺼내 오면서 생긴다)
+// "… is not a function" · "does not provide an export" 같은 오류가 난다. 그때 코드 파일을 서버에서 새로 받아
+// 캐시를 덮어쓰고 한 번만 다시 연다 (이번 접속에서 이미 했으면 하지 않는다)
+function healCode(err) {
+  if (!(err instanceof TypeError || err instanceof SyntaxError) || !('caches' in window)) return false;
+  try { if (sessionStorage.getItem('dh.healed')) return false; sessionStorage.setItem('dh.healed', '1'); } catch { return false; }
+  (async () => {
+    const names = (await caches.keys()).filter(k => k.startsWith('dh-'));
+    const urls = new Set(['run/ui.js', 'run/rules.js', 'run/art.js', 'run/relic-art.js', 'run/hand.js', 'run/progress.js', 'run/run.css'].map(u => new URL(u, location.href).href));
+    for (const n of names) for (const r of await (await caches.open(n)).keys()) if (/\.(js|css|html)$/.test(new URL(r.url).pathname)) urls.add(r.url.split('?')[0]);
+    await Promise.allSettled([...urls].map(async u => {
+      // 주소 끝에 시간을 붙여 어느 캐시(기기 · 서버 앞단)도 건너뛰고 받는다
+      const res = await fetch(`${u}?fresh=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) for (const n of names) await (await caches.open(n)).put(u, res.clone());
+    }));
+    track('code_heal', { msg: String(err?.message || err).slice(0, 60) });
+    location.reload();
+  })().catch(() => location.reload());
+  return true;
+}
+
 // 지갑이 바뀌면: 시작 화면 보석 숫자 갱신, 안 산 스킨을 쓰고 있었으면 기본으로
 Wal.onWallet(w => {
   const el = document.getElementById('gem-count'); if (el) el.textContent = Wal.gems().toLocaleString();
   const db = document.getElementById('daily-btn'); if (db && !layer.querySelector('.daily')) db.outerHTML = dailyBtn();
+  const ab = document.getElementById('ach-btn'); if (ab) ab.outerHTML = achBtn();
+  if (screen === 'ach' && !document.querySelector('[data-act=ach-claim]:disabled:focus')) showAchievements();
   if (w) syncOwned();
 });
 // 일일 보상 버튼: 받을 수 있으면 반짝인다
@@ -201,7 +268,7 @@ function syncOwned() {
 
 function offlineToast() {
   sfx.back();
-  return toast(ico('warn'), '인터넷 연결이 없어요', '온라인 방은 인터넷이 필요해요. 혼자 · 한 기기로는 지금 바로 할 수 있어요.', 2400);
+  return toast(ico('warn'), '인터넷 연결이 없어요', '온라인 방은 인터넷이 필요해요. 대전(봇) · 보스전은 지금 바로 할 수 있어요.', 2400);
 }
 // 연결이 끊기거나 돌아오면 시작 화면 안내를 고친다
 addEventListener('online', () => { if (screen === 'title' && !layer.firstElementChild) showTitle(); });
@@ -318,12 +385,13 @@ if (SHAKE_OK && prefs.shake) {
 let pick = { for: 'local', step: 'mode', o: null };
 const pickSteps = () => {
   const mid = pick.o.mode === 'coop' ? 'boss' : 'rule';   // 협동은 보스, 대전은 규칙(일반 · 클래식 야추)
-  return pick.for === 'local' ? ['mode', mid, 'party'] : ['mode', mid];
+  const head = pick.fixed ? [] : ['mode'];                    // 메뉴에서 모드를 정하고 들어오면 모드 단계 없음
+  return pick.for === 'local' ? [...head, mid, 'party'] : [...head, mid];
 };
 const STEP_TITLE = { mode: '모드 선택', boss: '보스 선택', rule: '규칙 선택', party: '캐릭터 선택' };
 
-function beginPick(kind, o) {
-  pick = { for: kind, step: 'mode', o };
+function beginPick(kind, o, fixed = false) {
+  pick = { for: kind, step: fixed ? (o.mode === 'coop' ? 'boss' : 'rule') : 'mode', o, fixed };
   showSetup();
 }
 
@@ -377,9 +445,34 @@ function showDemonUnlock() {
   setTimeout(() => sfx.legend(), 2600);
 }
 
-// 난이도 해금: 쉬움은 처음부터, 보통은 그 보스 쉬움을, 어려움은 그 보스 보통을 한 번 이상 깨야 열린다
+// 강화 보스(세머리 용 · 키클롭스 · 오버로드): 원래 보스를 어려움으로 깨면 열린다
+function upgradeOpen(id) {
+  const base = E.bossInfo(id)?.base;
+  if (!base || DEMON_TEST) return true;
+  return (loadProfile().bosses?.[`${base}:2`]?.wins || 0) > 0 || !!Wal.wallet()?.clears?.[`${base}:2`];
+}
+function showUpgradeUnlock(b) {
+  store.set(`diceheroes.seen_${b.id}`, 1);
+  sfx.boom(2.4); buzz(140);
+  const el = document.createElement('div');
+  el.className = 'demon-reveal up-reveal';
+  el.style.setProperty('--c', b.color);
+  el.innerHTML = `<div class="dr-cracks"></div>
+    <div class="dr-boss">${portrait(b.id, 'dr-img')}</div>
+    <p class="dr-l1">${esc(E.bossInfo(b.base).ko)}을(를) 쓰러뜨리자, 더 강한 기운이 깨어났다.</p>
+    <h1 class="dr-title">${esc(b.ko)}</h1>
+    <p class="dr-l2">${esc(b.title)} · 보스 선택에서 도전할 수 있어요</p>
+    <button class="pbtn gold dr-ok" data-act="demon-ok">도전을 받아들인다</button>`;
+  document.body.appendChild(el);
+  setTimeout(() => { FX().flash(b.color, 500, 0.5); sfx.boom(2.4); }, 1200);
+  setTimeout(() => sfx.legend(), 2200);
+}
+
+// 난이도 해금: 처음 난이도(보통 · 강화 보스는 보통)는 처음부터, 그다음은 바로 아래 난이도를 한 번 이상 깨야 열린다
 function diffOpen(boss, d) {
-  if (d <= 0 || (DEMON_ALL && boss === 'demon')) return true;
+  const ds = E.bossDiffs(boss);
+  if (!ds.includes(d)) return false;
+  if (d <= ds[0] || (DEMON_ALL && boss === 'demon')) return true;
   return (loadProfile().bosses?.[`${boss}:${d - 1}`]?.wins || 0) > 0;
 }
 const clearedAt = (boss, d) => (loadProfile().bosses?.[`${boss}:${d}`]?.wins || 0) > 0;
@@ -395,6 +488,7 @@ function firstClearNote(o) {
 const topOpenDiff = boss => [2, 1, 0].find(d => diffOpen(boss, d));
 function clampDiff(o) {
   if (E.bossInfo(o.boss)?.final && !demonOpen()) o.boss = 'dragon';   // 테스트 링크로 골라 둔 마왕이 남아 있어도 봉인 중엔 못 고른다
+  if (!upgradeOpen(o.boss)) o.boss = E.bossInfo(o.boss).base;
   if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss);
 }
 
@@ -404,14 +498,17 @@ function bossPicker(o) {
   <section class="frame mode-box">
     <div class="bosses">
       ${E.BOSSES.map(b => b.final && !demonOpen()
-        ? `<button class="boss-pick sealed-boss" style="--c:${b.color}" data-act="boss-locked">
+        ? `<button class="boss-pick sealed-boss final" style="--c:${b.color}" data-act="boss-locked">
           ${portrait(b.id, 'bp')}<b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
-        : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
+        : !upgradeOpen(b.id)
+        ? `<button class="boss-pick sealed-boss${b.final ? ' final' : ''}" style="--c:${b.color}" data-act="boss-locked" data-base="${b.base}">
+          ${portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
+        : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
     </div>
     <div class="diffs">
-      ${E.DIFFS.map(d => diffOpen(o.boss, d.id)
+      ${E.DIFFS.filter(d => E.bossDiffs(o.boss).includes(d.id)).map(d => diffOpen(o.boss, d.id)
         ? `<button class="diff${o.diff === d.id ? ' on' : ''}" style="--c:${d.color}" data-act="diff" data-v="${d.id}">${d.ko}${!firstPending(o.boss, d.id) ? '' : `<i class="fc" title="첫 토벌 보석 ×${Wal.FIRST_CLEAR_MUL}">${ico('gem', 'xs')}×${Wal.FIRST_CLEAR_MUL}</i>`}</button>`
         : `<button class="diff locked" style="--c:${d.color}" data-act="diff-locked" data-v="${d.id}">${ico('lock')} ${d.ko}</button>`).join('')}
     </div>
@@ -451,6 +548,7 @@ function showSetup() {
   layer.innerHTML = '';
   playBgm('title');
   pick.o ||= opts;
+  preloadBgm(optsSong(pick.o));   // 고른 모드 · 보스의 곡을 미리 받아 둔다 (시작하자마자 음악이 나오게)
   const steps = pickSteps();
   if (!steps.includes(pick.step)) pick.step = steps[steps.length - 1];
   const n = steps.indexOf(pick.step);
@@ -536,6 +634,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
 function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
   if (act === 'pick-back') return pickBack();
+  if (act === 'boss-locked' && t.dataset.base) { sfx.back(); return toast(ico('lock'), '아직 잠든 강적', `${E.bossInfo(t.dataset.base).ko}을(를) 어려움으로 토벌하면 깨어나요.`, 2400); }
   if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), '봉인된 보스', '화염룡 · 오크 대장 · 리치 왕의 어려움을 모두 깨면 봉인이 풀려요.', 2400); }
   if (act === 'diff-locked') {
     sfx.back();
@@ -735,6 +834,7 @@ function showLobby() {
   screen = 'lobby';
   clearActors();
   const room = online.room;
+  preloadBgm(optsSong(room.opts));   // 판이 시작되면 바로 나오게 그 판의 곡을 미리 받아 둔다
   const host = isHost();
   const link = Net.inviteLink(online.code);
   const humans = room.seats.filter(s => !s.bot).length;
@@ -890,8 +990,13 @@ async function onRoom(room) {
     screen = 'game';
     setStage(null);
     layer.innerHTML = '';
-    playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
+    const song = playBgm(stateSong(S));
     online.fxSeen = room.fxId - 1;
+    // 대기실에서 미리 받아 둔 곡이 준비될 때까지 잠깐 (최대 3초) — 연출보다 음악이 늦지 않게
+    ui.busy = true;
+    render();
+    await Promise.race([song, sleep(3000)]);
+    if (!online || S !== g) return;
   } else {
     S = g;
   }
@@ -906,9 +1011,10 @@ async function onRoom(room) {
   }
   ui.busy = true;
   ui.dice = pendingDice(fxList);
+  hideUntilFx(fxList);
   holdHp(fxList);
   render();
-  for (const f of newFx) await playFx(f.list);
+  for (const f of newFx) { await playFx(f.list); hideUntilFx(newFx.filter(x => x.id > f.id).flatMap(x => x.list)); }
   ui.busy = false;
   online.pres = presenceSig();
   if (online.latest !== undefined) return;       // 더 새 상태가 기다리고 있으면 바로 그걸 처리
@@ -1033,8 +1139,13 @@ function onlineAct(fn, { any = false, quiet = false } = {}) {
   });
 }
 
+// 판의 배경음악: 협동은 보스 곡, 대전은 모험 곡 (게임 상태 / 고른 옵션)
+const stateSong = g => (g?.mode === 'coop' && g.boss ? bossSong(g.boss.id) : 'adventure');
+const optsSong = o => (o?.mode === 'coop' ? bossSong(o.boss) : 'adventure');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 // ── 게임 화면 ────────────────────────────────────────────────────────────────
-function startGame(state) {
+async function startGame(state) {
   S = state;
   gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxNote.includes('오류')) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
@@ -1042,9 +1153,15 @@ function startGame(state) {
   screen = 'game';
   setStage(null);
   layer.innerHTML = '';
-  playBgm(S.mode === 'coop' ? bossSong(S.boss.id) : 'adventure');
+  const song = playBgm(stateSong(S));
   if (!S.tutorial && (S.round || 1) <= 1) track('game_start', { mode: S.mode, classic: S.classic ? 1 : 0, online: online ? 1 : 0, players: S.players.length });
   if (!S.tutorial && !online) Wal.beginRun({ mode: S.mode, boss: S.boss?.id ?? null, diff: S.boss?.diff ?? null });   // 배포판: 판 시작을 서버에 기록 (온라인 방 판은 방 기록으로 확인)
+  // 판을 먼저 그려 두고, 곡이 준비될 때까지 잠깐 기다렸다가(최대 3초) 보스 등장 · 라운드 연출을 시작한다
+  // (예전엔 곡을 받는 사이 연출이 먼저 지나가서 라운드가 시작된 뒤에 음악이 나오곤 했다)
+  ui.busy = true;
+  render();
+  await Promise.race([song, sleep(3000)]);
+  if (S !== state || screen !== 'game') return;   // 그사이 메뉴로 나갔다
   step();
 }
 
@@ -1071,7 +1188,7 @@ function trayOpts() {
     onHit: (v, i) => diceHit(v, i, tray),
     onThrow: () => sfx.shake(),
     onBox: () => sfx.box(),
-    onLong: i => dieInfo(i),
+    onLong: i => (screen === 'run' ? runMod?.dieInfo(i) : dieInfo(i)),
     onFail: err => to2d(`그리기 오류: ${err?.message || err}`),
     lowGfx: !!prefs.lowGfx,
     diceSkin: diceSkin(mySkin().dice).id,
@@ -1106,7 +1223,7 @@ function to2d(why) {
   try { tray?.destroy?.(); } catch { /* 무시 */ }
   tray = host ? new DiceTray2D(host, trayOpts()) : null;
   toast(ico('warn'), '그래픽을 간단하게 바꿨어요', '이 기기에서 3D 주사위를 그리지 못해 2D 주사위로 계속해요.', 2400);
-  render();
+  if (screen === 'run') runMod?.render(); else render();
 }
 
 // 지금 이 기기가 조작할 차례인가
@@ -1193,9 +1310,9 @@ function render() {
       ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>배팅하기</span><small class="left-n">족보 고르기</small></button>` : `<button class="pbtn gold roll" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${S.rollsLeft}회</small>
       </button>`}
-      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
+      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && (!['haki', 'midnight'].includes(E.event(S)) || (S.sealPerm && S.sealed?.length)) ? '' : 'disabled'}>
         ${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
-      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && E.event(S) !== 'haki' ? '' : 'disabled'}>
+      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
         ${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>`}
       <button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="족보 완성 · 점수표 열기">
         ${ico('sheet')}족보 완성${combos.length ? `<b>${combos.length}</b>` : ''}</button>
@@ -1264,7 +1381,7 @@ function readyCombos(p) {
   const counts = [0, 0, 0, 0, 0, 0, 0];
   S.dice.forEach(v => counts[v]++);
   return E.CATS.filter(c => {
-    if (p.scores[c.id] !== null || c.id === 'choice') return false;
+    if (p.scores[c.id] !== null || c.id === 'choice' || E.rocked(S, c.id)) return false;
     if (c.up) return counts[c.up] >= 3;
     return E.fiveSets(S.dice).some(d => E.baseScore(c.id, d) > 0);
   }).map(c => c.id);
@@ -1346,18 +1463,24 @@ function diceOverlay(myTurn) {
   const ovl = document.getElementById('dice-ovl');
   if (!ovl || !tray || !S) return;
   // 마왕의 봉인: 봉인된 주사위 위에 쇠사슬 문양 (다시 굴리면 풀린다)
-  const box0 = document.getElementById('tray').getBoundingClientRect();
+  // 겹침 층(dice-ovl)은 트레이 테두리(3px) 안쪽에서 시작한다 — 트레이 바깥 상자를 기준으로 재면 표시가 오른쪽 아래로 3px 밀린다
+  const box0 = ovl.getBoundingClientRect();
   const sealList = ui.sealRoll || S.sealed || [];   // 굴리는 동안에도 봉인 표시는 제자리에 남는다
   const seals = S.rolled && sealList.length ? sealList.map(i => {
-    const p = tray.screenPos(i);
+    const p = tray.topPos?.(i) || tray.screenPos(i);   // 윗면 한가운데
     return `<div class="seal-tag" style="left:${p.x - box0.left}px;top:${p.y - box0.top}px">${SEAL_SIGIL}</div>`;
   }).join('') : '';
-  if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals; return; }
+  // 세머리 용의 얼음: 주사위 자체가 얼음 껍질을 입는다 (뒤집어도 주사위에 붙어 다닌다)
+  tray.setFrozen?.(S.rolled && !ui.hideIce ? S.frozen || [] : []);
+  tray.setMarks?.(null);                   // 원정 특수 주사위 표시는 협동 · 대전 트레이에 남기지 않는다
+  const frost = '';
+  if (!ui.tool || !myTurn || !S.rolled || tray.anim) { ovl.innerHTML = seals + frost; return; }
   const box = box0;
-  ovl.innerHTML = seals + S.dice.map((v, i) => {
-    if (S.sealed?.includes(i)) return '';
+  ovl.innerHTML = seals + frost + S.dice.map((v, i) => {
     const p = tray.screenPos(i);
     const x = p.x - box.left, y = p.y - box.top;
+    // 영겁의 봉인: 뒤집기로 봉인만 푼다
+    if (S.sealed?.includes(i)) return ui.tool === 'flip' && S.sealPerm ? `<button class="flip-tag unseal-tag" style="left:${x}px;top:${y}px" data-act="die" data-i="${i}" aria-label="봉인 풀기"><i>봉인 풀기</i>${ico('chain', 'xs')}</button>` : '';
     if (ui.tool === 'deal') {
       if (ui.dealDie === i) return `<div class="deal-pick" style="left:${x}px;top:${y}px">${[1, 2, 3, 4, 5, 6].map(n => `<button data-act="deal" data-i="${i}" data-v="${n}" ${n === v ? 'disabled' : ''}>${miniDie(n)}</button>`).join('')}</div>`;
       return `<button class="flip-tag deal-tag" style="left:${x}px;top:${y}px" data-act="die" data-i="${i}" aria-label="${v} 바꾸기"><i>바꾸기</i>${miniDie(v)}</button>`;
@@ -1381,23 +1504,44 @@ function bossPanel() {
   const shown = ui.hpHold ?? b.hp;
   // 분노는 살아 있을 때만 (체력 0에서 분노 흔들림이 계속돼 발작처럼 보였다)
   const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0 && ui.rageSeed === S.seed;
+  // 보스 예고: 이번 라운드에 쓰는 스킬(now)과 다음 라운드에 쓸 스킬(next, 깜박이며 '다음')
+  const planNow = new Set(E.bossPlan(S, ui.roundShow ?? S.round).map(k => k.id));
+  const planNext = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, (ui.roundShow ?? S.round) + 1).map(k => k.id) : []);
   return `
-  <section class="boss-panel${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
+  <section class="boss-panel${['demon', 'archdemon'].includes(b.id) ? ' big-boss' : ''}${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
     <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
-      <div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
-        <em>HP ${hp} / ${b.maxHp}${b.shield ? ` · ${ico('bone', 'xs')}${b.shield}` : ''}</em></div>
+      <div class="hp-row"><div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
+        <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
+      ${bossStatus(b)}
       <div class="boss-skills">
-        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}</button>`).join('')}
+        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip${k.id !== 'heads' && planNow.has(k.id) ? ' now' : ''}${k.id !== 'heads' && planNext.has(k.id) ? ' next' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${k.id !== 'heads' && planNext.has(k.id) ? '<i class="nx">다음</i>' : ''}</button>`).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
       </div>
     </div>
   </section>`;
 }
 
+// 강화 보스 상태 한 줄: 세머리 용 머리 · 키클롭스 응시 칸 · 오버로드 해골병
+function bossStatus(b) {
+  if (b.id === 'hydra') {
+    const now = E.HEADS[(S.round - 1) % 3], nxt = S.round < E.ROUNDS ? E.HEADS[S.round % 3] : null;
+    return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}${h === nxt && !b.cut?.[h] ? ' next' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}</div>`;
+  }
+  // 응시 · 저주가 없을 때도 같은 크기의 빈 줄을 둔다 (줄이 생겼다 사라지며 화면이 위아래로 밀리지 않게)
+  if (b.id === 'cyclops') return b.gaze?.length && !ui.hideGaze
+    ? `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b></div>`
+    : `<div class="boss-status ph" aria-hidden="true">${ico('eye', 'xs')} 응시: <b>-</b> <small>-</small></div>`;
+  if (b.id === 'archdemon' && !b.curse?.length) return `<div class="boss-status ph" aria-hidden="true">${ico('skull', 'xs')} 저주: <b>-</b> <small>-</small></div>`;
+  if (b.id === 'archdemon' && b.curse?.length) return `<div class="boss-status">${ico('skull', 'xs')} 저주: <b>${b.curse.map(c => E.catInfo(c).ko).join(' · ')}</b></div>`;
+  if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> ${n ? `<small>+${n * E.NECRO_HEAL} ${ico('heart', 'xs')}</small>` : ''}</div>`; }
+  return '';
+}
+
 function tip(cur, myTurn, okQuests, combos = []) {
   if (S.ended) return '';
+  if (!S.tutorial) return '';            // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 튜토리얼만 안내한다
   if (!myControl()) return `${esc(cur.name)}의 차례…${online && cur.bot ? ' (봇)' : ''}`;
   if (!myTurn) return '';
   if (ui.tool === 'flip') return `<b class="tool-txt">${ico('flip', 'xs')} 뒤집을 주사위를 누르세요</b> · 주사위 위에 뒤집힌 눈이 보여요`;
@@ -1415,15 +1559,19 @@ function sheet(p, idx, prev, best, canPick, combos = [], fresh = false) {
     const done = p.scores[c.id] !== null;
     const r = canPick && !done ? pv(c.id) : null;
     const combo = canPick && combos.includes(c.id);
-    const cls = done ? 'done' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}` : '';
-    const val = done ? p.scores[c.id] : r ? `${r.pts}${S.classic ? '' : `<small>+${r.xp}xp</small>`}` : '–';
+    // 키클롭스 바위: 이번 차례 못 쓰는 칸 · 응시: 피해 0 — 둘 다 스킬 연출이 끝난 뒤부터 보인다 (ui.hideRock · ui.hideGaze)
+    const rk = !done && !ui.hideRock && idx === S.turn && E.rocked(S, c.id);
+    const gz = !done && S.boss && !ui.hideGaze && E.gazed(S, c.id);
+    const cu = !done && S.boss && E.cursed(S, c.id);        // 마신 저주: 첫 굴림이면 정화(×2), 아니면 회복
+    const cls = done ? 'done' : rk ? 'rocked' : r ? `pick${r.pts === 0 ? ' zero' : ' can'}${c.id === best && r.pts > 0 ? ' best' : ''}${combo ? ' combo' : ''}${gz ? ' gazed' : ''}${cu ? ' cursed' : ''}` : gz ? 'gazed' : cu ? 'cursed' : '';
+    const val = done ? p.scores[c.id] : rk ? ico('rock', 'xs') : r ? `${r.pts}${S.classic ? '' : `<small>+${r.xp}xp</small>`}` : '–';
     // 보너스가 붙으면 규칙 설명 대신 어디서 몇 점 붙었는지 보여 준다
     const armed = r && ui.zeroArm === c.id;
     const sub = armed ? '<small class="zero-warn">한 번 더 누르면 0점 기록</small>' : r?.bonus?.length && r.pts > 0
       ? `<small class="bonus-src">${r.bonus.map(b => `${esc(b.ko)} +${b.amt}`).join(' · ')}</small>`
       : `<small>${CAT_HELP[c.id].rule}</small>`;
-    const tag = combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
-    return `<button class="row ${cls}${armed ? ' armed' : ''}" data-act="score" data-cat="${c.id}" ${r ? '' : 'disabled'}>
+    const tag = rk ? '<em class="tag rock">바위</em>' : cu ? `<em class="tag curse">${S.rollNo === 1 ? '저주 정화 ×2' : '저주 · 마신 회복'}</em>` : gz ? '<em class="tag gaze">응시 · 피해 0</em>' : combo ? '<em class="tag combo">완성</em>' : c.id === best && r?.pts > 0 ? '<em class="tag best">최고</em>' : '';
+    return `<button class="row ${cls}${armed ? ' armed' : ''}" data-act="score" data-cat="${c.id}" ${r && !rk ? '' : 'disabled'}>
       <span class="nm"><b>${c.ko}${tag}</b>${sub}</span><span class="v">${val}</span></button>`;
   };
   const up = E.upperSum(p), need = E.upperNeed(p), got = up >= need;
@@ -1466,11 +1614,21 @@ function popover(anchor, html, { afterRelease = false } = {}) {
   const below = r.bottom + 8 + el.offsetHeight < innerHeight;
   el.style.top = `${below ? r.bottom + 8 : r.top - el.offsetHeight - 8}px`;
   el.classList.add(below ? 'below' : 'above');
-  const arm = () => setTimeout(() => document.addEventListener('click', closePopover, { once: true }), 0);
+  // 바깥을 누르면 닫는다. 이전 창의 닫기 대기는 closePopover 가 지운다
+  // (예전에는 남아 있던 대기가 다른 스킬을 눌러 새로 띄운 설명창까지 바로 닫아 버렸다)
+  const arm = () => setTimeout(() => {
+    if (!el.isConnected) return;
+    popClose = e => { if (!el.contains(e.target)) closePopover(); };
+    document.addEventListener('click', popClose);
+  }, 0);
   if (afterRelease) document.addEventListener('pointerup', arm, { once: true });
   else arm();
 }
-function closePopover() { document.querySelectorAll('.popover').forEach(p => p.remove()); }
+let popClose = null;
+function closePopover() {
+  document.querySelectorAll('.popover').forEach(p => p.remove());
+  if (popClose) { document.removeEventListener('click', popClose); popClose = null; }
+}
 
 // 의뢰 보상 아이콘: 뒤집기 · 조정
 const rewardIcons = r => [r.flip ? `${ico('flip', 'xs')}${r.flip}` : '', r.nudge ? `${ico('nudge', 'xs')}${r.nudge}` : ''].filter(Boolean).join(' ');
@@ -1533,13 +1691,17 @@ async function toast(icon, title, text, ms = 1900, img = '') {
 let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
+  // 보스 예고: 다음 라운드에 보스가 때가 되어 쓰는 공격이 있으면 이번 라운드 배너에서 미리 경고한다
+  const next = S?.boss ? E.bossPlan(S, round + 1) : [];
+  const warn = next.length ? `<div class="warn-next">${ico('warn', 'xs')}<b>다음 라운드</b>${next.map(k => `<span>${skillIco(k.id, 'xs')}${k.ko}</span>`).join('')}<small>${next.map(k => k.what).join(' · ')}</small></div>` : '';
   // 마왕의 패기 라운드: 라운드 표시만 하고, 패기는 그다음 따로 발동한다 (hakiFx)
-  layer.innerHTML = evId === 'haki' || S?.classic
-    ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div></div></div>`
+  layer.innerHTML = evId === 'haki' || evId === 'midnight' || S?.classic
+    ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div>${warn}</div></div>`
     : `<div class="overlay" data-act="skip-banner"><div class="banner">
-    <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span></div></div>`;
+    <div class="rn">ROUND ${round}</div><div class="ev">${eventIco(evId, 'lg')}</div><b>${ev.ko}</b><span>${ev.desc}</span>${warn}</div></div>`;
   sfx.round();
-  await Promise.race([wait(ui.fast ? 700 : 1500), new Promise(r => (skipBanner = r))]);
+  if (warn) setTimeout(() => sfx.haki?.(), 350);
+  await Promise.race([wait(ui.fast ? 700 : warn ? 2300 : 1500), new Promise(r => (skipBanner = r))]);
   layer.innerHTML = '';
 }
 // 보스 등장: 화면을 대각선으로 가르는 띠 위에 이름과 거대한 모습만
@@ -1650,13 +1812,13 @@ function countUp(root) {
   });
 }
 
-// 분노 변신: 화면 가운데에 보스가 크게 나타나 몸을 떨며 변한다 (마왕은 분노한 모습으로 바뀐다)
+// 분노 변신: 화면 가운데에 보스가 크게 나타나 몸을 떨며 변한다 (그림은 그대로, 연출로만)
 async function rageScene() {
   ui.rageSeed = S.seed;
   const b = E.bossInfo(S.boss.id);
   const rageSkill = b.skills.find(k => k.id === 'rage');
   const pal = PALETTES[RAGE[b.id]] || PALETTES.fire;
-  const before = spriteURL(b.id, 12), after = spriteURL(b.id === 'demon' ? 'demon_rage' : b.id, 12);
+  const before = spriteURL(b.id, 12), after = before;
   const el = document.createElement('div');
   el.className = 'rage-scene';
   el.style.setProperty('--c', b.color);
@@ -1665,7 +1827,8 @@ async function rageScene() {
     <div class="rs-text"><b>분노!</b><small>${esc(b.ko)} — ${esc(rageSkill?.desc(2) || '')}</small></div>`;
   layer.appendChild(el);
   const fx = FX(), C = { x: innerWidth / 2, y: innerHeight * 0.42 };
-  stopBgm?.();
+  const keepSong = S.boss.id === 'archdemon';   // 마신: 각성 장면에서도 곡을 끊지 않는다
+  if (!keepSong) stopBgm?.();
   sfx.boom(3); buzz(200);
   fx.flash('#000000', 400, 0.5);
   const flames = setInterval(() => fx.burst(C.x + (Math.random() - 0.5) * 220, C.y + 110, { n: 10, pal, speed: [60, 220], dir: -Math.PI / 2, spread: 0.9, grav: -60, life: [0.5, 1], size: [3, 7] }), 70);
@@ -1685,11 +1848,28 @@ async function rageScene() {
   el.classList.add('out');
   await wait(300);
   el.remove();
-  playBgm(bossSong(S.boss.id));
+  if (!keepSong) playBgm(bossSong(S.boss.id));
   render();
 }
 
 const BOSS_LINES = {
+  eternal: '영겁의 봉인! 다시 굴려도 풀리지 않는다 — 뒤집기 1회로 풀 수 있다',
+  curse: '피의 저주! 저주 칸의 점수만큼 마신이 회복했다',
+  cleanse: '저주를 끊었다! 첫 굴림 그대로 완성 — 피해 2배',
+  midheal: '미드나잇! 0점을 틈타 마신이 회복했다',
+  awaken: '진(眞) 각성! 영겁의 봉인이 매 라운드 — 저주가 번진다',
+  hfire: '불 머리의 숨결! 가장 높은 주사위가 1로 타 버렸다',
+  hice: '얼음 머리의 숨결! 주사위 2개가 얼어붙었다 — 다시 굴릴 수 없다 (뒤집기 · 조정은 가능)',
+  hpoison: '독 머리의 숨결! 이번 라운드 15점 이하 기록은 피해 절반',
+  behead: '머리를 베었다! 이 머리는 더 이상 숨결을 뿜지 못한다',
+  regrow: '잘린 머리가 다시 자라났다!',
+  gaze: '외눈 응시! 노려본 칸에 적으면 피해 0',
+  gazed: '외눈이 노려보는 칸이었다 — 피해 0',
+  rock: '바위 투척! 이번 차례 그 칸은 쓸 수 없다',
+  necro: '사령술! 해골병이 주인을 회복시킨다',
+  reverse: '운명 역전! 가장 많이 나온 눈이 전부 뒤집혔다',
+  throne: '뼈의 왕좌! 보호막을 둘렀다',
+  rewind: '시간 역행! 이번 라운드 피해의 절반을 되돌렸다',
   breath: '화염 숨결! 가장 높은 주사위가 1로 타 버렸다',
   twist: '운명 비틀기! 주사위가 뒤집혔다',
   drums: '전쟁의 북! 이번 라운드 굴림 기회 -1',
@@ -1780,12 +1960,12 @@ function holdHp(list) {
   if (S && !S.boss && list.some(f => f.type === 'score')) ui.crownFreeze = true;   // 점수 연출이 끝날 때 왕관을 옮긴다
   if (!S?.boss) { ui.hpHold = null; return; }
   const dealt = list.filter(f => f.type === 'damage').reduce((a, f) => a + f.amount - (f.blocked || 0), 0);
-  const healed = list.filter(f => f.type === 'boss' && f.skill === 'plunder').reduce((a, f) => a + (f.amount || 0), 0);
+  const healed = list.filter(f => f.type === 'boss' && ['plunder', 'necro', 'rewind', 'curse', 'midheal'].includes(f.skill)).reduce((a, f) => a + (f.amount || 0), 0);
   ui.hpHold = dealt || healed ? Math.min(S.boss.maxHp, S.boss.hp + dealt - healed) : null;
 }
 
 function pendingDice(list) {
-  const b = list.find(f => f.type === 'boss' && f.from);
+  const b = list.find(f => (f.type === 'boss' || f.type === 'lucky') && f.from);   // 행운의 부적 · 보스 능력이 바꾸기 전 눈
   if (b) return b.from.slice();
   const sc = list.find(f => f.type === 'score' && f.dice);
   return sc ? sc.dice.slice() : null;
@@ -1951,7 +2131,7 @@ const memberFx = (i, cls, ms) => {
 };
 // 무희 춤사위 버프: 꽃잎이 트레이로 쏟아지며 모든 주사위가 한 칸씩 올라간다
 async function danceBuffFx(i) {
-  sfx.legend(); buzz(60);
+  sfx.dance(); buzz(60);
   danceFx(i);
   floatText('춤사위! 모든 주사위 +1', 'gold', -20, 'tray', 'sparkle');
   const fx = FX(), r = document.getElementById('tray')?.getBoundingClientRect();
@@ -2129,6 +2309,30 @@ function crownDraw(g, x, y, s = 1, rot = 0) {
 }
 
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
+// 보스 스킬 이름표: 화면 가운데 스킬 이름이 쾅 찍히고 보스 그림이 번쩍인다 (색은 스킬 기운)
+const CAST = {
+  breath: ['화염 숨결', '#FF8A1A'], hfire: ['불 머리의 숨결', '#FF8A1A'], hice: ['얼음 머리의 숨결', '#7CE0FF'], hpoison: ['독 머리의 숨결', '#5FD13A'],
+  behead: ['머리 베기!', '#FFD24A'], regrow: ['머리 재생', '#B98CFF'], twist: ['운명 비틀기', '#B98CFF'], reverse: ['운명 역전', '#B98CFF'],
+  drums: ['전쟁의 북', '#B6F25A'], plunder: ['약탈', '#FFD24A'], bone: ['뼈 방패', '#C8F4FF'], throne: ['뼈의 왕좌', '#C8F4FF'],
+  gaze: ['외눈 응시', '#FF3B3B'], gazed: ['응시당한 칸 — 피해 0', '#FF3B3B'], rock: ['바위 투척', '#C8C0B0'],
+  necro: ['사령술', '#9DB7D6'], rewind: ['시간 역행', '#B98CFF'], seal: ['봉인', '#FF2A6A'], eternal: ['영겁의 봉인', '#FF2A6A'],
+  curse: ['피의 저주', '#C21E56'], cleanse: ['저주 정화!', '#FFD24A'], midheal: ['미드나잇', '#FF2A6A'], awaken: ['진(眞) 각성', '#FF2A6A'],
+};
+function castBanner(f) {
+  const [name, color] = CAST[f.skill] || [];
+  if (!name || prefs.fx === 'min') return;
+  const el = document.createElement('div');
+  el.className = 'cast-banner';
+  el.style.setProperty('--c', color);
+  const sub = f.cats ? f.cats.map(c => E.catInfo(c).ko).join(' · ') : f.cat ? E.catInfo(f.cat).ko : f.head ? `${E.HEAD_KO[f.head]} 머리` : '';
+  el.innerHTML = `<b>${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), (ui.fast ? 700 : 1200) / fxRate());
+  const art = document.getElementById('boss-art');
+  if (art) { art.style.setProperty('--cast', color); art.classList.remove('casting'); void art.offsetWidth; art.classList.add('casting'); setTimeout(() => art.classList.remove('casting'), 900); }
+}
+
+// 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 async function skillFx(f) {
   const fx = FX();
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
@@ -2138,11 +2342,18 @@ async function skillFx(f) {
   const bossC = center(document.getElementById('boss-art'));
   const pts = t && f.dice ? f.dice.map(i => t.screenPos(i)) : [];
   const ms = ui.fast ? 500 : 900;
-  if ((f.skill === 'breath' || f.skill === 'twist') && t && f.from) {
-    const burn = f.skill === 'breath';
+  const game = app.querySelector('.game');
+  const heal = () => { ui.hpHold = null; render(); if (f.amount) floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); };
+  if (f.skill !== 'unseal') castBanner(f);
+  const mouth = bossC ? { x: bossC.x, y: bossC.y + 6 } : null;
+  // 숨결 · 운명 비틀기 · 운명 역전: 보스에게서 광선이 뿜어져 주사위를 태우거나 뒤집는다
+  if (['breath', 'twist', 'hfire', 'reverse'].includes(f.skill) && t && f.from) {
+    const burn = f.skill === 'breath' || f.skill === 'hfire';
     burn ? sfx.fire() : sfx.twist();
+    if (mouth && pts.length) { shake(game, burn ? 1.6 : 1); await (burn ? fx.flame(mouth, pts, ui.fast ? 400 : 700) : fx.hexBolt(mouth, pts, ui.fast ? 400 : 700)); }
+    if (f.skill === 'reverse') fx.flash('#7A4BFF', 300, 0.35);
     await Promise.all([
-      burn ? fx.fire(pts, ms) : fx.vortex(pts, ms),
+      burn ? fx.fire(pts, ms) : fx.vortex(pts, ms * (f.skill === 'reverse' ? 1.3 : 1)),
       ...f.dice.map(i => t.morph(i, burn ? 1 : 7 - f.from[i], burn ? 'burn' : 'twist', ms)),
     ]);
     ui.dice = null;
@@ -2150,23 +2361,108 @@ async function skillFx(f) {
     await wait(200);
     return;
   }
+  if (f.skill === 'hice' && t) {                 // 얼음 숨결: 얼음 창이 날아가 박힘 → 얼음 결정이 돋고 주사위가 얼음 껍질을 입는다
+    sfx.seal?.();
+    if (mouth && pts.length) await fx.iceShards(mouth, pts, ui.fast ? 400 : 700);
+    ui.hideIce = false; render();               // 얼음 창이 박히는 순간 주사위가 언다
+    shake(game, 1.2);
+    await fx.frost(pts, ui.fast ? 500 : 850);
+    render();
+    return;
+  }
+  if (f.skill === 'hpoison' && trayC) {          // 독 숨결: 독 광선 → 트레이에 독안개 · 거품
+    sfx.fire();
+    if (mouth) await fx.acid(mouth, trayC, ui.fast ? 400 : 650);
+    await fx.toxic(trayC, trayC.w, ui.fast ? 600 : 1100);
+    return;
+  }
+  if (f.skill === 'behead' && bossC) {           // 머리 베기: X자 참격 · 금빛 피 · 머리가 날아간다
+    sfx.slash?.(); sfx.boom(2.6); buzz(120);
+    shake(game, 2.6);
+    await fx.slash(bossC, Math.max(70, bossC.w * 0.5), ui.fast ? 500 : 800);
+    render();
+    return;
+  }
+  if (f.skill === 'regrow' && bossC) { sfx.twist(); shake(game, 1.6); await fx.regrow(bossC, ui.fast ? 500 : 900); render(); return; }
+  if ((f.skill === 'gaze' || f.skill === 'gazed') && bossC) {   // 외눈 응시: 거대한 눈이 떠지고 붉은 시선
+    sfx.haki?.(); buzz(80);
+    const sheetBtn = document.querySelector('[data-act=sheet]')?.getBoundingClientRect();
+    const tgt = sheetBtn ? { x: sheetBtn.left + sheetBtn.width / 2, y: sheetBtn.top + sheetBtn.height / 2 } : trayC;
+    await fx.eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, tgt, f.skill === 'gaze' ? (ui.fast ? 700 : 1200) : (ui.fast ? 450 : 700));
+    render();
+    return;
+  }
+  if (f.skill === 'rock' && trayC) {             // 바위 투척: 거대한 바위가 떨어져 쾅
+    sfx.whoosh();
+    await fx.boulder({ x: trayC.x, y: trayC.y }, ui.fast ? 450 : 700);
+    sfx.boom(2.4); buzz(150); shake(game, 2.6);
+    await wait(ui.fast ? 150 : 300);
+    render();
+    return;
+  }
   if (f.skill === 'drums' && trayC) {
     for (let k = 0; k < 3; k++) {
       sfx.drum();
       t?.quake();
       fx.quake(trayC.x, trayC.y, trayC.w);
-      shake(app.querySelector('.game'), 1.4);
+      fx.flash('#B6F25A', 120, 0.18);
+      shake(game, 1.4 + k * 0.4);
       await wait(ui.fast ? 180 : 320);
     }
     return;
   }
-  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC); ui.hpHold = null; render(); floatText(`+${f.amount}`, 'heal', 0, 'boss-art'); return; }
-  if (f.skill === 'bone' && bossC) { sfx.twist(); await fx.shield(bossC); return; }
-  if (f.skill === 'seal' && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
+  if (f.skill === 'plunder' && trayC && bossC) { sfx.coin(); await fx.coins(trayC, bossC, 22); fx.ring(bossC.x, bossC.y, { color: '#FFD24A', r1: 90, dur: 400 }); heal(); return; }
+  if ((f.skill === 'bone' || f.skill === 'throne') && bossC) {
+    sfx.twist();
+    if (f.skill === 'throne') { fx.flash('#C8F4FF', 220, 0.3); shake(game, 1.2); }
+    await fx.shield(bossC);
+    if (f.skill === 'throne') await fx.shield(bossC);
+    return;
+  }
+  if (f.skill === 'necro' && bossC && trayC) {   // 사령술: 해골 손이 솟고 영혼이 보스에게
+    sfx.twist();
+    const n = Math.min(6, Math.max(2, f.n || 2));
+    const spots = [...Array(n)].map((_, q) => ({ x: trayC.x - trayC.w * 0.4 + (q + 0.5) * (trayC.w * 0.8 / n), y: trayC.y + 50 }));
+    await fx.souls(spots, bossC, ui.fast ? 600 : 1100);
+    heal();
+    return;
+  }
+  if (f.skill === 'rewind' && bossC) { sfx.twist(); await fx.clock(bossC, ui.fast ? 600 : 1100); heal(); return; }
+  if (f.skill === 'curse' && bossC) { sfx.haki?.(); shake(game, 1.2); await fx.blood(bossC, ui.fast ? 600 : 1000); heal(); return; }
+  if (f.skill === 'midheal' && bossC) { sfx.haki?.(); await fx.moon({ x: bossC.x, y: bossC.y - 10 }, ui.fast ? 500 : 900); heal(); return; }
+  if (f.skill === 'cleanse') {                   // 정화: 성광 기둥 → 금빛 광선이 마신을 꿰뚫고 X자 성광 참격 · 대폭발
+    sfx.unseal(); buzz(120);
+    await fx.holy([trayC || bossC].filter(Boolean), ui.fast ? 450 : 800);
+    if (bossC && trayC) {
+      sfx.whoosh();
+      await fx.beam(trayC, [bossC], { pal: PALETTES.gold, ms: ui.fast ? 300 : 520, width: 30 });
+      sfx.boom(3); buzz(200);
+      fx.flash('#FFFFFF', 360, 0.7);
+      shake(game, 3);
+      fx.slash(bossC, Math.max(80, bossC.w * 0.6), ui.fast ? 450 : 700);
+      fx.ring(bossC.x, bossC.y, { color: '#FFD24A', r0: 10, r1: innerWidth * 0.8, dur: 700, width: 12 });
+      fx.ring(bossC.x, bossC.y, { color: '#FFFFFF', r0: 20, r1: innerWidth * 0.5, dur: 520, width: 6 });
+      fx.burst(bossC.x, bossC.y, { n: 90, pal: ['#FFFFFF', '#FFF0A8', '#FFD24A', '#FF9A1F'], speed: [160, 480], life: [0.5, 1.2], size: [3, 8] });
+      floatText('정화! 피해 ×2', 'gold', -20, 'boss-art', 'sparkle');
+      await wait(ui.fast ? 350 : 650);
+    }
+    render();
+    return;
+  }
+  if (f.skill === 'awaken' && bossC) {           // 진 각성: 핏빛 하늘 · 붉은 문양 · 크게 흔들림
+    sfx.haki?.(); sfx.boom(3); buzz(200);
+    fx.flash('#C21E56', 500, 0.55);
+    shake(game, 3);
+    await fx.blood(bossC, ui.fast ? 700 : 1200);
+    render();
+    return;
+  }
+  if ((f.skill === 'seal' || f.skill === 'eternal') && t) {                 // 마법진 · 빛기둥 → 사방에서 쇠사슬이 감기고 봉인 문양이 쾅
     sfx.seal();
-    shake(app.querySelector('.game'), 0.6);
-    setTimeout(() => shake(app.querySelector('.game'), 1.3), (ui.fast ? 600 : 1000) / fx.speed);
-    await fx.seal(pts, ui.fast ? 800 : 1300);
+    if (f.skill === 'eternal') fx.flash('#4A0A24', 400, 0.45);
+    shake(game, 0.6);
+    setTimeout(() => shake(game, f.skill === 'eternal' ? 2 : 1.3), (ui.fast ? 600 : 1000) / fx.speed);
+    await fx.seal(f.dice.map(i => t.topPos?.(i) || t.screenPos(i)), ui.fast ? 800 : 1300);   // 윗면 한가운데에
     render();
     return;
   }
@@ -2174,14 +2470,15 @@ async function skillFx(f) {
     if (!t) return;
     sfx.unseal();
     floatText('봉인 해제!', 'gold', -30, 'tray');
-    await fx.unseal(pts, ui.fast ? 600 : 900);
+    await fx.unseal(f.dice ? f.dice.map(i => t.topPos?.(i) || t.screenPos(i)) : pts, ui.fast ? 600 : 900);
     return;
   }
   sfx.zero();
 }
 
 // 마왕의 패기: 화면 전체가 붉게 떨리고 큰 글씨가 내리꽂힌다
-async function hakiFx() {
+async function hakiFx(midnight = false) {
+  if (midnight) FX().moon({ x: innerWidth / 2, y: innerHeight * 0.28 }, 1600);
   // 붉은 기운이 번지며 '둥~' 한 번 → 글자가 내려앉아 머물다(약 2.5초) → 서서히 사라진다
   const fx = FX();
   sfx.haki(); buzz(160);
@@ -2192,7 +2489,7 @@ async function hakiFx() {
   await wait(ui.fast ? 150 : 250);
   const el = document.createElement('div');
   el.className = 'haki-banner';
-  el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
+  el.innerHTML = midnight ? `<b>미드나잇</b><small>${ico('eye')} 뒤집기 · 조정 금지 · 0점이면 마신 회복 +${E.MIDNIGHT_HEAL}</small>` : `<b>패기 발동</b><small>${ico('eye')} 이번 라운드 뒤집기 · 조정 금지</small>`;
   document.body.appendChild(el);
   setTimeout(() => fx.ring(innerWidth / 2, innerHeight * 0.42, { color: '#FF9AB8', r0: 30, r1: innerWidth * 0.6, dur: 900, width: 4 }), ui.fast ? 400 : 800);
   await wait(ui.fast ? 1300 : 2250);
@@ -2201,10 +2498,25 @@ async function hakiFx() {
 }
 
 // 연출 중 오류가 나도 게임이 멈추지 않게 (연출은 건너뛰고 진행)
+// 키클롭스 응시 · 바위, 세머리 용 얼음: 스킬 연출이 나오기 전에는 바뀐 칸 · 언 주사위를 미리 보여 주지 않는다.
+// 연출 목록을 받자마자(첫 render 전에) 부른다 — 예전에는 playFx 안에서만 걸어서 한 번 그려진 뒤에 사라졌다
+function hideUntilFx(list, keep = false) {
+  const has = s => list.some(f => f.type === 'boss' && f.skill === s);
+  ui.hideGaze = (keep && ui.hideGaze) || has('gaze');
+  ui.hideRock = (keep && ui.hideRock) || has('rock');
+  ui.hideIce = (keep && ui.hideIce) || has('hice');
+}
 async function playFx(list) {
+  hideUntilFx(list, true);
   for (const f of list) {
     try { await playOne(f); } catch (err) { console.error('[fx]', f.type, err); ui.dice = null; tray?.restore(); }
+    if (f.type === 'boss' && ['gaze', 'rock', 'hice'].includes(f.skill)) {
+      if (f.skill === 'gaze') ui.hideGaze = false; else if (f.skill === 'rock') ui.hideRock = false; else ui.hideIce = false;
+      render();
+    }
   }
+  ui.hideGaze = ui.hideRock = ui.hideIce = false;
+  if (ui.dice && list.some(f => f.type === 'lucky')) { ui.dice = null; render(); }   // 행운의 부적만 있던 굴림: 잡아 둔 눈을 놓는다
   ui.hpHold = null;
   ui.roundShow = null;
   ui.crownFreeze = false;
@@ -2219,7 +2531,7 @@ async function playOne(f) {
         ui.roundShow = null;     // 이제부터 새 라운드 표시
         if (S.boss && f.round === 1 && prefs.fx !== 'min') await bossBanner();
         if (!S.tutorial || f.round > 1) await banner(f.round, f.event);
-        if (f.event === 'haki' && prefs.fx !== 'min') await hakiFx();
+        if ((f.event === 'haki' || f.event === 'midnight') && prefs.fx !== 'min') await hakiFx(f.event === 'midnight');
         break;
       case 'score':
         if (f.pts > 0) {
@@ -2238,6 +2550,19 @@ async function playOne(f) {
         }
         break;
       case 'upper': await upperFx(f); break;
+      case 'lucky': {                              // 행운의 부적: 가장 낮은 주사위가 초록빛으로 다시 굴러 바뀐다
+        const t = await trayReady();
+        if (!t) break;
+        const pt = t.screenPos(f.dice[0]), fx = FX();
+        sfx.legend();
+        floatText('행운의 부적! 다시 굴림', 'mint', -24, 'tray', 'sparkle');
+        fx.ring(pt.x, pt.y, { color: '#3EE6B4', r0: 6, r1: 60, dur: 420, width: 5 });
+        fx.burst(pt.x, pt.y, { n: 24, pal: ['#FFFFFF', '#B6F25A', '#3EE6B4', '#FFD24A'], speed: [60, 200], life: [0.4, 0.8], size: [2, 5] });
+        await t.morph(f.dice[0], f.to, 'lucky', ui.fast ? 450 : 800);
+        if (ui.dice) ui.dice[f.dice[0]] = f.to;      // 뒤에 보스 능력이 이어지면 그 연출의 시작 눈과 맞춘다
+        render();
+        break;
+      }
       case 'damage':
         sfx.clack(12); buzz(30);
         bumpPts(f.player, f.amount);
@@ -2250,8 +2575,9 @@ async function playOne(f) {
       case 'boss': {
         if (f.skill === 'unseal') { await skillFx(f); break; }
         const b = E.bossInfo(S.boss.id);
-        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
-        if (f.skill !== 'bone') actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
+        const extra = f.cats ? ` 「${f.cats.map(c => E.catInfo(c).ko).join('」「')}」` : f.cat ? ` 「${E.catInfo(f.cat).ko}」` : f.head ? ` (${E.HEAD_KO[f.head]} 머리)` : '';
+        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
+        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;
         break;
@@ -2364,7 +2690,7 @@ function showLevelUp() {
     <div class="lv-hero">${portrait(p.cls, 'big')}</div>
     <h1>LEVEL UP!</h1>
     <div class="lv-sub">${esc(p.name)} · <b>Lv.${p.level - p.offers.length + 1}</b></div>
-    <p class="lv-hint">${total > 1 ? `<b class="lv-count">레벨업 보상 ${nth} / ${total}</b> · ` : ''}카드 한 장을 골라 영구 특성을 얻으세요</p>
+    ${total > 1 ? `<p class="lv-hint"><b class="lv-count">레벨업 보상 ${nth} / ${total}</b></p>` : ''}
     <div class="cards" style="--n:${offer.length}">
       ${offer.map(id => {
         const k = E.perkInfo(id), have = E.perkCount(p, id);
@@ -2386,6 +2712,7 @@ function showResults() {
   stopBgm();
   FX().rage(false);
   recordProfile();
+  if (!S.tutorial) Ads.gameOver(key);
   // 내가 졌으면 패배 곡, 이겼으면(또는 한 기기에서 여럿이 한 판) 승리 팡파레 뒤 승리 곡
   if (lostGame()) { sfx.lose(); setTimeout(() => playBgm('title'), 2300); }
   else { sfx.win(); setTimeout(() => playBgm('victory'), 1500); }
@@ -2422,6 +2749,9 @@ function lostGame() {
 function showCoopResults() {
   const b = S.boss, info = E.bossInfo(b.id), grade = E.coopGrade(S);
   if (b.won && b.diff === 2 && demonOpen() && !store.get('diceheroes.demonSeen')) setTimeout(showDemonUnlock, 3200);
+  // 원래 보스를 어려움으로 처음 깨면: 강화 보스가 깨어난다
+  const up = E.BOSSES.find(x => x.base === b.id);
+  if (b.won && b.diff === 2 && up && !store.get(`diceheroes.seen_${up.id}`)) setTimeout(() => showUpgradeUnlock(up), 3400);
   const order = S.players.map((p, i) => ({ p, i, dmg: Math.round(b.dmg[i] || 0) })).sort((x, y) => y.dmg - x.dmg);
   layer.innerHTML = `<div class="overlay solid"><div class="results coop-res">
     <h1>${b.won ? '토벌 성공!' : '토벌 실패…'}</h1>
@@ -2458,8 +2788,11 @@ let gemResult = null;
 async function claimGems(info) {
   gemResult = { pending: true };
   paintGems();
+  const before = new Set(Wal.achClaimable(achOpen()).map(a => a.id));
   const r = await Wal.earn(info).catch(err => ({ ok: false, why: err?.message || '서버 오류' }));
+  r.newAch = r.ok ? Wal.achClaimable(achOpen()).filter(a => !before.has(a.id)) : [];   // 이번 판으로 새로 달성한 도전과제
   gemResult = r;
+  if (r.newAch.length) setTimeout(() => sfx.legend(), 500);
   paintGems();
   if (r.ok && r.total) { sfx.coin(); }
 }
@@ -2472,10 +2805,71 @@ function gemInner() {
   if (!r || r.pending) return `<span class="hint">${ico('gem')} 보석 정산 중…</span>`;
   if (r.offline) return `<span class="hint">${ico('gem')} 오프라인이라 이번 판은 보석을 받지 못했어요</span>`;
   if (!r.ok) return `<span class="hint">${ico('gem')} 보석을 받지 못했어요 · ${esc(r.why || '')}</span>`;
-  if (!r.total) return `<span class="hint">${ico('gem')} 이번 판 보석 없음 (점수 100점마다 5개)</span>`;
+  const achLine = r.newAch?.length ? `<div class="ach-new">${ico('trophy', 'xs')} 도전과제 달성! ${r.newAch.map(a => `「${esc(a.ko)}」`).join(' ')}</div>` : '';
+  if (!r.total) return `<span class="hint">${ico('gem')} 이번 판 보석 없음 (점수 100점마다 5개)</span>${achLine}`;
   return `<b class="gem-total">${ico('gem')} +${r.total}</b>
     <span class="gem-parts">${r.parts.filter(p => p.gems || p.id === 'win').map(p => `${esc(p.ko)} ${p.gems ? '+' + p.gems : ''}`).join(' · ')}</span>
-    <small class="hint">보유 ${Wal.gems().toLocaleString()} · 오늘 대전 승리 보상 ${Wal.VS_DAILY - Wal.vsLeftToday()}/${Wal.VS_DAILY}</small>`;
+    <small class="hint">보유 ${Wal.gems().toLocaleString()} · 오늘 대전 승리 보상 ${Wal.VS_DAILY - Wal.vsLeftToday()}/${Wal.VS_DAILY}</small>${achLine}`;
+}
+
+// ── 도전과제 화면 ──────────────────────────────────────────────────────────────
+let achTab = 'combo';
+function achBtn() {
+  const n = Wal.achClaimable(achOpen()).length;
+  return `<button id="ach-btn" class="pbtn" data-act="ach">${ico('trophy', 'xs')} 도전과제 <small>${n ? `받을 보상 ${n}개!` : '족보 · 보스 · 대전'}</small>${n ? `<i class="daily-dot"></i>` : ''}</button>`;
+}
+function showAchievements() {
+  screen = 'ach';
+  setStage(null);
+  layer.innerHTML = '';
+  const ach = Wal.ach(), open = achOpen();
+  const shown = AC.ACHIEVEMENTS.filter(a => AC.achShown(a, open));
+  const done = shown.filter(a => ach?.got?.[a.id]).length;
+  const ready = a => AC.achDone(a, ach) && !ach?.got?.[a.id];
+  const blocks = AC.achBlocks(ach, open).filter(b => b.a.cat === achTab)
+    .map(b => ({ ...b, got: !!ach?.got?.[b.a.id], ok: AC.achDone(b.a, ach), v: AC.achProgress(b.a, ach) }))
+    .sort((x, y) => (y.ok && !y.got) - (x.ok && !x.got) || x.got - y.got);
+  const badge = cat => shown.filter(a => a.cat === cat && ready(a)).length;
+  app.innerHTML = `
+  <div class="screen page ach-page">
+    <header class="page-head">
+      <button class="icon-btn" data-act="home" aria-label="뒤로">◀</button>
+      <h2>도전과제</h2>
+      <span class="count">${done} / ${shown.length}</span>
+    </header>
+    <div class="wrap">
+      <div class="seg ach-tabs" role="tablist">${AC.ACH_CATS.map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
+      ${Wal.wallet() ? '' : '<p class="hint">지갑을 불러오는 중… (인터넷 연결이 필요해요)</p>'}
+      <div class="ach-list">
+      ${blocks.map(({ a, steps, step, got, ok, v }) => {
+        const t = AC.TIER[a.tier];
+        // 단계 표시: 받은 단계는 채운 칸, 지금 단계는 테두리
+        const pips = steps.length > 1 ? `<span class="ach-steps">${steps.map((x, k) => `<i class="${ach?.got?.[x.id] ? 'on' : k === step ? 'now' : ''}" style="--tc:${AC.TIER[x.tier].color}" title="${AC.TIER[x.tier].ko}"></i>`).join('')}</span>` : '';
+        return `<div class="ach-card${got ? ' got' : ok ? ' ready' : ''}" data-k="${a.series || a.id}" style="--tc:${t.color}">
+          <span class="ach-tier">${t.ko}${steps.length > 1 ? ` ${step + 1}/${steps.length}` : ''}</span>
+          <div class="ach-body"><b>${esc(a.ko)}${pips}</b><small>${esc(a.desc)}</small>
+            ${a.goal > 1 && !a.nobar ? `<div class="ach-bar" style="--w:${(v / a.goal) * 100}%"><i></i><em>${v.toLocaleString()} / ${a.goal.toLocaleString()}</em></div>` : ''}</div>
+          ${got ? `<span class="ach-done">${ico('sparkle', 'xs')} ${steps.length > 1 ? '모두 완료' : '완료'}</span>`
+            : `<button class="pbtn small${ok ? ' gold' : ''}" data-act="ach-claim" data-id="${a.id}" ${ok ? '' : 'disabled'}>${ico('gem', 'xs')}${AC.achGems(a)}</button>`}
+        </div>`;
+      }).join('')}
+      </div>
+      <p class="hint">단계가 있는 과제는 보상을 받으면 다음 단계로 바뀌어요. 보석을 받은 판(인터넷 연결 · 1분 이상)만 진행도에 쌓여요. 보스 등급은 보통 이상 난이도 기준.</p>
+    </div>
+  </div>`;
+}
+// 비밀 도전과제가 열렸나: 마왕은 봉인이 풀린 뒤에만 보인다
+const achOpen = () => ({ demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()), archdemon: upgradeOpen('archdemon') });
+async function claimAchUI(id, btn) {
+  if (btn) btn.disabled = true;
+  const r = await Wal.claimAch(id);
+  if (!r.ok) { sfx.back(); toast(ico('warn'), '받지 못했어요', r.why || '', 1800); if (btn) btn.disabled = false; return; }
+  sfx.coin(); buzz(40);
+  const a = AC.achInfo(id);
+  const next = AC.achBlocks(Wal.ach(), achOpen()).find(b => b.steps.includes(a));
+  toast(ico('trophy'), `${a.ko} 달성!`, next && next.a !== a ? `보석 +${r.gems} · 다음 목표: ${next.a.ko}` : `보석 +${r.gems}`, 1800);
+  if (btn) { const c = btn.getBoundingClientRect(); FX().burst(c.left + c.width / 2, c.top + c.height / 2, { n: 24, pal: PALETTES.gold, speed: [60, 220], life: [0.3, 0.7] }); }
+  if (screen === 'ach') { showAchievements(); document.querySelector(`.ach-card[data-k="${a.series || a.id}"]`)?.classList.add('step-up'); }
 }
 function paintGems() { const el = document.getElementById('gem-res'); if (el) el.innerHTML = gemInner(); }
 
@@ -2499,7 +2893,7 @@ function recordProfile() {
   prof.classes[me.cls] = (prof.classes[me.cls] || 0) + 1;
   for (const [id, n] of Object.entries(me.perks)) prof.perks[id] = (prof.perks[id] || 0) + n;
   claimGems({ mode: S.mode, win, online: !!online, room: online?.code || null, humans: S.players.filter(p => !p.bot).length, score, flip: me.flip, nudge: me.nudge,
-    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null });
+    boss: coop ? S.boss.id : null, diff: coop ? S.boss.diff : null, st: E.statsOf(S, idx, { online: !!online }) });
   if (coop) {
     const bk = `${S.boss.id}:${S.boss.diff}`;
     const b = prof.bosses[bk] || { tries: 0, wins: 0, grade: null };
@@ -2513,6 +2907,8 @@ function recordProfile() {
   store.set(KEYS.profile, prof);
 }
 
+// 기록에 쓰는 보스 짧은 이름 (마왕 · 마신은 둘 다 '릴리스'라 앞 단어로 구분)
+const bossShort = id => { const b = E.bossInfo(id); if (!b) return ''; const w = b.ko.split(' '); return b.final ? w[0] : w[w.length - 1]; };
 function showDashboard() {
   screen = 'dashboard';
   setStage(null);
@@ -2566,6 +2962,7 @@ function showDashboard() {
         <div class="dash-boss">
           <span></span>${E.DIFFS.map(d => `<small style="color:${d.color}">${d.ko}</small>`).join('')}
           ${E.BOSSES.map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
+            if (!E.bossDiffs(b.id).includes(d.id)) return '<span class="db-none"></span>';   // 강화 보스 · 마신은 쉬움이 없다
             const r = prof.bosses[`${b.id}:${d.id}`];
             return `<span class="db-cell${r?.grade ? ` g${r.grade}` : ''}">${r ? `<b>${r.grade}</b><small>${r.wins}/${r.tries}</small>` : '-'}</span>`;
           }).join('')}`).join('')}
@@ -2576,8 +2973,8 @@ function showDashboard() {
         <h3 class="dash-h">최근 기록</h3>
         ${prof.recent.length ? `<div class="dash-recent">${prof.recent.map(r => `<div class="dr-row">
           <small>${date(r.date)}</small>${portrait(r.cls, 'mini')}
-          <span>${r.mode === 'coop' ? `협동 · ${E.bossInfo(r.boss)?.ko.split(' ').pop() || ''} ${E.DIFFS[r.diff]?.ko || ''}` : r.classic ? '클래식 야추' : '대전'}${r.online ? ' · 온라인' : ''}</span>
-          <b>${r.score}점</b><em class="${r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? '승리' : '패배'}</em></div>`).join('')}</div>`
+          <span>${r.mode === 'coop' ? `협동 · ${bossShort(r.boss)} ${E.DIFFS[r.diff]?.ko || ''}` : r.classic ? '클래식 야추' : '대전'}${r.online ? ' · 온라인' : ''}</span>
+          <b>${r.score}점</b><em class="${r.mode === 'coop' ? `g${r.grade}` : r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? '승리' : '패배'}</em></div>`).join('')}</div>`
         : '<p class="hint">아직 기록이 없어요.</p>'}
       </section>
       <div class="dash-backup">
@@ -2652,7 +3049,7 @@ async function showSkins(tab = 'dice') {
     const open = Wal.owns(tab, k.id);
     const trying = skinTry?.kind === tab && skinTry.id === k.id;
     return `<button class="skin-card${k.id === cur ? ' on' : ''}${open ? '' : ' locked'}${trying ? ' trying' : ''}" data-act="skin-pick" data-kind="${tab}" data-id="${k.id}">
-      <img src="${thumb(k.id)}" alt="">
+      <img${tab === 'dice' ? ' class="die-th"' : ''} src="${thumb(k.id)}" alt="">
       <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
       ${open ? (k.tier === 'special' ? '<span class="skin-tag">보유</span>' : '') : `<span class="skin-tag price">${ico('gem', 'xs')}${Wal.priceOf(tab, k.id).toLocaleString()}</span>`}
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
@@ -2661,7 +3058,19 @@ async function showSkins(tab = 'dice') {
   const buyBar = () => skinTry ? `<div class="buy-bar"><span>${esc((skinTry.kind === 'dice' ? diceSkin : traySkin)(skinTry.id).name)} 미리 보는 중</span>
       <button class="pbtn gold small" data-act="buy" data-kind="${skinTry.kind}" data-id="${skinTry.id}">${ico('gem', 'xs')} ${Wal.priceOf(skinTry.kind, skinTry.id).toLocaleString()}에 사기</button></div>` : '';
   if (reuse) {
-    layer.querySelector('.skin-grid').innerHTML = cards;
+    const grid = layer.querySelector('.skin-grid');
+    // 같은 탭이면 카드를 새로 그리지 않고 표시만 바꾼다 (썸네일이 다시 뜨느라 깜박이지 않게)
+    if (grid.dataset.tab === tab) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = cards;
+      [...grid.children].forEach((el, i) => {
+        const nu = tmp.children[i];
+        if (!nu) return;
+        el.className = nu.className;
+        [...el.children].forEach(c => { if (c.tagName !== 'IMG') c.remove(); });
+        [...nu.children].forEach(c => { if (c.tagName !== 'IMG') el.appendChild(c); });
+      });
+    } else { grid.innerHTML = cards; grid.dataset.tab = tab; }
     layer.querySelectorAll('.skin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     layer.querySelector('.buy-slot').innerHTML = buyBar();
     layer.querySelector('.gem-chip b').textContent = Wal.gems().toLocaleString();
@@ -2669,6 +3078,7 @@ async function showSkins(tab = 'dice') {
   }
   closeSkinPreview();
   DICE_SKINS.forEach(k => preloadDice(k.id).catch(() => {}));   // 고르면 바로 바뀌게 그림 스킨을 미리 받아 둔다
+  TRAY_SKINS.forEach(k => preloadTray(k.id).catch(() => {}));
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame skins" data-act="noop">
     <h2>꾸미기 <span class="gem-chip">${ico('gem', 'xs')}<b>${Wal.gems().toLocaleString()}</b></span></h2>
     <div class="skin-preview"><button class="pbtn small skin-roll" data-act="skin-roll">굴려 보기</button></div>
@@ -2677,7 +3087,7 @@ async function showSkins(tab = 'dice') {
       <button data-act="skin-tab" data-tab="tray" class="${tab === 'tray' ? 'on' : ''}">트레이</button>
     </div>
     <div class="buy-slot">${buyBar()}</div>
-    <div class="skin-grid">${cards}</div>
+    <div class="skin-grid" data-tab="${tab}">${cards}</div>
     <p class="hint">보석은 대전 승리 · 보스 토벌 · 높은 점수로 모아요. 잠긴 스킨은 눌러서 미리 볼 수 있어요.</p>
     <button class="pbtn gold" data-act="close">닫기</button>
   </div></div>`;
@@ -2763,6 +3173,7 @@ function showSettings(inGame = false) {
     <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
+    ${adsOn() ? `<label class="set-row">맞춤형 광고 <small>끄면 관심사와 상관없는 광고</small><input id="set-adp" type="checkbox" ${prefs.adsPersonal ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
     <button class="pbtn small guide-btn" data-act="class-guide" data-in="${inGame ? 1 : ''}">${ico('scroll', 'xs')} 직업 안내 <small>스킬 · 특징</small></button>
@@ -3127,6 +3538,7 @@ async function step() {
   if (!S.ended && !S.tutorial) store.set(KEYS.save, S);
   if (E.current(S).bot || S.ended) ui.view = null;
   ui.dice = pendingDice(fx);
+  hideUntilFx(fx);
   holdHp(fx);
   render();
   await playFx(fx);
@@ -3161,6 +3573,7 @@ async function rollAnimated(mask, list = S.fx) {
   ui.busy = true;
   ui.sheet = false;
   ui.dice = pendingDice(list);
+  hideUntilFx(list);
   t.setSealed?.(ui.sealRoll || []);
   render();
   await t.roll(ui.dice || S.dice, mask, (ui.fast && E.current(S).bot ? 2.2 : 1) * (prefs.fx === 'min' ? 1.6 : prefs.fx === 'fast' ? 1.3 : 1));
@@ -3325,12 +3738,19 @@ async function onGameAct(act, t) {
       ui.tool = null;
       sfx.select();
       if (online) return onlineAct(g => E.useFlip(g, i));
-      if (tryAct(() => E.useFlip(S, i))) { render(); advanceTutorial(); }
+      if (tryAct(() => E.useFlip(S, i))) { if (S.fx.length) return step(); render(); advanceTutorial(); }   // 봉인 풀기: 해제 연출을 바로 보여 주고 곧장 다음 조작
       return;
     }
     if (ui.tool === 'nudge') return;          // 조정은 주사위 위의 −1 / +1 로
     if (ui.tool === 'deal') { if (E.isSealed(S, i)) return; sfx.select(); ui.dealDie = i; return render(); }   // 타짜: 고른 주사위 위에 1~6 고르기
-    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
+    if (E.isSealed(S, i) && S.sealPerm && E.current(S).flip > 0) {   // 영겁의 봉인: 봉인된 주사위를 누르면 뒤집기 1회로 바로 푼다
+      sfx.select();
+      if (online) return onlineAct(g => E.useFlip(g, i));
+      if (tryAct(() => E.useFlip(S, i))) return step();
+      return;
+    }
+    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '영겁의 봉인! 다시 굴려도 안 풀려요. 뒤집기가 있으면 이 주사위를 눌러 바로 풀 수 있어요.' : '마왕의 봉인! 다시 굴리면 풀려요.', 1500); }
+    if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '이번 차례엔 다시 굴릴 수 없어요. 뒤집기 · 조정은 할 수 있어요.', 1500); }
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();
     if (online) return onlineAct(g => E.toggleHold(g, i));
@@ -3352,6 +3772,20 @@ async function onGameAct(act, t) {
     // 0점 칸은 한 번 더 눌러야 기록 (실수로 요트 칸을 버리지 않게)
     const row = E.preview(S).find(r => r.id === t.dataset.cat);
     if (row && row.pts === 0 && ui.zeroArm !== t.dataset.cat) { ui.zeroArm = t.dataset.cat; sfx.back(); buzz(25); return render(); }
+    // 피의 저주 칸: 점수가 마신 회복이 되면 한 번 더 묻는다
+    if (row && row.pts > 0 && S.boss && E.cursed(S, t.dataset.cat) && S.rollNo !== 1 && !t.dataset.ok) {
+      sfx.back(); buzz(40);
+      const heal = Math.min(S.boss.maxHp - S.boss.hp, row.pts);
+      layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame curse-ask" data-act="noop">
+        <h2>${ico('skull')} 피의 저주 칸</h2>
+        <p>「${esc(E.catInfo(t.dataset.cat).ko)}」 칸은 저주받았어요.<br>지금 적으면 피해 대신 <b>마신이 체력을 ${heal}</b> 회복해요.</p>
+        <p class="hint">첫 굴림 그대로 완성해 적었다면 저주를 끊고 피해 2배였어요.</p>
+        <p><b>그래도 적으시겠습니까?</b></p>
+        <div class="modal-actions"><button class="pbtn" data-act="close">취소</button><button class="pbtn danger" data-act="score" data-cat="${t.dataset.cat}" data-ok="1">그래도 적기</button></div>
+      </div></div>`;
+      return;
+    }
+    if (t.dataset.ok) layer.innerHTML = '';
     ui.zeroArm = null;
     ui.tool = null;
     ui.sheet = false;
@@ -3363,6 +3797,7 @@ async function onGameAct(act, t) {
 
 // 모든 버튼은 data-act 로 한곳에서 받는다
 function onAct(act, t) {
+  if (act.startsWith('run-') || (screen === 'run' && act === 'die')) return runAct(act, t);
   if (act === 'touch') {
     unlock(); unlocked = true; sfx.start();
     if (urlRoom) return joinRoom(urlRoom);
@@ -3374,6 +3809,9 @@ function onAct(act, t) {
   if (act === 'noop') return;
   if (act === 'close' || act === 'close-bg') { sfx.back(); closeSkinPreview(); layer.innerHTML = ''; return; }
   if (act === 'skins') { sfx.select(); return showSkins('dice'); }
+  if (act === 'ach') { sfx.select(); return showAchievements(); }
+  if (act === 'ach-tab') { sfx.tap(); achTab = t.dataset.v; return showAchievements(); }
+  if (act === 'ach-claim') return claimAchUI(t.dataset.id, t);
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
   if (act === 'skin-roll') return rollPreview();
@@ -3439,10 +3877,22 @@ function onAct(act, t) {
   }
   if (act === 'rejoin') { sfx.select(); if (!navigator.onLine) return offlineToast(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
-  if (act === 'new') { sfx.select(); return beginPick('local', opts); }
+  // 메뉴의 대전(봇) · 보스전: 모드를 정해 두고 모드 고르기 단계를 건너뛴다
+  if (act === 'new') {
+    sfx.select();
+    if (!t.dataset.v) return beginPick('local', opts);
+    opts.mode = t.dataset.v;
+    if (opts.mode !== 'versus') opts.rule = null;
+    // 대전(봇): 상대 봇이 한 명도 없으면 한 명 앉힌다
+    if (opts.mode === 'versus' && !setup.some(p => p.bot) && setup.length < 4) {
+      const used = new Set(setup.map(p => p.cls));
+      setup.push({ name: BOT_NAMES.find(n => !setup.some(p => p.name === n)) || '봇', cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
+    }
+    return beginPick('local', opts, true);
+  }
   if (act === 'online') {
     sfx.select();
-    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 혼자 하기는 그대로 할 수 있어요.', 2200);
+    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 대전(봇) · 보스전은 그대로 할 수 있어요.', 2200);
     if (!navigator.onLine) return offlineToast();
     return showOnlineMenu();
   }
@@ -3458,6 +3908,10 @@ function onAct(act, t) {
     const saved = store.get(KEYS.save);
     saved.fx = [{ type: 'round', round: saved.round, event: E.event(saved) }];
     return startGame(saved);
+  }
+  // 결과 화면에서 넘어갈 때만 (차례면) 광고 한 번 — 게임 도중엔 절대 없음
+  if ((act === 'home' || act === 'again') && !t.dataset?.adDone && layer.querySelector('.results')) {
+    return Ads.breakThen(() => onAct(act, { dataset: { ...t.dataset, adDone: '1' } }));
   }
   if (act === 'home' || act === 'quit') {
     sfx.back();
@@ -3493,6 +3947,7 @@ function onAct(act, t) {
 function armBack() { if (!history.state?.dhBack) history.pushState({ ...(history.state || {}), dhBack: 1 }, ''); }
 function handleBack() {
   if (document.querySelector('.popover')) { closePopover(); return true; }
+  if (screen === 'run' && runMod?.back()) return true;
   if (layer.querySelector('[data-act=skip-banner]')) { skipBanner(); return true; }
   if (layer.querySelector('.results')) { onAct('home', {}); return true; }
   if (layer.querySelector('.lv-overlay')) return true;                 // 카드를 골라야 넘어간다
@@ -3505,7 +3960,7 @@ function handleBack() {
   }
   if (screen === 'lobby') { onAct('room-leave', {}); return true; }
   if (screen === 'setup') { pickBack(); return true; }
-  if (['online', 'dashboard'].includes(screen)) { sfx.back(); showTitle(); return true; }
+  if (['online', 'dashboard', 'ach'].includes(screen)) { sfx.back(); showTitle(); return true; }
   return false;
 }
 addEventListener('popstate', () => {
@@ -3526,6 +3981,7 @@ document.addEventListener('input', e => {
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') { setAudio({ vibrate: e.target.checked }); buzz(80); }   // 켜면 바로 한 번 떨어서 확인
   if (id === 'set-shake') setShake(e.target.checked, e.target);
+  if (id === 'set-adp') { prefs.adsPersonal = e.target.checked; store.set(KEYS.prefs, prefs); Ads.setPersonalized(prefs.adsPersonal); }
   if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
     if (id === 'set-big') prefs.bigText = e.target.checked;
@@ -3578,4 +4034,4 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
-if (q.has('debug')) window.__dh = { get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox() };
+if (q.has('debug')) window.__dh = { get run() { return runMod?.state(); }, runMod: () => runMod, get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox(), results: () => showResults() };

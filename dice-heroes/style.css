@@ -133,14 +133,25 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 .menu { display: grid; gap: 10px; width: min(300px, 100%); margin-bottom: 8vh; animation: rise .45s ease both; }
 .menu .pbtn { width: 100%; }
 .menu-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* 원정 (테스트판 전용) 메뉴: 이어하기 + 새 원정 */
+.run-menu { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.run-menu .pbtn.small { width: auto; }
+/* 원정은 다른 모드와 구별되게 진홍색 버튼 (이어하기는 은은하게 빛난다) */
+.run-menu .pbtn, .run-menu .pbtn.gold { border-image-source: var(--fr-red); color: #fff; text-shadow: 0 2px 0 #5A0A1C; }
+.run-menu .pbtn small { color: #FFD0D6; opacity: .9; }
+.run-menu .pbtn.gold { animation: runGlow 1.8s ease-in-out infinite; }
+@keyframes runGlow { 50% { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 10px rgba(232,67,90,.85)); } }
+.run-menu .pbtn:only-child { grid-column: 1 / -1; }
 @keyframes rise { from { transform: translateY(30px); opacity: 0; } }
 .ver { font-size: 10px; color: #CFC6FF; opacity: .7; text-shadow: 1px 1px 0 var(--ink); }
 
 /* 페이지형 화면 (파티 편성) */
 .page { max-width: 520px; margin: 0 auto; }
 .page-head {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px; background: rgba(11,8,36,.92); border-bottom: 3px solid var(--ink);
+  /* 노치 · 상태 표시줄(전체화면 앱): 제목 줄을 그만큼 아래로 띄우면(top) 원래 자리는 그대로라 바로 아래 탭 · 버튼을 덮었다.
+     맨 위에 붙이고(top 0) 그 높이만큼 안쪽 여백을 더 준다 → 제목 줄 배경이 노치 뒤까지 덮고, 내용은 그 아래부터 */
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; background: rgba(11,8,36,.92); border-bottom: 3px solid var(--ink);
 }
 .page-head h2 { flex: 1; margin: 0; font-size: 20px; color: var(--gold); text-shadow: 2px 2px 0 var(--ink); }
 .page-head .count { font-size: 12px; color: var(--muted); }
@@ -560,6 +571,19 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 .hp em { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; text-shadow: 1px 1px 0 var(--ink), -1px -1px 0 var(--ink); }
 .boss-skills { display: flex; flex-wrap: wrap; gap: 4px; }
 .skill-chip { font-size: 11px; padding: 1px 6px; background: #0E0A2C; border: 2px solid color-mix(in srgb, var(--c) 70%, #fff); }
+/* 보스 예고: 이번 라운드 스킬은 금테, 다음 라운드 스킬은 붉게 깜박이며 '다음' */
+.skill-chip { position: relative; }
+.skill-chip.now { border-color: var(--gold); box-shadow: 0 0 6px rgba(255,200,61,.6); }
+.skill-chip.next { border-color: var(--ruby); background: #3A0A1C; animation: warnPulse 1s ease-in-out infinite; }
+.skill-chip .nx { position: absolute; top: -9px; right: -6px; font-style: normal; font-size: 9px; font-weight: 700; line-height: 1; padding: 1px 3px; color: #fff; background: var(--ruby); border: 2px solid var(--ink); }
+@keyframes warnPulse { 50% { box-shadow: 0 0 10px rgba(232,67,90,.9); } }
+.boss-status .head.next { outline: 2px dashed var(--ruby); outline-offset: 1px; }
+.warn-next { display: grid; justify-items: center; gap: 2px; margin-top: 6px; padding: 6px 12px; color: #fff; background: rgba(90,10,28,.92);
+  border: 3px solid var(--ruby); box-shadow: 0 0 18px rgba(232,67,90,.7); animation: zoom .4s cubic-bezier(.2,1.5,.4,1) .25s backwards, warnPulse 1s ease-in-out infinite .6s; }
+.warn-next > b { font-size: 12px; letter-spacing: .1em; color: #FFB3BE; }
+.warn-next span { display: inline-flex; align-items: center; gap: 3px; font-size: 18px; font-weight: 700; color: #FFE27A; text-shadow: 2px 2px 0 var(--ink); }
+.warn-next small { font-size: 11px; color: #FFD6DF; }
+.warn-next .ico.xs { width: 14px; height: 14px; }
 .rage-tag { font-size: 11px; font-weight: 700; color: #fff; background: var(--ruby); padding: 1px 6px; border: 2px solid var(--ink); animation: blink .6s steps(2, jump-none) infinite; }
 .float.dmg { color: #FF5A6A; font-size: 26px; }
 img.t-boss { width: 44px; height: 44px; }
@@ -648,6 +672,9 @@ img.t-boss { width: 44px; height: 44px; }
 .game .q-ic { font-size: 16px; }
 .game .q-body b { font-size: 11px; }
 .game .q-body small { font-size: 10px; }
+/* 의뢰가 바뀌어도 게시판 높이가 같게: 이름 한 줄 · 설명 두 줄로 고정 (넘치면 말줄임) — 아래 트레이가 위아래로 밀리지 않는다 */
+.game .q-body b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game .q-body small { line-height: 13px; height: 26px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .game .q-rw { font-size: 10px; margin-top: 2px; }
 
 .game .table { flex: 1 1 auto; min-height: 120px; display: flex; flex-direction: column; }
@@ -712,14 +739,16 @@ img.t-boss { width: 44px; height: 44px; }
 .combo-tag { position: absolute; top: -8px; left: -4px; font-size: 10px; font-weight: 700; background: var(--mint); color: #052E22; padding: 0 4px; border: 2px solid var(--ink); }
 .member.viewing { box-shadow: inset 0 0 0 2px var(--sky); }
 
-/* 보스 패널 (작게) · 분노하면 커지고 불탄다 */
+/* 보스 패널 (작게) · 분노하면 커지고 불탄다
+   그림은 폭 100px까지(좁은 폰은 글자 칸이 240px 밑으로 줄지 않게 덜), 높이는 패널 줄 높이만큼 — 패널은 거의 늘리지 않는다 */
 .game .boss-panel { padding: 5px 8px; gap: 8px; position: relative; z-index: 1; }
-.game .boss-art { width: 68px; height: 68px; transition: transform .4s cubic-bezier(.2,1.5,.4,1); }
-.game .boss-art img.boss { width: 68px; height: 68px; }
+.game .boss-art { width: clamp(68px, calc(100vw - 290px), 100px); height: auto; min-height: 72px; align-self: stretch; transition: transform .4s cubic-bezier(.2,1.5,.4,1); }
+.game .boss-art img.boss { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
 .game .boss-name b { font-size: 12px; }
 .game .hp { height: 17px; }
 .game .skill-chip { font-size: 10px; }
 .boss-panel.rage .boss-art { transform: scale(1.32) translateY(-3px); z-index: 2; }
+.game .boss-panel.rage .boss-art { transform: scale(1.12) translateY(-2px); }   /* 게임 칸은 그림이 이미 커서 덜 키운다 */
 .boss-panel.rage .boss-art img.boss { animation: rageShake .18s steps(2) infinite; filter: drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 2px #fff); }
 .boss-panel.rage .aura { inset: -6px; background: radial-gradient(circle, color-mix(in srgb, var(--c) 90%, #fff), color-mix(in srgb, var(--c) 40%, transparent) 45%, transparent 72%); animation: aura .5s ease-in-out infinite; }
 @keyframes rageShake { 50% { transform: translate(1px, -1px) scale(1.02); } }
@@ -777,7 +806,6 @@ img.t-boss { width: 44px; height: 44px; }
 .sheet-pop .row .v { font-size: 16px; }
 .sheet-pop .col { gap: 3px; }
 .sheet-pop .sheet { gap: 6px; }
-.boss-panel.rage .boss-skills { flex-wrap: nowrap; overflow: hidden; }
 
 /* ── 도트 아이콘 (icons.js) ─────────────────────────────────────────────── */
 .ico { width: 24px; height: 24px; display: inline-block; vertical-align: middle; image-rendering: pixelated; image-rendering: crisp-edges; flex: none; }
@@ -1024,6 +1052,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .skin-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; text-align: center;
   background: #221B57; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }
 .skin-card img { width: 72px; height: 56px; object-fit: contain; image-rendering: auto; }
+.skin-card img.die-th { width: 56px; height: 56px; border-radius: 19%; }   /* 주사위 그림 꼭지점을 기본 주사위처럼 둥글게 (그림 파일은 네모로 잘려 있다) */
 .skin-card b { font-size: 13px; }
 .skin-card small { font-size: 10px; color: var(--muted); line-height: 1.3; }
 .skin-card.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255, 200, 61, .5), 0 4px 0 var(--ink); }
@@ -1180,7 +1209,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .boss-pick.sealed-boss img { filter: brightness(0) drop-shadow(0 0 6px #C21E56); }
 .boss-pick.sealed-boss b { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .seal-ring, .haki-banner, .sigil * { animation: none !important; } }
-.bosses { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.bosses { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }   /* 1행 원래 보스 · 2행 강화 보스 (같은 위계끼리 한 줄) */
 .boss-pick img.bp { width: 56px; height: 56px; }
 .demon-reveal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; align-content: center; gap: 10px; padding: 24px; text-align: center; background: #05020A; animation: fade .6s; }
 .dr-cracks { position: absolute; inset: 0; opacity: 0; animation: drCrack 1.4s .9s forwards;
@@ -1401,3 +1430,105 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 @keyframes towerLand { 0% { transform: translateY(-26px) scaleY(1.2); opacity: 0; filter: brightness(2.2); } 55% { transform: translateY(0) scaleY(.82, 1); opacity: 1; } 75% { transform: scaleY(1.06); } 100% { transform: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) { .tb.land { animation: none; } }
 .controls.two { grid-template-columns: 1.4fr 1fr !important; }
+
+/* ── 도전과제 ── */
+#ach-btn { position: relative; }
+.ach-tabs { display: grid; grid-template-columns: repeat(5, 1fr); margin-bottom: 10px; }
+.ach-tabs button { position: relative; font-size: 13px; padding-inline: 2px; }
+.ach-tabs .daily-dot { top: -3px; right: -3px; width: 8px; height: 8px; }
+.ach-list { display: grid; gap: 6px; }
+.ach-card { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 10px 8px; background: #140F36;
+  border: 3px solid var(--ink); box-shadow: inset 4px 0 0 var(--tc), inset 0 0 0 2px #2A2270; }
+.ach-card.ready { background: #2A2150; box-shadow: inset 4px 0 0 var(--tc), inset 0 0 0 2px var(--gold); animation: glowGold 1.4s ease-in-out infinite; }
+.ach-card.got { opacity: .55; }
+.ach-tier { position: absolute; top: -8px; left: 10px; font-size: 10px; font-weight: 700; padding: 0 5px; background: var(--tc); color: var(--ink); border: 2px solid var(--ink); }
+.ach-body { display: grid; gap: 2px; min-width: 0; }
+.ach-body b { font-size: 14px; }
+.ach-body small { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.ach-bar { position: relative; height: 12px; margin-top: 3px; background: #0A0820; border: 2px solid var(--ink); }
+.ach-bar i { position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--tc); }
+.ach-bar em { position: absolute; inset: 0; font-size: 9px; line-height: 8px; text-align: center; font-style: normal; color: #fff; text-shadow: 0 1px 0 var(--ink); }
+.ach-card .pbtn.small { min-width: 64px; }
+.ach-done { font-size: 11px; color: var(--gold); white-space: nowrap; }
+.ach-new { display: grid; margin-top: 6px; padding: 6px 8px; font-size: 13px; color: var(--gold); background: rgba(255, 210, 74, .1); border: 2px dashed var(--gold); }
+.ach-new small { color: var(--muted); font-size: 11px; }
+
+.ach-steps { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.ach-steps i { width: 9px; height: 9px; border: 2px solid var(--ink); background: #0A0820; box-shadow: inset 0 0 0 1px var(--tc); }
+.ach-steps i.on { background: var(--tc); }
+.ach-steps i.now { box-shadow: 0 0 0 1px var(--tc); }
+.ach-card.step-up { animation: achStepUp .6s ease-out; }
+@keyframes achStepUp { 0% { transform: scale(.94); filter: brightness(2); } 100% { transform: none; filter: none; } }
+
+/* ── 강화 보스 ── */
+.boss-pick.final { grid-column: 1 / -1; }
+.boss-pick.upgraded b::after { content: ' ★'; color: var(--gold); }
+.boss-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; color: var(--text); margin: 2px 0; }
+.boss-status small { color: var(--muted); font-size: 10px; }
+/* 게임 중 보스 패널은 높이가 늘 같다: 상태 줄은 언제나 두 줄(내용 한 줄 + 설명 한 줄)이고 넘치면 말줄임,
+   응시 · 저주가 없으면 같은 크기의 빈 줄(.ph), 분노 표시는 흐름 밖에 띄운다 */
+.game .boss-status { flex-flow: row wrap; white-space: nowrap; overflow: hidden; height: 30px; align-content: flex-start; row-gap: 1px; }
+.game .boss-status > * { flex: none; }
+.game .boss-status small { flex: 0 0 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 13px; }
+.game .boss-status b { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.game .boss-status.ph { visibility: hidden; }
+.game .boss-panel .rage-tag { position: absolute; top: 3px; right: 4px; z-index: 3; }
+.boss-status .head { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px; border: 2px solid var(--ink); background: #140F36; font-size: 10px; }
+.boss-status .head.now { box-shadow: inset 0 0 0 1px var(--gold); color: var(--gold); }
+.boss-status .head.cut { opacity: .45; text-decoration: line-through; }
+.frost-tag { position: absolute; transform: translate(-50%, -150%); pointer-events: none; padding: 1px 3px; background: rgba(200, 244, 255, .85); border: 2px solid #1E5AC8; animation: frostBob 1.6s ease-in-out infinite; }
+@keyframes frostBob { 50% { transform: translate(-50%, -165%); } }
+.row.rocked { opacity: .55; background: repeating-linear-gradient(45deg, #2A2440 0 6px, #3A344F 6px 12px); }
+.row.gazed { box-shadow: inset 0 0 0 2px #FF3B3B; }
+.tag.rock { background: #8A8070; color: #fff; }
+.tag.gaze { background: #FF3B3B; color: #fff; }
+.up-reveal .dr-title { text-shadow: 0 0 14px var(--c), 3px 3px 0 #1A1030; }
+
+.row.cursed { box-shadow: inset 0 0 0 2px #C21E56; }
+.tag.curse { background: #C21E56; color: #fff; }
+
+/* 보스 스킬 이름표 · 시전 중 보스 그림 */
+.cast-banner { position: fixed; left: 50%; top: 34%; z-index: 60; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; pointer-events: none;
+  padding: 8px 18px; background: rgba(10, 6, 24, .82); border: 3px solid var(--c); box-shadow: 0 0 0 3px #06041A, 0 0 26px var(--c); animation: castIn 1.2s ease-out forwards; }
+.cast-banner b { font-size: 24px; color: #fff; text-shadow: 0 0 10px var(--c), 2px 2px 0 #06041A; letter-spacing: 1px; white-space: nowrap; }
+.cast-banner small { font-size: 12px; color: var(--c); }
+@keyframes castIn { 0% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } 14% { transform: translate(-50%, -50%) scale(.92); opacity: 1; } 22% { transform: translate(-50%, -50%) scale(1.04); } 30%, 78% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -60%) scale(1); opacity: 0; } }
+.boss-art.casting img { animation: bossCast .9s ease-out; }
+@keyframes bossCast { 0% { filter: none; transform: none; } 25% { filter: brightness(1.8) drop-shadow(0 0 10px var(--cast)); transform: scale(1.12); } 100% { filter: none; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cast-banner, .boss-art.casting img { animation: none; } }
+
+/* 마왕 · 마신: 옥좌까지 담긴 그림이라 작아 보여서 1.2배 */
+.boss-panel.big-boss .boss-art { width: 115px; height: 115px; }
+.boss-panel.big-boss .boss-art img.boss { width: 115px; height: 115px; }
+.game .boss-panel.big-boss .boss-art { width: clamp(82px, calc(100vw - 270px), 120px); min-height: 86px; }
+.game .boss-panel.big-boss .boss-art img.boss { width: 100%; height: 100%; }
+.boss-intro img.boss-big[data-spr*="demon"] { width: 230px; height: 230px; }
+.coop-res img.boss-big[data-spr*="demon"] { width: 192px; height: 192px; }
+
+/* 한국어 문장은 단어 단위로 줄바꿈 (단어 중간에서 끊기지 않게) */
+body { word-break: keep-all; overflow-wrap: break-word; }
+/* 세머리 용 얼음: 3D 주사위는 얼음 껍질(dice3d.js iceMat), 2D 대체 화면은 주사위 자체를 얼린다 */
+.d2.frozen { background: linear-gradient(135deg, #F4FDFF, #BDEBFF 45%, #8FD6F5); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .9), inset 0 0 10px rgba(58, 168, 255, .55); }
+.curse-ask p { line-height: 1.6; }
+.curse-ask b { color: #FF5A8A; }
+
+/* 대시보드: 없는 난이도 칸은 비우고, 등급 · 승패 글자색을 등급마다 다르게 (S 는 무지개빛으로 반짝) */
+.db-none { width: 100%; min-height: 34px; }
+.dr-row em.gS, .db-cell.gS b { background: linear-gradient(90deg, #FF5A6A, #FFC83D, #3EE6B4, #4FB3FF, #B98CFF, #FF5A6A); background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 4px rgba(255, 210, 74, .8)); animation: gradeS 2.4s linear infinite; }
+.dr-row em.gS { font-size: 15px; }
+@keyframes gradeS { to { background-position: 300% 0; } }
+.dr-row em.gA, .db-cell.gA b { color: #FFD24A; text-shadow: 0 0 6px rgba(255, 210, 74, .6); }
+.dr-row em.gB, .db-cell.gB b { color: #9DD8FF; text-shadow: 0 0 4px rgba(79, 179, 255, .5); }
+.dr-row em.gF, .db-cell.gF b { color: var(--ruby); }
+.dr-row em.win { color: #3EE6B4; text-shadow: 0 0 5px rgba(62, 230, 180, .55); }
+.dr-row em.lose { color: #8C83BB; }
+@media (prefers-reduced-motion: reduce) { .dr-row em.gS, .db-cell.gS b { animation: none; } }
+
+/* 적 · 보스 보호막 숫자 (체력바 옆) */
+.hp-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.hp-row > .hp { flex: 1 1 auto; min-width: 0; }
+.shield-badge { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 20px; padding: 0 5px; font-size: 13px; font-weight: 700; color: #fff; background: #12305A; border: 2px solid var(--sky); box-shadow: 0 0 8px rgba(79,179,255,.6), 0 2px 0 var(--ink); animation: zoom .25s cubic-bezier(.2,1.6,.4,1); }
+.shield-badge .ico { width: 12px; height: 12px; }
+.menu-row.play-row { grid-template-columns: 1fr 1fr; }   /* 메뉴: 대전(봇) · 보스전 */
+.menu-row.play-row .pbtn { display: inline-flex; justify-content: center; align-items: center; gap: 6px; }

@@ -8,6 +8,7 @@
 //   3. 서비스 워커의 Firebase 번들 이름을 전체판(firebase-full.js)으로 바꾼다
 //   4. twa/assetlinks.json 이 있으면 .well-known/ 에 넣는다 (구글 플레이 앱 ↔ 사이트 연결)
 //   5. 서버(functions/shared/)에 보상 규칙 · 엔진 사본을 넣는다
+//   6. 애드센스: 사이트 소유 확인용 메타 태그와 ads.txt 를 넣는다 (광고 스크립트는 게임이 필요할 때만 불러온다)
 import { cpSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,10 +27,13 @@ if (conf.includes('REPLACE_ME')) {
   conf = conf.replaceAll('REPLACE_ME', 'demo-diceheroes').replace(/databaseURL: '[^']*'/, "databaseURL: 'http://127.0.0.1:9100?ns=demo-diceheroes-default-rtdb'");
 }
 
-const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'package.json', 'package-lock.json']);
+// run/ = 원정(로그라이크) 모드 — 아직 테스트판 전용이라 배포판에는 넣지 않는다 (게임도 배포판에서는 원정 버튼을 그리지 않는다)
+const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'package.json', 'package-lock.json', 'run']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-cpSync(src, out, { recursive: true, filter: p => !SKIP.has(p.slice(src.length + 1).split(/[\\/]/)[0]) });
+// 원정 전용 곡(assets/bgm/run_*.ogg) · 그림(assets/run/)도 배포판에는 넣지 않는다
+const runOnly = rel => /^assets[\\/](bgm[\\/]run_|run([\\/]|$))/.test(rel);
+cpSync(src, out, { recursive: true, filter: p => { const rel = p.slice(src.length + 1); return !SKIP.has(rel.split(/[\\/]/)[0]) && !runOnly(rel); } });
 
 writeFileSync(join(out, 'env.js'), "// 배포판 빌드 (dice-heroes-prod/build.mjs 가 만든 파일)\nexport const ENV = 'prod';\n");
 writeFileSync(join(out, 'fireconfig.js'), conf);
@@ -50,8 +54,18 @@ if (existsSync(links)) {
 const shared = join(here, 'functions', 'shared');
 rmSync(shared, { recursive: true, force: true });
 mkdirSync(shared, { recursive: true });
-for (const f of ['wallet-rules.js', 'engine.js']) cpSync(join(src, f), join(shared, f));
+for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js']) cpSync(join(src, f), join(shared, f));
+// 원정 규칙: 서버가 행동 기록을 다시 돌려 결과를 계산한다 (배포판 화면에는 원정이 없어도 서버 쪽은 준비해 둔다)
+mkdirSync(join(shared, 'run'), { recursive: true });
+cpSync(join(src, 'run', 'rules.js'), join(shared, 'run', 'rules.js'));
 writeFileSync(join(shared, 'package.json'), '{ "type": "module" }\n');
+
+// 6. 애드센스 게시자 ID (비밀 값 아님) — 게임의 ads.js 와 같은 값을 쓴다. 사이트 소유 확인 + ads.txt 용.
+//    광고 자체는 게임(ads.js)이 Remote Config ads_enabled 가 켜졌을 때만 불러온다.
+const ADSENSE_PUB = /ADS_CLIENT = 'ca-(pub-\d+)'/.exec(readFileSync(join(src, 'ads.js'), 'utf8'))[1];
+const html = join(out, 'index.html');
+writeFileSync(html, readFileSync(html, 'utf8').replace('</head>', `<meta name="google-adsense-account" content="ca-${ADSENSE_PUB}">\n</head>`));
+writeFileSync(join(out, 'ads.txt'), `google.com, ${ADSENSE_PUB}, DIRECT, f08c47fec0942fa0\n`);
 
 const version = /version:\s*'([^']+)'/.exec(readFileSync(join(src, 'config.js'), 'utf8'))?.[1];
 console.log(`✓ 배포판 v${version} → ${out}${emu ? ' (에뮬레이터용)' : ''}`);

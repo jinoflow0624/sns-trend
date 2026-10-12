@@ -1,19 +1,40 @@
 // 8비트 사운드 — 패미컴식 4채널(펄스 2 · 삼각파 · 노이즈) 칩튠 시퀀서와 효과음.
 // 오디오 파일 없이 WebAudio 로 합성한다. 외부 음원을 쓰려면 BGM_FILES 에 경로만 넣으면
 // 해당 트랙은 파일 재생으로 바뀐다 (예: { title: 'assets/bgm/title.ogg' }).
+import { GAME } from './config.js';
 
 // 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich · boss_demon
 // 파일은 마디 경계에서 잘라 끝과 처음이 이어지게 다듬은 루프여야 한다. sw.js 캐시 목록에도 넣는다.
+// 주소에 게임 버전(?v=)을 붙인다. 오프라인 캐시(sw.js)는 그림 · 음악을 캐시에서 먼저 꺼내므로,
+// 버전이 없으면 곡을 바꿔 배포해도 예전 파일(도입부 없는 루프)이 한 번 더 재생됐다
+const AV = `?v=${GAME.version}`;
 export const BGM_FILES = {
-  title:       'assets/bgm/title.ogg',         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
-  adventure:   'assets/bgm/versus.ogg',        // 대전 · 32마디 루프, 133BPM (Suno)
-  boss_dragon: 'assets/bgm/boss_dragon.ogg',   // 32마디 루프, 120BPM (Suno)
-  boss_orc:    'assets/bgm/boss_orc.ogg',      // 28마디 루프, 120BPM (Suno)
-  boss_lich:   'assets/bgm/boss_lich.ogg',     // 28마디 루프, 120BPM (Suno)
-  boss_demon:  'assets/bgm/boss_demon.ogg',    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
+  title:       `assets/bgm/title.ogg${AV}`,         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
+  adventure:   `assets/bgm/versus.ogg${AV}`,        // 대전 · 32마디 루프, 133BPM (Suno)
+  boss_dragon: `assets/bgm/boss_dragon.ogg${AV}`,   // 32마디 루프, 120BPM (Suno)
+  boss_orc:    `assets/bgm/boss_orc.ogg${AV}`,      // 28마디 루프, 120BPM (Suno)
+  boss_lich:   `assets/bgm/boss_lich.ogg${AV}`,     // 28마디 루프, 120BPM (Suno)
+  boss_demon:  `assets/bgm/boss_demon.ogg${AV}`,    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
+  // 강화 보스 (Suno). 곡 첫 박부터 틀고, BGM_LOOP 지점부터 끝까지를 반복한다 (오버로드는 곡 전체가 루프)
+  boss_cyclops:   `assets/bgm/boss_cyclops.ogg${AV}`,   // 키클롭스 · 1~12마디 도입 + 13~40마디(28마디) 반복, 131BPM
+  boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~7마디 도입 + 8~39마디(32마디) 반복, 130BPM
+  boss_overlord:  `assets/bgm/boss_overlord.ogg${AV}`,  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
+  boss_archdemon: `assets/bgm/boss_archdemon.ogg${AV}`, // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
+  // 원정 (Suno). 지도 곡은 이벤트 · 상점 · 휴식에서도 끊기지 않고 이어진다 (같은 이름이면 playBgm 이 다시 틀지 않는다)
+  run_map:    `assets/bgm/run_map.ogg${AV}`,      // 지도 · 1~11마디 도입 + 12~27마디(16마디) 반복, 108BPM
+  run_battle: `assets/bgm/run_battle.ogg${AV}`,   // 일반 전투 · 1~2마디 도입 + 3~30마디(28마디) 반복, 143BPM
+  run_elite:  `assets/bgm/run_elite.ogg${AV}`,    // 엘리트 · 1~2마디 도입 + 3~34마디(32마디) 반복, 151BPM
+  run_win:    `assets/bgm/run_win.ogg${AV}`,      // 원정 성공 · 곡 전체(15마디)를 처음부터 반복, 135BPM
+  run_lose:   `assets/bgm/run_lose.ogg${AV}`,     // 원정 실패 · 곡 전체(17마디)를 처음부터 반복, 91BPM
 };
+// 도입부가 있는 곡: 처음 한 번은 첫 박부터, 그다음부터는 이 시각(초)부터 파일 끝까지를 반복한다.
+// 파일 끝 0.04초는 루프 시작 직전 소리로 미리 섞어 두어 이음매가 매끄럽다
+export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 13.181708, boss_archdemon: 32.741604,
+  run_map: 24.676896, run_battle: 3.528, run_elite: 3.314792 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
-export const bossSong = id => (BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? `boss_${id}` : 'boss');
+// 강화 보스는 자기 곡이 없으면 원래 보스 곡을 쓴다
+const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich', archdemon: 'demon' };
+export const bossSong = id => { const k = BGM_FILES[`boss_${id}`] || SONGS[`boss_${id}`] ? id : SONG_BASE[id] || id; return BGM_FILES[`boss_${k}`] || SONGS[`boss_${k}`] ? `boss_${k}` : 'boss'; };
 
 const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
@@ -383,29 +404,48 @@ let playing = null;       // { name, timer, step, next } 또는 음원 파일이
 const FILE_VOL = 0.9;
 const buffers = {};
 const badFiles = new Set();   // 못 받았거나 못 푼 파일(구형 iOS 의 OGG 등)은 칩튠 곡으로 대신한다
-const loadBuffer = url => (buffers[url] ||= fetch(url)
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
-  .then(b => ctx.decodeAudioData(b))
-  .catch(err => { delete buffers[url]; throw err; }));
+// 풀어 둔 곡은 최근 것 몇 개만 메모리에 둔다 (3분짜리 곡 하나를 풀면 수십 MB). 지금 나오는 곡은 지우지 않는다
+const BUF_KEEP = 4;
+const recent = [];
+function keepBuffer(url) {
+  const i = recent.indexOf(url);
+  if (i >= 0) recent.splice(i, 1);
+  recent.push(url);
+  for (let k = 0; recent.length > BUF_KEEP && k < recent.length;) {
+    if (recent[k] === playing?.url || recent[k] === url) { k++; continue; }
+    delete buffers[recent.splice(k, 1)[0]];
+  }
+}
+const loadBuffer = url => {
+  keepBuffer(url);
+  return (buffers[url] ||= fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(b => ctx.decodeAudioData(b))
+    .catch(err => { delete buffers[url]; throw err; }));
+};
 
-// 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악을 준비해서 시작 화면에서 바로 나오게)
+// 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악, 보스 · 모드를 고르는 동안 그 판의 곡 —
+// 예전엔 판이 시작되는 순간에 받기 시작해서 폰에서는 라운드가 시작된 뒤에야 음악이 나왔다)
 export function preloadBgm(name) {
   const url = BGM_FILES[name];
-  if (url && !badFiles.has(url) && unlock()) loadBuffer(url).catch(() => {});
+  if (url && !badFiles.has(url) && unlock()) return loadBuffer(url).then(() => {}, () => {});
+  return Promise.resolve();
 }
 
+// 곡을 튼다. 돌려주는 약속은 실제로 소리가 나기 시작할 때 끝난다 (파일을 받는 중이면 받은 뒤)
 export function playBgm(name) {
-  if (playing?.name === name) return;
+  if (playing?.name === name) return playing.ready || Promise.resolve();
   stopBgm();
-  if (!unlock()) return;
+  if (!unlock()) return Promise.resolve();
   const url = BGM_FILES[name];
   if (url && !badFiles.has(url)) {
-    const state = { name };
+    const state = { name, url };
     playing = state;
-    loadBuffer(url).then(buf => {
+    state.ready = loadBuffer(url).then(buf => {
       if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
       const src = ctx.createBufferSource(), g = ctx.createGain();
       src.buffer = buf; src.loop = true; g.gain.value = FILE_VOL;
+      if (BGM_LOOP[name] < buf.duration) { src.loopStart = BGM_LOOP[name]; src.loopEnd = buf.duration; }
       src.connect(g).connect(bgmGain);
       src.start();
       state.src = src;
@@ -413,7 +453,7 @@ export function playBgm(name) {
       badFiles.add(url);
       if (playing === state) { playing = null; if (SONGS[name]) playBgm(name); }
     });
-    return;
+    return state.ready;
   }
   const song = SONGS[name];
   const tracks = {
@@ -440,6 +480,7 @@ export function playBgm(name) {
   tick();
   state.timer = setInterval(tick, 30);
   playing = state;
+  return Promise.resolve();
 }
 
 export function stopBgm() {
@@ -448,11 +489,18 @@ export function stopBgm() {
   playing = null;
 }
 
-// 탭이 가려지면 음악을 멈췄다가 돌아오면 이어서
+// 탭이 가려지면 음악을 멈췄다가 돌아오면 이어서. 광고가 나오는 동안에도 멈춘다
+let adPause = false;
+export function pauseAudio(on) {
+  adPause = !!on;
+  if (!ctx) return;
+  if (adPause) ctx.suspend().catch(() => {});
+  else if (!document.hidden) ctx.resume().catch(() => {});
+}
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
   if (document.hidden) ctx.suspend().catch(() => {});
-  else ctx.resume().catch(() => {});
+  else if (!adPause) ctx.resume().catch(() => {});
 });
 
 // ── 효과음 ───────────────────────────────────────────────────────────────────
@@ -712,5 +760,104 @@ export const sfx = {
     voice(sfxGain, { type: 'tri', f: 90, slide: 30, t: t + 0.05, dur: 0.9, vol: 0.22 });
     voice(sfxGain, { type: 'p50', f: 110, slide: 55, t: t + 0.05, dur: 0.8, vol: 0.03 });
     buzz(90);
+  },
+  // 무희 춤사위: 캐스터네츠 따닥 + 빙글 도는 장조 아르페지오 + 반짝이는 끝음 (약 0.6초)
+  dance() {
+    buzz(40);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    [0, 0.07, 0.11].forEach(d => noise(sfxGain, { t: t + d, dur: 0.025, vol: 0.12, hp: 3000, lp: 9000 }));
+    ['A5', 'C#6', 'E6', 'A6', 'E6', 'A6', 'C#7'].forEach((n, i) => voice(sfxGain, { type: i % 2 ? 'p12' : 'p25', f: freq(n), t: t + 0.12 + i * 0.055, dur: 0.09, vol: 0.09 }));
+    ping(sfxGain, { f: freq('E7'), t: t + 0.52, dur: 0.4, vol: 0.05, type: 'triangle' });
+    ping(sfxGain, { f: freq('A7'), t: t + 0.56, dur: 0.35, vol: 0.03, type: 'triangle' });
+  },
+  // ── 원정 ──
+  // 카드가 적에게 꽂힌다: 짧게 베는 소리 + 둔탁한 타격
+  strike(power = 1) {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.06, vol: 0.16, hp: 2500, lp: 12000 });
+    voice(sfxGain, { type: 'tri', f: 240, slide: 70, t: t + 0.02, dur: 0.18 + power * 0.05, vol: 0.26 });
+    noise(sfxGain, { t: t + 0.02, dur: 0.12 + power * 0.05, vol: 0.14, hp: 250, lp: 3500 });
+  },
+  // 영웅이 맞는다: 퍽 + 쿵 + 아래로 꺾이는 '윽' (power 0~2, 크게 맞을수록 무겁고 길게)
+  hurt(power = 1) {
+    buzz(50 + power * 45);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.1 + power * 0.06, vol: 0.24, hp: 300, lp: 5000 });
+    voice(sfxGain, { type: 'tri', f: 170, slide: 42, t, dur: 0.22 + power * 0.1, vol: 0.32 });
+    voice(sfxGain, { type: 'p50', f: 560 + power * 80, slide: 150, t: t + 0.03, dur: 0.16 + power * 0.04, vol: 0.09 });
+    if (power > 1.2) noise(sfxGain, { t: t + 0.06, dur: 0.28, vol: 0.12, hp: 1200, lp: 8000 });
+  },
+  // 공격이 보호막에 막힌다: 방패가 '쨍' (v: 세기)
+  clang(v = 1) {
+    buzz(25);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    noise(sfxGain, { t, dur: 0.03, vol: 0.14 * v, hp: 2500, lp: 12000 });
+    ping(sfxGain, { f: 1250, t, dur: 0.35, vol: 0.07 * v, type: 'square' });
+    ping(sfxGain, { f: 1258, t, dur: 0.3, vol: 0.03 * v });
+    ping(sfxGain, { f: 1250 * 2.76, t, dur: 0.16, vol: 0.04 * v });
+    voice(sfxGain, { type: 'tri', f: 230, slide: 120, t, dur: 0.1, vol: 0.12 * v });
+  },
+  // 공격 · 방어 나누기 막대를 밀 때 '틱' (k: 공격 비율 0~1, 공격 쪽일수록 높다)
+  tick(k = 0.5) {
+    if (!unlock()) return;
+    voice(sfxGain, { type: 'p25', f: 420 + k * 760, t: ctx.currentTime, dur: 0.025, vol: 0.07 });
+  },
+  // 원정 춤사위 (협동 무희의 dance 보다 신나게): 캐스터네츠 셋잇단 + 두 바퀴 도는 아르페지오 + 탬버린 + 반짝 끝음 (약 0.8초)
+  danceRun() {
+    buzz(50);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    [0, 0.05, 0.1, 0.2].forEach(d => noise(sfxGain, { t: t + d, dur: 0.025, vol: 0.13, hp: 3000, lp: 9000 }));
+    voice(sfxGain, { type: 'tri', f: freq('A3'), t, dur: 0.12, vol: 0.2 });
+    voice(sfxGain, { type: 'tri', f: freq('E4'), t: t + 0.2, dur: 0.12, vol: 0.18 });
+    ['A5', 'C#6', 'E6', 'A6', 'C#7', 'B6', 'A6', 'E6', 'A6', 'C#7', 'E7'].forEach((n, i) => voice(sfxGain, { type: i % 2 ? 'p12' : 'p25', f: freq(n), t: t + 0.1 + i * 0.045, dur: 0.07, vol: 0.085 }));
+    for (let i = 0; i < 5; i++) noise(sfxGain, { t: t + 0.32 + i * 0.07, dur: 0.04, vol: 0.05, hp: 6000, lp: 14000 });   // 탬버린
+    ping(sfxGain, { f: freq('E7'), t: t + 0.62, dur: 0.45, vol: 0.05, type: 'triangle' });
+    ping(sfxGain, { f: freq('A7'), t: t + 0.66, dur: 0.4, vol: 0.035, type: 'triangle' });
+  },
+  // 별조각을 얻는다: 반짝이며 쌓이는 소리 (n: 개수에 따라 조금 길게)
+  stars(n = 10) {
+    if (!unlock()) return;
+    const t = ctx.currentTime, k = Math.min(10, 4 + Math.round(n / 10));
+    const notes = ['E6', 'G#6', 'B6', 'E7', 'G#7', 'B7'];
+    for (let i = 0; i < k; i++) ping(sfxGain, { f: freq(notes[i % notes.length]) * (i >= notes.length ? 1 : 1), t: t + i * 0.06, dur: 0.3, vol: 0.05, type: 'triangle' });
+    for (let i = 0; i < k; i++) noise(sfxGain, { t: t + i * 0.06, dur: 0.02, vol: 0.04, hp: 7000, lp: 14000 });
+    buzz(20);
+  },
+  // 원정 준비에서 강화를 산다: 망치 '깡' 두 번 + 각인이 차오르는 상승음
+  forge() {
+    buzz(45);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    [0, 0.14].forEach((d, i) => {
+      noise(sfxGain, { t: t + d, dur: 0.04, vol: 0.16, hp: 2000, lp: 11000 });
+      ping(sfxGain, { f: 980 + i * 120, t: t + d, dur: 0.3, vol: 0.07, type: 'square' });
+      ping(sfxGain, { f: (980 + i * 120) * 2.71, t: t + d, dur: 0.14, vol: 0.03 });
+      voice(sfxGain, { type: 'tri', f: 160, slide: 70, t: t + d, dur: 0.12, vol: 0.18 });
+    });
+    voice(sfxGain, { type: 'p25', f: freq('C5'), slide: freq('C6'), t: t + 0.3, dur: 0.32, vol: 0.06 });
+    ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => voice(sfxGain, { type: 'p12', f: freq(n), t: t + 0.42 + i * 0.05, dur: 0.08, vol: 0.07 }));
+  },
+  // 승천 단계가 열린다: 낮고 장엄한 단조 징글 (약 1.4초)
+  ascend() {
+    buzz(90);
+    fanfare(0.11, {
+      p25: [[0, 'A4', 2], [2, 'C5', 1], [3, 'E5', 2], [5, 'F5', 1], [6, 'E5', 1], [7, 'A5', 5, 1]],
+      p12: [[0, 'E4', 2], [2, 'A4', 1], [3, 'C5', 2], [5, 'D5', 1], [6, 'C5', 1], [7, 'E5', 5]],
+      tri: [[0, 'A2', 3], [3, 'F2', 2], [5, 'D2', 1], [6, 'E2', 1], [7, 'A2', 5]],
+    }, { kick: [0, 3, 7], snare: [6, 6.5], crash: 7 });
+  },
+  // 적이 쓰러진다: 펑 터지며 흩어지는 소리 (승리 팡파레는 보상 화면에서 한 번만)
+  foeDie(power = 1) {
+    buzz(60 + power * 30);
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 200, slide: 40, t, dur: 0.5, vol: 0.26 });
+    noise(sfxGain, { t, dur: 0.45 + power * 0.2, vol: 0.16, hp: 150, lp: 5000 });
+    ['G5', 'D5', 'A4', 'E4'].forEach((n, i) => voice(sfxGain, { type: 'p25', f: freq(n), t: t + 0.08 + i * 0.06, dur: 0.08, vol: 0.06 }));
   },
 };
