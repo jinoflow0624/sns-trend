@@ -793,3 +793,26 @@
 .relic-picks.n4 { gap: 6px; }
 .relic-picks.n4 .relic-card { padding: 6px 10px; }
 .relic-card.r1 b { color: #E8E0C8; } .relic-card.r2 b { color: #8FD8FF; }
+/* 인장 찍기: 큰 인장이 기울어진 채 내려와 휘장 자리에 쾅 (run/ui.js stampSeal) */
+.seal-stamp { position: absolute; z-index: 6; pointer-events: none; width: 22px; height: 22px; }
+.seal-stamp .ss-disc { position: absolute; inset: 0; box-sizing: border-box; display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--sc) 55%, color-mix(in srgb, var(--sc) 55%, #000)); border: 2px solid var(--ink);
+  box-shadow: 0 0 12px var(--sc); animation: ssDrop .38s cubic-bezier(.55, 0, .9, .5) both, ssOut .14s .4s ease-out forwards; }
+.seal-stamp .ss-disc .ico { width: 13px; height: 13px; }
+.seal-stamp .ss-shadow { position: absolute; left: -3px; top: 8px; width: 28px; height: 12px; border-radius: 50%; background: rgba(10, 6, 30, .5);
+  animation: ssShadow .38s ease-in both, ssOut .14s .38s ease-out forwards; }
+@keyframes ssDrop { 0% { opacity: 0; transform: translate(-26px, -78px) scale(3.2) rotate(-30deg); } 30% { opacity: 1; } 100% { transform: none; } }
+@keyframes ssShadow { from { opacity: 0; transform: scale(2.4); } to { opacity: 1; transform: none; } }
+@keyframes ssOut { to { opacity: 0; } }
+.rc-seal.just { animation: sealJust .45s ease-out, sealPulse 1.8s .45s ease-in-out infinite; }
+@keyframes sealJust { 0% { transform: scale(1.5); filter: brightness(2.4); } 60% { transform: scale(.92); } 100% { transform: none; filter: none; } }
+.stamped .rc-in { animation: cardThump .32s ease-out !important; }
+@keyframes cardThump { 30% { scale: 1.05 .94; translate: 0 3px; } 100% { scale: 1; translate: 0; } }
+/* 인장 상자 · 상점에서 붙이기: 가운데에 그 카드들을 띄우고 하나씩 찍는다 */
+.stamp-show { display: grid; place-items: center; background: rgba(6, 4, 26, .72); animation: fade .2s; z-index: 80; }
+.stamp-show.out { opacity: 0; transition: opacity .25s; }
+.stamp-box { display: grid; justify-items: center; gap: 12px; }
+.stamp-title { color: var(--gold); font-size: 16px; text-shadow: 0 2px 0 var(--ink); }
+.stamp-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 26px; max-width: 70vw; scale: 1.4; margin: 24px 0; }
+.stamp-card { animation: deal .35s both; }
+@media (prefers-reduced-motion: reduce) { .seal-stamp .ss-disc, .seal-stamp .ss-shadow, .stamped .rc-in { animation: none !important; } }
