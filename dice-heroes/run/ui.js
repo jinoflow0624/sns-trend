@@ -452,8 +452,6 @@ function foePanel() {
     ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : ''}`;
 }
 
-// 트레이 주사위 아래 이름표 (짧은 이름)
-const SDIE_SHORT = { gold: '금', heavy: '무게', twin: '쌍둥이', stair: '계단' };
 // 특수 주사위 3D 표시: 플레이어 스킨은 그대로, 주사위마다 그 색 테두리 껍질 (dice3d setMarks)
 const diceMarks = () => R?.C ? R.C.dice.map((_, i) => { const d = Run.diceInfo(R.dset?.[i]); return d ? { kind: d.id, color: d.color } : null; }) : null;
 // 주사위 위 표시: 봉인 · 얼음 · 뒤집기 · 조정 · 밑장빼기
@@ -467,7 +465,7 @@ function paintTray() {
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
   // 특수 주사위: 주사위 아래 색 보석 표시
-  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 30}px;--dc:${d.color}" title="${d.ko}">${SDIE_SHORT[id] || d.ko}</i>`; }).join('');
+  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 26}px;--dc:${d.color}" title="${d.ko}">${runIco('sdie', id, 'die6')}</i>`; }).join('');
   if (!ui.tool || ui.tool === 'swap' || !canAct() || !C.rolled || t.anim) { ovl.innerHTML = seals + sp; return; }
   ovl.innerHTML = seals + sp + C.dice.map((v, i) => {
     const p = t.screenPos(i);
@@ -672,7 +670,7 @@ async function doRoll() {
   paint();
   t.setSealed?.(ui.sealRoll);
   t.setMarks?.(diceMarks());
-  // 무거운 주사위: 처음 세게 떨어질 때 '쿵' + 먼지 (주사위마다 한 번)
+  // 식스 주사위(추가 달린 heavy): 처음 세게 떨어질 때 '쿵' + 먼지 (주사위마다 한 번)
   const thud = new Set();
   t.onMarkHit = (v, i) => {
     if (v < 5 || thud.has(i)) return;
@@ -1036,7 +1034,7 @@ async function playOne(f) {
       hand.refresh();
       return;
     }
-    // 특수 주사위가 힘을 썼다: 그 색 빛 · 소리와 함께 눈이 바뀐다 (금: 1을 다시 · 쌍둥이: 같은 눈 · 계단: 이어지는 눈)
+    // 특수 주사위가 힘을 썼다: 그 색 빛 · 소리와 함께 눈이 바뀐다 (재굴림: 1을 다시 · 따라쟁이: 같은 눈 · 이음: 이어지는 눈)
     case 'sdie': {
       if (!t) return;
       const p = t.screenPos(f.i), d = Run.diceInfo(f.k);
@@ -1051,7 +1049,7 @@ async function playOne(f) {
           FX().burst(p.x, p.y, { n: 16, pal: PALETTES.hell, speed: [60, 160], life: [0.3, 0.6] });
         } else FX().burst(p.x, p.y, { n: 22, pal: PALETTES.heal, speed: [80, 220], grav: -160, life: [0.4, 0.8] });
       }
-      floatAt(p.x, p.y - 44, `${runIco('die', d.id, 'die6', 'xs')} ${f.k === 'gold' ? '한 번 더!' : f.k === 'twin' ? '쌍둥이!' : '이어지는 눈!'}`, f.k === 'gold' ? 'gold' : 'mint');
+      floatAt(p.x, p.y - 44, `${runIco('die', d.id, 'die6', 'xs')} ${f.k === 'gold' ? '다시 굴림!' : f.k === 'twin' ? '따라 하기!' : '이어 붙이기!'}`, f.k === 'gold' ? 'gold' : 'mint');
       if (f.k === 'gold') sfx.coin?.(); else if (f.k === 'twin') sfx.card?.(); else sfx.quest?.();
       await t.morph(f.i, f.to, f.k, 700);
       if (ui.dice) ui.dice[f.i] = f.to;
