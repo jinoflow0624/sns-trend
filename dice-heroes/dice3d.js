@@ -181,6 +181,7 @@ export class DiceTray {
       g.rotation.y = rot;
       if (rot) g.position.x = off; else g.position.z = off;
       scene.add(g);
+      (this.plainFrame ||= []).push(g);
     }
 
     // 주사위 함 (트레이 앞 난간에 붙은 낮은 나무 상자)
@@ -204,6 +205,7 @@ export class DiceTray {
       const t = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), trim);
       t.position.set(x, BOX_H + 0.025, z);
       scene.add(m, t);
+      this.plainFrame.push(m, t);
     }
 
     this.faceMats = {};
@@ -426,7 +428,100 @@ export class DiceTray {
       this.drop(bm.map);
       bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
+      // 그림 난간이 있는 스킨: 단색 나무 테두리 대신 울퉁불퉁한 그림 난간 · 모서리 기둥 · 보석 장식 (기본 트레이는 그대로)
+      const frame = st.rails ? (this.fancyFrames ||= {})[trayId] ||= this.buildFancyFrame(trayId, st) : null;
+      Object.values(this.fancyFrames || {}).forEach(f => { f.visible = f === frame; });
+      this.plainFrame.forEach(o => { o.visible = !frame; });
     }
+  }
+
+  // 그림 난간 (assets/trays/<스킨>/rail_top · rail_side · corner_side · corner_top · rail_glow).
+  // 윗면을 스킨 모양대로 출렁이게(물결 · 톱니 · 바위) 하고, 네 모서리 기둥과 난간 가운데에 그 스킨의 보석을 얹는다.
+  // 물리 벽은 따로 있어서(평면) 겉모양만 바뀐다
+  buildFancyFrame(id, st) {
+    const S = st.rails, T = RAIL_T, H = 0.7;
+    const grp = new THREE.Group();
+    const tex = (kind, rx) => {
+      const base = this.imageTex(trayImage(id, kind));
+      const t = base.clone();
+      t.wrapS = THREE.RepeatWrapping; t.repeat.set(rx, 1); t.needsUpdate = true;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      return t;
+    };
+    const mat = (kind, rx, glow) => {
+      const m = new THREE.MeshStandardMaterial({ map: tex(kind, rx), roughness: S.rough ?? 0.5, metalness: S.metal ?? 0.2 });
+      if (st.envRail !== false && st.trimEnv) { m.envMap = this.envMap(); m.envMapIntensity = 0.5; }
+      if (glow && st.railGlow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = tex('rail_glow', rx); m.emissiveIntensity = st.glow ?? 0.8; }
+      return m;
+    };
+    // 윗면 높이 모양: x(난간 방향 거리)에 따라
+    const seed = id.length * 7.3;
+    const bump = x => {
+      const a = S.amp, f = S.freq;
+      if (S.shape === 'scallop') return a * Math.abs(Math.sin(x * f));
+      if (S.shape === 'jag') { const q = (x * f / Math.PI) % 1; return a * (q < 0.5 ? q * 2 : (1 - q) * 2) + a * 0.3 * Math.sin(x * 7.1 + seed); }
+      if (S.shape === 'rock') return a * (0.5 + 0.5 * Math.sin(x * f + seed) * Math.sin(x * f * 2.3 + 1.7) + 0.25 * Math.sin(x * 9.3));
+      return a * (0.5 + 0.5 * Math.sin(x * f + seed));                       // wave
+    };
+    // out: 바깥쪽이 지역 z 의 어느 쪽인지 (+1 · -1). 바깥 가장자리만 물결처럼 밀려 나가 테두리 윤곽이 울퉁불퉁해진다 (안쪽은 곧게)
+    const rail = (len, w, h, cx, out) => {
+      const seg = Math.max(8, Math.round(len * 10));
+      const g = new THREE.BoxGeometry(len, h, w, seg, 1, 1);
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const b = bump(p.getX(i) + cx);
+        if (p.getY(i) > 0) p.setY(i, p.getY(i) + b);
+        if (out && p.getZ(i) * out > 0) p.setZ(i, p.getZ(i) + out * b * (S.bulge ?? 1.2));
+      }
+      g.computeVertexNormals();
+      const end = mat('rail_side', w / (h * 8)), top = mat('rail_top', len / (w * 16)), side = mat('rail_side', len / (h * 8), true);
+      return new THREE.Mesh(g, [end, end, top, top, side, side]);
+    };
+    // 난간 4개 (앞 · 뒤 · 좌 · 우)
+    for (const [len, off, rot] of [[TRAY_W + 2 * T, TRAY_D / 2 + T / 2, 0], [TRAY_W + 2 * T, -(TRAY_D / 2 + T / 2), 0], [TRAY_D, TRAY_W / 2 + T / 2, Math.PI / 2], [TRAY_D, -(TRAY_W / 2 + T / 2), Math.PI / 2]]) {
+      const m = rail(len, T, H, off * 3.1, Math.sign(off));
+      m.position.y = H / 2; m.rotation.y = rot;
+      if (rot) m.position.x = off; else m.position.z = off;
+      m.castShadow = m.receiveShadow = true;
+      grp.add(m);
+      // 난간 가운데 보석 (조금 떠서 솟은 모양)
+      const gem = this.frameGem(S, 0.17);
+      gem.position.set(rot ? off : 0, H + bump(off * 3.1) + 0.16, rot ? 0 : off);
+      grp.add(gem);
+    }
+    // 네 모서리 기둥 + 꼭대기 보석
+    const PW = 0.72, PH = H + 0.32;
+    const sideM = mat('corner_side', 1, false), topM = mat('corner_top', 1, false);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, PW), [sideM, sideM, topM, topM, sideM, sideM]);
+      post.position.set(sx * (TRAY_W / 2 + T / 2), PH / 2, sz * (TRAY_D / 2 + T / 2));
+      post.castShadow = post.receiveShadow = true;
+      grp.add(post);
+      const gem = this.frameGem(S, 0.24);
+      gem.position.set(post.position.x, PH + 0.24, post.position.z);
+      grp.add(gem);
+    }
+    // 주사위 함 벽도 같은 그림 난간으로
+    for (const [w, d, x, z] of [[TRAY_W + 2 * T + 2 * BOX_T, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2], [BOX_T, BOX_D, -(TRAY_W / 2 + T + BOX_T / 2), BOX_Z], [BOX_T, BOX_D, TRAY_W / 2 + T + BOX_T / 2, BOX_Z]]) {
+      const along = w >= d, len = along ? w : d, thick = along ? d : w;
+      const m = rail(len, thick, BOX_H, x * 2.3 + z, along ? 1 : Math.sign(x));
+      m.position.set(x, BOX_H / 2, z);
+      if (!along) m.rotation.y = Math.PI / 2;
+      m.castShadow = m.receiveShadow = true;
+      grp.add(m);
+    }
+    this.scene.add(grp);
+    return grp;
+  }
+  // 난간 장식 보석: 스킨 색의 팔면체(진주는 구), 빛나는 스킨은 스스로 빛난다
+  frameGem(S, r) {
+    const geo = S.gem === 'pearl' ? new THREE.SphereGeometry(r * 0.85, 16, 12) : new THREE.OctahedronGeometry(r, 0);
+    const m = new THREE.MeshStandardMaterial({ color: S.gemColor, roughness: 0.2, metalness: S.gem === 'pearl' ? 0.1 : 0.4, envMap: this.envMap(), envMapIntensity: 1 });
+    if (S.gemGlow) { m.emissive = new THREE.Color(S.gemColor); m.emissiveIntensity = 0.8; }
+    const g = new THREE.Mesh(geo, m);
+    if (S.gem !== 'pearl') g.scale.y = 1.35;
+    g.castShadow = true;
+    return g;
   }
 
   // 미리보기 창을 닫을 때 (WebGL 자원을 돌려준다)

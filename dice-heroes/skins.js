@@ -367,20 +367,24 @@ const TRAY_STYLE = {
 // 그림 트레이 (v0.30, 디자인 시트에서 오림 · tools/make_trays_from_sheet.py): 바닥 · 발광 지도 · 함 바닥 · 목록 그림을
 // assets/trays/<스킨>/ 의 파일로 쓰고, 테두리(rail)·장식(trim) 색만 여기서 정한다. glow: 바닥 발광 세기.
 // 예전 코드 그림 트레이는 TRAY_STYLE 에 그대로 있다 — IMAGE_TRAY 에서 빼면 되돌아간다
+// rails: 그림 난간 (v0.38.38, assets/trays/<스킨>/rail_top · rail_side · corner_side · corner_top [· rail_glow]).
+//   shape: 윗면 모양 (scallop 반원 물결 · wave 물결 · jag 톱니 · rock 바위), amp: 높이, freq: 촘촘함, gem: 장식 보석(oct 팔면체 · pearl 진주)
+//   railGlow: rail_glow.webp 로 난간이 빛난다. 기본(classic) 트레이는 rails 가 없어 예전 나무 테두리 그대로
 const IMAGE_TRAY = {
-  marble: { rail: 0xE9DFCB, trim: 0xD4A443, trimEnv: true, glow: 0.3 },
-  royal: { rail: 0x7E1222, trim: 0xFFC83D, trimEnv: true, glow: 0.35 },
-  deepsea: { rail: 0x1E4A52, trim: 0xD8B45A, trimEnv: true, glow: 0.55 },
-  demon: { rail: 0x15101C, trim: 0xB36BFF, trimGlow: true, glow: 0.9 },   // 보라 · 검정 테마
-  sakura: { rail: 0xA8744A, trim: 0xF5A8C0, trimEnv: true, glow: 0.35 },
-  lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1 },
-  starry: { rail: 0x161C52, trim: 0xE6C35C, trimEnv: true, glow: 0.8 },
+  marble: { rail: 0xE9DFCB, trim: 0xD4A443, trimEnv: true, glow: 0.3, rails: { shape: 'scallop', amp: 0.09, freq: 2.2, gemColor: 0xFFC83D, metal: 0.15 } },
+  royal: { rail: 0x7E1222, trim: 0xFFC83D, trimEnv: true, glow: 0.35, rails: { shape: 'scallop', amp: 0.13, freq: 1.9, gemColor: 0xE8152A, metal: 0.3 } },
+  deepsea: { rail: 0x1E4A52, trim: 0xD8B45A, trimEnv: true, glow: 0.55, rails: { shape: 'wave', amp: 0.16, freq: 2.6, gem: 'pearl', gemColor: 0xF2F0E6 } },
+  demon: { rail: 0x15101C, trim: 0xB36BFF, trimGlow: true, glow: 0.9, railGlow: true, rails: { shape: 'jag', amp: 0.2, freq: 3.2, gemColor: 0xB36BFF, gemGlow: true, rough: 0.6 } },   // 보라 · 검정 테마
+  sakura: { rail: 0xA8744A, trim: 0xF5A8C0, trimEnv: true, glow: 0.35, rails: { shape: 'wave', amp: 0.12, freq: 2.0, gemColor: 0xFF9AD0, metal: 0.1 } },
+  lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1, railGlow: true, rails: { shape: 'rock', amp: 0.2, freq: 1.7, gemColor: 0xFF7A1A, gemGlow: true, rough: 0.8, metal: 0.05 } },
+  starry: { rail: 0x161C52, trim: 0xE6C35C, trimEnv: true, glow: 0.8, railGlow: true, rails: { shape: 'wave', amp: 0.1, freq: 2.4, gemColor: 0x9AD6FF, gemGlow: true, metal: 0.3 } },
 };
 export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
 export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 // 트레이 그림도 미리 받아 둔다 (꾸미기에서 고르면 바닥이 비었다가 뒤늦게 뜨지 않게)
-const trayImages = id => ['floor', 'glow', 'box'].map(k => trayImage(id, k)).filter(Boolean);
+const RAIL_FILES = ['rail_top', 'rail_side', 'corner_side', 'corner_top'];
+const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
 export const trayReady = id => trayImages(id).every(u => READY.has(u));
 export const preloadTray = id => Promise.all(trayImages(id).map(loadImage));
 
