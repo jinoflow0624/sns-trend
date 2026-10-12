@@ -165,7 +165,10 @@ function showTitle() {
       <nav class="menu">
         ${rejoinLeft > 0 ? `<button class="pbtn gold" data-act="rejoin" data-code="${esc(last.code)}">방으로 돌아가기 <small>${esc(last.code)} · ${rejoinLeft}초 안에</small></button>` : ''}
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
-        <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new">혼자 · 한 기기로</button>
+        <div class="menu-row play-row">
+          <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="versus">${ico('swords', 'xs')} 대전 <small>봇</small></button>
+          <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="coop">${ico('crown', 'xs')} 보스전</button>
+        </div>
         ${PROD ? '' : runMenu()}
         <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : '인터넷 연결 필요'}</small></button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
@@ -177,7 +180,7 @@ function showTitle() {
           <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
       </nav>` : `<button class="touch" data-act="touch">화면을 터치하세요</button>`}
-      ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 혼자 · 한 기기로는 그대로 할 수 있어요</p>' : ''}
+      ${unlocked && !navigator.onLine ? '<p class="offline-note">오프라인이에요 · 대전(봇) · 보스전은 그대로 할 수 있어요</p>' : ''}
       <div id="live-bar"></div>
       <footer class="ver">v${GAME.version} · © ${GAME.year} ${esc(GAME.studio)}</footer>
     </div>
@@ -265,7 +268,7 @@ function syncOwned() {
 
 function offlineToast() {
   sfx.back();
-  return toast(ico('warn'), '인터넷 연결이 없어요', '온라인 방은 인터넷이 필요해요. 혼자 · 한 기기로는 지금 바로 할 수 있어요.', 2400);
+  return toast(ico('warn'), '인터넷 연결이 없어요', '온라인 방은 인터넷이 필요해요. 대전(봇) · 보스전은 지금 바로 할 수 있어요.', 2400);
 }
 // 연결이 끊기거나 돌아오면 시작 화면 안내를 고친다
 addEventListener('online', () => { if (screen === 'title' && !layer.firstElementChild) showTitle(); });
@@ -382,12 +385,13 @@ if (SHAKE_OK && prefs.shake) {
 let pick = { for: 'local', step: 'mode', o: null };
 const pickSteps = () => {
   const mid = pick.o.mode === 'coop' ? 'boss' : 'rule';   // 협동은 보스, 대전은 규칙(일반 · 클래식 야추)
-  return pick.for === 'local' ? ['mode', mid, 'party'] : ['mode', mid];
+  const head = pick.fixed ? [] : ['mode'];                    // 메뉴에서 모드를 정하고 들어오면 모드 단계 없음
+  return pick.for === 'local' ? [...head, mid, 'party'] : [...head, mid];
 };
 const STEP_TITLE = { mode: '모드 선택', boss: '보스 선택', rule: '규칙 선택', party: '캐릭터 선택' };
 
-function beginPick(kind, o) {
-  pick = { for: kind, step: 'mode', o };
+function beginPick(kind, o, fixed = false) {
+  pick = { for: kind, step: fixed ? (o.mode === 'coop' ? 'boss' : 'rule') : 'mode', o, fixed };
   showSetup();
 }
 
@@ -3873,10 +3877,22 @@ function onAct(act, t) {
   }
   if (act === 'rejoin') { sfx.select(); if (!navigator.onLine) return offlineToast(); store.del(KEYS.lastRoom); return joinRoom(t.dataset.code); }
   if (act === 'tutorial') { sfx.select(); layer.innerHTML = ''; return startTutorial(); }
-  if (act === 'new') { sfx.select(); return beginPick('local', opts); }
+  // 메뉴의 대전(봇) · 보스전: 모드를 정해 두고 모드 고르기 단계를 건너뛴다
+  if (act === 'new') {
+    sfx.select();
+    if (!t.dataset.v) return beginPick('local', opts);
+    opts.mode = t.dataset.v;
+    if (opts.mode !== 'versus') opts.rule = null;
+    // 대전(봇): 상대 봇이 한 명도 없으면 한 명 앉힌다
+    if (opts.mode === 'versus' && !setup.some(p => p.bot) && setup.length < 4) {
+      const used = new Set(setup.map(p => p.cls));
+      setup.push({ name: BOT_NAMES.find(n => !setup.some(p => p.name === n)) || '봇', cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
+    }
+    return beginPick('local', opts, true);
+  }
   if (act === 'online') {
     sfx.select();
-    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 혼자 하기는 그대로 할 수 있어요.', 2200);
+    if (live.maintenance) return toast(ico('warn'), '서버 점검 중이에요', '잠시 뒤에 다시 시도해 주세요. 대전(봇) · 보스전은 그대로 할 수 있어요.', 2200);
     if (!navigator.onLine) return offlineToast();
     return showOnlineMenu();
   }
