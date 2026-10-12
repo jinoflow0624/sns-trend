@@ -800,6 +800,14 @@ export class DiceTray {
     });
   }
 
+  // 못 고르는 주사위를 누르면 도리도리 떤다
+  nope(i) {
+    const d = this.dice[i];
+    if (!d) return;
+    d.wobble = 1;
+    this.dirty = true;
+  }
+
   // 전쟁의 북: 모든 주사위가 쿵 하고 튄다
   quake() {
     this.dirty = true;

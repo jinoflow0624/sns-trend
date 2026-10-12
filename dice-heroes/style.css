@@ -1509,6 +1509,8 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 body { word-break: keep-all; overflow-wrap: break-word; }
 /* 세머리 용 얼음: 3D 주사위는 얼음 껍질(dice3d.js iceMat), 2D 대체 화면은 주사위 자체를 얼린다 */
 .d2.frozen { background: linear-gradient(135deg, #F4FDFF, #BDEBFF 45%, #8FD6F5); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .9), inset 0 0 10px rgba(58, 168, 255, .55); }
+.d2.nope { animation: nope .32s; }
+@keyframes nope { 20%, 60% { translate: -4px 0; } 40%, 80% { translate: 4px 0; } }
 .curse-ask p { line-height: 1.6; }
 .curse-ask b { color: #FF5A8A; }
 

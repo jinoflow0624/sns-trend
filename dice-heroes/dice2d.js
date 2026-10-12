@@ -72,6 +72,12 @@ export class DiceTray2D {
     this.frozen = s;
     if (!this.anim) this.draw();
   }
+  // 못 고르는 주사위를 누르면 도리도리 떤다
+  nope(i) {
+    const el = this.el.children[i];
+    if (!el) return;
+    el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope');
+  }
   setHeld(held) { this.held = this.values.map((_, i) => !!held[i]); this.draw(); }
   setTarget(on) { this.target = on; this.draw(); }
 

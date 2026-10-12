@@ -52,6 +52,8 @@ function applyPrefs() {
 }
 applyPrefs();
 const markSeen = k => { seen[k] = true; store.set(KEYS.seen, seen); };
+// 처음 한 번만: 처음이면 기억하고 true (안내 문구는 처음 만났을 때만 띄운다)
+const once = k => !seen[k] && (markSeen(k), true);
 
 const BOT_NAMES = ['고블린 봇', '슬라임 봇', '해골 봇', '미믹 봇'];
 let setup = store.get(KEYS.setup) || [
@@ -217,7 +219,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, nopeDie, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
     });
@@ -1681,6 +1683,19 @@ function floatText(text, cls, offset = 0, anchor = 'tray', icon = '') {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1500);
 }
+// 못 고르는 주사위: 소리 · 진동 · 주사위 떨림. 글 안내는 종류마다 처음 한 번만
+const NOPE_TIPS = {
+  seal: ['chain', '봉인된 주사위', '다시 굴리면 풀려요'],
+  'seal-perm': ['chain', '봉인된 주사위', '뒤집기로 풀기'],
+  ice: ['snow', '얼어붙은 주사위', '뒤집기 · 조정만'],
+};
+function nopeDie(i, kind) {
+  sfx.back(); buzz(40);
+  tray?.nope?.(i);
+  const t = NOPE_TIPS[kind];
+  if (t && once(`tip-${kind}`)) toast(ico(t[0]), t[1], t[2], 1600);
+}
+
 async function toast(icon, title, text, ms = 1900, img = '') {
   // 같은 알림이 이미 떠 있으면 또 띄우지 않고, 다른 알림은 아래로 쌓는다
   const same = [...document.querySelectorAll('.toast')].find(t => t.dataset.title === title && t.dataset.text === text);
@@ -3757,8 +3772,7 @@ async function onGameAct(act, t) {
       if (tryAct(() => E.useFlip(S, i))) return step();
       return;
     }
-    if (E.isSealed(S, i)) { sfx.back(); buzz(40); return toast(ico('chain'), '봉인된 주사위', S.sealPerm ? '뒤집기로 풀기' : '다시 굴리면 풀려요', 1300); }
-    if (E.isFrozen(S, i)) { sfx.back(); buzz(40); return toast(ico('snow'), '얼어붙은 주사위', '뒤집기 · 조정만', 1300); }
+    if (E.isSealed(S, i) || E.isFrozen(S, i)) return nopeDie(i, E.isSealed(S, i) ? (S.sealPerm ? 'seal-perm' : 'seal') : 'ice');
     const held = !S.held[i];
     held ? sfx.hold() : sfx.unhold();
     if (online) return onlineAct(g => E.toggleHold(g, i));

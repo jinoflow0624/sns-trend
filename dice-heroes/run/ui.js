@@ -1768,8 +1768,7 @@ export function onDie(i) {
   }
   if (ui.tool === 'nudge') return;
   if (ui.tool === 'deal') { if (Run.isSealed(R, i)) return; sfx.select(); ui.dealDie = i; return paintTray(); }
-  if (Run.isSealed(R, i)) { sfx.back(); buzz(40); return X.toast(ico('chain'), '봉인된 주사위', '다시 굴리면 풀려요', 1200); }
-  if (Run.isFrozen(R, i)) { sfx.back(); buzz(40); return X.toast(ico('snow'), '얼어붙은 주사위', '뒤집기 · 조정만', 1200); }
+  if (Run.isSealed(R, i) || Run.isFrozen(R, i)) return X.nopeDie(i, Run.isSealed(R, i) ? 'seal' : 'ice');
   const held = !C.held[i];
   held ? sfx.hold() : sfx.unhold();
   Run.toggleHold(R, i);
