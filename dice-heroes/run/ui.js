@@ -185,7 +185,7 @@ function paintSelect() {
     <section class="rs-info frame" style="--c:${info.color}">
       <div class="rs-top">${hero(sel)}<div><b>${info.ko}</b><small>체력 ${ci.hp} · 뒤집기 ${ci.flip} · 조정 ${ci.nudge}</small></div></div>
       <p class="rs-skill"><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>
-      <div class="rs-deck"><small>시작 덱 9장 · 대표 카드</small><div class="rc rc-static">${cardFace(sig)}</div></div>
+      <div class="rs-deck"><small>${ico('card', 'xs')} 9</small><div class="rc rc-static">${cardFace(sig)}</div></div>
     </section>
     ${ascButton(b, sel)}
     <div class="rs-foot">
@@ -201,7 +201,7 @@ function paintSelect() {
 const ascEmblem = (n, cls = '') => (n ? runIco('asc', String(n), 'skull', cls) : runIco('ui', 'asc', 'skull', cls));
 function ascButton(b, cls) {
   const open = ascOpen(b, cls), a = ui.asc;
-  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} 이 직업으로 원정을 끝내면 <b>승천</b>이 열려요 (더 어려운 원정 1~${Run.ASC_MAX})</p>`;
+  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} <b>승천</b></p>`;
   return `<button class="rs-ascbtn frame${a ? ' on' : ''}" data-act="run-ascopen" style="--t:${a / Run.ASC_MAX}">
     <span class="asc-badge${a ? '' : ' off'}">${ascEmblem(a)}<b>${a}</b></span>
     <span class="ab-txt"><b>${a ? `승천 ${a}` : '승천 없음'}</b><small>${a ? `어려움 ${a}가지 적용` : '기본 원정'} · 열린 단계 ${open}/${Run.ASC_MAX}</small></span>
@@ -220,7 +220,7 @@ function showAsc() {
     <div class="asc-hero">
       <button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="승천 낮추기">◀</button>
       <div class="ah-mid"><span class="ah-emb${a ? '' : ' off'}">${ascEmblem(a)}</span>
-        <b>${a ? `승천 ${a}` : '승천 0'}</b><small>${a ? `아래 ${a}가지 어려움이 모두 쌓여요` : '기본 원정 · 단계를 올리면 어려움이 쌓여요'}</small></div>
+        <b>${a ? `승천 ${a}` : '승천 0'}</b><small>${a ? `어려움 ×${a}` : ''}</small></div>
       <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button>
     </div>
     <div class="asc-ladder">${rows}</div>
@@ -480,7 +480,7 @@ function tipText(needBet) {
   const C = R.C;
   if (ui.busy) return '';
   // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 도박사 배팅만 남긴다 (배팅해야 굴릴 수 있다)
-  if (needBet) return `${ico('coins', 'xs')} 배팅: 이번 턴에 노릴 카드를 누르세요 (그 카드 ×${Run.CLASS_TUNE.betMul})`;
+  if (needBet) return `${ico('coins', 'xs')} 배팅 ×${Run.CLASS_TUNE.betMul}`;
   return '';
 }
 
@@ -577,7 +577,7 @@ function tapCard(u) {
 function betAsk(u) {
   const re = R.C.bet != null;
   return `<div class="bet-ask">
-    <p>${ico('coins', 'xs')}<b>${re ? '배팅을 이 카드로 바꿀까요?' : '이 카드에 배팅하시겠습니까?'}</b><small>이 카드를 내면 점수 ×${Run.CLASS_TUNE.betMul} · 굴리기 전에만 바꿀 수 있어요</small></p>
+    <p>${ico('coins', 'xs')}<b>${re ? '배팅 바꾸기' : '배팅'} ×${Run.CLASS_TUNE.betMul}</b></p>
     <div class="bet-btns"><button class="hb" data-act="run-betno">아니요</button><button class="hb gold" data-act="run-bet" data-u="${u}">${ico('coins', 'xs')}배팅</button></div>
   </div>`;
 }
@@ -1317,7 +1317,7 @@ function cardPick(k) {
   ui.cardPick = k;
   sfx.card();
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
-    <h2>카드 1장을 덱에 넣으세요</h2>
+    <h2>보상</h2>
     <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}<span class="rc-desc">${Run.kwsOf(c).length ? Run.kwsOf(c).map(k => `${Run.KEYWORDS[k].ko}: ${Run.KEYWORDS[k].desc}`).join(' · ') : c.up ? '강화: 점수 +30%' : '키워드 없음'}${Run.kwsOf(c).length && c.up ? ' · 강화 +30%' : ''}</span></button>`).join('')}</div>
     <div class="pick-actions"><button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
   </div></div>`;
@@ -1440,7 +1440,7 @@ async function rollEventDice(before) {
 function showPick() {
   const pk = R.pick;
   if (pk.opts) return showUpgrade();
-  const title = { upgrade: '강화할 카드를 고르세요', remove: '없앨 카드를 고르세요', dup: '복제할 카드를 고르세요', seal: `${Run.sealInfo(pk.seal)?.ko}을 붙일 카드를 고르세요` }[pk.why];
+  const title = { upgrade: '강화', remove: '제거', dup: '복제', seal: `${Run.sealInfo(pk.seal)?.ko}` }[pk.why];
   const list = Run.deckCards(R).filter(c => (pk.why === 'upgrade' ? Run.canUpgrade(c) : pk.why === 'seal' ? !c.seal : true));
   const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
@@ -1456,7 +1456,7 @@ function showUpgrade() {
   const pk = R.pick, c = R.deck.find(x => x.u === pk.u);
   const after = o => (o === 'up' ? { ...c, up: 1 } : { ...c, kws: [...Run.kwsOf(c), o] });
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
-    <div class="up-head"><img class="run-scene" src="${sceneURL('smith')}" alt=""><h2>어떻게 강화할까요?</h2></div>
+    <div class="up-head"><img class="run-scene" src="${sceneURL('smith')}" alt=""><h2>강화</h2></div>
     ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : ''}
     <div class="up-opts">${pk.opts.map((o, k) => {
       const kw = o !== 'up' && Run.KEYWORDS[o];
@@ -1499,8 +1499,8 @@ function paintEnd(arrived) {
   const won = R.won, out = ui.end;
   const opened = !!out?.opened;
   const stars = !out ? `<p class="end-stars wait">${starIco()} 별조각 계산 중…</p>`
-    : out.error ? `<p class="end-stars off">${ico('warn', 'xs')} 기록을 저장하지 못했어요 <small>인터넷 연결을 확인해 주세요</small></p>`
-    : out.offline ? `<p class="end-stars off">${starIco()} 오프라인 원정 <small>인터넷 없이 시작한 원정은 별조각 · 기록이 없어요</small></p>`
+    : out.error ? `<p class="end-stars off">${ico('warn', 'xs')} 기록을 저장하지 못했어요</p>`
+    : out.offline ? `<p class="end-stars off">${starIco()} 오프라인 원정 · 별조각 없음</p>`
     : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b></p>`;
   const st = R.stats;
   X.layer.innerHTML = '';
@@ -1768,8 +1768,8 @@ export function onDie(i) {
   }
   if (ui.tool === 'nudge') return;
   if (ui.tool === 'deal') { if (Run.isSealed(R, i)) return; sfx.select(); ui.dealDie = i; return paintTray(); }
-  if (Run.isSealed(R, i)) { sfx.back(); buzz(40); return X.toast(ico('chain'), '봉인된 주사위', '다시 굴리면 풀려요.', 1300); }
-  if (Run.isFrozen(R, i)) { sfx.back(); buzz(40); return X.toast(ico('snow'), '얼어붙은 주사위', '이번 턴엔 다시 굴릴 수 없어요. 뒤집기 · 조정은 돼요.', 1400); }
+  if (Run.isSealed(R, i)) { sfx.back(); buzz(40); return X.toast(ico('chain'), '봉인된 주사위', '다시 굴리면 풀려요', 1200); }
+  if (Run.isFrozen(R, i)) { sfx.back(); buzz(40); return X.toast(ico('snow'), '얼어붙은 주사위', '뒤집기 · 조정만', 1200); }
   const held = !C.held[i];
   held ? sfx.hold() : sfx.unhold();
   Run.toggleHold(R, i);
