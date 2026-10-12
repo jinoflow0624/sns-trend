@@ -27,7 +27,7 @@ test('직업마다 시작 덱 9장 · 체력 · 도구', () => {
     assert.equal(R.hp, ci.hp);
     assert.equal(R.flip, ci.flip);
     assert.equal(R.deck.at(-1).cat, ci.sig.cat);
-    assert.equal(R.deck.at(-1).kw, ci.sig.kw || null);
+    assert.deepEqual(Run.kwsOf(R.deck.at(-1)), ci.sig.kw ? [ci.sig.kw] : []);
     assert.ok(ci.desc.length > 10);
   }
 });
@@ -436,8 +436,48 @@ test('휴식: 체력 30% 회복 또는 카드 1장 강화', () => {
   Run.startUpgrade(R);
   const c = R.deck.find(x => !x.up);
   Run.pickDeck(R, c.u);
+  assert.ok(R.pick.opts.includes('up'));
+  Run.chooseUpgrade(R, R.pick.opts.indexOf('up'));
   assert.equal(c.up, 1);
   assert.equal(R.phase, 'map');
+});
+test('카드 강화: 효과를 3개까지 새기고, 다 차면 더 강화할 수 없다', () => {
+  const R = run('warrior');
+  const c = R.deck.find(x => !Run.kwsOf(x).length);
+  c.up = 1;
+  for (let n = 1; n <= Run.KW_MAX; n++) {
+    R.phase = 'rest';
+    Run.startUpgrade(R);
+    Run.pickDeck(R, c.u);
+    assert.ok(!R.pick.opts.includes('up'));
+    assert.equal(R.pick.opts.length, 3);
+    Run.chooseUpgrade(R, 0);
+    assert.equal(Run.kwsOf(c).length, n);
+    assert.equal(new Set(Run.kwsOf(c)).size, n);       // 같은 효과는 두 번 붙지 않는다
+  }
+  assert.equal(Run.canUpgrade(c), false);
+  assert.equal(Run.cardRarity(c), 3);
+  // 여러 효과가 함께 동작한다
+  const R2 = run('rogue');
+  intoFight(R2);
+  Run.roll(R2);
+  R2.C.dice = [6, 6, 6, 6, 6];
+  R2.hp = 10;
+  R2.C.hand[0] = { u: 9501, cat: 'choice', up: 0, kws: ['vamp', 'gold', 'keep'] };
+  const p = Run.preview(R2, 0, 'enemy');
+  assert.equal(p.heal, 10); assert.equal(p.gold, 10);
+});
+test('상점 대장장이: 골드를 내고 상점마다 한 번 강화', () => {
+  const R = run('warrior');
+  R.phase = 'shop'; R.gold = 500; R.shop = { cards: [], relics: [], potions: [], tools: [], removed: false, smithed: false };
+  const price = Run.smithPrice(R);
+  Run.startSmith(R);
+  const c = R.deck[0];
+  Run.pickDeck(R, c.u);
+  Run.chooseUpgrade(R, 0);
+  assert.equal(R.gold, 500 - price);
+  assert.equal(R.phase, 'shop');
+  assert.throws(() => Run.startSmith(R));
 });
 test('이벤트는 모두 고를 수 있는 선택지가 있고 끝까지 진행된다', () => {
   for (const ev of Run.EVENTS) {
@@ -448,7 +488,7 @@ test('이벤트는 모두 고를 수 있는 선택지가 있고 끝까지 진행
       R.event = { id: ev.id, result: null, dice: null, fight: null };
       if (!ev.opts[k].can(R)) continue;
       Run.eventChoose(R, k);
-      if (R.pick) { const c = R.deck.find(x => !x.up) || R.deck[0]; Run.pickDeck(R, c.u); }
+      if (R.pick) { const c = R.deck.find(x => !x.up) || R.deck[0]; Run.pickDeck(R, c.u); if (R.pick?.opts) Run.chooseUpgrade(R, 0); }
       assert.ok(R.event.result, `${ev.id} ${k}: 결과 문장`);
       Run.eventLeave(R);
       assert.ok(['map', 'combat'].includes(R.phase));

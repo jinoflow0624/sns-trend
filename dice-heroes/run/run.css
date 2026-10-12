@@ -515,3 +515,16 @@
 .run-scene { display: block; object-fit: contain; }
 .shop-head .run-scene.sm { width: 76px; height: 76px; flex: none; }
 .run-reward .rw .run-ico, .shop-good .run-ico { width: 28px; height: 28px; }
+
+/* 효과가 여러 개인 카드: 효과 칩을 한 줄로 (3개면 아이콘만) */
+.rc-kws { display: flex; justify-content: center; gap: 1px; max-width: 100%; }
+.rc-kws .rc-kw { font-style: normal; font-size: 8px; padding: 0 2px; gap: 0; min-height: 13px; }
+.rc-kws.n3 .rc-kw { font-size: 0; padding: 0 3px; }
+.rc-kws.n3 .rc-kw .ico, .rc-kws .rc-kw .ico { width: 9px; height: 9px; }
+/* 강화 고르기 */
+.up-opts { display: grid; gap: 6px; }
+.up-opt { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; text-align: left; padding: 6px; background: #0E0A2C; border: 2px solid #2A2270; box-shadow: 0 3px 0 var(--ink); }
+.up-opt:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.up-opt b { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--gold); }
+.up-opt small { display: block; font-size: 10px; color: var(--muted); line-height: 1.35; }
+.up-opt .rc.mini { pointer-events: none; }
