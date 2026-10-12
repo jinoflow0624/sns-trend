@@ -38,41 +38,13 @@ export function rand(R) {
 const int = (R, a, b) => a + Math.floor(rand(R) * (b - a + 1));
 const pick = (R, arr) => arr[Math.floor(rand(R) * arr.length)];
 const die = R => 1 + Math.floor(rand(R) * 6);
-// 특수 주사위 한 개 굴리기 (금 · 무거운). 쌍둥이 · 계단은 다 굴린 뒤 specialDice 가 맞춘다
-const dkind = (R, i) => R.dset?.[i] || null;
-// procs: 특수 주사위가 힘을 쓴 기록 (화면 연출용, 'sdie' fx). 금 주사위가 1을 다시 굴리면 { i, k, raw: 1 }
-function rollFace(R, i, procs) {
-  const k = dkind(R, i);
-  if (k === 'gold') { const v = die(R); if (v !== 1) return v; procs?.push({ i, k, raw: 1 }); return die(R); }
-  if (k === 'heavy') return rand(R) < 0.1 ? 6 : die(R);
-  return die(R);
+// 주사위 한 개 굴리기. 「주사위 깎는 노인」 이벤트로 면을 바꾼 주사위는 그 면들 중 하나가 나온다 (R.dfaces[주사위 번호] = 6면)
+function rollFace(R, i) {
+  const f = R.dfaces?.[i];
+  return f ? f[Math.floor(rand(R) * 6)] : die(R);
 }
-function specialDice(R, rolled) {
-  const D = R.C.dice;
-  D.forEach((v, i) => {
-    const k = dkind(R, i);
-    if (!rolled[i] || (k !== 'twin' && k !== 'stair') || rand(R) >= 1 / 3) return;
-    const others = D.filter((x, j) => j !== i);
-    if (k === 'twin') {                    // 다른 주사위 중 가장 많이 나온 눈 (같으면 큰 눈)
-      const cnt = [0, 0, 0, 0, 0, 0, 0]; others.forEach(x => cnt[x]++);
-      let best = 1; for (let f = 1; f <= 6; f++) if (cnt[f] >= cnt[best]) best = f;
-      if (best !== D[i]) fx(R, { type: 'sdie', k, i, from: D.slice(), to: best });
-      D[i] = best;
-    } else {                               // 없는 눈 중 가장 긴 연속을 만드는 눈
-      const has = new Set(others);
-      let best = D[i], bl = -1;
-      for (let f = 1; f <= 6; f++) {
-        if (has.has(f)) continue;
-        let lo = f, hi = f;
-        while (has.has(lo - 1)) lo--;
-        while (has.has(hi + 1)) hi++;
-        if (hi - lo > bl) { bl = hi - lo; best = f; }
-      }
-      if (best !== D[i]) fx(R, { type: 'sdie', k, i, from: D.slice(), to: best });
-      D[i] = best;
-    }
-  });
-}
+export const DIE_FACES = [1, 2, 3, 4, 5, 6];
+export const facesOf = (R, i) => R.dfaces?.[i] || DIE_FACES;
 function shuffle(R, arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rand(R) * (i + 1));
@@ -200,33 +172,29 @@ export const META = [
   { id: 'potion', ko: '물약 띠',   icon: 'bag',    max: 1, cost: [80],                   desc: () => '회복 물약 1개를 들고 출발' },
   { id: 'relic', ko: '보물 지도',   icon: 'scroll', max: 1, cost: [200],                  desc: () => '출발할 때 직업 유물 1개 (직업마다 어울리는 유물)' },
   { id: 'sharp', ko: '연마된 덱',   icon: 'axe',    max: 1, cost: [100],                  desc: () => '대표 카드 점수 +30%' },
-  { id: 'slot',  ko: '주사위 칸',   icon: 'die6',   max: 2, cost: [60, 150],              desc: n => `특수 주사위 ${n}개를 넣는다` },
   { id: 'seal',  ko: '인장 상자',   icon: 'sparkle', max: 3, cost: [50, 90, 140],         desc: n => `출발할 때 덱의 무작위 카드 ${n}장에 무작위 인장` },
 ];
-// 특수 주사위 (눈은 그대로 1~6, 나오는 눈이 다르다). 원정 준비에서 사서 주사위 칸에 넣는다
-// id 는 저장 호환 때문에 처음 이름(gold · heavy · twin · stair) 그대로. 화면 이름은 효과대로: 리롤 · 식스 · 카피 · 커넥트
-export const DICE = [
-  { id: 'gold',  ko: '리롤 주사위',     color: '#FFC83D', cost: 80,  desc: '1이 나오면 저절로 한 번 더 굴린다' },
-  { id: 'heavy', ko: '식스 주사위',     color: '#9AA4B8', cost: 100, desc: '추가 달려 6이 더 자주 나온다 (1/6 → 약 1/4)' },
-  { id: 'twin',  ko: '카피 주사위',     color: '#FF9AD0', cost: 120, desc: '1/3 확률로 다른 주사위 눈을 따라 한다 (가장 많이 나온 눈 → 포카인드 · 요트)' },
-  { id: 'stair', ko: '커넥트 주사위',   color: '#3EE6B4', cost: 120, desc: '1/3 확률로 빈 눈을 메워 숫자를 이어 준다 (스트레이트)' },
-];
-export const diceInfo = id => DICE.find(d => d.id === id);
+// (예전) 특수 주사위 · 주사위 칸은 없앴다. 이미 산 것은 별조각으로 돌려준다 (fixProgress)
+const OLD_DIE_COST = { gold: 80, heavy: 100, twin: 120, stair: 120 }, OLD_SLOT_COST = [60, 150];
 // 보물 지도: 직업마다 정해진 출발 유물
 export const START_RELIC = { gambler: 'purse', monk: 'nudge', rogue: 'flip', warrior: 'basic', bard: 'lotus', mage: 'choice', dancer: 'drum', outlaw: 'whet', sharper: 'yacht' };
 // 원정이 끝나면 얻는 별조각(✦): 지난 층 2 · 엘리트 4 · 보스 10 · 클리어 20, 승천 1단계마다 +10%
 export const starsOf = R => Math.round((R.stats.floors * 2 + R.stats.elites * 4 + R.stats.bosses * 10 + (R.won ? 20 : 0)) * (1 + (R.asc || 0) * 0.1));
 
 // 원정 기록 · 별조각 (서버 지갑 wallets/<uid>/run 과 테스트판 기기 저장이 같은 모양 · 같은 규칙)
-//   { stars, lv: { 강화 id: 단계 }, dice: [가진 특수 주사위], equip: [넣은 주사위], best: { runs, wins, top, cls, asc, feats } }
-export const blankProgress = () => ({ stars: 0, lv: {}, dice: [], equip: [], best: { runs: 0, wins: 0, top: 0, cls: {}, asc: {}, feats: [] } });
+//   { stars, lv: { 강화 id: 단계 }, best: { runs, wins, top, cls, asc, feats } }
+export const blankProgress = () => ({ stars: 0, lv: {}, best: { runs: 0, wins: 0, top: 0, cls: {}, asc: {}, feats: [] } });
 export function fixProgress(p) {
   p ||= blankProgress();
-  p.stars ||= 0; p.lv ||= {}; p.dice ||= []; p.equip ||= []; p.best ||= blankProgress().best;
+  p.stars ||= 0; p.lv ||= {}; p.best ||= blankProgress().best;
+  // 없앤 특수 주사위 · 주사위 칸: 쓴 별조각을 돌려준다 (한 번)
+  const refund = (p.dice || []).reduce((a, id) => a + (OLD_DIE_COST[id] || 0), 0) + OLD_SLOT_COST.slice(0, p.lv.slot || 0).reduce((a, c) => a + c, 0);
+  if (refund) p.stars += refund;
+  delete p.dice; delete p.equip; delete p.lv.slot;
   const b = p.best; b.runs ||= 0; b.wins ||= 0; b.top ||= 0; b.cls ||= {}; b.asc ||= {}; b.feats ||= [];
   return p;
 }
-export const progressMeta = p => ({ lv: { ...p.lv }, equip: [...p.equip] });
+export const progressMeta = p => ({ lv: { ...p.lv } });
 // 끝난 원정을 기록에 더한다 (서버는 행동 기록을 다시 돌린 R 로 부른다)
 export function recordRun(p, R) {
   fixProgress(p);
@@ -256,23 +224,7 @@ export function buyProgress(p, kind, id) {
     p.stars -= u.cost[n]; p.lv[id] = n + 1;
     return null;
   }
-  if (kind === 'die') {
-    const d = diceInfo(id);
-    if (!d) return '없는 주사위예요.';
-    if (p.dice.includes(id)) return '이미 가지고 있어요.';
-    if (p.stars < d.cost) return '별조각이 모자라요.';
-    p.stars -= d.cost; p.dice.push(id);
-    if (p.equip.length < (p.lv.slot || 0)) p.equip.push(id);
-    return null;
-  }
   return '이상한 요청이에요.';
-}
-export function equipProgress(p, list) {
-  fixProgress(p);
-  const eq = [...new Set(list || [])].filter(id => p.dice.includes(id));
-  if (eq.length > (p.lv.slot || 0)) return '주사위 칸이 모자라요.';
-  p.equip = eq;
-  return null;
 }
 
 // ── 승천 (원정을 깬 직업은 한 단계씩 더 어려운 원정을 열 수 있다, 0~10. 단계는 쌓인다) ──
@@ -610,7 +562,7 @@ export function nextNodes(R) {
 }
 
 // ── 원정 만들기 ─────────────────────────────────────────────────────────────
-// meta: 원정 성장 { lv: { hp, gold, tools, potion, relic, sharp, slot }, equip: [특수 주사위 id …] }
+// meta: 원정 성장 { lv: { hp, gold, tools, potion, relic, sharp, seal } }
 export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>> 0, name = '모험가', asc: lv = 0, meta = null } = {}) {
   const k = RUN_CLASSES[cls] ? cls : 'gambler';
   const ci = RUN_CLASSES[k];
@@ -639,7 +591,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   for (let n = 0; n < ml('seal'); n++) { const free = R.deck.filter(c => !c.seal); if (free.length) pick(R, free).seal = pick(R, SEAL_IDS); }
   const sig = R.deck[R.deck.length - 1];
   if (ml('sharp') >= 1) sig.up = 1;
-  R.dset = (meta?.equip || []).filter(id => diceInfo(id)).slice(0, ml('slot'));
+  R.dfaces = {};                       // 주사위 면 바꾸기 (주사위 깎는 노인)
   newAct(R);
   if (ml('relic')) {
     const id = START_RELIC[k] || rollRelic(R, 1);
@@ -887,15 +839,7 @@ export const roll = act('roll', function roll(R) {
   if (C.rolled && C.held.every((h, i) => h || isFrozen(R, i))) fail('모든 주사위를 잡고 있어요.');
   if (R.cls === 'gambler' && !C.rolled && C.bet == null && C.hand.length) fail('먼저 이번 턴에 배팅할 카드를 고르세요.');
   const rolled = C.dice.map((v, i) => !(C.rolled && (C.held[i] || isSealed(R, i) || isFrozen(R, i))));
-  const procs = [];
-  C.dice = C.dice.map((v, i) => (rolled[i] ? rollFace(R, i, procs) : v));
-  // 금 주사위: 처음 나온 1을 먼저 보여 주고 다시 굴린 눈으로 바뀐다
-  if (procs.length) {
-    const cur = C.dice.slice();
-    procs.forEach(p => { cur[p.i] = p.raw; });
-    procs.forEach(p => { const from = cur.slice(); cur[p.i] = C.dice[p.i]; fx(R, { type: 'sdie', k: p.k, i: p.i, from, to: C.dice[p.i] }); });
-  }
-  specialDice(R, rolled);
+  C.dice = C.dice.map((v, i) => (rolled[i] ? rollFace(R, i) : v));
   if (!C.rolled) C.held = C.held.map(() => false);
   C.rolled = true;
   C.rollsLeft--;
@@ -1838,6 +1782,12 @@ export const EVENTS = [
       hurtHero(R, 16, 'event'); return `${v}… 함정이 터졌다! 체력 16을 잃었다.`;
     }),
     O('뛰어간다', '체력 7 잃음', R => { hurtHero(R, 7, 'event'); return '발목을 긁혔지만 빠져나왔다. 체력 7을 잃었다.'; })]),
+  E_('carver', '주사위 깎는 노인', 'axe', '"주사위 다섯 개를 세 번까지 굴려 족보를 만들어 보게. 솜씨만큼 자네 주사위의 면을 원하는 눈으로 깎아 주지."', [
+    O('도전한다', '야추처럼 3번까지 굴려 족보 점수 · 10점 이하 1면 · 20점 이하 2면 · 30점 이하 3면 · 요트 4면을 깎는다', R => {
+      R.event.yacht = { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 3, done: null };
+      return null;
+    }),
+    O('떠난다', '아무 일도 없다', () => '"다음에 또 오게나."')]),
   E_('fairy', '길 잃은 요정', 'sparkle', '날개를 다친 요정이 울고 있다. 상처를 돌봐 주자 요정이 고마워한다.', [
     O('축복을 받는다', '최대 체력 +8', R => { R.maxHp += 8; R.hp += 8; return '따뜻한 빛이 감싼다. 최대 체력 +8.'; }),
     O('선물을 받는다', '뒤집기 +2 · 조정 +2', R => { addTool(R, 'flip', 2); addTool(R, 'nudge', 2); return '요정이 반짝이는 가루를 뿌려 주었다.'; })]),
@@ -1869,6 +1819,51 @@ export const eventLeave = act('eventLeave', function eventLeave(R) {
   R.event = null;
   if (fight) return startCombat(R, fight);
   R.phase = 'map';
+});
+// 주사위 깎는 노인: 야추 한 턴 (3번까지 굴리고, 잡은 주사위는 남긴다)
+const yachtGame = R => { const y = R.event?.yacht; if (R.phase !== 'event' || !y || y.done) fail('지금은 굴릴 수 없어요.'); return y; };
+export const CARVE_STEPS = [[10, 1], [20, 2], [30, 3]];      // 점수 이하 → 깎는 면 수 (요트는 4)
+export function carveCount(dice) {
+  if (baseScore('yacht', dice)) return { n: 4, score: 50, cat: 'yacht' };
+  let score = 0, cat = 'choice';
+  for (const c of CAT_IDS) { const v = baseScore(c, dice); if (v > score) { score = v; cat = c; } }
+  return { n: (CARVE_STEPS.find(([max]) => score <= max) || [0, 3])[1], score, cat };
+}
+export const eventRoll = act('eventRoll', function eventRoll(R) {
+  const y = yachtGame(R);
+  if (y.rolls <= 0) fail('굴림을 다 썼어요.');
+  const first = y.rolls === 3;
+  y.dice = y.dice.map((v, i) => (first || !y.held[i] ? die(R) : v));
+  y.rolls--;
+  if (y.rolls === 0) stopYacht(R);
+});
+export const eventHold = act('eventHold', function eventHold(R, i) {
+  const y = yachtGame(R);
+  if (y.rolls === 3) fail('먼저 굴려 주세요.');
+  if (i < 0 || i > 4) fail('없는 주사위예요.');
+  y.held[i] = !y.held[i];
+});
+export const eventStop = act('eventStop', function eventStop(R) {
+  const y = yachtGame(R);
+  if (y.rolls === 3) fail('먼저 굴려 주세요.');
+  stopYacht(R);
+});
+function stopYacht(R) {
+  const y = R.event.yacht;
+  y.done = carveCount(y.dice);
+  R.pick = { why: 'face', left: y.done.n, from: 'event', done: `주사위 면 ${y.done.n}개를 깎았다.` };
+}
+// 주사위 i 의 f 번째 면을 눈 v 로 깎는다
+export const carveFace = act('carveFace', function carveFace(R, i, f, v) {
+  const pk = R.pick;
+  if (!pk || pk.why !== 'face') fail('지금은 깎을 수 없어요.');
+  if (!(i >= 0 && i < 6 && f >= 0 && f < 6 && v >= 1 && v <= 6)) fail('잘못된 면이에요.');
+  const faces = (R.dfaces ||= {})[i] = [...facesOf(R, i)];
+  if (faces[f] === v) fail('이미 그 눈이에요.');
+  faces[f] = v;
+  pk.left--;
+  fx(R, { type: 'carve', i, f, v });
+  if (pk.left <= 0) { R.pick = null; finishEvent(R, pk.done); }
 });
 function finishEvent(R, text) { if (R.phase === 'event' && R.event && R.event.result == null) R.event.result = text || '끝났다.'; }
 
@@ -2153,6 +2148,20 @@ export function botCardValue(R, c) {
 }
 // 원정 진행(지도 · 보상 · 상점 · 휴식 · 이벤트)을 한 걸음 진행한다
 export function botRunStep(R, rng = Math.random) {
+  if (R.pick?.why === 'face') {             // 가장 낮은 면을 6으로
+    for (let i = 0; i < 5; i++) { const f = facesOf(R, i), k = f.indexOf(Math.min(...f)); if (f[k] < 6) return carveFace(R, i, k, 6); }
+    return cancelPick(R);
+  }
+  if (R.phase === 'event' && R.event?.yacht && !R.event.yacht.done) {   // 가장 많이 나온 눈을 잡고 다시
+    const y = R.event.yacht;
+    if (y.rolls < 3) {
+      const cnt = [0, 0, 0, 0, 0, 0, 0]; y.dice.forEach(v => cnt[v]++);
+      const best = cnt.indexOf(Math.max(...cnt));
+      const k = y.dice.findIndex((v, i) => (v === best) !== y.held[i]);
+      if (k >= 0) return eventHold(R, k);
+    }
+    return eventRoll(R);
+  }
   if (R.pick) {
     const pk = R.pick;
     if (pk.opts) {                       // 강화 고르기: 효과 값이 가장 큰 것 (이미 강화했으면)
