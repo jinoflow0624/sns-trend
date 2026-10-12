@@ -555,6 +555,48 @@ test('같은 시드 · 같은 선택이면 같은 결과, 상태는 JSON 으로 
   assert.ok(copy.C.turn >= 1);
 });
 
+console.log('\n덱 빌딩 유물');
+const fight = (relics, setup) => { const R = Run.createRun({ cls: 'bard', seed: 4 }); R.relics.push(...relics); Run.startCombat(R, 'slime'); setup?.(R); return R; };
+test('자석 주사위: 같은 눈 3개면 다른 주사위 1개가 그 눈으로 (턴마다 1번)', () => {
+  let hit = 0;
+  for (let s = 1; s < 200 && !hit; s++) {
+    const R = Run.createRun({ cls: 'warrior', seed: s }); R.relics.push('magnet'); Run.startCombat(R, 'slime');
+    Run.roll(R);
+    const cnt = [0, 0, 0, 0, 0, 0, 0]; R.C.dice.forEach(v => cnt[v]++);
+    if (R.C.magnet) { hit++; assert.ok(Math.max(...cnt) >= 4); assert.ok(Run.drainFx(R).some(f => f.type === 'lucky' && f.why === 'magnet')); }
+  }
+  assert.ok(hit);
+});
+test('저울추 · 묵주 · 도서관 열쇠', () => {
+  const R = fight(['weight']); R.C.rolled = true; R.C.dice = [1, 2, 3, 4, 6]; R.C.rollsLeft = 2;
+  assert.equal(Run.scoreCard(R, { u: 1, cat: 'choice', up: 0 }).total, 16 + 12);
+  const T = fight(['rosary']); T.C.rolled = true; T.C.dice = [6, 6, 6, 1, 2];
+  T.deck = T.deck.slice(0, 8);
+  assert.equal(Run.scoreCard(T, { u: 1, cat: 'sixes', up: 0 }).parts.find(p => p.ko === '수도승의 묵주').amt, 5);
+  const L = fight(['libkey']); const h0 = Run.handSize(L);
+  while (L.deck.length < Run.LIBKEY_MIN) L.deck.push({ ...L.deck[0], u: 900 + L.deck.length });
+  assert.equal(Run.handSize(L), h0 + 1);
+});
+test('불씨 항아리 · 피의 성배 · 성벽 설계도 · 보존 상자', () => {
+  const R = fight(['ember']); R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6]; R.C.e.hp = 999;
+  R.C.hand[0] = { u: 7001, cat: 'sixes', up: 0, kws: ['burn'] };
+  Run.playCard(R, 0, 'enemy');
+  assert.equal(R.C.e.burn, Math.floor(30 / 4) + 3);
+  const B = fight(['bloodcup']); B.C.rolled = true; B.C.dice = [6, 6, 6, 6, 6]; B.C.e.hp = 999; B.hp = B.maxHp;
+  B.C.hand[0] = { u: 7002, cat: 'sixes', up: 0, kws: ['vamp'] };
+  const blk0 = B.C.block; Run.playCard(B, 0, 'enemy');
+  assert.ok(Run.drainFx(B).some(f => f.type === 'play' && f.cup === 15));
+  const G = fight(['rampart']); G.C.rolled = true; G.C.dice = [6, 6, 6, 6, 6]; G.C.e.hp = 999;
+  G.C.hand[0] = { u: 7003, cat: 'sixes', up: 0, kws: ['guard'] };
+  Run.playCard(G, 0, 'self');
+  const got = Math.floor(Math.round(30 * 1.5 + 0) / 2);
+  if (G.phase === 'combat') assert.ok(Run.drainFx(G).some(f => f.type === 'heroBlock' && f.why === 'rampart' && f.n >= got - 20));
+  const K = fight(['keepbox']); K.C.hand[0] = { u: 7004, cat: 'sixes', up: 0, kws: ['keep'] };
+  K.C.rolled = true; K.C.dice = [1, 1, 1, 1, 1]; K.C.e.hp = 999;
+  Run.playCard(K, 1, 'self');                  // 보존 카드는 손패에 남는다 → 다음 턴 첫 카드 +15%
+  if (K.phase === 'combat') { assert.equal(K.C.keepUp, 0.15); K.C.rolled = true; K.C.dice = [6, 6, 6, 6, 6]; assert.ok(Run.scoreCard(K, { u: 1, cat: 'sixes', up: 0 }).parts.some(p => p.ko === '보존 상자')); }
+});
+
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
 test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
   for (const [cls, seed] of [['gambler', 3], ['warrior', 11], ['bard', 21], ['sharper', 8]]) {
