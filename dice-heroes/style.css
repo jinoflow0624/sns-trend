@@ -1550,3 +1550,10 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 @keyframes poke { 30% { transform: scale(1.12) rotate(-2deg); } 60% { transform: scale(.97) rotate(1deg); } }
 @media (prefers-reduced-motion: reduce) { .pbtn.roll.next, .pbtn.poke { animation: none; } }
 [data-tip] { cursor: help; }
+/* 길게 누르면 직업 스킬: 폰의 길게 누르기 메뉴 · 글자 선택이 끼어들지 않게 */
+[data-cls], [data-rcls] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.solo-pick { display: grid; gap: 10px; min-width: min(300px, 86vw); }
+.solo-pick .run-menu { display: grid; gap: 8px; }
+.dash-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 12px; }
+.dash-tabs button { position: relative; }
+.dash-tabs .daily-dot, #ach-btn .daily-dot { top: -3px; right: -3px; width: 8px; height: 8px; }

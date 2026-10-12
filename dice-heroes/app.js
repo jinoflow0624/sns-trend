@@ -168,19 +168,12 @@ function showTitle() {
       <nav class="menu">
         ${rejoinLeft > 0 ? `<button class="pbtn gold" data-act="rejoin" data-code="${esc(last.code)}">방으로 돌아가기 <small>${esc(last.code)} · ${rejoinLeft}초 안에</small></button>` : ''}
         ${canResume ? `<button class="pbtn ${rejoinLeft > 0 ? '' : 'gold'}" data-act="resume">이어하기 <small>${saved.round}라운드</small></button>` : ''}
-        <div class="menu-row play-row">
-          <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="versus">${ico('swords', 'xs')} 대전 <small>봇</small></button>
-          <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="new" data-v="coop">${ico('crown', 'xs')} 보스전</button>
-        </div>
-        ${PROD ? '' : runMenu()}
-        <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">온라인 방 <small>${navigator.onLine ? '친구 초대' : `${ico('warn', 'xs')} 오프라인`}</small></button>
+        <button class="pbtn ${canResume || rejoinLeft > 0 ? '' : 'gold'}" data-act="solo">${ico('swords', 'xs')} 혼자 플레이 시작${runSaved() ? '<i class="daily-dot"></i>' : ''}</button>
+        <button class="pbtn${navigator.onLine ? '' : ' off'}" data-act="online">${ico('party', 'xs')} 함께 플레이 시작${navigator.onLine ? '' : ` <small>${ico('warn', 'xs')} 오프라인</small>`}</button>
         <button class="pbtn" data-act="skins">꾸미기 <small>주사위 · 트레이</small></button>
-        ${achBtn()}
         <div class="menu-row">
-          <button class="pbtn small" data-act="dashboard">대시보드</button>
-          <button class="pbtn small" data-act="tutorial">튜토리얼</button>
+          ${dashBtn()}
           <button class="pbtn small" data-act="settings">설정</button>
-          <button class="pbtn small" data-act="credits">크레딧</button>
         </div>
       </nav>` : `<div class="touch-wrap" id="touch-wrap">${bootGate()}</div>`}
       <div id="live-bar"></div>
@@ -212,6 +205,17 @@ function waitBoot() {
 // ── 원정 (로그라이크, 테스트판 전용) ────────────────────────────────────────
 // 화면 · 규칙은 run/ 폴더에 따로 있고, 처음 누를 때 불러온다. 배포판 빌드에는 run/ 폴더가 없다.
 let runMod = null, runLoading = null;
+// 혼자 플레이: 대전(봇) · 보스전 · 원정(테스트판) 중 하나
+function showSolo() {
+  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame solo-pick" data-act="noop">
+    <h2>혼자 플레이</h2>
+    <button class="pbtn gold" data-act="new" data-v="versus">${ico('swords', 'xs')} 대전 <small>봇</small></button>
+    <button class="pbtn gold" data-act="new" data-v="coop">${ico('crown', 'xs')} 보스전</button>
+    ${PROD ? '' : runMenu()}
+    <div class="modal-actions"><button class="pbtn small" data-act="close">닫기</button></div>
+  </div></div>`;
+}
+const runSaved = () => { if (PROD) return false; const s = store.get('diceheroes.run'); return !!(s && s.v === 1 && !s.ended); };
 function runMenu() {
   const s = store.get('diceheroes.run');
   const can = s && s.v === 1 && !s.ended;
@@ -262,7 +266,7 @@ function healCode(err) {
 Wal.onWallet(w => {
   const el = document.getElementById('gem-count'); if (el) el.textContent = Wal.gems().toLocaleString();
   const db = document.getElementById('daily-btn'); if (db && !layer.querySelector('.daily')) db.outerHTML = dailyBtn();
-  const ab = document.getElementById('ach-btn'); if (ab) ab.outerHTML = achBtn();
+  const ab = document.getElementById('ach-btn'); if (ab) ab.outerHTML = dashBtn();
   if (screen === 'ach' && !document.querySelector('[data-act=ach-claim]:disabled:focus')) showAchievements();
   if (w) syncOwned();
 });
@@ -625,7 +629,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
   return `
   <section class="frame slot">
     <div class="slot-top">
-      <div class="portrait" style="--c:${c.color}">${portrait(pl.cls)}</div>
+      <div class="portrait" style="--c:${c.color}" data-cls="${pl.cls}">${portrait(pl.cls)}</div>
       <div class="slot-main">
         ${editable ? `<input id="name-${i}" data-name="${i}" value="${esc(pl.name)}" maxlength="10" aria-label="${i + 1}번 이름">`
                    : `<b class="seat-name">${esc(pl.name)}</b>`}
@@ -1292,7 +1296,7 @@ function render() {
     <div class="party" style="--n:${S.players.length}">
       ${(() => { if (!ui.crownFreeze) crownShown = leaders(); lastPts = S.players.map((_, i) => shownPts(i)); return ''; })()}
       ${S.players.map((p, i) => `
-        <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" style="--c:${E.classInfo(p.cls).color}">
+        <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" data-cls="${p.cls}" style="--c:${E.classInfo(p.cls).color}">
           <div class="m-por">${portrait(p.cls)}${S.classic ? '' : `<span class="lv">${p.level}</span>`}${crownShown.includes(i) ? `<span class="crown">${ico('crown', 'xs')}</span>` : ''}</div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ' (나)' : ''}</span>
             <b class="pts">${ptsHTML(i)}</b></div>
@@ -1629,8 +1633,10 @@ function popover(anchor, html, { afterRelease = false } = {}) {
   el.innerHTML = html;
   document.body.appendChild(el);
   const r = anchor.getBoundingClientRect();
-  const w = Math.min(280, innerWidth - 24);
-  el.style.width = `${w}px`;
+  // 폭은 글자에 맞춘다 (짧은 이름 하나면 좁게, 긴 설명은 최대 280px 에서 줄바꿈)
+  el.style.maxWidth = `${Math.min(280, innerWidth - 24)}px`;
+  el.style.width = 'max-content';
+  const w = el.offsetWidth;
   el.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2))}px`;
   const below = r.bottom + 8 + el.offsetHeight < innerHeight;
   el.style.top = `${below ? r.bottom + 8 : r.top - el.offsetHeight - 8}px`;
@@ -2851,9 +2857,15 @@ function gemInner() {
 
 // ── 도전과제 화면 ──────────────────────────────────────────────────────────────
 let achTab = 'combo';
-function achBtn() {
+// 시작 화면의 대시보드 버튼 (받을 도전과제 보상이 있으면 점)
+function dashBtn() {
   const n = Wal.achClaimable(achOpen()).length;
-  return `<button id="ach-btn" class="pbtn" data-act="ach">${ico('trophy', 'xs')} 도전과제 <small>${n ? `받을 보상 ${n}개!` : '족보 · 보스 · 대전'}</small>${n ? `<i class="daily-dot"></i>` : ''}</button>`;
+  return `<button id="ach-btn" class="pbtn small" data-act="dashboard">대시보드${n ? '<i class="daily-dot"></i>' : ''}</button>`;
+}
+// 대시보드 위의 탭: 기록 · 도전과제
+function dashTabs(on) {
+  const n = Wal.achClaimable(achOpen()).length;
+  return `<div class="seg dash-tabs" role="tablist"><button data-act="dashboard" class="${on === 'dash' ? 'on' : ''}">기록</button><button data-act="ach" class="${on === 'ach' ? 'on' : ''}">${ico('trophy', 'xs')} 도전과제${n ? '<i class="daily-dot"></i>' : ''}</button></div>`;
 }
 function showAchievements() {
   screen = 'ach';
@@ -2872,10 +2884,11 @@ function showAchievements() {
   <div class="screen page ach-page">
     <header class="page-head">
       <button class="icon-btn" data-act="home" aria-label="뒤로">◀</button>
-      <h2>도전과제</h2>
+      <h2>대시보드</h2>
       <span class="count">${done} / ${shown.length}</span>
     </header>
     <div class="wrap">
+      ${dashTabs('ach')}
       <div class="seg ach-tabs" role="tablist" style="--n:${AC.ACH_CATS.filter(([id]) => shown.some(a => a.cat === id)).length}">${AC.ACH_CATS.filter(([id]) => shown.some(a => a.cat === id)).map(([id, ko]) => `<button data-act="ach-tab" data-v="${id}" class="${achTab === id ? 'on' : ''}">${ko}${badge(id) ? `<i class="daily-dot"></i>` : ''}</button>`).join('')}</div>
       ${Wal.wallet() ? '' : `<p class="hint">${ico('warn', 'xs')} 오프라인</p>`}
       <div class="ach-list">
@@ -2963,6 +2976,7 @@ function showDashboard() {
       <h2>대시보드</h2>
     </header>
     <div class="wrap">
+      ${dashTabs('dash')}
       <section class="frame dash-hero" style="--c:${E.classInfo(mainCls).color}">
         <div class="portrait">${portrait(mainCls)}</div>
         <div class="dash-id">
@@ -3219,17 +3233,16 @@ function showSettings(inGame = false) {
     ${adsOn() ? `<label class="set-row">맞춤형 광고 <small>끄면 관심사와 상관없는 광고</small><input id="set-adp" type="checkbox" ${prefs.adsPersonal ? 'checked' : ''}></label>` : ''}
     ${PROD ? `<label class="set-row">사용 통계 보내기 <small>익명 · 게임 개선용</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
-    <button class="pbtn small guide-btn" data-act="class-guide" data-in="${inGame ? 1 : ''}">${ico('scroll', 'xs')} 직업 안내 <small>스킬 · 특징</small></button>
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>1분 안에 돌아오면 이어서' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
-        '<button class="pbtn" data-act="tutorial">튜토리얼 다시 보기</button><button class="pbtn gold" data-act="close">닫기</button>'}
+        '<button class="pbtn" data-act="tutorial">튜토리얼</button><button class="pbtn" data-act="credits">크레딧</button><button class="pbtn gold" data-act="close">닫기</button>'}
     </div>
   </div></div>`;
 }
-// 직업 안내: 이번 판에 나온 직업을 먼저, 나머지는 그 뒤에
+// 직업 한 줄 요령 (캐릭터를 길게 누르면 스킬과 함께 보인다)
 const CLASS_TIP = {
   warrior: '상단 6칸만 잘 모아도 보너스 35점. 에이스~식스를 꾸준히 채우세요',
   rogue: '첫 턴부터 뒤집기로 아쉬운 주사위 하나를 살릴 수 있어요',
@@ -3241,25 +3254,6 @@ const CLASS_TIP = {
   outlaw: '첫 굴림에 포카인드 · 풀하우스 · 스트레이트 · 요트가 보이면 다시 굴리지 말고 바로 적으세요',
   sharper: '한 개만 모자랄 때 밑장빼기로 완성. 대신 그 기록은 경험치가 없어요',
 };
-function showClassGuide(inGame) {
-  const inGameCls = inGame && S ? S.players.map(p => p.cls) : [];
-  const order = [...new Set(inGameCls), ...E.CLASSES.map(c => c.id).filter(id => !inGameCls.includes(id))];
-  const rows = order.map(id => {
-    const c = E.classInfo(id);
-    const who = inGame && S ? S.players.filter(p => p.cls === id).map(p => esc(p.name)) : [];
-    return `<div class="cg-row${who.length ? ' here' : ''}" style="--c:${c.color}">
-      ${portrait(id, 'mini')}
-      <div class="cg-body"><b>${c.ko}</b>${who.length ? `<span class="cg-who">${who.join(' · ')}</span>` : ''}
-        <p>${c.desc}</p>${CLASS_TIP[id] ? `<small>${CLASS_TIP[id]}</small>` : ''}</div>
-    </div>`;
-  }).join('');
-  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame class-guide" data-act="noop">
-    <h2>직업 안내</h2>
-    ${inGame && S?.classic ? '<p class="hint">이번 판은 <b>클래식 야추</b>라 직업 능력이 없어요 (겉모습만)</p>' : ''}
-    <div class="cg-list">${rows}</div>
-    <div class="modal-actions"><button class="pbtn" data-act="guide-back" data-in="${inGame ? 1 : ''}">뒤로</button><button class="pbtn gold" data-act="close">${inGame ? '계속하기' : '닫기'}</button></div>
-  </div></div>`;
-}
 // 설정의 계정 줄: 게스트면 '구글 계정 연결' 버튼
 async function paintAccount() {
   const el = document.getElementById('account-row');
@@ -3859,8 +3853,6 @@ function onAct(act, t) {
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
   if (act === 'settings') { sfx.select(); showSettings(false); return paintAccount(); }
-  if (act === 'class-guide') { sfx.select(); return showClassGuide(!!t.dataset.in); }
-  if (act === 'guide-back') { sfx.back(); if (t.dataset.in) return showSettings(true); showSettings(false); return paintAccount(); }
   if (act === 'link-google') {
     sfx.select();
     t.disabled = true;
@@ -3888,6 +3880,7 @@ function onAct(act, t) {
     });
     return;
   }
+  if (act === 'solo') { sfx.select(); return showSolo(); }
   if (act === 'credits') { sfx.select(); return showCredits(); }
   if (act === 'daily') { sfx.select(); Wal.loadWallet().then(() => { if (layer.querySelector('.daily') && !layer.querySelector('.daily.rolling') && !layer.querySelector('.dd-die.set')) showDaily(); }, () => {}); return showDaily(); }
   if (act === 'daily-roll') return rollDaily();
@@ -4009,7 +4002,28 @@ addEventListener('popstate', () => {
   else if (screen === 'title' && history.state?.dhBack) history.back();
 });
 
+// 캐릭터를 길게 누르면 그 직업의 스킬 (data-cls: 대전 · 보스전 직업, data-rcls: 원정 직업). 길게 누른 뒤의 click 은 버린다
+let clsHold = null, clsFired = false;
+function showClsTip(el) {
+  if (el.dataset.rcls) { const h = runMod?.classTip?.(el.dataset.rcls); if (h) popover(el, h, { afterRelease: true }); return; }
+  const c = E.classInfo(el.dataset.cls);
+  if (!c) return;
+  popover(el, `<b style="color:${c.color}">${c.ko}</b><p>${c.desc}</p>${CLASS_TIP[c.id] ? `<small>${CLASS_TIP[c.id]}</small>` : ''}`, { afterRelease: true });
+}
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest?.('[data-cls],[data-rcls]');
+  clearTimeout(clsHold);
+  clsFired = false;
+  if (!el) return;
+  const x0 = e.clientX, y0 = e.clientY;
+  const stop = () => { clearTimeout(clsHold); removeEventListener('pointerup', stop); removeEventListener('pointercancel', stop); removeEventListener('pointermove', move); };
+  const move = ev => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 12) stop(); };
+  addEventListener('pointerup', stop); addEventListener('pointercancel', stop); addEventListener('pointermove', move);
+  clsHold = setTimeout(() => { stop(); clsFired = true; buzz(15); sfx.tap(); showClsTip(el); }, 450);
+});
+document.addEventListener('contextmenu', e => { if (e.target.closest?.('[data-cls],[data-rcls]')) e.preventDefault(); });
 document.addEventListener('click', e => {
+  if (clsFired) { clsFired = false; e.preventDefault(); e.stopPropagation(); return; }
   const t = e.target.closest('[data-act]');
   // 이름표 없는 아이콘 · 숫자: 누르면 짧은 설명 (data-tip="제목" data-tipd="설명")
   const tipEl = e.target.closest('[data-tip]');

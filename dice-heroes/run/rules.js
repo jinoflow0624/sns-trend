@@ -304,8 +304,8 @@ export const FEATS = [
   { id: 'wall',     ko: '철벽',          icon: 'shield',  desc: '보호막 60 이상으로 적의 턴을 맞는다' },
   { id: 'rich',     ko: '부자',          icon: 'coins',   desc: '골드 500 이상을 모은다' },
   { id: 'hoard',    ko: '수집가',        icon: 'card',    desc: '덱 25장 이상으로 원정을 이어 간다' },
-  { id: 'asc5',     ko: '승천자',        icon: 'up',      desc: '승천 5 이상으로 원정을 끝낸다' },
-  { id: 'asc10',    ko: '정점',          icon: 'trophy',  desc: '승천 10으로 원정을 끝낸다' },
+  { id: 'asc5',     ko: '하드모드 정복자',        icon: 'up',      desc: '하드모드 5 이상으로 원정을 끝낸다' },
+  { id: 'asc10',    ko: '정점',          icon: 'trophy',  desc: '하드모드 10으로 원정을 끝낸다' },
   { id: 'five',     ko: '다섯 영웅',     icon: 'party',   desc: '서로 다른 직업 5종으로 원정을 끝낸다' },
 ];
 function feat(R, id) {
@@ -883,7 +883,8 @@ const inCombat = R => { if (R.phase !== 'combat' || !R.C || R.C.phase !== 'roll'
 export const roll = act('roll', function roll(R) {
   const C = inCombat(R);
   if (C.rollsLeft <= 0) fail('굴림 기회를 다 썼어요.');
-  if (C.rolled && C.held.every((h, i) => h || isSealed(R, i) || isFrozen(R, i))) fail('모든 주사위를 잡고 있어요.');
+  // 봉인된 주사위만 남아도 굴릴 수 있다 (굴리면 봉인이 풀린다 — 메인 게임 engine.js 와 같게). 언 주사위는 못 굴린다
+  if (C.rolled && C.held.every((h, i) => h || isFrozen(R, i))) fail('모든 주사위를 잡고 있어요.');
   if (R.cls === 'gambler' && !C.rolled && C.bet == null && C.hand.length) fail('먼저 이번 턴에 배팅할 카드를 고르세요.');
   const rolled = C.dice.map((v, i) => !(C.rolled && (C.held[i] || isSealed(R, i) || isFrozen(R, i))));
   const procs = [];
@@ -1264,6 +1265,8 @@ export const playCard = act('playCard', function playCard(R, hi, target) {
   // 동전 던지기 · 광기의 저울: 낼 때 정해진다 (같은 난수라 다시 돌려도 같다)
   const coin = hasRelic(R, 'coin') ? (rand(R) < 0.5 ? 1 : -1) : 0;
   const sc = scoreCard(R, card, C.dice, { coin });
+  // 나눠 낸 카드: 동전이 바꾼 비율만큼 공격 몫도 같이 (공격 · 방어가 같은 % 로 늘고 준다)
+  if (coin && typeof target === 'number') { const t0 = scoreCard(R, card, C.dice, {}).total; if (t0 > 0) target = Math.round(target * sc.total / t0); }
   if (hasRelic(R, 'madscale')) target = Math.round(sc.total * rand(R));
   const p = preview(R, hi, target, sc);
   C.hand.splice(hi, 1);

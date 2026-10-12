@@ -816,3 +816,105 @@
 .stamp-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 26px; max-width: 70vw; scale: 1.4; margin: 24px 0; }
 .stamp-card { animation: deal .35s both; }
 @media (prefers-reduced-motion: reduce) { .seal-stamp .ss-disc, .seal-stamp .ss-shadow, .stamped .rc-in { animation: none !important; } }
+/* 잡화점 버튼 · 창 머리: 빨강 · 크림 줄무늬 차양 + 나무 간판 (시장 노점 느낌) */
+.rs-head .rs-feats { margin-left: auto; min-height: 36px; padding: 2px 10px; font-size: 13px; }
+.meta-btn.market { position: relative; display: grid; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 4px 0 var(--ink)); }
+.mk-awning { display: block; height: 16px; border: 2px solid var(--ink); border-bottom: 0;
+  background: repeating-linear-gradient(90deg, #E8435A 0 14px, #FFF1D6 14px 28px);
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.18); }
+.mk-awning { position: relative; }
+.mk-awning::after { content: ''; position: absolute; left: -2px; right: -2px; bottom: -7px; height: 7px;
+  background: radial-gradient(circle at 7px 0, #C8324A 6px, transparent 6.5px) 0 0 / 28px 7px repeat-x,
+              radial-gradient(circle at 21px 0, #E9D9B8 6px, transparent 6.5px) 0 0 / 28px 7px repeat-x; }
+.mk-board { display: flex; white-space: nowrap; align-items: center; justify-content: center; gap: 5px; padding: 11px 12px 7px; margin-top: 0;
+  font-weight: 700; font-size: 15px; color: #FFE7B0; text-shadow: 1px 1px 0 #3B2300;
+  background: repeating-linear-gradient(0deg, #9A6232 0 9px, #8A5528 9px 10px); border: 2px solid var(--ink); box-shadow: inset 0 2px 0 rgba(255,255,255,.18), inset 0 -3px 0 rgba(0,0,0,.25); }
+.mk-board b { display: inline-flex; align-items: center; gap: 2px; color: var(--gold); margin-left: 2px; }
+.meta-btn.market:active { translate: 0 2px; filter: drop-shadow(0 2px 0 var(--ink)); }
+.meta-head.market { position: relative; padding-top: 22px; }
+.meta-head.market .mk-awning { position: absolute; left: -14px; right: -14px; top: -14px; }
+/* 원정 떠나기의 하드모드 단계: 붉은 띠로 크게 */
+.go-hard { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 8px 2px 4px; font-size: 14px; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #E8435A, #8E2226); border: 2px solid var(--ink); text-shadow: 1px 1px 0 var(--ink); box-shadow: 0 0 10px rgba(232,67,90,.7); }
+.go-hard .ico { width: 18px; height: 18px; }
+/* 전투 첫 손패: 날아와 뒤집히며 번쩍 · 빛줄기 · 금빛 고리 (run/hand.js draw fancy) */
+.hand .rc.drawn .rc-in { animation: drawFlip .5s cubic-bezier(.2, 1.3, .4, 1) both; }
+@keyframes drawFlip { 0% { scale: .15 1; filter: brightness(3) drop-shadow(0 4px 0 var(--ink)); } 55% { scale: 1.08 1.02; filter: brightness(1.5) drop-shadow(0 4px 0 var(--ink)); } 100% { scale: 1; filter: drop-shadow(0 4px 0 var(--ink)); } }
+.deal-glint { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+.deal-glint::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 34%; left: -50%; transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); animation: dealGlint .55s .28s ease-out both; }
+@keyframes dealGlint { to { left: 130%; } }
+.deal-ring { position: absolute; inset: -6px; z-index: 3; pointer-events: none; border: 3px solid #FFE27A; box-shadow: 0 0 14px #FFC83D; opacity: 0; animation: dealRing .5s .38s ease-out; }
+@keyframes dealRing { 0% { opacity: .95; transform: scale(.94); } 100% { opacity: 0; transform: scale(1.18); } }
+/* 손패 카드 1.25배: 카드 속(글자 · 그림)은 그대로 그리고 통째로 키운다 */
+.hand { height: 160px; }
+.hand .rc { --cw: 100px; --ch: 140px; }
+.hand .rc .rc-in { width: 80px; height: 112px; zoom: 1.25; }
+@media (max-height: 640px) {
+  .hand { height: 140px; }
+  .hand .rc { --cw: 92px; --ch: 130px; }
+  .hand .rc .rc-in { width: 74px; height: 104px; }
+}
+/* 카드 고르기 1.25배 (설명은 길게 누르면) */
+.pick-cards { gap: 10px; }
+.pick-cards .rc { --cw: 115px; --ch: 162px; -webkit-touch-callout: none; user-select: none; }
+.pick-cards .rc .rc-in { width: 92px; height: 130px; zoom: 1.25; }
+@media (max-width: 370px) { .pick-cards .rc { --cw: 100px; --ch: 141px; } .pick-cards .rc .rc-in { zoom: 1.087; } }
+/* 보상: 긴 가로 줄 대신 가로세로가 비슷한 타일 (2~3열) */
+.rw-items { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+.rw-items .rw { grid-template-columns: 1fr; grid-template-rows: auto; justify-items: center; align-content: start; gap: 3px; text-align: center; min-height: 118px; padding: 10px 6px 8px; }
+.rw-items .rw .ico, .rw-items .rw .run-ico, .rw-items .rw img.ico { grid-row: auto; width: 40px; height: 40px; }
+.rw-items .rw b { font-size: 13px; line-height: 1.2; }
+.rw-items .rw small { font-size: 10px; line-height: 1.3; }
+.rw-tag { margin-top: auto; padding: 1px 6px; white-space: nowrap; font-style: normal; font-size: 11px; font-weight: 700; border: 2px solid var(--ink); }
+.rw-tag.pick { color: #3B2300; background: var(--gold); }
+.rw-tag.ok { color: #fff; background: #139B74; }
+.rw-tag.warn { color: #fff; background: #8E2226; }
+.rw.done b::after { content: none; }
+/* 받은 보상은 반짝임을 멈춘다 (예전엔 고른 뒤에도 카드 · 유물 고르기 칸이 계속 깜빡였다) */
+.rw.done, .rw.done .rw-tag { animation: none !important; }
+.rw.full { filter: saturate(.6); }
+/* 보상 칸이 나타나는 연출은 처음 한 번만 (받을 때마다 다시 그려도 다시 날아오지 않게) */
+.run-reward.again .rw { animation: none; }
+.run-reward.again .rw.card-row:not(.done), .run-reward.again .rw.boss-relic:not(.done) { animation: legend 1.4s ease-in-out infinite; }
+/* 동전 던지기: 빙글빙글 올라갔다 내려와 앞면(금) · 뒷면(은) */
+.coin-toss { position: fixed; z-index: 75; pointer-events: none; width: 0; height: 0; }
+.coin-toss .ct-coin { position: absolute; left: -18px; top: -18px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--ink);
+  background: radial-gradient(circle at 35% 30%, #FFF4C2, #FFC83D 50%, #C8860E); box-shadow: 0 0 12px rgba(255,200,61,.8);
+  animation: coinUp .82s cubic-bezier(.3,.7,.5,1) both; }
+.coin-toss.tail .ct-coin { background: radial-gradient(circle at 35% 30%, #FFFFFF, #C9D3E8 50%, #7A86A8); box-shadow: 0 0 10px rgba(201,211,232,.7); }
+.coin-toss .ct-coin .ico { width: 20px; height: 20px; }
+@keyframes coinUp { 0% { transform: translateY(0) scaleX(1); } 12% { transform: translateY(-50px) scaleX(-1); } 25% { transform: translateY(-90px) scaleX(1); } 37% { transform: translateY(-112px) scaleX(-1); }
+  50% { transform: translateY(-118px) scaleX(1); } 62% { transform: translateY(-104px) scaleX(-1); } 75% { transform: translateY(-70px) scaleX(1); } 88% { transform: translateY(-20px) scaleX(-1); } 100% { transform: translateY(0) scaleX(1); } }
+.coin-toss.landed .ct-coin { animation: coinLand .3s ease-out; }
+@keyframes coinLand { 40% { transform: scale(1.35); filter: brightness(1.6); } }
+.coin-toss.out { opacity: 0; transition: opacity .28s; }
+@media (prefers-reduced-motion: reduce) { .coin-toss .ct-coin { animation: none; } }
+/* 방해 표시 2배 (운명 역전 · 봉인 등 트레이 왼쪽 위) */
+.hex-badge { left: 8px; top: 8px; gap: 6px; font-size: 22px; padding: 3px 12px; border-width: 3px; box-shadow: 0 0 14px rgba(232,67,90,.7); }
+.hex-badge .ico { width: 24px; height: 24px; }
+/* 상점 진열대: 나무 선반 위에 물건 · 아래에 양피지 가격표 (누르면 사기, 길게 누르면 설명) */
+.shop-head.market { position: relative; padding-top: 18px; }
+.shop-head.market .mk-awning { position: absolute; left: 0; right: 0; top: 0; }
+.shop-stall { gap: 14px; padding: 6px 2px 10px; }
+.shelf { position: relative; padding: 0 6px; }
+.shelf-row { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 10px 8px; padding: 0 4px; }
+.shelf-plank { position: relative; display: block; height: 12px; margin: -4px 0 0; border: 2px solid var(--ink);
+  background: linear-gradient(180deg, #B97A44 0 35%, #8A5528 35% 100%); box-shadow: 0 5px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.2); }
+.shelf-plank::before, .shelf-plank::after { content: ''; position: absolute; top: 10px; width: 8px; height: 10px; background: #5A3A1E; border: 2px solid var(--ink); border-top: 0; }
+.shelf-plank::before { left: 10px; } .shelf-plank::after { right: 10px; }
+.shelf-item { display: grid; justify-items: center; gap: 4px; padding: 0; border: 0; background: none; cursor: pointer; -webkit-touch-callout: none; user-select: none; }
+.shelf-item .si-ico { display: grid; place-items: center; width: 58px; height: 58px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.45)); transition: transform .12s; }
+.shelf-item:active .si-ico { transform: translateY(-4px) scale(1.06); }
+.shelf-item.si-relic .si-ico { border-radius: 50%; background: radial-gradient(circle, rgba(255,226,122,.18), transparent 70%); }
+.shelf-item.si-relic.r2 .si-ico { background: radial-gradient(circle, rgba(185,140,255,.28), transparent 70%); }
+.shelf-item.si-relic.r3 .si-ico { background: radial-gradient(circle, rgba(255,90,140,.32), transparent 70%); }
+.shelf-item.seal-row .seal-big { width: 44px; height: 44px; }
+.shelf-item.seal-row .seal-big .ico { width: 26px; height: 26px; }
+.shelf-item.card .si-ico { width: auto; height: auto; }
+.shelf-item.card .rc { --cw: 74px; --ch: 104px; }
+.shelf-item .price { position: relative; z-index: 2; padding: 1px 7px; color: #5A3A1E; background: #F1DDAE; border: 2px solid var(--ink); font-size: 12px; }
+.shelf-item .price.poor { color: #9A6232; background: #CDBB93; opacity: .8; }
+.shelf-item.sold .si-ico { opacity: .25; filter: grayscale(1); }
+.shelf-item.sold .price { background: #3A2C5A; color: var(--muted); }
+.shelf-item:disabled { cursor: default; }
