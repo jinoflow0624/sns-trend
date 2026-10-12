@@ -307,6 +307,30 @@ export function foeURL(id, scale = 6) {
   if (!cache.has(key)) cache.set(key, draw(id, scale));
   return cache.get(key);
 }
+// 로딩 화면: 굼바처럼 발을 번갈아 딛는 2프레임 도트 (16×16 임시본 MON 을 그대로 쓴다 → 그림 파일을 받기 전에도 바로 그린다)
+const STEP = {
+  // 고블린: 왼발 · 오른발을 번갈아 앞으로 내딛는다 (프레임마다 한쪽 발이 넓게 땅을 짚는다)
+  goblin: [
+    rows => [...rows.slice(0, 13), '...kgk...kgk....', '..kddk..kddk....', '..kkkk...kkk....'],
+    rows => [...rows.slice(0, 13), '....kgk...kgk...', '....kddk..kddk..', '.....kkk..kkkk..'],
+  ],
+  // 슬라임: 한 칸 주저앉으며 옆으로 퍼진다
+  slime: [rows => rows, rows => ['................', ...rows.slice(0, 12), '.kGGGGGGGGGGGGk.', '..kkkkkkkkkkkk..', '................']],
+};
+export function walkStrip(id, scale = 4) {
+  const m = MON[id];
+  if (!m) return '';
+  const c = document.createElement('canvas');
+  c.width = 32 * scale; c.height = 16 * scale;
+  const g = c.getContext('2d');
+  const pal = { k: K, ...m.pal };
+  (STEP[id] || [r => r, r => r]).map(fn => fn(m.rows)).forEach((rows, f) => rows.forEach((row, y) => [...row.padEnd(16, '.').slice(0, 16)].forEach((ch, x) => {
+    if (ch === '.' || !pal[ch]) return;
+    g.fillStyle = pal[ch];
+    g.fillRect((f * 16 + x) * scale, y * scale, scale, scale);
+  })));
+  return c.toDataURL();
+}
 export const isPixelFoe = id => !!MON[id] && !FILES.includes(id);
 
 // 원정 전용 아이콘 그림 (assets/run/ui/<kind>_<id>.webp, 128px). 그림이 없으면 공용 12×12 아이콘
