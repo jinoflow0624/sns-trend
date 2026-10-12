@@ -359,12 +359,12 @@ function showMap() {
     const open = R.pos === n.id && next.has(j);
     return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${walked ? 'walked' : open ? 'open' : ''}"/>`;
   })).join('');
-  const bossId = R.boss;
+  // 보스는 들어가기 전까지 ? (막마다 후보 중 하나가 정해져 있지만 보여 주지 않는다)
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-map">
     ${hud()}
-    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b><small>보스 ${esc(Run.ENEMIES[bossId].ko)}</small></div>
+    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b><small>보스 ???</small></div>
     <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
       <svg class="map-lines" viewBox="0 0 100 ${H}" preserveAspectRatio="none">${lines}</svg>
       ${nodes.map(n => {
@@ -372,7 +372,7 @@ function showMap() {
         const st = n.id === R.pos ? 'here' : next.has(n.id) ? 'can' : visited.has(n.id) ? 'done' : 'far';
         const boss = n.type === 'boss';
         return `<button class="mnode t-${n.type} ${st}" data-act="run-node" data-id="${n.id}" style="left:${p.x}%;top:${p.y}px" ${st === 'can' ? '' : 'tabindex="-1"'} aria-label="${Run.NODE[n.type].ko}">
-          ${boss ? `<img class="mboss" src="${foeURL(bossId)}" alt="">` : runIco('node', n.type, Run.NODE[n.type].icon)}
+          ${boss ? '<b class="mboss-q" aria-hidden="true">?</b>' : runIco('node', n.type, Run.NODE[n.type].icon)}
           ${n.id === R.pos ? `<span class="mhere">${hero(R.cls)}</span>` : ''}
           ${st === 'can' ? `<i class="mlabel">${Run.NODE[n.type].ko}</i>` : ''}
         </button>`;
