@@ -23,6 +23,9 @@
     원정 그림을 새로 넣으면 `run/art.js` 의 `runAssetURLs()` · `run/relic-art.js` 의 `relicURLs()` 목록에 들어가는지 확인한다.
   - 그 밖: 곡은 `preloadBgm()`, 주사위 · 트레이 스킨은 `preloadDice()` · `preloadTray()`, 3D 는 `preload3d()`.
 - 확인 방법: 브라우저 시험에서 버튼을 누른 뒤에 새 그림 · 곡 요청이 생기지 않는지 본다.
+- **곡 주소의 버전은 게임 버전이 아니라 `audio.js` 의 `BGM_VER`** 다 (업데이트마다 곡을 다시 받지 않게).
+  곡 파일(`assets/bgm/*.ogg`)을 바꾸거나 더하면 `audio.js` 와 `sw.js` 의 `BGM_VER` 를 함께 올린다 (안 올리면 캐시의 예전 곡이 나온다).
+- 첫 화면은 메뉴 곡(`title`)을 다 받을 때까지 「음악 불러오는 중」 막대를 보여 주고, 다 받으면 「화면을 터치하세요」 (`app.js` `bootGate()`, 8초가 넘으면 그냥 연다).
 
 ## 원정 밸런스
 - 수치는 `run/rules.js` 의 `TUNE` · `RUN_CLASSES` · `CLASS_TUNE`. `node sim/run.mjs 300` 으로 직업별 클리어율을 잰다.

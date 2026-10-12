@@ -1,13 +1,15 @@
 // 8비트 사운드 — 패미컴식 4채널(펄스 2 · 삼각파 · 노이즈) 칩튠 시퀀서와 효과음.
 // 오디오 파일 없이 WebAudio 로 합성한다. 외부 음원을 쓰려면 BGM_FILES 에 경로만 넣으면
 // 해당 트랙은 파일 재생으로 바뀐다 (예: { title: 'assets/bgm/title.ogg' }).
-import { GAME } from './config.js';
 
 // 음원 파일로 바꾸려면 여기에 경로를 넣는다. 보스별 곡은 boss_dragon · boss_orc · boss_lich · boss_demon
 // 파일은 마디 경계에서 잘라 끝과 처음이 이어지게 다듬은 루프여야 한다. sw.js 캐시 목록에도 넣는다.
-// 주소에 게임 버전(?v=)을 붙인다. 오프라인 캐시(sw.js)는 그림 · 음악을 캐시에서 먼저 꺼내므로,
-// 버전이 없으면 곡을 바꿔 배포해도 예전 파일(도입부 없는 루프)이 한 번 더 재생됐다
-const AV = `?v=${GAME.version}`;
+// 주소에 곡 버전(?v=)을 붙인다. 오프라인 캐시(sw.js)는 그림 · 음악을 캐시에서 먼저 꺼내므로,
+// 버전이 없으면 곡을 바꿔 배포해도 예전 파일(도입부 없는 루프)이 한 번 더 재생됐다.
+// 예전엔 게임 버전을 붙여서 업데이트할 때마다 모든 곡을 처음부터 다시 받았다(시작하자마자 메뉴 곡이 안 나옴).
+// 이제 곡 파일을 바꿀 때만 BGM_VER 를 올린다 (곡을 바꾸고 이걸 안 올리면 예전 곡이 나온다)
+export const BGM_VER = 'b2';
+const AV = `?v=${BGM_VER}`;
 export const BGM_FILES = {
   title:       `assets/bgm/title.ogg${AV}`,         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
   adventure:   `assets/bgm/versus.ogg${AV}`,        // 대전 · 32마디 루프, 133BPM (Suno)
@@ -416,13 +418,36 @@ function keepBuffer(url) {
     delete buffers[recent.splice(k, 1)[0]];
   }
 }
+// 받은 정도 (0~1) · 다 풀었는지 — 시작 화면이 메뉴 곡을 다 받을 때까지 기다리는 데 쓴다
+const progress = {}, done = new Set();
+function fetchBytes(url) {
+  return fetch(url).then(r => {
+    if (!r.ok) throw new Error(r.status);
+    const total = +r.headers.get('content-length') || 0;
+    if (!r.body || !total) return r.arrayBuffer();
+    const rd = r.body.getReader(), parts = [];
+    let got = 0;
+    const pump = () => rd.read().then(({ done: end, value }) => {
+      if (end) { const out = new Uint8Array(got); let o = 0; for (const q of parts) { out.set(q, o); o += q.length; } return out.buffer; }
+      parts.push(value); got += value.length; progress[url] = Math.min(0.99, got / total);
+      return pump();
+    });
+    return pump();
+  });
+}
 const loadBuffer = url => {
   keepBuffer(url);
-  return (buffers[url] ||= fetch(url)
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+  return (buffers[url] ||= fetchBytes(url)
     .then(b => ctx.decodeAudioData(b))
-    .catch(err => { delete buffers[url]; throw err; }));
+    .then(buf => { progress[url] = 1; done.add(url); return buf; })
+    .catch(err => { delete buffers[url]; done.add(url); throw err; }));   // 못 받아도 "끝남" — 시작 화면이 계속 기다리지 않게
 };
+// 곡 받기 상태: { p: 0~1, ready: 다 받아 풀었거나(또는 못 받아서 칩튠으로 대신) }
+export function bgmState(name) {
+  const url = BGM_FILES[name];
+  if (!url) return { p: 1, ready: true };
+  return { p: progress[url] || 0, ready: done.has(url) };
+}
 
 // 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악, 보스 · 모드를 고르는 동안 그 판의 곡 —
 // 예전엔 판이 시작되는 순간에 받기 시작해서 폰에서는 라운드가 시작된 뒤에야 음악이 나왔다)
