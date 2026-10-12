@@ -16,7 +16,7 @@ export const ROLLS = 3;           // 턴마다 굴림
 export const TOOL_CAP = 5;        // 뒤집기 · 조정 보유 한도 (원정 내내 이어진다)
 export const POTION_SLOTS = 3;
 export const UP_MUL = 0.3;        // 강화(+) 카드: 점수 +30%
-export const ROWS = 6;            // 막마다 지도 층 수 (그 위에 보스 층)
+export const ROWS = 7;            // 막마다 지도 층 수 (그 위에 보스 층)
 export const COLS = 4;
 export const ACTS = 3;
 export const REST_HEAL = 0.3;     // 휴식: 최대 체력의 30%
@@ -201,7 +201,7 @@ export function recordRun(p, R) {
   const b = p.best, stars = starsOf(R);
   b.runs++;
   if (R.won) b.wins++;
-  b.top = Math.max(b.top, R.won ? 21 : (R.act - 1) * 7 + Math.min(7, floorOf(R)));
+  b.top = Math.max(b.top, R.won ? ACTS * (ROWS + 1) : (R.act - 1) * (ROWS + 1) + Math.min(ROWS + 1, floorOf(R)));
   const c = (b.cls[R.cls] ||= { runs: 0, wins: 0 });
   c.runs++;
   const opened = R.won && (b.asc[R.cls] ?? -1) < (R.asc || 0) && (R.asc || 0) < ASC_MAX;
@@ -551,6 +551,8 @@ export function genMap(R) {
       n.type = weighted(R, w);
     }
   }
+  // 2막: 3층은 모두 이벤트 (어느 길로 가도 「주사위 깎는 노인」을 만난다)
+  if (R.act === 2) nodes.filter(n => n.row === 3).forEach(n => { n.type = 'event'; });
   nodes.forEach(n => n.next.sort((a, b) => nodes[a].col - nodes[b].col));
   return { nodes, boss: boss.id };
 }
@@ -1797,7 +1799,10 @@ function startEvent(R) {
   const seen = new Set(R.seenEvents || []);
   let pool = EVENTS.filter(e => !seen.has(e.id));
   if (!pool.length) { R.seenEvents = []; pool = EVENTS; }
-  const ev = pick(R, pool);
+  // 2막에는 「주사위 깎는 노인」이 꼭 한 번 나온다 (2막의 첫 이벤트)
+  const carver = R.act === 2 && !R.carver2 && EVENTS.find(e => e.id === 'carver');
+  if (carver) R.carver2 = true;
+  const ev = carver || pick(R, pool);
   R.seenEvents = [...(R.seenEvents || []), ev.id];
   R.phase = 'event';
   R.event = { id: ev.id, result: null, dice: null, fight: null };

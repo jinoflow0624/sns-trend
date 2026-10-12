@@ -94,8 +94,8 @@ add('versus', 'cl250', 3, '클래식 250', '클래식 야추에서 250점 이상
 // ── 원정 (로그라이크) — 원정 기록(run/rules.js 의 progress.best)에서 syncRunAch 로 ach.m['r:…'] 에 옮긴다.
 //    배포판은 서버가 원정 끝(xFinish)에 행동 기록을 다시 돌려 계산한 기록으로만 옮긴다. 원정이 없는 곳에서는 숨긴다 (secret 'run')
 const RUN = { secret: 'run' };
-add('run', 'run_act1', 1, '숲을 지나', '원정 1막 돌파', 8, best('r:top'), { ...RUN, nobar: true, series: 'run_act' });
-add('run', 'run_act2', 2, '폐허를 지나', '원정 2막 돌파', 15, best('r:top'), { ...RUN, nobar: true, series: 'run_act' });
+add('run', 'run_act1', 1, '숲을 지나', '원정 1막 돌파', 9, best('r:top'), { ...RUN, nobar: true, series: 'run_act' });
+add('run', 'run_act2', 2, '폐허를 지나', '원정 2막 돌파', 17, best('r:top'), { ...RUN, nobar: true, series: 'run_act' });
 [[1, 2], [10, 3], [30, 4]].forEach(([g, t], k) =>
   add('run', `run_win_${k + 1}`, t, `마왕 토벌 원정 ${STEP_KO[k]}`, `원정을 ${g}번 클리어`, g, best('r:wins'), { ...RUN, series: 'run_win' }));
 [[10, 1], [50, 2], [150, 3]].forEach(([g, t], k) =>
