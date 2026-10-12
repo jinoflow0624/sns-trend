@@ -103,7 +103,7 @@ add('run', 'run_act2', 2, '폐허를 지나', '원정 2막 돌파', 15, best('r:
 [[3, 2], [6, 3], [9, 4]].forEach(([g, t], k) =>
   add('run', `run_cls_${k + 1}`, t, `만능 원정가 ${STEP_KO[k]}`, `서로 다른 직업 ${g}개로 원정 클리어`, g, best('r:cls'), { ...RUN, series: 'run_cls' }));
 [[1, 2], [5, 3], [10, 4]].forEach(([g, t], k) =>
-  add('run', `run_asc_${k + 1}`, t, `승천자 ${STEP_KO[k]}`, `승천 ${g} 이상으로 원정 클리어`, g, best('r:asc'), { ...RUN, nobar: g === 1, series: 'run_asc' }));
+  add('run', `run_asc_${k + 1}`, t, `하드모드 정복자 ${STEP_KO[k]}`, `하드모드 ${g} 이상으로 원정 클리어`, g, best('r:asc'), { ...RUN, nobar: g === 1, series: 'run_asc' }));
 [[6, 2], [12, 3]].forEach(([g, t], k) =>
   add('run', `run_feat_${k + 1}`, t, `원정 개척자 ${STEP_KO[k]}`, `원정 도전과제(원정 화면의 업적) ${g}개 달성`, g, best('r:feats'), { ...RUN, series: 'run_feat' }));
 // 원정 기록 → 도전과제 진행도 (늘기만 한다)

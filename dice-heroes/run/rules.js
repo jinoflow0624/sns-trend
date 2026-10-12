@@ -304,8 +304,8 @@ export const FEATS = [
   { id: 'wall',     ko: '철벽',          icon: 'shield',  desc: '보호막 60 이상으로 적의 턴을 맞는다' },
   { id: 'rich',     ko: '부자',          icon: 'coins',   desc: '골드 500 이상을 모은다' },
   { id: 'hoard',    ko: '수집가',        icon: 'card',    desc: '덱 25장 이상으로 원정을 이어 간다' },
-  { id: 'asc5',     ko: '승천자',        icon: 'up',      desc: '승천 5 이상으로 원정을 끝낸다' },
-  { id: 'asc10',    ko: '정점',          icon: 'trophy',  desc: '승천 10으로 원정을 끝낸다' },
+  { id: 'asc5',     ko: '하드모드 정복자',        icon: 'up',      desc: '하드모드 5 이상으로 원정을 끝낸다' },
+  { id: 'asc10',    ko: '정점',          icon: 'trophy',  desc: '하드모드 10으로 원정을 끝낸다' },
   { id: 'five',     ko: '다섯 영웅',     icon: 'party',   desc: '서로 다른 직업 5종으로 원정을 끝낸다' },
 ];
 function feat(R, id) {

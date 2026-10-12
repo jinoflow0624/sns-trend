@@ -78,6 +78,12 @@ function syncFeats(extra = []) {
   });
 }
 
+// 길게 누른 원정 직업의 스킬 (app.js 가 data-rcls 를 길게 누르면 부른다)
+export function classTip(id) {
+  const ci = Run.RUN_CLASSES[id], c = classInfo(id);
+  if (!ci) return '';
+  return `<b style="color:${c.color}">${c.ko}</b> <small>${ico('heart', 'xs')}${ci.hp} · ${ico('flip', 'xs')}${ci.flip} · ${ico('nudge', 'xs')}${ci.nudge}</small><p><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>`;
+}
 export function open() {
   warm();
   ui.view = 'select'; X.setScreen('run'); paintSelect();
@@ -174,11 +180,12 @@ function paintSelect() {
     <header class="rs-head">
       <button class="icon-btn" data-act="run-home" aria-label="뒤로">◀</button>
       <div><b>원정</b></div>
+      <button class="pbtn small rs-feats" data-act="run-feats">${ico('trophy', 'xs')} ${b.feats.length}/${Run.FEATS.length}</button>
     </header>
     <div class="rs-grid">
       ${Object.keys(Run.RUN_CLASSES).map(id => {
         const c = classInfo(id), owned = X.owns(id);
-        return `<button class="rs-cls${id === sel ? ' on' : ''}${owned ? '' : ' locked'}" data-act="run-cls" data-id="${id}" style="--c:${c.color}">
+        return `<button class="rs-cls${id === sel ? ' on' : ''}${owned ? '' : ' locked'}" data-act="run-cls" data-id="${id}" data-rcls="${id}" style="--c:${c.color}">
           ${hero(id)}<b>${c.ko}</b><small>${ico('heart', 'xs')}${Run.RUN_CLASSES[id].hp}</small>${b.cls[id]?.wins ? `<i class="rs-won">${ico('crown', 'xs')}${b.cls[id].wins}</i>` : ''}
         </button>`;
       }).join('')}
@@ -190,11 +197,10 @@ function paintSelect() {
     </section>
     ${ascButton(b, sel)}
     <div class="rs-foot">
-      ${b.runs ? `<p class="rs-best">지금까지 ${b.runs}번 원정 · 클리어 ${b.wins}번 · 최고 ${b.top >= 3 * 7 ? '클리어' : `${Math.floor(b.top / 7) + 1}막`}</p>` : '<p class="rs-best">첫 원정이에요</p>'}
-      <button class="pbtn small" data-act="run-feats">${ico('trophy', 'xs')} 도전과제 ${b.feats.length}/${Run.FEATS.length}</button>
-      <button class="pbtn small gold meta-btn" data-act="run-meta">${runIco('meta', 'slot', 'star', 'xs')} 원정 준비 <b>${starIco()}${b.meta.stars}</b></button>
+      ${b.runs ? `<p class="rs-best">지금까지 ${b.runs}번 원정 · 클리어 ${b.wins}번 · 최고 ${b.top >= 3 * 7 ? '클리어' : `${Math.floor(b.top / 7) + 1}막`}</p>` : ''}
+      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 잡화점 <b>${starIco()}${b.meta.stars}</b></span></button>
     </div>
-    <button class="pbtn gold big" data-act="run-start">원정 떠나기${ui.asc ? ` <small>승천 ${ui.asc}</small>` : ''}</button>
+    <button class="pbtn gold big" data-act="run-start">원정 떠나기${ui.asc ? ` <span class="go-hard">${ascEmblem(ui.asc, 'xs')}하드모드 ${ui.asc}</span>` : ''}</button>
   </div>`;
 }
 
@@ -202,10 +208,10 @@ function paintSelect() {
 const ascEmblem = (n, cls = '') => (n ? runIco('asc', String(n), 'skull', cls) : runIco('ui', 'asc', 'skull', cls));
 function ascButton(b, cls) {
   const open = ascOpen(b, cls), a = ui.asc;
-  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} <b>승천</b></p>`;
+  if (!open) return `<p class="rs-asc locked">${ico('lock', 'xs')} <b>하드모드</b></p>`;
   return `<button class="rs-ascbtn frame${a ? ' on' : ''}" data-act="run-ascopen" style="--t:${a / Run.ASC_MAX}">
     <span class="asc-badge${a ? '' : ' off'}">${ascEmblem(a)}<b>${a}</b></span>
-    <span class="ab-txt"><b>${a ? `승천 ${a}` : '승천 없음'}</b><small>${a ? `어려움 ${a}가지 적용` : '기본 원정'} · 열린 단계 ${open}/${Run.ASC_MAX}</small></span>
+    <span class="ab-txt"><b>${a ? `하드모드 ${a}` : '하드모드 없음'}</b><small>${a ? `어려움 ${a}가지 적용` : '기본 원정'} · 열린 단계 ${open}/${Run.ASC_MAX}</small></span>
     <span class="ab-go">바꾸기 ▸</span></button>`;
 }
 function showAsc() {
@@ -219,14 +225,14 @@ function showAsc() {
   }).reverse().join('');
   X.layer.innerHTML = `<div class="overlay run-ascbox" data-act="close-bg"><div class="deck-box" data-act="noop" style="--t:${a / Run.ASC_MAX}">
     <div class="asc-hero">
-      <button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="승천 낮추기">◀</button>
+      <button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="하드모드 낮추기">◀</button>
       <div class="ah-mid"><span class="ah-emb${a ? '' : ' off'}">${ascEmblem(a)}</span>
-        <b>${a ? `승천 ${a}` : '승천 0'}</b><small>${a ? `어려움 ×${a}` : ''}</small></div>
-      <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button>
+        <b>${a ? `하드모드 ${a}` : '하드모드 0'}</b><small>${a ? `어려움 ×${a}` : ''}</small></div>
+      <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="하드모드 높이기">▶</button>
     </div>
     <div class="asc-ladder">${rows}</div>
-    <p class="hint">${esc(classInfo(ui.cls).ko)}: 승천 ${open}까지 열렸어요${open < Run.ASC_MAX ? ` · 승천 ${open}을 깨면 다음 단계가 열려요` : ''}</p>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">승천 끄기</button><button class="pbtn small gold" data-act="close">정하기</button></div>
+    <p class="hint">${esc(classInfo(ui.cls).ko)}: 하드모드 ${open}까지 열렸어요${open < Run.ASC_MAX ? ` · 하드모드 ${open}을 깨면 다음 단계가 열려요` : ''}</p>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">하드모드 끄기</button><button class="pbtn small gold" data-act="close">정하기</button></div>
   </div></div>`;
   const cur = X.layer.querySelector('.asc-step.cur'), lad = X.layer.querySelector('.asc-ladder');
   if (cur && lad) lad.scrollTop = cur.offsetTop - lad.offsetTop - lad.clientHeight / 2 + cur.offsetHeight / 2;   // 고른 단계가 가운데 오게
@@ -247,7 +253,7 @@ function showMeta() {
         : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${starIco()}${d.cost}</button>`}</div>`;
   }).join('');
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비</h2></div>
+    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><h2>잡화점</h2></div>
     <h3 class="meta-sub"><span>영구 강화</span>
       <span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></h3>
     <div class="meta-list">${ups}</div>
@@ -297,7 +303,7 @@ function hud() {
   const fl = Run.floorOf(R);
   return `<header class="rhud">
     <button class="icon-btn" data-act="run-menu" aria-label="메뉴">☰</button>
-    <div class="rh-act" ${X.tipAttr(`${R.act}막${R.asc ? ` · 승천 ${R.asc}` : ''}`, `${Run.ROWS}층 + 보스 · 3막까지`)}><small>${R.act}막${R.asc ? ` · 승천${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
+    <div class="rh-act" ${X.tipAttr(`${R.act}막${R.asc ? ` · 하드모드 ${R.asc}` : ''}`, `${Run.ROWS}층 + 보스 · 3막까지`)}><small>${R.act}막${R.asc ? ` · 하드모드${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
     <div class="rh-res">
       <span class="res gold" id="r-gold" ${X.tipAttr('골드', '상점에서 써요')}>${ico('coins', 'xs')}<b>${ui.show?.gold ?? R.gold}</b></span>
       <span class="res" ${X.tipAttr('뒤집기', '1↔6 · 2↔5 · 3↔4')}>${ico('flip', 'xs')}<b>${R.flip}</b></span>
@@ -313,7 +319,7 @@ function heroStrip() {
   const hp = shownHp(), blk = R.phase === 'combat' ? shownBlk() : 0;
   const weak = R.C?.weak > 0 && R.phase === 'combat';
   return `<section class="rhero" id="rhero" style="--c:${info.color}">
-    <div class="rh-por" id="rh-por">${hero(R.cls)}</div>
+    <div class="rh-por" id="rh-por" data-rcls="${R.cls}">${hero(R.cls)}</div>
     <div class="rh-main">
       <div class="rh-name"><b>${esc(R.name)}</b><button class="rh-skill" data-act="run-skill">${ico('star', 'xs')}${ci.skill}</button>${weak ? `<span class="st weak" ${X.tipAttr(`약화 ${R.C.weak}턴`, '카드 점수 ×0.75')}>${ico('snow', 'xs')}약화 ${R.C.weak}</span>` : ''}</div>
       <div class="hp rh-hp${hp / R.maxHp < 0.3 ? ' low' : ''}"><i style="width:${(hp / R.maxHp) * 100}%"></i><em>${hp} / ${R.maxHp}</em></div>
@@ -1584,9 +1590,9 @@ function paintEnd(arrived) {
         <span><b>${st.dmg}</b>준 피해</span><span><b>${st.maxHit}</b>최고 한 방</span><span><b>${st.turns}</b>턴</span>
       </div>
       <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
-      <p class="hint">${R.asc ? `승천 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
+      <p class="hint">${R.asc ? `하드모드 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
       ${stars}
-      ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 승천 ${(R.asc || 0) + 1} 열림!</p>` : ''}
+      ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 하드모드 ${(R.asc || 0) + 1} 열림!</p>` : ''}
       <div class="res-actions"><button class="pbtn" data-act="run-home">메인으로</button><button class="pbtn gold" data-act="run-again">다시 원정</button></div>
     </div>
   </div>`;
