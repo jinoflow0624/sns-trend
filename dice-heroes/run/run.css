@@ -648,3 +648,10 @@
 /* 「영구 강화」 줄: 왼쪽 부제 · 오른쪽 보유 별조각 */
 .run-meta h3.meta-sub { justify-self: stretch; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
 .meta-sub .star-wallet { margin-left: 0; }
+/* 「영구 강화」 부제와 같은 크기의 한 줄 지갑 */
+.run-meta h3.meta-sub { align-items: center; }
+.meta-sub .star-wallet { padding: 1px 8px 1px 4px; gap: 4px; box-shadow: inset 0 0 0 1px var(--gold), 0 0 6px rgba(255,200,61,.35); }
+.meta-sub .star-wallet .run-ico { width: 16px; height: 16px; }
+.meta-sub .star-wallet > span { display: flex; align-items: baseline; gap: 4px; }
+.meta-sub .star-wallet small { font-size: 10px; }
+.meta-sub .star-wallet b { font-size: 13px; text-shadow: 1px 1px 0 var(--ink); }
