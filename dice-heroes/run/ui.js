@@ -194,18 +194,19 @@ function heroStrip() {
 const PATTERN = { ones: [1, 1, 1], twos: [2, 2, 2], threes: [3, 3, 3], fours: [4, 4, 4], fives: [5, 5, 5], sixes: [6, 6, 6], four: [5, 5, 5, 5], full: [3, 3, 3, 5, 5], sstr: [1, 2, 3, 4], lstr: [1, 2, 3, 4, 5], yacht: [6, 6, 6, 6, 6] };
 export function cardFace(c, { score = null, cls = '' } = {}) {
   const r = Run.cardRarity(c);
-  const kw = c.kw ? Run.KEYWORDS[c.kw] : null;
+  const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
   return `<div class="rc-in r${r}${c.up ? ' up' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
-    ${kw ? `<span class="rc-kw">${runIco('kw', c.kw, kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
+    ${ks.length > 1 ? `<span class="rc-kws n${ks.length}">${ks.map(k => `<i class="rc-kw" style="--kc:${Run.KEYWORDS[k].color}">${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')}${Run.KEYWORDS[k].ko}</i>`).join('')}</span>`
+      : kw ? `<span class="rc-kw">${runIco('kw', ks[0], kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
     ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
     <i class="rc-sheen"></i>
   </div>`;
 }
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.kw ? `<p>${runIco('kw', c.kw, Run.KEYWORDS[c.kw].icon, 'xs')} <b>${Run.KEYWORDS[c.kw].ko}</b> ${Run.KEYWORDS[c.kw].desc}</p>` : ''}`;
+const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -539,7 +540,7 @@ function paintSplit() {
     if (p.gold) info.push(`${ico('coins', 'xs')}+${p.gold}`);
     if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
   }
-  if (card.kw === 'weak') info.push(p.weak ? `${ico('snow', 'xs')}약화` : `<s>약화</s><small>절반 이상 공격</small>`);
+  if (Run.hasKw(card, 'weak')) info.push(p.weak ? `${ico('snow', 'xs')}약화` : `<s>약화</s><small>절반 이상 공격</small>`);
   if (p.def > 0 && p.defMul > 1) info.push(`${ico('shield', 'xs')}방어 +${Math.round((p.defMul - 1) * 100)}%`);
   if (p.wblk) info.push(`불굴 +${p.wblk}`);
   if (p.always) info.push(`보호막 +${p.always}`);
@@ -1068,7 +1069,7 @@ function cardPick(k) {
   sfx.card();
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
     <h2>카드 1장을 덱에 넣으세요</h2>
-    <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}<span class="rc-desc">${c.kw ? `${Run.KEYWORDS[c.kw].ko}: ${Run.KEYWORDS[c.kw].desc}` : c.up ? '강화: 점수 +30%' : '키워드 없음'}</span></button>`).join('')}</div>
+    <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}<span class="rc-desc">${Run.kwsOf(c).length ? Run.kwsOf(c).map(k => `${Run.KEYWORDS[k].ko}: ${Run.KEYWORDS[k].desc}`).join(' · ') : c.up ? '강화: 점수 +30%' : '키워드 없음'}${Run.kwsOf(c).length && c.up ? ' · 강화 +30%' : ''}</span></button>`).join('')}</div>
     <div class="pick-actions"><button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
   </div></div>`;
 }
@@ -1113,6 +1114,7 @@ function showShop() {
         ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${relicIco(r)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="potion" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<span><b>${p.ko}</b><small>${p.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.tools.map((it, i) => `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="tool" data-i="${i}" ${it.sold ? 'disabled' : ''}>${ico(it.kind)}<span><b>${it.kind === 'flip' ? '뒤집기' : '조정'} +1</b><small>${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})</small></span>${price(it.price, it.sold)}</button>`).join('')}
+        <button class="shop-good smith${sh.smithed ? ' sold' : ''}" data-act="run-shopsmith" ${sh.smithed || !R.deck.some(Run.canUpgrade) ? 'disabled' : ''}>${ico('axe')}<span><b>대장장이</b><small>카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 ${Run.KW_MAX}개)</small></span>${price(Run.smithPrice(R), sh.smithed)}</button>
         <button class="shop-good remove${sh.removed ? ' sold' : ''}" data-act="run-remove" ${sh.removed ? 'disabled' : ''}>${ico('skull')}<span><b>카드 제거</b><small>덱에서 카드 1장을 없앤다</small></span>${price(Run.removePrice(R), sh.removed)}</button>
       </div>
     </div>
@@ -1131,7 +1133,7 @@ function showRest() {
     <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>모닥불</b><small>잠시 쉬어 갈 수 있다</small></div>
     <div class="rest-opts">
       <button class="pbtn big rest-btn" data-act="run-rest">${ico('heart')}<span>휴식<small>체력 ${Run.restAmount(R)} 회복</small></span></button>
-      <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(c => !c.up) ? '' : 'disabled'}>${ico('axe')}<span>단련<small>카드 1장 강화 (+30%)</small></span></button>
+      <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(Run.canUpgrade) ? '' : 'disabled'}>${ico('axe')}<span>단련<small>카드 1장 강화 (+30% 또는 효과)</small></span></button>
     </div>
     ${heroStrip()}
   </div>`;
@@ -1163,15 +1165,33 @@ function showEvent() {
 // ── 덱 고르기 (강화 · 제거 · 복제) / 덱 보기 ─────────────────────────────────
 function showPick() {
   const pk = R.pick;
+  if (pk.opts) return showUpgrade();
   const title = { upgrade: '강화할 카드를 고르세요', remove: '없앨 카드를 고르세요', dup: '복제할 카드를 고르세요' }[pk.why];
-  const list = Run.deckCards(R).filter(c => pk.why !== 'upgrade' || !c.up);
+  const list = Run.deckCards(R).filter(c => pk.why !== 'upgrade' || Run.canUpgrade(c));
   const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
     <h2>${title}</h2>
     ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : pk.hp ? `<p class="hint">체력 ${pk.hp}을 잃어요</p>` : ''}
     <div class="deck-grid">${list.map(c => `<button class="rc rc-static mini${ui.pickU === c.u ? ' on' : ''}" data-act="run-pickcard" data-u="${c.u}">${cardFace(c)}</button>`).join('')}</div>
-    ${sel ? `<div class="pick-prev">${pk.why === 'upgrade' ? `<div class="rc rc-static">${cardFace(sel)}</div><b>→</b><div class="rc rc-static">${cardFace({ ...sel, up: 1 })}</div>` : `<div class="rc rc-static">${cardFace(sel)}</div>`}</div>` : ''}
-    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '강화', remove: '제거', dup: '복제' }[pk.why]}</button></div>
+    ${pk.why === 'upgrade' ? `<p class="hint">강화는 점수 +30% 한 번, 그리고 효과를 ${Run.KW_MAX}개까지 새길 수 있어요</p>` : ''}
+    ${sel ? `<div class="pick-prev"><div class="rc rc-static">${cardFace(sel)}</div></div>` : ''}
+    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '다음', remove: '제거', dup: '복제' }[pk.why]}</button></div>
+  </div></div>`;
+}
+// 강화 고르기: 점수 +30% 또는 새 효과 (3개 중 1개). 고르면 바뀐 카드를 미리 보여 준다
+function showUpgrade() {
+  const pk = R.pick, c = R.deck.find(x => x.u === pk.u);
+  const after = o => (o === 'up' ? { ...c, up: 1 } : { ...c, kws: [...Run.kwsOf(c), o] });
+  X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
+    <h2>어떻게 강화할까요?</h2>
+    ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : ''}
+    <div class="up-opts">${pk.opts.map((o, k) => {
+      const kw = o !== 'up' && Run.KEYWORDS[o];
+      return `<button class="up-opt" data-act="run-upopt" data-k="${k}"><div class="rc rc-static mini">${cardFace(after(o))}</div>
+        <span><b>${o === 'up' ? `${ico('up', 'xs')} 점수 +30%` : `${runIco('kw', o, kw.icon, 'xs')} ${kw.ko}`}</b><small>${o === 'up' ? '이 카드의 점수가 늘 30% 더 나온다' : kw.desc}</small></span></button>`;
+    }).join('')}</div>
+    <p class="hint">효과 ${Run.kwsOf(c).length}/${Run.KW_MAX}${c.up ? ' · 점수 강화 완료' : ''}</p>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button></div>
   </div></div>`;
 }
 function showDeck() {
@@ -1334,6 +1354,16 @@ export function onAct(act, t) {
     sfx.quest?.(); FX().burst(p.x, p.y, { n: 40, pal: PALETTES.heal, grav: -80 });
     return setTimeout(showMap, 700);
   }
+  if (act === 'run-upopt') {
+    const pk = R.pick, from = pk?.from;
+    try { Run.chooseUpgrade(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+    Run.drainFx(R);
+    sfx.legend?.();
+    const p = center(t); FX().burst(p.x, p.y, { n: 36, pal: PALETTES.gold });
+    X.layer.innerHTML = ''; save();
+    return from === 'shop' ? showShop() : enterView();
+  }
+  if (act === 'run-shopsmith') { try { Run.startSmith(R); } catch (e) { sfx.back(); return X.toast(ico('warn'), '할 수 없어요', e.message, 1500); } sfx.select(); ui.pickU = null; return showPick(); }
   if (act === 'run-smith') { try { Run.startUpgrade(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); } sfx.select(); ui.pickU = null; return showPick(); }
   // 덱 고르기
   if (act === 'run-pickcard') { sfx.tap(); ui.pickU = Number(t.dataset.u); return showPick(); }
@@ -1343,6 +1373,7 @@ export function onAct(act, t) {
     const why = R.pick?.why;
     try { Run.pickDeck(R, ui.pickU); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
     Run.drainFx(R);
+    if (R.pick?.opts) { sfx.select(); ui.pickU = null; return showUpgrade(); }
     why === 'upgrade' ? sfx.levelup?.() : sfx.select();
     ui.pickU = null; X.layer.innerHTML = ''; save();
     if (R.hp <= 0) { R.ended = true; R.phase = 'lost'; return showEnd(); }

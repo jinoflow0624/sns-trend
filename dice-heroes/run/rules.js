@@ -60,7 +60,7 @@ function log(R, text) {
 }
 
 // ── 족보 카드 ────────────────────────────────────────────────────────────────
-// 카드 = { u: 고유 번호, cat: 족보, up: 강화(0/1), kw: 키워드 | null }
+// 카드 = { u: 고유 번호, cat: 족보, up: 강화(0/1), kws: [키워드, … 최대 KW_MAX] } (예전 저장본은 kw: 키워드 하나)
 export const UPPER = CAT_IDS.slice(0, 6);
 export const isUpper = cat => UPPER.includes(cat);
 export const KEYWORDS = {
@@ -84,10 +84,15 @@ export const CAT_RULE = {
   choice: '주사위 5개 합', four: '같은 눈 4개 → 5개 합', full: '3개 + 2개 → 5개 합',
   sstr: '연속 4개 → 15', lstr: '연속 5개 → 30', yacht: '5개 모두 같음 → 50',
 };
-export const cardName = c => `${c.kw ? KEYWORDS[c.kw].ko + ' ' : ''}${catInfo(c.cat).ko}${c.up ? '+' : ''}`;
+export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${catInfo(c.cat).ko}${c.up ? '+' : ''}`;
 // 희귀도: 1 일반(키워드 없음) · 2 희귀(키워드) · 3 전설(키워드 + 강화, 또는 강화 요트)
-export const cardRarity = c => (c.kw && c.up) || (c.cat === 'yacht' && c.up) ? 3 : c.kw ? 2 : 1;
-function mkCard(R, cat, up = 0, kw = null) { return { u: ++R.uid, cat, up: up ? 1 : 0, kw: kw || null }; }
+export const KW_MAX = 3;                 // 카드 한 장에 붙는 효과는 3개까지 (강화로 하나씩 새긴다)
+export const kwsOf = c => c.kws || (c.kw ? [c.kw] : []);
+export const hasKw = (c, k) => kwsOf(c).includes(k);
+export const cardRarity = c => { const n = kwsOf(c).length; return n >= 2 || (n && c.up) || (c.cat === 'yacht' && c.up) ? 3 : n ? 2 : 1; };
+function mkCard(R, cat, up = 0, kws = []) { return { u: ++R.uid, cat, up: up ? 1 : 0, kws: [kws].flat().filter(Boolean) }; }
+// 강화할 수 있는 카드: 아직 +30% 강화를 안 했거나, 효과 칸이 남았다
+export const canUpgrade = c => !c.up || kwsOf(c).length < KW_MAX;
 
 // ── 승천 (원정을 깬 직업은 한 단계씩 더 어려운 원정을 열 수 있다, 0~10. 단계는 쌓인다) ──
 export const ASC_MAX = 10;
@@ -138,21 +143,21 @@ function checkFeats(R) {
 // sig: 직업마다 시작 덱에 한 장 더 들어가는 대표 카드
 export const BASE_DECK = ['choice', 'choice', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];
 export const RUN_CLASSES = {
-  gambler: { hp: 73, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
+  gambler: { hp: 76, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}. 전투에서 얻는 골드 +25%`; } },
-  monk:    { hp: 77, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
+  monk:    { hp: 80, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
     get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1 · 보호막 +${CLASS_TUNE.monkBlock}`; } },
   rogue:   { hp: 92, flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
     get desc() { return `전투를 시작할 때마다 뒤집기 +${CLASS_TUNE.rogueFlip}. 뒤집기를 쓴 턴에 내는 카드는 점수 +${Math.round(CLASS_TUNE.rogueMul * 100)}%, 적 보호막을 무시한다`; } },
-  warrior: { hp: 98, flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
+  warrior: { hp: 92, flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
     get desc() { return `숫자 카드(에이스~식스) 점수 +${Math.round(CLASS_TUNE.warriorMul * 100)}%. 숫자 카드로 공격하면 공격한 점수의 절반만큼 보호막도 얻는다`; } },
-  bard:    { hp: 88, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
+  bard:    { hp: 91, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
     get desc() { return `매 턴 시작에 보호막 +${CLASS_TUNE.bardBlock}. 전투에서 이기면 체력 ${CLASS_TUNE.bardHeal} 회복`; } },
   mage:    { hp: 80, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
     get desc() { return `손패 5장. 카드로 공격할 때 손에 남은 카드 1장당 피해 +${CLASS_TUNE.mageBonus} (나눠 내면 공격 비율만큼). 카드 보상을 한 장 더 보고 고른다`; } },
-  dancer:  { hp: 77, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
+  dancer:  { hp: 79, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
     get desc() { return `${DANCE_NEED}점 이상 카드를 내면 춤사위 +1 (최대 ${DANCE_CAP}, 원정 내내 유지). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로), 그 턴 카드 점수 +${Math.round(CLASS_TUNE.danceMul * 100)}% (턴당 1번)`; } },
-  outlaw:  { hp: 88, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
+  outlaw:  { hp: 91, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
     get desc() { return `첫 굴림 그대로(다시 굴리지 않고) 카드를 내면 점수 ×${CLASS_TUNE.rushAny}, 포카인드 · 풀하우스 · 스트레이트 · 요트면 ×${CLASS_TUNE.rushMul}. 남은 굴림 1회당 보호막 +${CLASS_TUNE.rushBlock}`; } },
   sharper: { hp: 80, flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
     get desc() { return `굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다. 턴마다 ${CLASS_TUNE.dealsTurn}번, 전투마다 ${CLASS_TUNE.deals}번까지`; } },
@@ -307,8 +312,8 @@ export const ACT_INFO = {
 };
 // 밸런스 조절용 배율 [1막, 2막, 3막] — 적 종류별 (sim/run.mjs 가 바꿔 가며 잰다)
 export const TUNE = {
-  hp:  { normal: [0.92, 0.95, 0.9], elite: [0.75, 0.8, 0.85], boss: [0.75, 0.75, 0.8] },
-  atk: { normal: [2.06, 1.94, 1.81], elite: [1.87, 1.81, 1.51], boss: [1.9, 1.7, 1.46] },
+  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.75, 0.75, 0.81] },
+  atk: { normal: [2.06, 1.94, 1.85], elite: [1.87, 1.81, 1.55], boss: [1.9, 1.7, 1.47] },
 };
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
@@ -390,7 +395,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
     ended: false, won: false, last: null,
   };
   for (const cat of BASE_DECK) R.deck.push(mkCard(R, cat));
-  R.deck.push(mkCard(R, ci.sig.cat, 0, ci.sig.kw || null));
+  R.deck.push(mkCard(R, ci.sig.cat, 0, ci.sig.kw || []));
   newAct(R);
   return R;
 }
@@ -797,7 +802,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
       if (R.cls === 'outlaw' && first) add('속전속결', (RUSH_CATS.includes(card.cat) && isCombo(card.cat, dice) ? CLASS_TUNE.rushMul : CLASS_TUNE.rushAny) - 1);
       if (R.cls === 'dancer' && C.danced) add('춤사위', CLASS_TUNE.danceMul);
       if (R.cls === 'rogue' && C.flipped) add('그림자 손', CLASS_TUNE.rogueMul);
-      if (card.kw === 'quick' && first) add('속공', 0.5);
+      if (hasKw(card, 'quick') && first) add('속공', 0.5);
       if (hasRelic(R, 'drum') && C.turn === 1) add('전쟁 북', 0.5);
       if (C.power) add('힘의 물약', 0.5);
     }
@@ -837,17 +842,17 @@ function splitOut(R, card, sc, want) {
     if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
     if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
     out.dmg = d;
-    out.pierce = card.kw === 'pierce' || (R.cls === 'rogue' && C.flipped);
+    out.pierce = hasKw(card, 'pierce') || (R.cls === 'rogue' && C.flipped);
     const through = out.pierce ? d : Math.max(0, d - e.block);
     out.kill = through >= e.hp;
-    if (card.kw === 'vamp') out.heal += Math.floor(atk / 3);
+    if (hasKw(card, 'vamp')) out.heal += Math.floor(atk / 3);
     if (hasRelic(R, 'fang')) out.heal += Math.floor(through * 0.15);
-    if (card.kw === 'gold') out.gold = Math.floor(atk / 3);
-    if (card.kw === 'burn') out.burn = Math.floor(atk / 4);
-    if (card.kw === 'weak') out.weak = atk * 2 >= S;
+    if (hasKw(card, 'gold')) out.gold = Math.floor(atk / 3);
+    if (hasKw(card, 'burn')) out.burn = Math.floor(atk / 4);
+    if (hasKw(card, 'weak')) out.weak = atk * 2 >= S;
     if (R.cls === 'warrior' && isUpper(card.cat)) out.wblk = Math.floor(atk / 2);
   }
-  out.defMul = 1 + (card.kw === 'guard' ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0);
+  out.defMul = 1 + (hasKw(card, 'guard') ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0);
   out.block = Math.round(def * out.defMul) + out.wblk;
   // 낼 때 늘 붙는 것 (나누는 것과 상관없이)
   const left = C.rollsLeft;
@@ -885,7 +890,7 @@ export function playCard(R, hi, target) {
   const p = preview(R, hi, target);
   C.hand.splice(hi, 1);
   R.stats.cards++;
-  const ev = { type: 'play', u: card.u, cat: card.cat, kw: card.kw, up: card.up, target: p.atk > 0 ? 'enemy' : 'self', atk: p.atk, def: p.def,
+  const ev = { type: 'play', u: card.u, cat: card.cat, kws: kwsOf(card), up: card.up, target: p.atk > 0 ? 'enemy' : 'self', atk: p.atk, def: p.def,
     score: p.score, parts: p.sc.parts, base: p.sc.base, notes: p.sc.notes, dmg: 0, blocked: 0, block: 0, heal: 0, gold: 0 };
   fx(R, ev);
   // 피해
@@ -911,12 +916,12 @@ export function playCard(R, hi, target) {
   if (p.gold) { R.gold += p.gold; R.stats.gold += p.gold; ev.gold = p.gold; }
   if (p.burn) { C.e.burn += p.burn; C.e.burnT = BURN_TURNS; ev.burn = p.burn; }
   if (p.weak) { C.e.weak = 1; ev.weak = true; }
-  if (card.kw === 'lucky') ev.flip = addTool(R, 'flip', 1);
+  if (hasKw(card, 'lucky')) ev.flip = addTool(R, 'flip', 1);
   if (p.score === 0 && hasRelic(R, 'insure')) addTool(R, 'flip', 1);
   if (R.cls === 'monk' && C.rollsLeft > 0) ev.nudge = addTool(R, 'nudge', C.rollsLeft);
   if (R.cls === 'dancer' && p.score >= DANCE_NEED && R.dance < DANCE_CAP) { R.dance++; ev.dance = true; }
   // 카드는 버린 더미로 (메아리는 다음 턴 손패로)
-  (card.kw === 'echo' ? C.top : C.discard).push(card);
+  (hasKw(card, 'echo') ? C.top : C.discard).push(card);
   checkFeats(R);
   log(R, `${cardName(card)} ${[p.atk > 0 ? `공격 ${p.dmg}` : '', p.block ? `방어 ${p.block}` : ''].filter(Boolean).join(' · ') || '0점'}`);
   if (C.e.hp <= 0) return winCombat(R);
@@ -979,9 +984,9 @@ function enemyTurn(R) {
   C.phase = 'enemy';
   // 남은 손패는 버린 더미로
   // 남은 손패는 버린 더미로 (보존 카드는 손패에 남는다)
-  const out = C.hand.filter(c => c.kw !== 'keep');
+  const out = C.hand.filter(c => !hasKw(c, 'keep'));
   if (out.length) { fx(R, { type: 'discard', us: out.map(c => c.u) }); C.discard.push(...out); }
-  C.hand = C.hand.filter(c => c.kw === 'keep');
+  C.hand = C.hand.filter(c => hasKw(c, 'keep'));
   C.sealed = []; C.frozen = []; C.gazed = [];
   e.block = 0;                        // 적 보호막은 적의 턴이 시작될 때 사라진다
   if (C.weak > 0) C.weak--;            // 영웅 약화는 영웅 턴 수로 센다
@@ -1081,7 +1086,9 @@ export function rollCard(R, rarity) {
   if (rarity === 1) return mkCard(R, cat);
   const kw = weighted(R, KW_W);
   if (rarity === 2) return mkCard(R, cat, 0, kw);
-  return rand(R) < 0.3 ? mkCard(R, 'yacht', 1, rand(R) < 0.5 ? kw : null) : mkCard(R, cat, 1, kw);
+  if (rand(R) < 0.3) return mkCard(R, 'yacht', 1, rand(R) < 0.5 ? kw : null);
+  if (rand(R) < 0.35) { let k2 = weighted(R, KW_W); if (k2 === kw) k2 = weighted(R, KW_W); return mkCard(R, cat, 0, k2 === kw ? [kw] : [kw, k2]); }
+  return mkCard(R, cat, 1, kw);
 }
 function cardOffer(R, kind) {
   const n = 3 + (R.cls === 'mage' ? 1 : 0) + (hasRelic(R, 'scholar') ? 1 : 0);
@@ -1090,7 +1097,7 @@ function cardOffer(R, kind) {
   for (let k = 0; k < n; k++) {
     let c, tries = 0;
     do { c = rollCard(R, Number(weighted(R, w))); tries++; }
-    while (tries < 8 && out.some(o => o.cat === c.cat && o.kw === c.kw));
+    while (tries < 8 && out.some(o => o.cat === c.cat && kwsOf(o).join() === kwsOf(c).join()));
     out.push(c);
   }
   return out;
@@ -1178,12 +1185,19 @@ function genShop(R) {
     relics: shopRelics(R).map(id => ({ id, price: jitter(PRICE.relic[relicInfo(id).r]), sold: false })),
     potions: [rollPotion(R), rollPotion(R)].map(id => ({ id, price: jitter(PRICE.potion), sold: false })),
     tools: [{ kind: 'flip', price: PRICE.flip, sold: false }, { kind: 'nudge', price: PRICE.nudge, sold: false }],
-    removed: false,
+    removed: false, smithed: false,
   };
 }
 function shopRelics(R) {
   const a = rollRelic(R, 1), b = rollRelic(R, 2, a ? [a] : []);
   return [a, b].filter(Boolean);
+}
+// 상점 대장장이: 카드 1장 강화 (상점마다 한 번, 쓸수록 비싸진다)
+export const smithPrice = R => Math.round((70 + (R.smiths || 0) * 25) * (asc(R, 7) ? 1.25 : 1));
+export function startSmith(R) {
+  if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
+  if (R.shop.smithed) fail('이 상점에서는 이미 강화했어요.');
+  startUpgrade(R, 'shop', smithPrice(R));
 }
 export const removePrice = R => Math.round((PRICE.remove + R.removes * PRICE.removeStep) * (asc(R, 7) ? 1.25 : 1));
 export function buy(R, kind, idx) {
@@ -1221,9 +1235,33 @@ export function restHeal(R) {
   healHero(R, restAmount(R), 'rest');
   R.phase = 'map';
 }
-export function startUpgrade(R, from = 'rest') {
-  if (!R.deck.some(c => !c.up)) fail('강화할 카드가 없어요.');
-  R.pick = { why: 'upgrade', from };
+export function startUpgrade(R, from = 'rest', cost = 0) {
+  if (!R.deck.some(canUpgrade)) fail('강화할 카드가 없어요.');
+  if (cost && R.gold < cost) fail('골드가 모자라요.');
+  R.pick = { why: 'upgrade', from, cost };
+}
+// 강화 고르기: 점수 +30% (아직 안 했으면) 또는 새 효과 3개 중 하나 (효과가 KW_MAX 개 미만이면)
+function upgradeOpts(R, c) {
+  const out = [];
+  if (!c.up) out.push('up');
+  if (kwsOf(c).length < KW_MAX) {
+    const w = Object.fromEntries(Object.entries(KW_W).filter(([k]) => !hasKw(c, k)));
+    for (let n = 0; n < 3 && Object.keys(w).length; n++) { const k = weighted(R, w); out.push(k); delete w[k]; }
+  }
+  return out;
+}
+export function chooseUpgrade(R, k) {
+  const pk = R.pick;
+  if (!pk || pk.why !== 'upgrade' || !pk.opts) fail('고를 때가 아니에요.');
+  const c = R.deck.find(x => x.u === pk.u), o = pk.opts[k];
+  if (!c || !o) fail('없는 선택이에요.');
+  if (o === 'up') c.up = 1;
+  else { c.kws = [...kwsOf(c), o]; delete c.kw; }
+  if (pk.cost) { R.gold -= pk.cost; R.smiths = (R.smiths || 0) + 1; if (R.shop) R.shop.smithed = true; }
+  fx(R, { type: 'upgrade', u: c.u, opt: o });
+  R.pick = null;
+  if (pk.from === 'rest') R.phase = 'map';
+  if (pk.from === 'event') finishEvent(R, pk.done);
 }
 // 덱에서 카드 한 장 고르기 (강화 · 제거 · 복제)
 export function pickDeck(R, u) {
@@ -1232,10 +1270,10 @@ export function pickDeck(R, u) {
   const c = R.deck.find(x => x.u === u);
   if (!c) fail('없는 카드예요.');
   if (pk.why === 'upgrade') {
-    if (c.up) fail('이미 강화한 카드예요.');
-    c.up = 1;
-    fx(R, { type: 'upgrade', u });
-    if (pk.from === 'rest') R.phase = 'map';
+    if (!canUpgrade(c)) fail('더 강화할 수 없는 카드예요.');
+    pk.u = u;
+    pk.opts = upgradeOpts(R, c);
+    return;                              // 다음: chooseUpgrade 로 강화 고르기
   }
   if (pk.why === 'remove') {
     if (R.deck.length <= 5) fail('덱이 너무 작아요 (최소 5장).');
@@ -1278,7 +1316,7 @@ export const EVENTS = [
     O('피를 바친다', '체력 12 잃고 무작위 유물', R => { hurtHero(R, 12, 'event'); const id = rollRelic(R, weighted(R, { 1: 50, 2: 50 })); gainRelic(R, id); return `제단이 「${relicInfo(id)?.ko}」를 내주었다.`; }, R => R.hp > 12),
     O('떠난다', '아무 일도 없다', () => '불길한 기운을 뒤로하고 떠났다.')]),
   E_('smith', '떠돌이 대장장이', 'axe', '"카드 한 장 손봐 줄까? 공짜야. 아니면 필요 없는 걸 녹여 주지. 대신 손이 좀 베일 거야."', [
-    O('강화한다', '카드 1장 강화 (무료)', R => { R.pick = { why: 'upgrade', from: 'event', done: '대장장이가 카드를 반짝반짝 벼려 주었다.' }; return null; }, R => R.deck.some(c => !c.up)),
+    O('강화한다', '카드 1장 강화 (무료)', R => { R.pick = { why: 'upgrade', from: 'event', done: '대장장이가 카드를 반짝반짝 벼려 주었다.' }; return null; }, R => R.deck.some(canUpgrade)),
     O('녹인다', '카드 1장 제거 · 체력 8 잃음', R => { R.pick = { why: 'remove', from: 'event', hp: 8, done: '카드를 녹여 없앴다. 손이 좀 쓰리다.' }; return null; }, R => R.deck.length > 5 && R.hp > 8),
     O('떠난다', '아무 일도 없다', () => '대장장이에게 손을 흔들고 떠났다.')]),
   E_('gamble', '고블린 도박사', 'coins', '"주사위 다섯 개, 합이 18 이상이면 두 배로 돌려주지! 어때, 30골드?" 고블린이 이를 드러내며 웃는다.', [
@@ -1389,7 +1427,7 @@ function prepHand(R, rollNo) {
     if (R.cls === 'outlaw' && first) mul += (RUSH_CATS.includes(up) ? CLASS_TUNE.rushMul : CLASS_TUNE.rushAny) - 1;   // 큰 족보는 점수가 나면 곧 완성
     if (R.cls === 'dancer' && C.danced) mul += CLASS_TUNE.danceMul;
     if (R.cls === 'rogue' && C.flipped) mul += CLASS_TUNE.rogueMul;
-    if (card.kw === 'quick' && first) mul += 0.5;
+    if (hasKw(card, 'quick') && first) mul += 0.5;
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 1.5;
@@ -1400,9 +1438,9 @@ function prepHand(R, rollNo) {
       combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), zero: C.gazed.includes(card.u) && !C.pure,
       flat: (R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0) + (hasRelic(R, 'whet') ? 3 : 0),
       horn: hasRelic(R, 'horn') && isBossKind(C.e), poison: hexActive(R, 'poison'),
-      pierce: card.kw === 'pierce' || (R.cls === 'rogue' && C.flipped),
-      dmul: 1 + (card.kw === 'guard' ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0), wblk: R.cls === 'warrior' && isUpper(up),
-      vamp: card.kw === 'vamp', burn: card.kw === 'burn', weak: card.kw === 'weak', gold: card.kw === 'gold',
+      pierce: hasKw(card, 'pierce') || (R.cls === 'rogue' && C.flipped),
+      dmul: 1 + (hasKw(card, 'guard') ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0), wblk: R.cls === 'warrior' && isUpper(up),
+      vamp: hasKw(card, 'vamp'), burn: hasKw(card, 'burn'), weak: hasKw(card, 'weak'), gold: hasKw(card, 'gold'),
     };
   });
 }
@@ -1612,7 +1650,7 @@ export function botCardValue(R, c) {
     if (hasRelic(R, 'quad')) v *= 1.3;
   }
   if ((c.cat === 'sstr' || c.cat === 'lstr') && sy.str) v *= 1 + (hasRelic(R, 'flow') ? 0.6 : 0) + (hasRelic(R, 'combo') ? 0.8 : 0);
-  if (c.kw) v += KW_V[c.kw];
+  for (const k of kwsOf(c)) v += KW_V[k];
   // 이미 있는 카드와 겹치면 조금 덜
   const same = R.deck.filter(x => x.cat === c.cat).length;
   return v - same * 1.5;
@@ -1621,7 +1659,11 @@ export function botCardValue(R, c) {
 export function botRunStep(R, rng = Math.random) {
   if (R.pick) {
     const pk = R.pick;
-    const cands = R.deck.filter(c => (pk.why === 'upgrade' ? !c.up : true));
+    if (pk.opts) {                       // 강화 고르기: 효과 값이 가장 큰 것 (이미 강화했으면)
+      const v = o => (o === 'up' ? 6 : KW_V[o] + (o === 'keep' ? 1 : 0));
+      return chooseUpgrade(R, pk.opts.indexOf(pk.opts.slice().sort((a, b) => v(b) - v(a))[0]));
+    }
+    const cands = R.deck.filter(c => (pk.why === 'upgrade' ? canUpgrade(c) : true));
     if (!cands.length) return cancelPick(R);
     const sorted = cands.slice().sort((a, b) => botCardValue(R, a) - botCardValue(R, b));
     return pickDeck(R, (pk.why === 'remove' ? sorted[0] : sorted[sorted.length - 1]).u);
@@ -1655,12 +1697,13 @@ export function botRunStep(R, rng = Math.random) {
     if (relic >= 0) return buy(R, 'relic', relic);
     const card = sh.cards.findIndex(x => !x.sold && x.price <= R.gold && botCardValue(R, x.c) >= 15 && R.deck.length < 14);
     if (card >= 0) return buy(R, 'card', card);
+    if (!sh.smithed && R.gold >= smithPrice(R) + 25 && R.deck.some(canUpgrade)) return startSmith(R);
     const pot = sh.potions.findIndex(x => !x.sold && x.price <= R.gold - 20 && R.potions.length < POTION_SLOTS);
     if (pot >= 0) return buy(R, 'potion', pot);
     return leaveShop(R);
   }
   if (R.phase === 'rest') {
-    if (R.hp < R.maxHp * 0.65 || !R.deck.some(c => !c.up)) return restHeal(R);
+    if (R.hp < R.maxHp * 0.65 || !R.deck.some(canUpgrade)) return restHeal(R);
     return startUpgrade(R);
   }
   if (R.phase === 'event') {
