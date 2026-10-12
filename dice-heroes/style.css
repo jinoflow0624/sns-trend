@@ -136,6 +136,11 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 /* 원정 (테스트판 전용) 메뉴: 이어하기 + 새 원정 */
 .run-menu { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .run-menu .pbtn.small { width: auto; }
+/* 원정은 다른 모드와 구별되게 진홍색 버튼 (이어하기는 은은하게 빛난다) */
+.run-menu .pbtn, .run-menu .pbtn.gold { border-image-source: var(--fr-red); color: #fff; text-shadow: 0 2px 0 #5A0A1C; }
+.run-menu .pbtn small { color: #FFD0D6; opacity: .9; }
+.run-menu .pbtn.gold { animation: runGlow 1.8s ease-in-out infinite; }
+@keyframes runGlow { 50% { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 10px rgba(232,67,90,.85)); } }
 .run-menu .pbtn:only-child { grid-column: 1 / -1; }
 @keyframes rise { from { transform: translateY(30px); opacity: 0; } }
 .ver { font-size: 10px; color: #CFC6FF; opacity: .7; text-shadow: 1px 1px 0 var(--ink); }
