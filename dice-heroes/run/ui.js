@@ -508,7 +508,7 @@ function paint() {
     <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${R.flip}</b></button>
     <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${R.nudge}</b></button>
     <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? '카드 고르기' : '교체'}<b>${C.swaps}</b></button>`;
-  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure ? `<button class="hex-badge" data-act="run-hex">${runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
+  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure && !Run.omen(R, 'fog') ? `<button class="hex-badge" data-act="run-hex">${runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
   $('rtip').innerHTML = tipText(needBet);
   hand?.refresh();
   if (ui.split && ui.sel === ui.split.u) syncSplit();
@@ -1239,7 +1239,7 @@ async function playOne(f) {
       if (f.when !== 'turn') return;
       const e = foeAt(), h = Run.HEX[f.t], fx = FX(), rc = $('rc');
       const trayC = center($('tray'));
-      floatAt(e.x, e.y + 40, `${runIco('hex', f.t, h.icon, 'xs')} ${h.ko}`, 'gold');
+      if (!Run.omen(R, 'fog')) floatAt(e.x, e.y + 40, `${runIco('hex', f.t, h.icon, 'xs')} ${h.ko}`, 'gold');   // 짙은 안개: 방해 이름은 미리 알리지 않는다
       if (!fxOn) { await wait(380); return; }
       if (f.t === 'drums') {                     // 전쟁의 북: 쿵쿵쿵 — 주사위가 튀고 충격파
         for (let k = 0; k < 3; k++) {
