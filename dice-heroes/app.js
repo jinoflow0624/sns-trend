@@ -209,7 +209,31 @@ function loadRun() {
 function runAct(act, t) {
   if (PROD) return;
   loadRun().then(m => (act === 'die' ? m.onDie(Number(t.dataset.i)) : m.onAct(act, t)))
-    .catch(err => { noteErr(err); toast(ico('warn'), '원정을 열지 못했어요', String(err?.message || err).slice(0, 80), 2200); });
+    .catch(err => {
+      noteErr(err);
+      if (healCode(err)) return toast(ico('warn'), '새 버전을 받는 중…', '잠시 뒤 다시 열려요', 2600);
+      toast(ico('warn'), '원정을 열지 못했어요', String(err?.message || err).slice(0, 80), 2200);
+    });
+}
+// 새 버전 파일과 예전 버전 파일이 섞여 불러와지면 (신호가 약할 때 오프라인 캐시에서 예전 파일을 꺼내 오면서 생긴다)
+// "… is not a function" · "does not provide an export" 같은 오류가 난다. 그때 코드 파일을 서버에서 새로 받아
+// 캐시를 덮어쓰고 한 번만 다시 연다 (이번 접속에서 이미 했으면 하지 않는다)
+function healCode(err) {
+  if (!(err instanceof TypeError || err instanceof SyntaxError) || !('caches' in window)) return false;
+  try { if (sessionStorage.getItem('dh.healed')) return false; sessionStorage.setItem('dh.healed', '1'); } catch { return false; }
+  (async () => {
+    const names = (await caches.keys()).filter(k => k.startsWith('dh-'));
+    const urls = new Set(['run/ui.js', 'run/rules.js', 'run/art.js', 'run/relic-art.js', 'run/hand.js', 'run/progress.js', 'run/run.css'].map(u => new URL(u, location.href).href));
+    for (const n of names) for (const r of await (await caches.open(n)).keys()) if (/\.(js|css|html)$/.test(new URL(r.url).pathname)) urls.add(r.url.split('?')[0]);
+    await Promise.allSettled([...urls].map(async u => {
+      // 주소 끝에 시간을 붙여 어느 캐시(기기 · 서버 앞단)도 건너뛰고 받는다
+      const res = await fetch(`${u}?fresh=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) for (const n of names) await (await caches.open(n)).put(u, res.clone());
+    }));
+    track('code_heal', { msg: String(err?.message || err).slice(0, 60) });
+    location.reload();
+  })().catch(() => location.reload());
+  return true;
 }
 
 // 지갑이 바뀌면: 시작 화면 보석 숫자 갱신, 안 산 스킨을 쓰고 있었으면 기본으로

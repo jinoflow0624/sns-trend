@@ -35,6 +35,8 @@ const KIND_KO = { normal: '', elite: '엘리트', boss: '보스' };
 // 원정 스타일(run.css)을 다 받은 뒤에 화면을 그린다 — 먼저 그리면 꾸밈 없는 화면이 잠깐 보인다 (최대 3초 기다림)
 let cssReady = null;
 export function init(ctx) {
+  // 원정 파일끼리 버전이 섞였는지 (예전 rules.js + 새 ui.js) — 섞였으면 app.js 가 새로 받아 다시 연다
+  if (typeof Run.replay !== 'function' || typeof Run.fixProgress !== 'function' || typeof Prog.progress !== 'function') throw new TypeError('원정 파일 버전이 섞였어요');
   X = ctx;
   Prog.initProgress(X.store);
   return (cssReady ||= new Promise(resolve => {
