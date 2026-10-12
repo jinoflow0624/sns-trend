@@ -490,7 +490,7 @@ function paint() {
     <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${R.flip}</b></button>
     <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${R.nudge}</b></button>
     <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? '카드 고르기' : '교체'}<b>${C.swaps}</b></button>`;
-  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure ? `<button class="hex-badge" data-act="run-hex">${ico(Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
+  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure ? `<button class="hex-badge" data-act="run-hex">${runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
   $('rtip').innerHTML = tipText(needBet);
   hand?.refresh();
   if (ui.split && ui.sel === ui.split.u) syncSplit();
@@ -524,7 +524,7 @@ function foePanel() {
     if (p.k === 'heal') return `<span class="it heal">${ico('heart', 'xs')}<b>${p.n}</b></span>`;
     if (p.k === 'steal') return `<span class="it steal">${ico('coins', 'xs')}<b>${p.n}</b></span>`;
     if (p.k === 'weak') return `<span class="it weak">${ico('snow', 'xs')}<b>${p.n}</b></span>`;
-    if (p.k === 'hex') return `<span class="it hex">${ico(Run.HEX[p.t].icon, 'xs')}<b>${Run.HEX[p.t].ko}</b></span>`;
+    if (p.k === 'hex') return `<span class="it hex">${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')}<b>${Run.HEX[p.t].ko}</b></span>`;
     return '';
   }).join('');
   return `
@@ -1216,7 +1216,7 @@ async function playOne(f) {
       if (f.when !== 'turn') return;
       const e = foeAt(), h = Run.HEX[f.t], fx = FX(), rc = $('rc');
       const trayC = center($('tray'));
-      floatAt(e.x, e.y + 40, `${ico(h.icon, 'xs')} ${h.ko}`, 'gold');
+      floatAt(e.x, e.y + 40, `${runIco('hex', f.t, h.icon, 'xs')} ${h.ko}`, 'gold');
       if (!fxOn) { await wait(380); return; }
       if (f.t === 'drums') {                     // 전쟁의 북: 쿵쿵쿵 — 주사위가 튀고 충격파
         for (let k = 0; k < 3; k++) {
@@ -1841,7 +1841,7 @@ export function onAct(act, t) {
   if (R.phase !== 'combat') return;
   if (act === 'run-skip') return ui.skipIntro?.();
   if (act === 'run-intent') return intentInfo(t);
-  if (act === 'run-hex') { const h = R.C.hex; sfx.tap(); return X.popover(t, `<b>${ico(Run.HEX[h.t].icon, 'xs')} ${Run.HEX[h.t].ko}</b><p>${Run.HEX[h.t].desc(h.n)}</p>`); }
+  if (act === 'run-hex') { const h = R.C.hex; sfx.tap(); return X.popover(t, `<b>${runIco('hex', h.t, Run.HEX[h.t].icon, 'xs')} ${Run.HEX[h.t].ko}</b><p>${Run.HEX[h.t].desc(h.n)}</p>`); }
   if (!canAct()) return;
   if (act === 'run-roll') return doRoll();
   if (act === 'run-tool') {
@@ -1939,7 +1939,7 @@ function intentInfo(t) {
     if (p.k === 'heal') return `${ico('heart', 'xs')} 체력 ${p.n} 회복`;
     if (p.k === 'steal') return `${ico('coins', 'xs')} 골드 ${p.n} 훔치기${parts0.some(q => q.k === 'atk') ? ' (공격을 다 막으면 못 훔친다)' : ''}`;
     if (p.k === 'weak') return `${ico('snow', 'xs')} 약화 ${p.n}턴 (내 카드 점수 ×0.75)`;
-    if (p.k === 'hex') return `${ico(Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>: ${Run.HEX[p.t].desc(p.n)} (이번 턴)`;
+    if (p.k === 'hex') return `${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>: ${Run.HEX[p.t].desc(p.n)} (이번 턴)`;
     return '';
   });
   const fury = Run.furyOf(R);

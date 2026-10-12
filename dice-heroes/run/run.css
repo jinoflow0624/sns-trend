@@ -918,3 +918,7 @@
 .shelf-item.sold .si-ico { opacity: .25; filter: grayscale(1); }
 .shelf-item.sold .price { background: #3A2C5A; color: var(--muted); }
 .shelf-item:disabled { cursor: default; }
+/* 인장 그림(동전 모양)이 있으면 CSS 동그라미 대신 그림만 꽉 차게 */
+.rc-seal:has(img.run-ico), .seal-big:has(img.run-ico), .ss-disc:has(img.run-ico) { background: none; border: 0; }
+.rc-seal img.run-ico, .ss-disc img.run-ico { width: 100% !important; height: 100% !important; }
+.seal-big img.run-ico { width: 100% !important; height: 100% !important; }
