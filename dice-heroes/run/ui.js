@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe } from './art.js';
+import { foeURL, isPixelFoe, runIco, sceneURL, actBgURL } from './art.js';
 import { relicIco } from './relic-art.js';
 import { Hand } from './hand.js';
 
@@ -171,7 +171,7 @@ function hud() {
       <span class="res">${ico('nudge', 'xs')}<b>${R.nudge}</b></span>
       ${R.cls === 'dancer' ? `<span class="res">${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
     </div>
-    <div class="potions">${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : '빈 칸'}">${p ? ico(p.icon, 'xs') : ''}</button>`; }).join('')}</div>
+    <div class="potions">${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : '빈 칸'}">${p ? runIco('potion', p.id, p.icon, 'xs') : ''}</button>`; }).join('')}</div>
     <button class="pile" data-act="run-deck" aria-label="덱 보기">${ico('card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
   </header>`;
 }
@@ -200,12 +200,12 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
     <b class="rc-name">${Run.cardTitle(c.cat)}${c.up ? '<i class="rc-plus">+</i>' : ''}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
-    ${kw ? `<span class="rc-kw">${ico(kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
+    ${kw ? `<span class="rc-kw">${runIco('kw', c.kw, kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
     ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
     <i class="rc-sheen"></i>
   </div>`;
 }
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.kw ? `<p>${ico(Run.KEYWORDS[c.kw].icon, 'xs')} <b>${Run.KEYWORDS[c.kw].ko}</b> ${Run.KEYWORDS[c.kw].desc}</p>` : ''}`;
+const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.kw ? `<p>${runIco('kw', c.kw, Run.KEYWORDS[c.kw].icon, 'xs')} <b>${Run.KEYWORDS[c.kw].ko}</b> ${Run.KEYWORDS[c.kw].desc}</p>` : ''}`;
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -231,14 +231,14 @@ function showMap() {
   <div class="screen run-map">
     ${hud()}
     <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b><small>보스 ${esc(Run.ENEMIES[bossId].ko)}</small></div>
-    <div class="map-scroll" id="map-scroll"><div class="map" style="height:${H}px">
+    <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
       <svg class="map-lines" viewBox="0 0 100 ${H}" preserveAspectRatio="none">${lines}</svg>
       ${nodes.map(n => {
         const p = pos(n);
         const st = n.id === R.pos ? 'here' : next.has(n.id) ? 'can' : visited.has(n.id) ? 'done' : 'far';
         const boss = n.type === 'boss';
         return `<button class="mnode t-${n.type} ${st}" data-act="run-node" data-id="${n.id}" style="left:${p.x}%;top:${p.y}px" ${st === 'can' ? '' : 'tabindex="-1"'} aria-label="${Run.NODE[n.type].ko}">
-          ${boss ? `<img class="mboss" src="${foeURL(bossId)}" alt="">` : ico(Run.NODE[n.type].icon)}
+          ${boss ? `<img class="mboss" src="${foeURL(bossId)}" alt="">` : runIco('node', n.type, Run.NODE[n.type].icon)}
           ${n.id === R.pos ? `<span class="mhere">${hero(R.cls)}</span>` : ''}
           ${st === 'can' ? `<i class="mlabel">${Run.NODE[n.type].ko}</i>` : ''}
         </button>`;
@@ -964,7 +964,7 @@ async function playOne(f) {
       return;
     }
     case 'bet': return;
-    case 'potion': { const p = Run.potionInfo(f.id); const h = heroAt(); floatAt(h.x, h.y - 60, `${ico(p.icon, 'xs')} ${p.ko}`, 'gold'); sfx.select(); await wait(250); return; }
+    case 'potion': { const p = Run.potionInfo(f.id); const h = heroAt(); floatAt(h.x, h.y - 60, `${runIco('potion', p.id, p.icon, 'xs')} ${p.ko}`, 'gold'); sfx.select(); await wait(250); return; }
     case 'foeDie': {
       const art = $('foe-art');
       art?.classList.add('dying');
@@ -1027,7 +1027,7 @@ function showReward() {
     ${hud()}
     <div class="rw-box">
       <h1 class="rw-title">${title}</h1>
-      ${rw.kind === 'treasure' ? `<div class="chest">${ico('gem', 'lg')}</div>` : ''}
+      ${rw.kind === 'treasure' ? `<div class="chest"><img class="run-scene" src="${sceneURL('treasure')}" alt=""></div>` : ''}
       <div class="rw-items">
         ${rw.items.map((it, k) => rewardRow(it, k)).join('')}
       </div>
@@ -1041,7 +1041,7 @@ function showReward() {
 function rewardRow(it, k) {
   const done = it.done ? ' done' : '';
   if (it.t === 'gold') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('coins')}<b>골드 ${it.n}</b></button>`;
-  if (it.t === 'potion') { const p = Run.potionInfo(it.id); return `<button class="rw${done}" data-act="run-take" data-k="${k}" style="--pc:${p.color}">${ico(p.icon)}<b>${p.ko}</b><small>${p.desc}</small></button>`; }
+  if (it.t === 'potion') { const p = Run.potionInfo(it.id); return `<button class="rw${done}" data-act="run-take" data-k="${k}" style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<b>${p.ko}</b><small>${p.desc}</small></button>`; }
   if (it.t === 'relic') { const r = Run.relicInfo(it.id); return `<button class="rw relic-row r${r.r}${done}" data-act="run-take" data-k="${k}">${relicIco(r)}<b>${r.ko}</b><small>${r.desc}</small></button>`; }
   if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>보스 유물 고르기</b><small>3개 중 1개</small></button>`;
   if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b></button>`;
@@ -1104,14 +1104,14 @@ function showShop() {
   X.app.innerHTML = `
   <div class="screen run-shop">
     ${hud()}
-    <div class="shop-head">${ico('coins', 'lg')}<div><b>떠돌이 상점</b><small>"좋은 물건 있어요, 모험가님!"</small></div></div>
+    <div class="shop-head"><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b><small>"좋은 물건 있어요, 모험가님!"</small></div></div>
     <div class="shop-scroll">
       <h3>족보 카드</h3>
       <div class="shop-cards">${sh.cards.map((it, i) => `<button class="shop-item${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="card" data-i="${i}" ${it.sold ? 'disabled' : ''}><div class="rc rc-static">${cardFace(it.c)}</div>${price(it.price, it.sold)}</button>`).join('')}</div>
       <h3>유물 · 물약 · 도구</h3>
       <div class="shop-goods">
         ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${relicIco(r)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
-        ${sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="potion" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--pc:${p.color}">${ico(p.icon)}<span><b>${p.ko}</b><small>${p.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
+        ${sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="potion" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<span><b>${p.ko}</b><small>${p.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.tools.map((it, i) => `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="tool" data-i="${i}" ${it.sold ? 'disabled' : ''}>${ico(it.kind)}<span><b>${it.kind === 'flip' ? '뒤집기' : '조정'} +1</b><small>${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})</small></span>${price(it.price, it.sold)}</button>`).join('')}
         <button class="shop-good remove${sh.removed ? ' sold' : ''}" data-act="run-remove" ${sh.removed ? 'disabled' : ''}>${ico('skull')}<span><b>카드 제거</b><small>덱에서 카드 1장을 없앤다</small></span>${price(Run.removePrice(R), sh.removed)}</button>
       </div>
@@ -1128,7 +1128,7 @@ function showRest() {
   X.app.innerHTML = `
   <div class="screen run-rest">
     ${hud()}
-    <div class="camp"><div class="campfire" id="campfire">${ico('fire', 'lg')}</div><b>모닥불</b><small>잠시 쉬어 갈 수 있다</small></div>
+    <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>모닥불</b><small>잠시 쉬어 갈 수 있다</small></div>
     <div class="rest-opts">
       <button class="pbtn big rest-btn" data-act="run-rest">${ico('heart')}<span>휴식<small>체력 ${Run.restAmount(R)} 회복</small></span></button>
       <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(c => !c.up) ? '' : 'disabled'}>${ico('axe')}<span>단련<small>카드 1장 강화 (+30%)</small></span></button>
@@ -1149,7 +1149,7 @@ function showEvent() {
   <div class="screen run-event">
     ${hud()}
     <div class="ev-box frame">
-      <div class="ev-art">${ev.id === 'fairy' ? `<img class="spr ev-fairy" src="${spriteURL('fairy', 6)}" alt="">` : ico(ev.art, 'lg')}</div>
+      <div class="ev-art">${sceneURL(ev.id) ? `<img class="run-scene" src="${sceneURL(ev.id)}" alt="">` : ico(ev.art, 'lg')}</div>
       <h2>${esc(ev.ko)}</h2>
       <p class="ev-text">${esc(ev.text)}</p>
       ${R.event.dice ? `<div class="ev-dice">${R.event.dice.map(v => `<i class="dd-die" data-v="${v}">${miniDie(v)}</i>`).join('')}</div>` : ''}

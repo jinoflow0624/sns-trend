@@ -3,6 +3,11 @@
 원정 모드는 지금 **테스트판에만** 있습니다 (`dice-heroes/run/`, 배포판 빌드에서는 빠짐).
 그림 · 음악은 아래처럼 **임시본**으로 돌아가고 있어서, 디자인 · 작곡 세션에서 정식본을 만들면 바로 바꿔 끼울 수 있게 정리했습니다.
 
+> **반영 현황 (v0.38.7)**: 적 16종(`assets/run/<id>.webp`), 지도 칸 · 키워드 · 물약 아이콘과 카드 틀(`assets/run/ui/`),
+> 상점 · 휴식 · 보물 · 이벤트 9종 장면(`assets/run/scene/`), 막 배경 3장(`assets/run/bg_act*.webp`), 유물 37종(`run/relic-art.js`),
+> 음악 5곡(`assets/bgm/run_*.ogg`)이 모두 정식본으로 들어갔습니다. 납품 zip 은 `python3 tools/make_run_art.py <적 폴더> <UI 폴더>` 로 변환합니다.
+> 아직 임시: 키워드 `보존`(그림 없음, 공용 아이콘).
+
 | 무엇 | 지금(임시) | 바꿀 곳 |
 |---|---|---|
 | 일반 적 · 엘리트 16종 | 16×16 도트 (`run/art.js` 의 `MON`) | `assets/run/<id>.webp` 512px → `run/art.js` 의 `FILES` 배열에 id 추가 |
