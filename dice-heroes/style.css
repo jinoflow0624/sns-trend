@@ -1204,7 +1204,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .boss-pick.sealed-boss img { filter: brightness(0) drop-shadow(0 0 6px #C21E56); }
 .boss-pick.sealed-boss b { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .seal-ring, .haki-banner, .sigil * { animation: none !important; } }
-.bosses { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.bosses { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }   /* 1행 원래 보스 · 2행 강화 보스 (같은 위계끼리 한 줄) */
 .boss-pick img.bp { width: 56px; height: 56px; }
 .demon-reveal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; align-content: center; gap: 10px; padding: 24px; text-align: center; background: #05020A; animation: fade .6s; }
 .dr-cracks { position: absolute; inset: 0; opacity: 0; animation: drCrack 1.4s .9s forwards;
