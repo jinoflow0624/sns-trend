@@ -1472,28 +1472,32 @@ function showShop() {
   playBgm('run_map');
   const sh = R.shop;
   const price = (p, sold) => `<em class="price${!sold && R.gold < p ? ' poor' : ''}">${sold ? '판매됨' : `${ico('coins', 'xs')}${p}`}</em>`;
+  // 진열대: 아이콘과 가격표만. 누르면 산다, 길게 누르면 설명
+  const tips = [];
+  const item = (attrs, icon, p, sold, tip, cls = '') => { tips.push(tip); return `<button class="shelf-item${cls}${sold ? ' sold' : ''}" ${attrs} data-ti="${tips.length - 1}" ${sold ? 'disabled' : ''}><span class="si-ico">${icon}</span>${price(p, sold)}</button>`; };
+  const tipOf = (title, desc, sub = '') => `<b>${title}</b>${sub ? ` <small>${sub}</small>` : ''}<p>${desc}</p>`;
+  const cards = sh.cards.map((it, i) => item(`data-act="run-buy" data-kind="card" data-i="${i}"`, `<div class="rc rc-static">${cardFace(it.c)}</div>`, it.price, it.sold, cardTip(it.c), ' card'));
+  const seals = (sh.seals || []).map((it, i) => { const sl = Run.sealInfo(it.id); return item(`data-act="run-buy" data-kind="seal" data-i="${i}" style="--sc:${sl.color}"`, `<i class="seal-big s-${it.id}">${sealIco(it.id, '')}</i>`, it.price, it.sold, tipOf(`${sealIco(it.id)} ${sl.ko}`, sl.desc, '카드에 붙이는 일회용 효과'), ' seal-row'); });
+  const relics = sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return item(`data-act="run-buy" data-kind="relic" data-i="${i}"`, relicIco(r, 'lg'), it.price, it.sold, tipOf(`${relicIco(r, 'xs')} ${r.ko}`, r.desc, ['', '일반', '희귀', '보스'][r.r]), ` si-relic r${r.r}`); });
+  const potions = sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return item(`data-act="run-buy" data-kind="potion" data-i="${i}" style="--pc:${p.color}"`, runIco('potion', p.id, p.icon, 'lg'), it.price, it.sold, tipOf(p.ko, p.desc, '물약')); });
+  const tools = sh.tools.map((it, i) => item(`data-act="run-buy" data-kind="tool" data-i="${i}"`, ico(it.kind, 'lg'), it.price, it.sold, tipOf(`${it.kind === 'flip' ? '뒤집기' : '조정'} +1`, `${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})`)));
+  const smith = item(`data-act="run-shopsmith"${!sh.smithed && !R.deck.some(Run.canUpgrade) ? ' disabled' : ''}`, runIco('ui', 'smith', 'axe', 'lg'), Run.smithPrice(R), sh.smithed, tipOf('대장장이', `카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 ${Run.KW_MAX}개)`));
+  const remove = item('data-act="run-remove"', ico('skull', 'lg'), Run.removePrice(R), sh.removed, tipOf('카드 제거', '덱에서 카드 1장을 없앤다'));
+  const shelf = (list, cls = '') => (list.length ? `<div class="shelf${cls}"><div class="shelf-row">${list.join('')}</div><i class="shelf-plank" aria-hidden="true"></i></div>` : '');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-shop">
     ${hud()}
-    <div class="shop-head"><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div></div>
-    <div class="shop-scroll">
-      <h3>족보 카드</h3>
-      <div class="shop-cards">${sh.cards.map((it, i) => `<button class="shop-item${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="card" data-i="${i}" ${it.sold ? 'disabled' : ''}><div class="rc rc-static">${cardFace(it.c)}</div>${price(it.price, it.sold)}</button>`).join('')}</div>
-      ${sh.seals?.length ? `<h3>인장 <small>카드에 붙이는 일회용 효과</small></h3>
-      <div class="shop-goods">${sh.seals.map((it, i) => { const sl = Run.sealInfo(it.id); return `<button class="shop-good seal-row${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="seal" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--sc:${sl.color}"><i class="seal-big s-${it.id}">${sealIco(it.id, '')}</i><span><b>${sl.ko}</b><small>${sl.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}</div>` : ''}
-      <h3>유물 · 물약 · 도구</h3>
-      <div class="shop-goods">
-        ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${relicIco(r)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
-        ${sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="potion" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<span><b>${p.ko}</b><small>${p.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
-        ${sh.tools.map((it, i) => `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="tool" data-i="${i}" ${it.sold ? 'disabled' : ''}>${ico(it.kind)}<span><b>${it.kind === 'flip' ? '뒤집기' : '조정'} +1</b><small>${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})</small></span>${price(it.price, it.sold)}</button>`).join('')}
-        <button class="shop-good smith${sh.smithed ? ' sold' : ''}" data-act="run-shopsmith" ${sh.smithed || !R.deck.some(Run.canUpgrade) ? 'disabled' : ''}>${runIco('ui', 'smith', 'axe')}<span><b>대장장이</b><small>카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 ${Run.KW_MAX}개)</small></span>${price(Run.smithPrice(R), sh.smithed)}</button>
-        <button class="shop-good remove${sh.removed ? ' sold' : ''}" data-act="run-remove" ${sh.removed ? 'disabled' : ''}>${ico('skull')}<span><b>카드 제거</b><small>덱에서 카드 1장을 없앤다</small></span>${price(Run.removePrice(R), sh.removed)}</button>
-      </div>
+    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div></div>
+    <div class="shop-scroll shop-stall">
+      ${shelf(cards, ' cards')}
+      ${shelf([...seals, ...relics])}
+      ${shelf([...potions, ...tools, smith, remove])}
     </div>
     <button class="pbtn gold" data-act="run-shopleave">상점 나가기</button>
     ${heroStrip()}
   </div>`;
+  X.app.querySelectorAll('.shelf-item[data-ti]').forEach(el => longPress(el, () => X.popover(el, tips[el.dataset.ti], { afterRelease: true })));
 }
 
 // ── 휴식 ─────────────────────────────────────────────────────────────────────

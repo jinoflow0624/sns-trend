@@ -890,3 +890,31 @@
 @keyframes coinLand { 40% { transform: scale(1.35); filter: brightness(1.6); } }
 .coin-toss.out { opacity: 0; transition: opacity .28s; }
 @media (prefers-reduced-motion: reduce) { .coin-toss .ct-coin { animation: none; } }
+/* 방해 표시 2배 (운명 역전 · 봉인 등 트레이 왼쪽 위) */
+.hex-badge { left: 8px; top: 8px; gap: 6px; font-size: 22px; padding: 3px 12px; border-width: 3px; box-shadow: 0 0 14px rgba(232,67,90,.7); }
+.hex-badge .ico { width: 24px; height: 24px; }
+/* 상점 진열대: 나무 선반 위에 물건 · 아래에 양피지 가격표 (누르면 사기, 길게 누르면 설명) */
+.shop-head.market { position: relative; padding-top: 18px; }
+.shop-head.market .mk-awning { position: absolute; left: 0; right: 0; top: 0; }
+.shop-stall { gap: 14px; padding: 6px 2px 10px; }
+.shelf { position: relative; padding: 0 6px; }
+.shelf-row { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 10px 8px; padding: 0 4px; }
+.shelf-plank { position: relative; display: block; height: 12px; margin: -4px 0 0; border: 2px solid var(--ink);
+  background: linear-gradient(180deg, #B97A44 0 35%, #8A5528 35% 100%); box-shadow: 0 5px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.2); }
+.shelf-plank::before, .shelf-plank::after { content: ''; position: absolute; top: 10px; width: 8px; height: 10px; background: #5A3A1E; border: 2px solid var(--ink); border-top: 0; }
+.shelf-plank::before { left: 10px; } .shelf-plank::after { right: 10px; }
+.shelf-item { display: grid; justify-items: center; gap: 4px; padding: 0; border: 0; background: none; cursor: pointer; -webkit-touch-callout: none; user-select: none; }
+.shelf-item .si-ico { display: grid; place-items: center; width: 58px; height: 58px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.45)); transition: transform .12s; }
+.shelf-item:active .si-ico { transform: translateY(-4px) scale(1.06); }
+.shelf-item.si-relic .si-ico { border-radius: 50%; background: radial-gradient(circle, rgba(255,226,122,.18), transparent 70%); }
+.shelf-item.si-relic.r2 .si-ico { background: radial-gradient(circle, rgba(185,140,255,.28), transparent 70%); }
+.shelf-item.si-relic.r3 .si-ico { background: radial-gradient(circle, rgba(255,90,140,.32), transparent 70%); }
+.shelf-item.seal-row .seal-big { width: 44px; height: 44px; }
+.shelf-item.seal-row .seal-big .ico { width: 26px; height: 26px; }
+.shelf-item.card .si-ico { width: auto; height: auto; }
+.shelf-item.card .rc { --cw: 74px; --ch: 104px; }
+.shelf-item .price { position: relative; z-index: 2; padding: 1px 7px; color: #5A3A1E; background: #F1DDAE; border: 2px solid var(--ink); font-size: 12px; }
+.shelf-item .price.poor { color: #9A6232; background: #CDBB93; opacity: .8; }
+.shelf-item.sold .si-ico { opacity: .25; filter: grayscale(1); }
+.shelf-item.sold .price { background: #3A2C5A; color: var(--muted); }
+.shelf-item:disabled { cursor: default; }
