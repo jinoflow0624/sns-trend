@@ -39,6 +39,7 @@ self.addEventListener('activate', e => e.waitUntil(
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;   // Firebase 등 외부 요청은 건드리지 않는다
+  if (new URL(req.url).searchParams.has('fresh')) return;   // 앱이 새 파일을 직접 받아 캐시를 고칠 때 (app.js healCode) — 캐시를 거치지 않는다
   // 그림·음악(assets/)은 캐시에 있으면 바로 쓰고, 뒤에서 조용히 새로 받아 둔다 (스킨을 고르면 바로 보이게).
   // 주사위·트레이 그림은 주소에 게임 버전(?v=)이 붙는다 → 주소가 정확히 같을 때만 캐시를 쓴다 (새 버전이면 바로 새 그림).
   // 인터넷이 없으면 버전이 다른 예전 그림이라도 꺼내 쓴다
