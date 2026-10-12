@@ -8,7 +8,7 @@ import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT } from './art.js';
-import { relicIco, relicURLs } from './relic-art.js';
+import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
 
@@ -330,7 +330,9 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const r = Run.cardRarity(c);
   const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
-  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
+  const sl = c.seal && Run.sealInfo(c.seal);
+  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
+    ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
@@ -340,7 +342,10 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
     <i class="rc-sheen"></i>
   </div>`;
 }
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
+// 인장 아이콘 (그림이 생기면 assets/run/ui/seal_<id>.webp — art.js UI.seal 에 id 를 적는다)
+export const sealIco = (id, cls = 'xs') => dotIco('seal', id, runIco('seal', id, Run.sealInfo(id)?.icon || 'star', cls), cls);
+const omenIco = (o, cls = '') => dotIco('omen', o.id, runIco('omen', o.id, o.icon, cls), cls);
+const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -366,7 +371,7 @@ function showMap() {
   X.app.innerHTML = `
   <div class="screen run-map">
     ${hud()}
-    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b><small>보스 ???</small></div>
+    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b>${R.omen ? omenChip() : ''}<small>보스 ???</small></div>
     <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
       <svg class="map-lines" viewBox="0 0 100 ${H}" preserveAspectRatio="none">${lines}</svg>
       ${nodes.map(n => {
@@ -387,6 +392,18 @@ function showMap() {
   const sc = $('map-scroll');
   const tgt = X.app.querySelector('.mnode.can') || X.app.querySelector('.mnode.here');
   if (sc && tgt) sc.scrollTop = Math.max(0, tgt.offsetTop - sc.clientHeight * 0.6);
+  if (R.omenOpts) showOmens();
+}
+// 막 징조: 이번 막 내내 깔리는 효과 (2장 중 1장)
+const omenChip = () => { const o = Run.omenInfo(R.omen); return `<button class="omen-chip" data-act="run-omeninfo" aria-label="${o.ko}">${omenIco(o, 'xs')}<span>${o.ko}</span></button>`; };
+function omenText(o) { return o.id === 'forbid' && R.omen === 'forbid' && R.omenCat ? `${o.desc} — 금지: ${Run.cardTitle(R.omenCat)}` : o.desc; }
+function showOmens() {
+  sfx.legend?.();
+  X.layer.innerHTML = `<div class="overlay run-omens" data-act="noop"><div class="pick-box">
+    <h2>${R.act}막의 징조</h2>
+    <div class="omen-picks">${R.omenOpts.map((id, k) => { const o = Run.omenInfo(id); return `<button class="omen-card t${o.tier}" data-act="run-omen" data-k="${k}" style="--i:${k}">
+      <span class="om-ico">${omenIco(o, 'lg')}</span><b>${o.ko}</b><small>${o.desc}</small></button>`; }).join('')}</div>
+  </div></div>`;
 }
 
 // ── 전투 화면 ────────────────────────────────────────────────────────────────
@@ -473,7 +490,8 @@ function tipText(needBet) {
 function foePanel() {
   const C = R.C, e = C.e, def = Run.ENEMIES[e.id];
   const hp = ui.show ? ui.show.ehp : e.hp, blk = ui.show ? ui.show.eblk : e.block;
-  const parts = ui.show?.hideIntent ? [] : Run.intentParts(R);
+  const fog = Run.omen(R, 'fog');
+  const parts = ui.show?.hideIntent || fog ? [] : Run.intentParts(R);
   const st = [];
   if (e.str > 0) st.push(`<span class="st str">${ico('up', 'xs')}힘 ${e.str}</span>`);
   if (e.weak > 0) st.push(`<span class="st weak">${ico('snow', 'xs')}약화</span>`);
@@ -498,7 +516,7 @@ function foePanel() {
       <div class="hp-row"><div class="hp foe-hp"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
       <div class="foe-st">${st.join('')}</div>
     </div>
-    ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : ''}`;
+    ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : fog && !ui.show?.hideIntent ? '<div class="intent fog" aria-label="짙은 안개">?</div>' : ''}`;
 }
 
 // 특수 주사위 3D 표시: 플레이어 스킨은 그대로, 주사위마다 그 색 테두리 껍질 (dice3d setMarks)
@@ -673,6 +691,8 @@ function paintSplit() {
     if (p.gold) info.push(`${ico('coins', 'xs')}+${p.gold}`);
     if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
   }
+  if (Run.hasRelic(R, 'madscale')) info.unshift(`${ico('scale', 'xs')}나눔은 무작위`);
+  if (card.seal) info.unshift(`${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}`);
   if (Run.hasKw(card, 'weak')) info.push(p.weak ? `${ico('snow', 'xs')}약화` : '<s>약화</s>');
   if (p.def > 0 && p.defMul > 1) info.push(`${ico('shield', 'xs')}방어 +${Math.round((p.defMul - 1) * 100)}%`);
   if (p.wblk) info.push(`불굴 +${p.wblk}`);
@@ -777,6 +797,41 @@ function afterAction() {
 }
 
 // ── 연출 ─────────────────────────────────────────────────────────────────────
+// 인장이 터진다: 그 인장 색의 고리와 이름
+function sealBurst(id, p) {
+  const sl = Run.sealInfo(id);
+  if (!sl || !p) return;
+  if (X.prefs.fx !== 'min') { FX().ring(p.x, p.y, { color: sl.color, r0: 8, r1: 80, dur: 420, width: 7 }); FX().burst(p.x, p.y, { n: 26, pal: [sl.color, '#FFFFFF', '#FFF4D2'], speed: [80, 260] }); }
+  sfx.quest?.();
+  floatAt(p.x, p.y - 60, `${sealIco(id)}${sl.ko}${id === 'sun' ? ' · 피해 ×2' : ''}`, id === 'cloud' ? 'sky' : 'gold');
+}
+// 달빛 복사본이 사라진다: 초승달이 천천히 가라앉으며 빛이 꺼진다
+function moonset(p) {
+  if (!p) return;
+  const el = document.createElement('div');
+  el.className = 'moonset';
+  el.style.left = `${p.x}px`; el.style.top = `${p.y - 40}px`;
+  el.innerHTML = '<i class="ms-moon"></i><i class="ms-glow"></i>';
+  document.body.appendChild(el);
+  sfx.unseal?.();
+  setTimeout(() => el.remove(), 1500);
+}
+// 뽑을 더미가 비면: 버린 카드들이 모여 두 더미로 갈라졌다가 엇갈려 섞인다 (리플 셔플)
+export async function shuffleFx() {   // (디버그에서도 부른다)
+  const pile = X.app.querySelector('.pile');
+  const r = pile?.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'shuffle-fx';
+  el.style.left = `${innerWidth / 2}px`; el.style.top = `${innerHeight * 0.62}px`;
+  el.innerHTML = Array.from({ length: 8 }, (_, k) => `<i class="sb" style="--k:${k};--s:${k % 2 ? 1 : -1}"></i>`).join('');
+  if (r) { el.style.setProperty('--tx', `${r.left + r.width / 2 - innerWidth / 2}px`); el.style.setProperty('--ty', `${r.top + r.height / 2 - innerHeight * 0.62}px`); }
+  document.body.appendChild(el);
+  for (let k = 0; k < 6; k++) setTimeout(() => sfx.card?.(), 260 + k * 70);
+  pile?.classList.add('bump');
+  await wait(1050);
+  el.remove();
+  pile?.classList.remove('bump');
+}
 function floatAt(x, y, text, cls = '') {
   const el = document.createElement('div');
   el.className = `float rfloat ${cls}`;
@@ -942,9 +997,16 @@ async function playOne(f) {
       if (f.flip) floatAt(h.x, h.y - 70, `${ico('flip', 'xs')}+1`, 'mint');
       if (f.dance) floatAt(h.x, h.y - 70, `${ico('sparkle', 'xs')}춤사위 +1`, 'gold');
       if (f.nudge) floatAt(h.x + 30, h.y - 70, `${ico('nudge', 'xs')}+${f.nudge}`, 'mint');
+      if (f.coin) floatAt(h.x - 40, h.y - 90, f.coin > 0 ? `${ico('coins', 'xs')}앞면 +100%` : `${ico('coins', 'xs')}뒷면 −50%`, f.coin > 0 ? 'gold' : 'dim');
+      if (f.sealUsed) sealBurst(f.sealUsed, f.target === 'enemy' ? e : h);
+      if (f.moon) floatAt(h.x, h.y - 100, `달빛 복사본 +${f.moon}`, 'sky');
+      if (f.pilgrim) floatAt(h.x + 20, h.y - 110, `${ico('scroll', 'xs')}순례 · 골드 +15 · 최대 체력 +2`, 'gold');
+      if (f.palette) { sfx.legend?.(); X.toast(relicIco(Run.relicInfo('palette')), '무지개 팔레트 완성!', '이제 모든 카드 +50%', 2200); }
+      if (f.temp) moonset(f.target === 'enemy' ? e : h);   // 달빛 복사본은 달이 지듯 스르륵
       await wait(f.target === 'enemy' ? 420 : 260);
       return;
     }
+    case 'sealOn': return;
     case 'discard': {
       await hand.discardAll(f.us);
       t?.absorb?.(300);
@@ -992,6 +1054,7 @@ async function playOne(f) {
       if (f.steal) { if (fxOn) FX().coins(h, e, 10); floatAt(h.x, h.y - 40, `${ico('coins', 'xs')}-${f.steal}`, 'gold'); sfx.coin(); await wait(500); }
       if (f.weak) { floatAt(h.x, h.y - 40, `${ico('snow', 'xs')}약화 ${f.weak}턴`, 'sky'); await wait(300); }
       if (!f.hits.length && !f.block && !f.str && !f.heal) await wait(200);
+      if (f.counter) { const e2 = foeAt(); floatAt(e2.x, e2.y - 10, `${ico('shield', 'xs')}반격 ${f.counter}`, 'sky'); setShow({ ehp: Math.max(0, ui.show.ehp - f.counter) }); repaintBars(); await wait(300); }
       return;
     }
     case 'hit': {
@@ -1031,7 +1094,7 @@ async function playOne(f) {
       await hand.draw(cards);
       return;
     }
-    case 'reshuffle': { floatAt(innerWidth * 0.2, innerHeight * 0.75, '덱을 섞었다', 'dim'); return; }
+    case 'reshuffle': return shuffleFx();
     case 'swap': {
       const nc = f.in != null ? R.C.hand.find(c => c.u === f.in) : null;
       await hand.swap(f.out, nc, R.C.hand.findIndex(c => c.u === f.in));
@@ -1231,7 +1294,7 @@ function rewardRow(it, k) {
   if (it.t === 'gold') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('coins')}<b>골드 ${it.n}</b></button>`;
   if (it.t === 'potion') { const p = Run.potionInfo(it.id); return `<button class="rw${done}" data-act="run-take" data-k="${k}" style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<b>${p.ko}</b><small>${p.desc}</small></button>`; }
   if (it.t === 'relic') { const r = Run.relicInfo(it.id); return `<button class="rw relic-row r${r.r}${done}" data-act="run-take" data-k="${k}">${relicIco(r)}<b>${r.ko}</b><small>${r.desc}</small></button>`; }
-  if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>보스 유물 고르기</b><small>3개 중 1개</small></button>`;
+  if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>${it.kind === 'boss' ? '보스 유물' : '유물'} 고르기</b><small>${it.opts.length}개 중 1개</small></button>`;
   if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b></button>`;
   if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드 고르기</b><small>${it.opts.length}장 중 1장 · 건너뛸 수 있어요</small></button>`;
   return '';
@@ -1277,8 +1340,8 @@ function relicPick(k) {
   ui.relicPick = k;
   sfx.legend();
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
-    <h2>보스 유물 1개를 고르세요</h2>
-    <div class="relic-picks">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r3" data-act="run-relictake" data-i="${i}">${relicIco(r, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
+    <h2>${it.kind === 'boss' ? '보스 유물' : '유물'} 1개를 고르세요</h2>
+    <div class="relic-picks n${it.opts.length}">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r${r.r}" data-act="run-relictake" data-i="${i}">${relicIco(r, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
     <div class="pick-actions"><button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
   </div></div>`;
 }
@@ -1296,6 +1359,8 @@ function showShop() {
     <div class="shop-scroll">
       <h3>족보 카드</h3>
       <div class="shop-cards">${sh.cards.map((it, i) => `<button class="shop-item${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="card" data-i="${i}" ${it.sold ? 'disabled' : ''}><div class="rc rc-static">${cardFace(it.c)}</div>${price(it.price, it.sold)}</button>`).join('')}</div>
+      ${sh.seals?.length ? `<h3>인장 <small>카드에 붙이는 일회용 효과</small></h3>
+      <div class="shop-goods">${sh.seals.map((it, i) => { const sl = Run.sealInfo(it.id); return `<button class="shop-good seal-row${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="seal" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--sc:${sl.color}"><i class="seal-big s-${it.id}">${sealIco(it.id, '')}</i><span><b>${sl.ko}</b><small>${sl.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}</div>` : ''}
       <h3>유물 · 물약 · 도구</h3>
       <div class="shop-goods">
         ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${relicIco(r)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
@@ -1376,15 +1441,15 @@ async function rollEventDice(before) {
 function showPick() {
   const pk = R.pick;
   if (pk.opts) return showUpgrade();
-  const title = { upgrade: '강화할 카드를 고르세요', remove: '없앨 카드를 고르세요', dup: '복제할 카드를 고르세요' }[pk.why];
-  const list = Run.deckCards(R).filter(c => pk.why !== 'upgrade' || Run.canUpgrade(c));
+  const title = { upgrade: '강화할 카드를 고르세요', remove: '없앨 카드를 고르세요', dup: '복제할 카드를 고르세요', seal: `${Run.sealInfo(pk.seal)?.ko}을 붙일 카드를 고르세요` }[pk.why];
+  const list = Run.deckCards(R).filter(c => (pk.why === 'upgrade' ? Run.canUpgrade(c) : pk.why === 'seal' ? !c.seal : true));
   const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
     <h2>${title}</h2>
     ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : pk.hp ? `<p class="hint">체력 ${pk.hp}을 잃어요</p>` : ''}
     <div class="deck-grid">${list.map(c => `<button class="rc rc-static mini${ui.pickU === c.u ? ' on' : ''}" data-act="run-pickcard" data-u="${c.u}">${cardFace(c)}</button>`).join('')}</div>
     ${sel ? `<div class="pick-prev"><div class="rc rc-static">${cardFace(sel)}</div></div>` : ''}
-    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '다음', remove: '제거', dup: '복제' }[pk.why]}</button></div>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '다음', remove: '제거', dup: '복제', seal: '붙이기' }[pk.why]}</button></div>
   </div></div>`;
 }
 // 강화 고르기: 점수 +30% 또는 새 효과 (3개 중 1개). 고르면 바뀐 카드를 미리 보여 준다
@@ -1570,7 +1635,20 @@ export function onAct(act, t) {
     return enterView();
   }
   // 상점
+  if (act === 'run-omen') {
+    try { Run.chooseOmen(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '고를 수 없어요', e.message, 1400); }
+    Run.drainFx(R); sfx.ascend?.(); save();
+    const o = Run.omenInfo(R.omen);
+    X.layer.innerHTML = '';
+    showMap();
+    return X.toast(omenIco(o), `${R.act}막 징조 · ${o.ko}`, omenText(o), 2200);
+  }
+  if (act === 'run-omeninfo') { const o = Run.omenInfo(R.omen); sfx.tap(); return X.popover(t, `<b>${omenIco(o, 'xs')} ${o.ko}</b><p>${omenText(o)}</p>`); }
   if (act === 'run-buy') {
+    if (t.dataset.kind === 'seal') {
+      try { Run.buy(R, 'seal', Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
+      sfx.select(); ui.pickU = null; return showPick();
+    }
     try { Run.buy(R, t.dataset.kind, Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
     Run.drainFx(R); sfx.coin(); save();
     const p = center(t); FX().burst(p.x, p.y, { n: 24, pal: PALETTES.gold });

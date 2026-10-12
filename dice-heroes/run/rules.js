@@ -126,6 +126,36 @@ export function replay({ seed, cls, asc = 0, meta = null, acts = [] }) {
   return R;
 }
 
+// ── 인장 (족보 카드에 붙이는 일회용 효과. 붙은 카드를 한 번 내면 터지고 사라진다) ──
+export const SEALS = {
+  sun:   { ko: '해 인장',   icon: 'sun',     color: '#FFB020', desc: '이 카드로 주는 피해 ×2' },
+  moon:  { ko: '달 인장',   icon: 'sparkle', color: '#B9C8FF', desc: '낸 뒤, 이 카드의 달빛 복사본이 다음 턴 손패로 온다 (복사본은 한 번 쓰면 달이 지듯 사라진다)' },
+  star:  { ko: '별 인장',   icon: 'star',    color: '#FFE27A', desc: '골드 +15' },
+  cloud: { ko: '구름 인장', icon: 'fog',     color: '#CFE6FF', desc: '보호막 +20' },
+};
+export const SEAL_IDS = Object.keys(SEALS);
+export const sealInfo = id => SEALS[id];
+export const SEAL_PRICE = 30;
+
+// ── 막 징조 (막을 시작할 때 2장 중 1장. 그 막 내내 깔린다) ──
+// tier: 1 순함 ~ 3 거침. 1막은 순한 것 위주, 3막은 거친 것 위주로 뽑는다
+export const OMENS = [
+  { id: 'feast',    ko: '피의 축제',     icon: 'anger',   tier: 3, desc: '주는 피해 +50% · 받는 피해 ×1.5' },
+  { id: 'bounty',   ko: '풍요의 땅',     icon: 'leaf',    tier: 2, desc: '적 체력 +25% · 전투에서 이기면 25% 확률로 유물 하나 더' },
+  { id: 'fog',      ko: '짙은 안개',     icon: 'fog',     tier: 2, desc: '적의 다음 행동이 보이지 않는다 · 골드 +50%' },
+  { id: 'forbid',   ko: '금지된 족보',   icon: 'lock',    tier: 3, desc: '무작위 족보 하나가 0점 · 나머지 족보 +20%' },
+  { id: 'small',    ko: '작은 수의 축제', icon: 'party',  tier: 1, desc: '에이스 · 듀스 · 트레이 +100% · 포스 · 파이브 · 식스 −50%' },
+  { id: 'rush',     ko: '질주의 계절',   icon: 'boot',    tier: 1, desc: '스트레이트 +50% · 포카인드 · 풀하우스 · 요트 −30%' },
+  { id: 'merchant', ko: '상인의 길',     icon: 'coins',   tier: 1, desc: '지도에 상점이 많아진다 · 전투 골드 −30%' },
+  { id: 'war',      ko: '전쟁의 북소리', icon: 'drum',    tier: 2, desc: '엘리트가 많아진다 · 엘리트가 유물 고르기를 두 번 준다' },
+  { id: 'rift',     ko: '시간의 균열',   icon: 'hourglass', tier: 2, desc: '매 턴 굴림 +1 · 손패 −1' },
+  { id: 'sealrain', ko: '인장의 비',     icon: 'sparkle', tier: 1, desc: '전투를 시작할 때마다 손패에 인장 2개가 붙는다' },
+  { id: 'drought',  ko: '메마른 땅',     icon: 'sun',     tier: 2, desc: '휴식 회복 절반 · 상점 가격 −30%' },
+  { id: 'glass',    ko: '유리 세계',     icon: 'gem',     tier: 3, desc: '고르는 즉시 체력이 절반으로 · 전투에서 이길 때마다 체력 15% 회복' },
+];
+export const omenInfo = id => OMENS.find(o => o.id === id);
+export const omen = (R, id) => R.omen === id;
+
 // ── 족보 카드 ────────────────────────────────────────────────────────────────
 // 카드 = { u: 고유 번호, cat: 족보, up: 강화(0/1), kws: [키워드, … 최대 KW_MAX] } (예전 저장본은 kw: 키워드 하나)
 export const UPPER = CAT_IDS.slice(0, 6);
@@ -156,7 +186,8 @@ export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')
 export const KW_MAX = 3;                 // 카드 한 장에 붙는 효과는 3개까지 (강화로 하나씩 새긴다)
 export const kwsOf = c => c.kws || (c.kw ? [c.kw] : []);
 export const hasKw = (c, k) => kwsOf(c).includes(k);
-export const cardRarity = c => { const n = kwsOf(c).length; return n >= 2 || (n && c.up) || (c.cat === 'yacht' && c.up) ? 3 : n ? 2 : 1; };
+// 초이스는 아무 때나 낼 수 있는 족보라 그 자체로 실버(2) 이상
+export const cardRarity = c => { const n = kwsOf(c).length; return n >= 2 || (n && c.up) || (c.cat === 'yacht' && c.up) ? 3 : n || c.cat === 'choice' ? 2 : 1; };
 function mkCard(R, cat, up = 0, kws = []) { return { u: ++R.uid, cat, up: up ? 1 : 0, kws: [kws].flat().filter(Boolean) }; }
 // 강화할 수 있는 카드: 아직 +30% 강화를 안 했거나, 효과 칸이 남았다
 export const canUpgrade = c => !c.up || kwsOf(c).length < KW_MAX;
@@ -366,7 +397,40 @@ export const RELICS = [
   { id: 'weight',    ko: '저울추',          icon: 'rock',      r: 1, desc: '초이스 카드: 남은 굴림 1회당 기본 점수 +6' },
   { id: 'rosary',    ko: '수도승의 묵주',   icon: 'beads',     r: 2, desc: '덱이 8장 이하면 모든 카드 점수 +25%' },
   { id: 'libkey',    ko: '도서관 열쇠',     icon: 'door',      r: 2, desc: '덱이 20장 이상이면 손패 +1' },
+  // ── 새 유물 (발라트로식: 족보를 내는 순서 · 인장 · 위험 · 주사위 눈 · 덱 · 성장 · 리듬) ──
+  // 배수는 모두 합연산 (+%끼리 더한다). 곱연산은 카드 자신의 강화 · 효과(속공 등) · 인장만.
+  { id: 'echodrum',  ko: '메아리 북',       icon: 'drum',      r: 2, desc: '직전과 같은 족보를 내면 +25%. 같은 족보가 이어질 때마다 +25%씩 쌓인다 (다른 족보를 내면 처음부터)' },
+  { id: 'hammer',    ko: '장인의 망치',     icon: 'axe',       r: 2, desc: '족보 카드를 낼 때마다 그 족보의 기본 점수가 영구히 +1' },
+  { id: 'pairring',  ko: '페어 반지',       icon: 'link',      r: 1, desc: '손패에 같은 족보 카드가 2장 이상이면 그 카드들 +50%' },
+  { id: 'kaleido',   ko: '만화경',          icon: 'rainbow',   r: 2, desc: '직전과 다른 족보를 내면 피해 +4. 다른 족보가 이어질 때마다 +4씩 쌓인다 (같은 족보를 내면 처음부터)' },
+  { id: 'palette',   ko: '무지개 팔레트',   icon: 'rainbow',   r: 3, desc: '얻은 뒤로 12가지 족보 카드를 모두 한 번씩 내면, 그때부터 모든 카드 +50%' },
+  { id: 'pilgrim',   ko: '순례자의 지도',   icon: 'scroll',    r: 1, desc: '얻은 뒤로 처음 내는 족보마다 골드 15 · 최대 체력 +2' },
+  { id: 'sealbag',   ko: '인장 주머니',     icon: 'bag',       r: 1, desc: '전투를 시작할 때마다 손패의 무작위 카드에 인장 1개가 붙는다 (그 전투 동안)' },
+  { id: 'goldframe', ko: '황금 인장틀',     icon: 'crown',     r: 2, desc: '인장 효과가 두 번 터진다' },
+  { id: 'wax',       ko: '밀랍 봉인',       icon: 'lotus',     r: 1, desc: '인장이 붙은 카드를 내지 않고 턴을 넘기면, 넘길 때마다 그 카드 +10% (쌓인다)' },
+  { id: 'sealknife', ko: '인장공의 칼',     icon: 'dagger',    r: 1, desc: '상점의 인장이 반값, 상점마다 인장 하나는 공짜' },
+  { id: 'madscale',  ko: '광기의 저울',     icon: 'scale',     r: 3, desc: '공격 · 방어 나누기가 무작위가 되는 대신 모든 카드 +100%' },
+  { id: 'coin',      ko: '동전 던지기',     icon: 'coins',     r: 2, desc: '카드를 낼 때마다 50% 확률로 +100%, 50% 확률로 −50%' },
+  { id: 'bloodpact', ko: '피의 계약',       icon: 'heart',     r: 3, desc: '얻을 때 최대 체력 −30%. 모든 카드 +50%' },
+  { id: 'glasscannon', ko: '유리 대포',     icon: 'bolt',      r: 2, desc: '모든 카드 +60%. 대신 받는 피해 ×1.4' },
+  { id: 'parity',    ko: '홀짝 부적',       icon: 'yinyang',   r: 1, desc: '주사위가 모두 홀수거나 모두 짝수면 +30%' },
+  { id: 'seven',     ko: '칠의 축복',       icon: 'clover',    r: 1, desc: '주사위 눈의 합이 7의 배수면 +50%' },
+  { id: 'balance',   ko: '균형의 추',       icon: 'scale',     r: 2, desc: '족보를 셀 때 1의 눈을 6으로 셀 수 있다 (더 좋은 쪽으로)' },
+  { id: 'discard',   ko: '버림의 미학',     icon: 'recycle',   r: 1, desc: '카드를 교체할 때마다 그 턴 카드 +15% (쌓인다)' },
+  { id: 'emptyhand', ko: '빈손의 무사',     icon: 'fist',      r: 3, desc: '손패 −2. 모든 카드 +60%' },
+  { id: 'dust',      ko: '서고의 먼지',     icon: 'scroll',    r: 1, desc: '뽑을 더미에 남은 카드 5장당 +4%' },
+  { id: 'trinity',   ko: '세 조각 성표',    icon: 'star',      r: 2, desc: '전투에서 이기면 그 전투에 가장 많이 낸 카드가 덱에 1장 더 생긴다 (원정에서 3번까지)' },
+  { id: 'bloodsword', ko: '피에 굶주린 검', icon: 'sword',     r: 2, desc: '적을 쓰러뜨릴 때마다 공격 피해가 영구히 +1' },
+  { id: 'miser',     ko: '수전노의 금고',   icon: 'money',     r: 1, desc: '가진 골드 50당 +5%' },
+  { id: 'beast',     ko: '상처 입은 짐승',  icon: 'wolf',      r: 2, desc: '잃은 체력 10%당 +8%' },
+  { id: 'ytower',    ko: '요트 탑',         icon: 'castle',    r: 2, desc: '요트를 낼 때마다 이후 모든 카드 영구히 +3%' },
+  { id: 'counter',   ko: '반격의 문장',     icon: 'shield',    r: 2, desc: '적의 공격을 보호막으로 다 막으면, 남은 보호막만큼 적에게 피해' },
+  { id: 'sandbank',  ko: '모래 저금통',     icon: 'hourglass', r: 2, desc: '쓰지 않고 남긴 굴림을 다음 턴으로 넘긴다 (최대 +2)' },
+  { id: 'zero',      ko: '0점의 기적',      icon: 'sparkle',   r: 1, desc: '0점으로 낸 카드는 그 카드가 영구히 +20% (쌓인다)' },
+  { id: 'loupe',     ko: '감정사의 돋보기', icon: 'eye',       r: 1, desc: '유물을 고를 때 3개가 아니라 4개 중에서 고른다' },
 ];
+export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
+export const relicChoices = R => 3 + (hasRelic(R, 'loupe') ? 1 : 0);
 // 덱 빌딩 유물 ↔ 그 계열 카드
 const SAME_CATS = ['four', 'yacht', 'full'];
 const ARCH = {
@@ -589,11 +653,33 @@ function newAct(R) {
   R.boss = pick(R, ACT_INFO[R.act].boss);
   R.phase = 'map';
   R.lastFoe = null;
+  R.omen = null; R.omenCat = null;
+  R.omenOpts = rollOmens(R);
 }
+// 징조 2장: 1막은 순한 것 위주, 3막은 거친 것 위주 (승천이 높으면 더 거칠게)
+function rollOmens(R) {
+  const lean = R.act + (R.asc >= 6 ? 1 : 0);
+  const w = Object.fromEntries(OMENS.map(o => [o.id, Math.max(1, 6 - Math.abs(o.tier - lean) * 2)]));
+  const a = weighted(R, w); delete w[a];
+  return [a, weighted(R, w)];
+}
+export const chooseOmen = act('chooseOmen', function chooseOmen(R, k) {
+  if (!R.omenOpts) fail('고를 징조가 없어요.');
+  const id = R.omenOpts[k];
+  if (!id) fail('없는 징조예요.');
+  R.omen = id; R.omenOpts = null;
+  if (id === 'forbid') R.omenCat = pick(R, SAME_CATS_ALL.filter(c => c !== 'choice'));
+  if (id === 'glass') R.hp = Math.max(1, Math.min(R.hp, Math.round(R.maxHp / 2)));
+  // 상인의 길: 전투 칸 일부가 상점으로 · 전쟁의 북소리: 전투 칸 일부가 엘리트로 (1층 · 마지막 층 제외)
+  const to = id === 'merchant' ? 'shop' : id === 'war' ? 'elite' : null;
+  if (to) for (const n of R.map.nodes) if (n.type === 'fight' && n.row >= 2 && n.row < ROWS - 1 && rand(R) < 0.3) n.type = to;
+  fx(R, { type: 'omen', id });
+});
 
 // ── 칸 들어가기 ─────────────────────────────────────────────────────────────
 export const enterNode = act('enterNode', function enterNode(R, id) {
   if (R.phase !== 'map') fail('지금은 지도를 움직일 수 없어요.');
+  if (R.omenOpts) fail('먼저 이번 막의 징조를 골라 주세요.');
   if (!nextNodes(R).includes(id)) fail('갈 수 없는 칸이에요.');
   const n = mapNode(R, id);
   R.pos = id;
@@ -621,11 +707,11 @@ function pickFoe(R, kind) {
 
 // ── 전투 ─────────────────────────────────────────────────────────────────────
 export const C_ = R => R.C;
-export const handSize = R => HAND + (R.cls === 'mage' ? 1 : 0) + (hasRelic(R, 'crown') ? 1 : 0) + (hasRelic(R, 'libkey') && R.deck.length >= LIBKEY_MIN ? 1 : 0);
+export const handSize = R => Math.max(1, HAND + (R.cls === 'mage' ? 1 : 0) + (hasRelic(R, 'crown') ? 1 : 0) + (hasRelic(R, 'libkey') && R.deck.length >= LIBKEY_MIN ? 1 : 0) - (hasRelic(R, 'emptyhand') ? 2 : 0) - (omen(R, 'rift') ? 1 : 0));
 export const diceCount = R => (hasRelic(R, 'sixth') ? 6 : 5);
 export function maxRolls(R) {
   const C = R.C;
-  let n = ROLLS + (hasRelic(R, 'reroll') ? 1 : 0) - (hasRelic(R, 'sixth') ? 1 : 0) + (C?.extraRolls || 0);
+  let n = ROLLS + (hasRelic(R, 'reroll') ? 1 : 0) - (hasRelic(R, 'sixth') ? 1 : 0) + (C?.extraRolls || 0) + (omen(R, 'rift') ? 1 : 0);
   if (C?.hex?.t === 'drums') n--;
   return Math.max(1, n);
 }
@@ -639,7 +725,7 @@ export function startCombat(R, foeId) {
   const def = ENEMIES[foeId];
   const a = R.act - 1;
   const hpMul = TUNE.hp[def.kind][a] * (def.kind === 'elite' && asc(R, 1) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 3) ? 1.15 : 1) * (def.kind === 'boss' && asc(R, 10) ? 1.1 : 1);
-  const hp = Math.round(int(R, def.hp[0], def.hp[1]) * hpMul);
+  const hp = Math.round(int(R, def.hp[0], def.hp[1]) * hpMul * (omen(R, 'bounty') ? 1.25 : 1));
   const e = { id: foeId, hp, maxHp: hp, block: 0, str: 0, weak: 0, burn: 0, burnT: 0, mi: -1, intent: null, raged: false, last: [], cut: def.ai === 'heads' ? {} : null, regrew: false };
   R.C = {
     e, turn: 0, phase: 'roll',
@@ -649,6 +735,7 @@ export function startCombat(R, foeId) {
     deals: R.cls === 'sharper' ? CLASS_TUNE.deals : 0,
     hex: null, sealed: [], frozen: [], gazed: [], pure: false, power: false, extraRolls: 0,
     dealt: 0, taken: 0,
+    lastCat: null, chainN: 0, kal: 0, plays: 0, played: {}, swapUsed: 0, bank: 0,
   };
   R.phase = 'combat';
   R.stats.fights += def.kind === 'normal' ? 1 : 0;
@@ -662,6 +749,15 @@ export function startCombat(R, foeId) {
   chooseIntent(R);
   startTurn(R);
   if (hasRelic(R, 'bone')) { R.C.block += 16; fx(R, { type: 'heroBlock', n: 16, why: 'bone' }); }
+  // 인장 주머니 · 인장의 비: 손패의 무작위 카드에 그 전투 동안 인장
+  const n = (hasRelic(R, 'sealbag') ? 1 : 0) + (omen(R, 'sealrain') ? 2 : 0);
+  for (let k = 0; k < n; k++) {
+    const free = R.C.hand.filter(c => !c.seal);
+    if (!free.length) break;
+    const c = pick(R, free);
+    c.seal = pick(R, SEAL_IDS);
+    fx(R, { type: 'sealOn', u: c.u, seal: c.seal });
+  }
 }
 
 function addTool(R, kind, n) {
@@ -736,7 +832,7 @@ function startTurn(R) {
   C.danced = false;
   C.sealed = []; C.frozen = []; C.gazed = [];
   C.pure = false; C.power = false; C.extraRolls = 0;
-  C.plays = 0; C.magnet = false;
+  C.plays = 0; C.magnet = false; C.swapUsed = 0;
   // 보존 상자: 손패에 남아 있던 보존 카드 수 (그 턴 첫 카드)
   C.keepUp = hasRelic(R, 'keepbox') ? C.hand.filter(c => hasKw(c, 'keep')).length * 0.15 : 0;
   C.swaps = 1 + (hasRelic(R, 'medal') ? 1 : 0);
@@ -744,7 +840,8 @@ function startTurn(R) {
   const n = diceCount(R);
   C.dice = new Array(n).fill(0);
   C.held = new Array(n).fill(false);
-  C.rollsLeft = maxRolls(R);
+  C.rollsLeft = maxRolls(R) + (C.bank || 0);     // 모래 저금통: 지난 턴에 남긴 굴림
+  C.bank = 0;
   fx(R, { type: 'turn', n: C.turn });
   if (R.cls === 'bard') { C.block += CLASS_TUNE.bardBlock; fx(R, { type: 'heroBlock', n: CLASS_TUNE.bardBlock, why: 'bard' }); }
   if (hasRelic(R, 'iron')) { C.block += 3; fx(R, { type: 'heroBlock', n: 3, why: 'iron' }); }
@@ -914,6 +1011,7 @@ export const swapCard = act('swapCard', function swapCard(R, hi) {
   C.discard.push(c);
   C.gazed = C.gazed.filter(u => u !== c.u);
   C.swaps--;
+  C.swapUsed = (C.swapUsed || 0) + 1;
   const got = drawCards(R, 1);
   // 새 카드를 같은 자리에
   if (got.length) { const nc = C.hand.pop(); C.hand.splice(hi, 0, nc); }
@@ -980,10 +1078,23 @@ export const dropPotion = act('dropPotion', (R, slot) => { R.potions.splice(slot
 // ── 카드 점수 ────────────────────────────────────────────────────────────────
 // 기본 점수(요트 원룰) + 보너스 목록. 보너스는 모두 기본 점수에 대한 배율이라 더해서 쌓는다
 // (강화 +30% 와 장인 +50% 가 같이 있으면 +80%). 응시 · 약화 · 독은 마지막에 전체에 곱한다.
+// 균형의 추: 1의 눈을 6으로 셀 수 있다 → 1을 6으로 바꾼 모든 경우 중 가장 좋은 점수
+function bestBase(R, cat, dice) {
+  const one = (d) => Math.max(0, ...fiveSets(d).map(set => baseScore(cat, set)));
+  if (!hasRelic(R, 'balance') || !dice.includes(1)) return one(dice);
+  const ones = dice.map((v, i) => (v === 1 ? i : -1)).filter(i => i >= 0);
+  let best = 0;
+  for (let m = 0; m < 1 << ones.length; m++) best = Math.max(best, one(dice.map((v, i) => (ones.includes(i) && m & (1 << ones.indexOf(i)) ? 6 : v))));
+  return best;
+}
+// 점수 계산 규칙 (사용자 결정): 유물 · 직업 · 물약 · 징조의 배수는 모두 합연산 (+% 끼리 더해 한 번에 곱한다).
+// 곱연산은 카드 자신의 것만: 강화(+30%) · 속공(×1.5). 응시 · 약화는 마지막에.
 export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   const C = R.C;
-  const base = dice.length && !dice.includes(0) ? Math.max(0, ...fiveSets(dice).map(set => baseScore(card.cat, set))) : 0;
+  let base = dice.length && !dice.includes(0) ? bestBase(R, card.cat, dice) : 0;
   const parts = [];
+  const notes0 = [];
+  if (base > 0 && omen(R, 'forbid') && R.omenCat === card.cat) { base = 0; notes0.push('금지된 족보'); }
   // 유물이 기본 점수를 바꾼다 (에이스의 긍지 · 수집가의 상자 · 질풍). 배율은 바뀐 기본 점수에 붙는다
   let adj = base;
   if (base > 0) {
@@ -998,12 +1109,14 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
       parts.push({ ko: '저울추', amt: C.rollsLeft * 6 });
       adj += C.rollsLeft * 6;
     }
+    const hm = hasRelic(R, 'hammer') ? R.hammer?.[card.cat] || 0 : 0;
+    if (hm) { parts.push({ ko: '장인의 망치', amt: hm }); adj += hm; }
   }
+  // 합연산: 모든 +% 를 모아 바뀐 기본 점수에 한 번에 붙인다
   const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
   if (base > 0) {
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add('작은 수의 힘', 1.5);
     if (hasRelic(R, 'quad') && isUpper(card.cat) && Math.round(base / (UPPER.indexOf(card.cat) + 1)) >= 4) add('쌍둥이 별', 1);
-    if (card.up) add('강화', UP_MUL);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add('기초 수련', 0.3);
     if (hasRelic(R, 'choice') && card.cat === 'choice') add('선택의 달인', 0.3);
     if (hasRelic(R, 'full') && card.cat === 'full') add('풀하우스 장인', 0.5);
@@ -1012,20 +1125,49 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     if (hasRelic(R, 'yacht') && card.cat === 'yacht') add('요트 신봉자', 0.5);
     if (R.cls === 'warrior' && isUpper(card.cat)) add('불굴', CLASS_TUNE.warriorMul);
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) add('수도승의 묵주', 0.25);
+    // 새 유물
+    if (hasRelic(R, 'palette') && R.palette?.done) add('무지개 팔레트', 0.5);
+    if (hasRelic(R, 'madscale')) add('광기의 저울', 1);
+    if (opts.coin === 1) add('동전 앞면', 1);
+    if (opts.coin === -1) add('동전 뒷면', -0.5);
+    if (hasRelic(R, 'bloodpact')) add('피의 계약', 0.5);
+    if (hasRelic(R, 'glasscannon')) add('유리 대포', 0.6);
+    if (hasRelic(R, 'parity') && dice.length && (dice.every(v => v % 2) || dice.every(v => !(v % 2)))) add('홀짝 부적', 0.3);
+    if (hasRelic(R, 'seven') && dice.length && !(dice.reduce((a, v) => a + v, 0) % 7)) add('칠의 축복', 0.5);
+    if (hasRelic(R, 'emptyhand')) add('빈손의 무사', 0.6);
+    if (hasRelic(R, 'miser') && R.gold >= 50) add('수전노의 금고', Math.floor(R.gold / 50) * 0.05);
+    if (hasRelic(R, 'beast')) { const k = Math.floor((1 - R.hp / R.maxHp) * 10); if (k > 0) add('상처 입은 짐승', k * 0.08); }
+    if (hasRelic(R, 'ytower') && R.ytower) add('요트 탑', R.ytower * 0.03);
+    if (hasRelic(R, 'zero') && card.zeroUp) add('0점의 기적', card.zeroUp);
+    if (hasRelic(R, 'wax') && card.waxUp) add('밀랍 봉인', card.waxUp);
+    // 막 징조
+    if (omen(R, 'feast')) add('피의 축제', 0.5);
+    if (omen(R, 'forbid')) add('금지된 족보', 0.2);
+    if (omen(R, 'small')) add('작은 수의 축제', ['ones', 'twos', 'threes'].includes(card.cat) ? 1 : isUpper(card.cat) ? -0.5 : 0);
+    if (omen(R, 'rush')) add('질주의 계절', card.cat === 'sstr' || card.cat === 'lstr' ? 0.5 : ['four', 'full', 'yacht'].includes(card.cat) ? -0.3 : 0);
     if (C) {
+      if (hasRelic(R, 'echodrum') && C.lastCat === card.cat && C.chainN > 0) add('메아리 북', 0.25 * C.chainN);
+      if (hasRelic(R, 'pairring') && C.hand.filter(c => c.cat === card.cat).length >= 2) add('페어 반지', 0.5);
+      if (hasRelic(R, 'discard') && C.swapUsed) add('버림의 미학', 0.15 * C.swapUsed);
+      if (hasRelic(R, 'dust') && C.draw.length >= 5) add('서고의 먼지', Math.floor(C.draw.length / 5) * 0.04);
       if (C.keepUp && !C.plays) add('보존 상자', C.keepUp);
       const first = C.rollNo === 1;
       if (R.cls === 'gambler' && C.bet === card.u) add('배팅', CLASS_TUNE.betMul - 1);
       if (R.cls === 'outlaw' && first) add('속전속결', (RUSH_CATS.includes(card.cat) && isCombo(card.cat, dice) ? CLASS_TUNE.rushMul : CLASS_TUNE.rushAny) - 1);
       if (R.cls === 'dancer' && C.danced) add('춤사위', CLASS_TUNE.danceMul);
       if (R.cls === 'rogue' && C.flipped) add('그림자 손', CLASS_TUNE.rogueMul);
-      if (hasKw(card, 'quick') && first) add('속공', 0.5);
       if (hasRelic(R, 'drum') && C.turn === 1) add('전쟁 북', 0.5);
       if (C.power) add('힘의 물약', 0.5);
     }
   }
-  let total = base + parts.reduce((a, p) => a + p.amt, 0);
-  const notes = [];
+  let total = Math.max(0, base + parts.reduce((a, p) => a + p.amt, 0));
+  // 곱연산: 카드 자신의 강화 · 효과
+  const mulBy = (ko, m) => { const amt = Math.round(total * m); if (amt) { parts.push({ ko, amt, mul: true }); total += amt; } };
+  if (total > 0) {
+    if (card.up) mulBy('강화', UP_MUL);
+    if (C && hasKw(card, 'quick') && C.rollNo === 1) mulBy('속공', 0.5);
+  }
+  const notes = notes0;
   if (C && C.gazed.includes(card.u) && !C.pure) { total = 0; notes.push('응시'); }
   if (C && C.weak > 0 && total > 0) { total = Math.floor(total * 0.75); notes.push('약화 ×0.75'); }
   return { base, parts, total, notes };
@@ -1054,7 +1196,12 @@ function splitOut(R, card, sc, want) {
   if (atk > 0) {
     if (hasRelic(R, 'whet')) out.whet = Math.round(3 * share);
     if (R.cls === 'mage') out.arcane = Math.round((C.hand.length - 1) * CLASS_TUNE.mageBonus * share);
-    let d = atk + out.whet + out.arcane;
+    // 만화경 (다른 족보가 이어진 만큼) · 피에 굶주린 검 (쓰러뜨린 적 수): 고정 피해, 공격 비율만큼
+    if (hasRelic(R, 'kaleido') && C.lastCat && C.lastCat !== card.cat) out.kal = Math.round(4 * ((C.kal || 0) + 1) * share);
+    if (hasRelic(R, 'bloodsword') && R.kills) out.bsword = Math.round(R.kills * share);
+    let d = atk + out.whet + out.arcane + (out.kal || 0) + (out.bsword || 0);
+    // 해 인장: 피해 ×2 (카드에 붙은 효과라 곱연산. 황금 인장틀이면 두 번)
+    if (card.seal === 'sun') { d *= hasRelic(R, 'goldframe') ? 4 : 2; out.sun = true; }
     if (hasRelic(R, 'combo') && (card.cat === 'sstr' || card.cat === 'lstr')) { d *= 2; out.combo = true; }
     if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
     if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
@@ -1077,6 +1224,9 @@ function splitOut(R, card, sc, want) {
   if (hasRelic(R, 'hourglass')) out.always += left * 3;
   if (R.cls === 'outlaw' && C.rollNo === 1) out.always += left * CLASS_TUNE.rushBlock;
   if (S === 0 && hasRelic(R, 'insure')) out.always += 14;
+  const twice = hasRelic(R, 'goldframe') ? 2 : 1;
+  if (card.seal === 'cloud') out.always += 20 * twice;
+  if (card.seal === 'star') out.gold += 15 * twice;
   out.block += out.always;
   return { ...out, sc };
 }
@@ -1104,11 +1254,16 @@ export const playCard = act('playCard', function playCard(R, hi, target) {
   const card = C.hand[hi];
   if (!card) fail('없는 카드예요.');
   if (target !== 'enemy' && target !== 'self' && !(typeof target === 'number' && Number.isFinite(target))) fail('공격할지 방어할지 골라 주세요.');
-  const p = preview(R, hi, target);
+  // 동전 던지기 · 광기의 저울: 낼 때 정해진다 (같은 난수라 다시 돌려도 같다)
+  const coin = hasRelic(R, 'coin') ? (rand(R) < 0.5 ? 1 : -1) : 0;
+  const sc = scoreCard(R, card, C.dice, { coin });
+  if (hasRelic(R, 'madscale')) target = Math.round(sc.total * rand(R));
+  const p = preview(R, hi, target, sc);
   C.hand.splice(hi, 1);
   R.stats.cards++;
   const ev = { type: 'play', u: card.u, cat: card.cat, kws: kwsOf(card), up: card.up, target: p.atk > 0 ? 'enemy' : 'self', atk: p.atk, def: p.def,
-    score: p.score, parts: p.sc.parts, base: p.sc.base, notes: p.sc.notes, dmg: 0, blocked: 0, block: 0, heal: 0, gold: 0 };
+    score: p.score, parts: p.sc.parts, base: p.sc.base, notes: p.sc.notes, dmg: 0, blocked: 0, block: 0, heal: 0, gold: 0,
+    coin: coin || undefined, mad: hasRelic(R, 'madscale') || undefined, seal: card.seal || undefined, temp: card.temp || undefined };
   fx(R, ev);
   // 피해
   if (p.atk > 0 && p.dmg > 0) {
@@ -1144,13 +1299,55 @@ export const playCard = act('playCard', function playCard(R, hi, target) {
   if (p.score === 0 && hasRelic(R, 'insure')) addTool(R, 'flip', 1);
   if (R.cls === 'monk' && C.rollsLeft > 0) ev.nudge = addTool(R, 'nudge', C.rollsLeft);
   if (R.cls === 'dancer' && p.score >= DANCE_NEED && R.dance < DANCE_CAP) { R.dance++; ev.dance = true; }
-  // 카드는 버린 더미로 (메아리는 다음 턴 손패로)
-  (hasKw(card, 'echo') ? C.top : C.discard).push(card);
+  afterPlay(R, card, p, ev);
+  // 카드는 버린 더미로 (메아리는 다음 턴 손패로). 달빛 복사본은 한 번 쓰면 사라진다
+  if (!card.temp) (hasKw(card, 'echo') ? C.top : C.discard).push(card);
   checkFeats(R);
   log(R, `${cardName(card)} ${[p.atk > 0 ? `공격 ${p.dmg}` : '', p.block ? `방어 ${p.block}` : ''].filter(Boolean).join(' · ') || '0점'}`);
   if (C.e.hp <= 0) return winCombat(R);
   enemyTurn(R);
 });
+
+// 덱의 원래 카드 (전투 중 카드는 사본이라 영구 변화는 둘 다에 적는다)
+const deckCard = (R, u) => R.deck.find(c => c.u === u);
+// 카드를 낸 뒤: 족보 순서 유물 · 성장 유물 · 인장
+function afterPlay(R, card, p, ev) {
+  const C = R.C, cat = card.cat;
+  // 메아리 북 (같은 족보 연속) · 만화경 (다른 족보 연속)
+  if (C.lastCat === cat) { C.chainN = (C.chainN || 0) + 1; C.kal = 0; }
+  else { if (C.lastCat) C.kal = (C.kal || 0) + 1; C.chainN = 1; }
+  C.lastCat = cat;
+  C.played[card.u] = (C.played[card.u] || 0) + 1;
+  if (hasRelic(R, 'hammer')) (R.hammer ||= {})[cat] = (R.hammer[cat] || 0) + 1;
+  if (hasRelic(R, 'palette') && R.palette && !R.palette.done) {
+    if (!R.palette.seen.includes(cat)) R.palette.seen.push(cat);
+    if (SAME_CATS_ALL.every(c => R.palette.seen.includes(c))) { R.palette.done = true; ev.palette = true; }
+  }
+  if (hasRelic(R, 'pilgrim') && R.pilgrim && !R.pilgrim.includes(cat)) {
+    R.pilgrim.push(cat);
+    R.gold += 15; R.stats.gold += 15; R.maxHp += 2; R.hp += 2;
+    ev.pilgrim = true;
+  }
+  if (hasRelic(R, 'ytower') && cat === 'yacht' && p.score > 0) R.ytower = (R.ytower || 0) + 1;
+  if (hasRelic(R, 'zero') && p.score === 0 && !card.temp) {
+    card.zeroUp = Math.round(((card.zeroUp || 0) + 0.2) * 100) / 100;
+    const d = deckCard(R, card.u); if (d) d.zeroUp = card.zeroUp;
+  }
+  // 인장: 터지고 사라진다 (덱의 원래 카드에서도). 달 인장은 달빛 복사본을 다음 턴 손패로
+  if (card.seal) {
+    const seal = card.seal;
+    if (seal === 'moon') {
+      for (let k = 0; k < (hasRelic(R, 'goldframe') ? 2 : 1); k++) {
+        const copy = { ...card, u: ++R.uid, seal: null, temp: true, waxUp: 0 };
+        C.top.push(copy);
+        ev.moon = (ev.moon || 0) + 1;
+      }
+    }
+    card.seal = null; card.waxUp = 0;
+    const d = deckCard(R, card.u); if (d) { d.seal = null; d.waxUp = 0; }
+    ev.sealUsed = seal;
+  }
+}
 
 // 적에게 피해. 보호막이 먼저 깎인다 (관통은 무시)
 function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
@@ -1192,6 +1389,7 @@ function healHero(R, n, why, quiet = false) {
 // 영웅이 맞는다. 보호막이 먼저 깎인다
 function hurtHero(R, amount, why) {
   const C = R.C;
+  if (why === 'atk') amount *= (hasRelic(R, 'glasscannon') ? 1.4 : 1) * (omen(R, 'feast') ? 1.5 : 1);
   let left = Math.max(0, Math.round(amount));
   const blocked = C ? Math.min(C.block, left) : 0;
   if (C) C.block -= blocked;
@@ -1209,7 +1407,13 @@ function enemyTurn(R) {
   // 남은 손패는 버린 더미로
   // 남은 손패는 버린 더미로 (보존 카드는 손패에 남는다)
   const out = C.hand.filter(c => !hasKw(c, 'keep'));
-  if (out.length) { fx(R, { type: 'discard', us: out.map(c => c.u) }); C.discard.push(...out); }
+  // 밀랍 봉인: 인장이 붙은 채로 턴을 넘긴 카드 +10%
+  if (hasRelic(R, 'wax')) for (const c of C.hand) if (c.seal) {
+    c.waxUp = Math.round(((c.waxUp || 0) + 0.1) * 100) / 100;
+    const d = deckCard(R, c.u); if (d && d.seal) d.waxUp = c.waxUp;
+  }
+  if (hasRelic(R, 'sandbank')) C.bank = Math.min(2, C.rollsLeft);
+  if (out.length) { fx(R, { type: 'discard', us: out.map(c => c.u) }); C.discard.push(...out.filter(c => !c.temp)); }
   C.hand = C.hand.filter(c => hasKw(c, 'keep'));
   C.sealed = []; C.frozen = []; C.gazed = [];
   e.block = 0;                        // 적 보호막은 적의 턴이 시작될 때 사라진다
@@ -1227,6 +1431,11 @@ function enemyTurn(R) {
         if (R.hp <= 0 || e.hp <= 0) break;
       }
       e.weak = 0;
+      // 반격의 문장: 공격을 보호막으로 다 막았으면 남은 보호막만큼 되돌려 준다
+      if (hasRelic(R, 'counter') && act.hits.length && act.hits.every(h => h.dmg === 0) && C.block > 0 && e.hp > 0) {
+        const t = hitEnemy(R, C.block, { quiet: true });
+        act.counter = t.dmg;
+      }
     }
     if (m.block) { e.block += m.block; act.block = m.block; }
     if (m.str) { e.str += m.str; act.str = m.str; }
@@ -1286,6 +1495,13 @@ function winCombat(R) {
     if (R.act >= ACTS) { feat(R, 'clear'); if (asc(R, 5)) feat(R, 'asc5'); if (asc(R, 10)) feat(R, 'asc10'); }
   }
   checkFeats(R);
+  if (hasRelic(R, 'bloodsword')) R.kills = (R.kills || 0) + 1;
+  // 세 조각 성표: 이 전투에 가장 많이 낸 카드를 덱에 한 장 더 (원정에서 3번까지)
+  if (hasRelic(R, 'trinity') && (R.trinity || 0) < 3) {
+    const top = Object.entries(C.played).map(([u, n]) => [deckCard(R, Number(u)), n]).filter(([c]) => c).sort((a, b) => b[1] - a[1])[0];
+    if (top) { const nc = { ...top[0], u: ++R.uid, seal: null, waxUp: 0 }; R.deck.push(nc); R.trinity = (R.trinity || 0) + 1; fx(R, { type: 'gainCard', u: nc.u, why: 'trinity' }); }
+  }
+  if (omen(R, 'glass')) healHero(R, Math.round(R.maxHp * 0.15), 'omen');
   if (R.cls === 'bard') healHero(R, CLASS_TUNE.bardHeal, 'bard');
   if (hasRelic(R, 'lotus')) healHero(R, 6, 'lotus');
   if (def.kind === 'boss' && R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
@@ -1313,8 +1529,9 @@ function kwWeights(R) {
   return w;
 }
 export function rollCard(R, rarity) {
-  const cat = weighted(R, catWeights(R));
-  if (rarity === 1) return mkCard(R, cat);
+  const w = catWeights(R);
+  if (rarity === 1) { delete w.choice; return mkCard(R, weighted(R, w)); }   // 초이스는 실버 이상에서만
+  const cat = weighted(R, w);
   const kww = kwWeights(R);
   const kw = weighted(R, kww);
   if (rarity === 2) return mkCard(R, cat, 0, kw);
@@ -1349,17 +1566,20 @@ export function rollRelic(R, r, exclude = []) {
   return null;
 }
 const rollPotion = R => pick(R, POTIONS).id;
-function goldMul(R) { return 1 + (hasRelic(R, 'purse') ? 0.3 : 0) + (R.cls === 'gambler' ? CLASS_TUNE.gamblerGold : 0); }
+function goldMul(R) { return Math.max(0.1, 1 + (hasRelic(R, 'purse') ? 0.3 : 0) + (R.cls === 'gambler' ? CLASS_TUNE.gamblerGold : 0) + (omen(R, 'fog') ? 0.5 : 0) - (omen(R, 'merchant') ? 0.3 : 0)); }
 function genReward(R, kind) {
   const items = [];
   const g = kind === 'boss' ? int(R, 70, 85) + R.act * 10 : kind === 'elite' ? int(R, 28, 36) + R.act * 6 : int(R, 12, 18) + R.act * 4;
   items.push({ t: 'gold', n: Math.round(g * goldMul(R)) });
-  if (kind === 'elite') items.push({ t: 'relic', id: rollRelic(R, weighted(R, { 1: 60, 2: 40 })) });
-  if (kind === 'boss' && R.act < ACTS) {
+  // 유물은 고르기로 (3개 중 1개, 감정사의 돋보기면 4개)
+  const relicPick = rarity => {
     const opts = [];
-    for (let k = 0; k < 3; k++) { const id = rollRelic(R, 3, opts); if (id) opts.push(id); }
-    if (opts.length) items.push({ t: 'relicPick', opts });
-  }
+    for (let k = 0; k < relicChoices(R); k++) { const id = rollRelic(R, rarity(), opts); if (id) opts.push(id); }
+    if (opts.length) items.push({ t: 'relicPick', opts, kind });
+  };
+  if (kind === 'elite') for (let n = 0; n < (omen(R, 'war') ? 2 : 1); n++) relicPick(() => weighted(R, { 1: 60, 2: 40 }));
+  if (kind === 'boss' && R.act < ACTS) relicPick(() => 3);
+  if (kind === 'normal' && omen(R, 'bounty') && rand(R) < 0.25) relicPick(() => weighted(R, { 1: 70, 2: 30 }));
   if (rand(R) < (kind === 'normal' ? 0.4 : 0.6)) items.push({ t: 'potion', id: rollPotion(R) });
   if (kind === 'normal' && rand(R) < 0.3) items.push({ t: rand(R) < 0.5 ? 'flip' : 'nudge', n: 1 });
   if (kind !== 'boss' || R.act < ACTS) items.push({ t: 'card', opts: cardOffer(R, kind) });
@@ -1390,6 +1610,10 @@ export function gainRelic(R, id) {
   R.relics.push(id);
   if (id === 'heart') { R.maxHp += 20; R.hp += 20; }
   if (id === 'chalice') { R.maxHp += 30; R.hp = R.maxHp; }
+  if (id === 'bloodpact') { R.maxHp = Math.max(10, Math.round(R.maxHp * 0.7)); R.hp = Math.min(R.hp, R.maxHp); }
+  if (id === 'palette') R.palette = { seen: [], done: false };
+  if (id === 'pilgrim') R.pilgrim = [];
+  if (id === 'hammer') R.hammer ||= {};
   fx(R, { type: 'relic', id });
 }
 // 보상 화면을 떠난다 (남은 보상은 버린다). 보스 보상이면 다음 막으로
@@ -1413,8 +1637,12 @@ export const leaveReward = act('leaveReward', function leaveReward(R) {
 export const PRICE = { card: { 1: 48, 2: 76, 3: 140 }, relic: { 1: 140, 2: 200, 3: 300 }, potion: 40, flip: 30, nudge: 20, remove: 60, removeStep: 20 };
 function genShop(R) {
   const cards = [rollCard(R, 1), rollCard(R, 2), rollCard(R, Number(weighted(R, { 1: 30, 2: 50, 3: 20 })))];
-  const jitter = p => Math.round(p * (0.9 + rand(R) * 0.2) * (asc(R, 7) ? 1.25 : 1));
+  const jitter = p => Math.round(p * (0.9 + rand(R) * 0.2) * (asc(R, 7) ? 1.25 : 1) * (omen(R, 'drought') ? 0.7 : 1));
+  // 인장 2개 (인장공의 칼: 반값, 첫 번째는 공짜)
+  const knife = hasRelic(R, 'sealknife');
+  const seals = [pick(R, SEAL_IDS), pick(R, SEAL_IDS)].map((id, k) => ({ id, price: knife ? (k === 0 ? 0 : Math.round(jitter(SEAL_PRICE) / 2)) : jitter(SEAL_PRICE), sold: false }));
   return {
+    seals,
     cards: cards.map(c => ({ c, price: jitter(PRICE.card[cardRarity(c)]), sold: false })),
     relics: shopRelics(R).map(id => ({ id, price: jitter(PRICE.relic[relicInfo(id).r]), sold: false })),
     potions: [rollPotion(R), rollPotion(R)].map(id => ({ id, price: jitter(PRICE.potion), sold: false })),
@@ -1436,12 +1664,14 @@ export const startSmith = act('startSmith', function startSmith(R) {
 export const removePrice = R => Math.round((PRICE.remove + R.removes * PRICE.removeStep) * (asc(R, 7) ? 1.25 : 1));
 export const buy = act('buy', function buy(R, kind, idx) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
-  const list = { card: R.shop.cards, relic: R.shop.relics, potion: R.shop.potions, tool: R.shop.tools }[kind];
+  const list = { card: R.shop.cards, relic: R.shop.relics, potion: R.shop.potions, tool: R.shop.tools, seal: R.shop.seals || [] }[kind];
   const it = list?.[idx];
   if (!it || it.sold) fail('이미 팔린 물건이에요.');
   if (R.gold < it.price) fail('골드가 모자라요.');
   if (kind === 'potion' && R.potions.length >= POTION_SLOTS) fail('물약 칸이 가득 찼어요.');
   if (kind === 'tool' && R[it.kind] >= TOOL_CAP) fail(`더 들 수 없어요 (최대 ${TOOL_CAP}).`);
+  // 인장: 붙일 카드를 고른 뒤에 값을 낸다
+  if (kind === 'seal') { if (!R.deck.some(c => !c.seal)) fail('인장을 붙일 카드가 없어요.'); R.pick = { why: 'seal', seal: it.id, cost: it.price, idx, from: 'shop' }; return; }
   R.gold -= it.price;
   it.sold = true;
   if (kind === 'card') { R.deck.push({ ...it.c }); fx(R, { type: 'gainCard', u: it.c.u }); }
@@ -1463,7 +1693,7 @@ export const leaveShop = act('leaveShop', function leaveShop(R) {
 });
 
 // ── 휴식 ─────────────────────────────────────────────────────────────────────
-export const restAmount = R => Math.round(R.maxHp * (asc(R, 4) ? 0.2 : REST_HEAL)) + (hasRelic(R, 'camp') ? 20 : 0);
+export const restAmount = R => Math.round((Math.round(R.maxHp * (asc(R, 4) ? 0.2 : REST_HEAL)) + (hasRelic(R, 'camp') ? 20 : 0)) * (omen(R, 'drought') ? 0.5 : 1));
 export const restHeal = act('restHeal', function restHeal(R) {
   if (R.phase !== 'rest') fail('휴식처가 아니에요.');
   healHero(R, restAmount(R), 'rest');
@@ -1515,6 +1745,14 @@ export const pickDeck = act('pickDeck', function pickDeck(R, u) {
     if (pk.cost) { R.gold -= pk.cost; R.removes++; R.shop.removed = true; }
     if (pk.hp) { hurtHero(R, pk.hp, 'event'); if (R.hp <= 0 && !revive(R)) { R.pick = null; return loseRun(R); } }
     fx(R, { type: 'remove', u });
+  }
+  if (pk.why === 'seal') {
+    if (c.seal) fail('이미 인장이 붙은 카드예요.');
+    if (R.gold < (pk.cost || 0)) fail('골드가 모자라요.');
+    R.gold -= pk.cost || 0;
+    c.seal = pk.seal;
+    if (pk.from === 'shop' && R.shop?.seals?.[pk.idx]) R.shop.seals[pk.idx].sold = true;
+    fx(R, { type: 'sealOn', u, seal: pk.seal });
   }
   if (pk.why === 'dup') {
     const nc = { ...c, u: ++R.uid };
@@ -1649,7 +1887,6 @@ function prepHand(R, rollNo) {
   return C.hand.map(card => {
     let mul = 1;
     const up = card.cat;
-    if (card.up) mul += UP_MUL;
     if (hasRelic(R, 'basic') && isUpper(up)) mul += 0.3;
     if (hasRelic(R, 'choice') && up === 'choice') mul += 0.3;
     if (hasRelic(R, 'full') && up === 'full') mul += 0.5;
@@ -1661,12 +1898,19 @@ function prepHand(R, rollNo) {
     if (R.cls === 'outlaw' && first) mul += (RUSH_CATS.includes(up) ? CLASS_TUNE.rushMul : CLASS_TUNE.rushAny) - 1;   // 큰 족보는 점수가 나면 곧 완성
     if (R.cls === 'dancer' && C.danced) mul += CLASS_TUNE.danceMul;
     if (R.cls === 'rogue' && C.flipped) mul += CLASS_TUNE.rogueMul;
-    if (hasKw(card, 'quick') && first) mul += 0.5;
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 1.5;
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) mul += 0.25;
     if (C.keepUp && !C.plays) mul += C.keepUp;
+    // 새 유물 · 징조 (합연산)
+    mul += (hasRelic(R, 'madscale') ? 1 : 0) + (hasRelic(R, 'bloodpact') ? 0.5 : 0) + (hasRelic(R, 'glasscannon') ? 0.6 : 0) + (hasRelic(R, 'emptyhand') ? 0.6 : 0)
+      + (R.palette?.done && hasRelic(R, 'palette') ? 0.5 : 0) + (omen(R, 'feast') ? 0.5 : 0) + (omen(R, 'forbid') ? 0.2 : 0)
+      + (hasRelic(R, 'echodrum') && C.lastCat === up ? 0.25 * (C.chainN || 0) : 0) + (hasRelic(R, 'pairring') && C.hand.filter(c => c.cat === up).length >= 2 ? 0.5 : 0)
+      + (card.zeroUp || 0) + (card.waxUp || 0);
+    if (omen(R, 'forbid') && R.omenCat === up) mul = 0;
+    // 곱연산: 카드 자신의 강화 · 속공
+    mul *= (card.up ? 1 + UP_MUL : 1) * (hasKw(card, 'quick') && first ? 1.5 : 1);
     if (C.weak > 0) mul *= 0.75;
     return {
       cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, ace: up === 'ones' && hasRelic(R, 'ace'), pairs: hasRelic(R, 'pairs'),
@@ -1899,11 +2143,12 @@ export function botRunStep(R, rng = Math.random) {
       const v = o => (o === 'up' ? 6 : KW_V[o] + (o === 'keep' ? 1 : 0));
       return chooseUpgrade(R, pk.opts.indexOf(pk.opts.slice().sort((a, b) => v(b) - v(a))[0]));
     }
-    const cands = R.deck.filter(c => (pk.why === 'upgrade' ? canUpgrade(c) : true));
+    const cands = R.deck.filter(c => (pk.why === 'upgrade' ? canUpgrade(c) : pk.why === 'seal' ? !c.seal : true));
     if (!cands.length) return cancelPick(R);
     const sorted = cands.slice().sort((a, b) => botCardValue(R, a) - botCardValue(R, b));
     return pickDeck(R, (pk.why === 'remove' ? sorted[0] : sorted[sorted.length - 1]).u);
   }
+  if (R.phase === 'map' && R.omenOpts) return chooseOmen(R, rng() < 0.5 ? 0 : 1);
   if (R.phase === 'map') {
     const opts = nextNodes(R).map(id => mapNode(R, id));
     const frac = R.hp / R.maxHp;
