@@ -622,8 +622,10 @@ function openSplit(u) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
   const S = Run.scoreCard(R, C.hand[hi]).total;
   ui.sel = u;
-  // 기본은 '딱 막기' (다음 공격을 다 막을 만큼만 방어 · 나머지 공격). 막을 공격이 없으면 전부 공격
-  ui.split = { u, S, atk: Run.incomingAfter(R) > 0 ? Run.coverAtk(R, hi).atk : S };
+  // 기본은 '딱 막기' (다음 공격을 다 막을 만큼만 방어 · 나머지 공격). 막을 공격이 없으면 전부 공격.
+  // 짙은 안개: 적의 다음 행동을 모르므로 막대 위치로 새지 않게 처음엔 전부 방어
+  const fog = Run.omen(R, 'fog');
+  ui.split = { u, S, atk: fog ? 0 : Run.incomingAfter(R) > 0 ? Run.coverAtk(R, hi).atk : S };
   hand.select(u, splitHTML(u), { wide: true });
   hand.el(u)?.classList.add('splitting');
   bindSplit();
@@ -699,7 +701,8 @@ function paintSplit() {
   $('sp-blk').textContent = p.block;
   $('split').classList.toggle('all-atk', p.def === 0 && p.score > 0);
   $('split').classList.toggle('all-def', p.atk === 0);
-  const inc = Run.incomingAfter(R, p.weak), taken = Run.takenAfter(R, p);
+  const fog = Run.omen(R, 'fog');   // 짙은 안개: 적의 공격으로 계산한 값(받을 피해 · 딱 막기)은 보여 주지 않는다
+  const inc = fog ? 0 : Run.incomingAfter(R, p.weak), taken = fog ? 0 : Run.takenAfter(R, p);
   const info = [];
   if (p.atk > 0) {
     if (p.pierce) info.push(`${ico('dagger', 'xs')}관통`);
@@ -719,7 +722,9 @@ function paintSplit() {
   if (p.always) info.push(`보호막 +${p.always}`);
   if (inc > 0 && !p.kill && taken) info.push(`<em class="hurt">${ico('sword', 'xs')}-${taken}</em>`);
   $('sp-info').innerHTML = info.join('<i class="sep">·</i>') || '&nbsp;';
-  const cov = Run.coverAtk(R, hi), cb = $('sp-cover');
+  const cb = $('sp-cover');
+  if (fog) { cb.disabled = true; cb.innerHTML = '?'; hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3)); return; }
+  const cov = Run.coverAtk(R, hi);
   if (!inc) { cb.disabled = true; cb.innerHTML = '딱 막기'; }
   else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.score - cov.atk}</small>` : '전부 방어'; }
   hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3));
@@ -1886,7 +1891,7 @@ export function onAct(act, t) {
     const v = t.dataset.v, hi = R.C.hand.findIndex(c => c.u === sp.u);
     if (v === 'all') return setSplit(sp.S);
     if (v === 'none') return setSplit(0);
-    if (v === 'cover') return setSplit(hi >= 0 ? Run.coverAtk(R, hi).atk : sp.atk);
+    if (v === 'cover') { if (Run.omen(R, 'fog')) return; return setSplit(hi >= 0 ? Run.coverAtk(R, hi).atk : sp.atk); }
     return setSplit(sp.atk + Number(v));
   }
   if (act === 'run-bet') return doBet(Number(t.dataset.u));
