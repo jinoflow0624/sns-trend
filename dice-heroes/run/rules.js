@@ -357,7 +357,25 @@ export const RELICS = [
   { id: 'quad',      ko: '쌍둥이 별',       icon: 'pair4',     r: 2, desc: '숫자 카드에 맞는 주사위가 4개 이상이면 점수 ×2' },
   { id: 'flow',      ko: '질풍',            icon: 'rainbow',   r: 2, desc: '스몰 스트레이트 기본 25점 · 라지 스트레이트 기본 45점' },
   { id: 'combo',     ko: '연환',            icon: 'link',      r: 2, desc: '스트레이트 카드로 공격하면 피해가 두 번 들어간다' },
+  // 덱 빌딩 유물: 특정 키워드 · 족보 · 덱 크기를 살린다 (가지면 그 계열 카드가 더 자주 나오고, 그 계열 카드가 많으면 더 자주 나온다)
+  { id: 'ember',     ko: '불씨 항아리',     icon: 'volcano',   r: 2, desc: '화염 카드의 화상 피해 +3, 화상이 1턴 더 간다' },
+  { id: 'bloodcup',  ko: '피의 성배',       icon: 'gem',       r: 2, desc: '흡혈 회복 +50%. 체력이 가득 차서 넘치는 회복은 보호막이 된다' },
+  { id: 'rampart',   ko: '성벽 설계도',     icon: 'castle',    r: 2, desc: '수호 카드로 얻은 보호막의 절반을 다음 턴 시작에 다시 얻는다' },
+  { id: 'keepbox',   ko: '보존 상자',       icon: 'toolbox',   r: 1, desc: '턴 시작에 손패에 남아 있던 보존 카드 1장당, 그 턴 첫 카드 점수 +15%' },
+  { id: 'magnet',    ko: '자석 주사위',     icon: 'vortex',    r: 2, desc: '굴린 뒤 같은 눈이 3개 이상이면, 다른 주사위 1개가 그 눈으로 바뀐다 (턴마다 1번)' },
+  { id: 'weight',    ko: '저울추',          icon: 'rock',      r: 1, desc: '초이스 카드: 남은 굴림 1회당 기본 점수 +6' },
+  { id: 'rosary',    ko: '수도승의 묵주',   icon: 'beads',     r: 2, desc: '덱이 8장 이하면 모든 카드 점수 +25%' },
+  { id: 'libkey',    ko: '도서관 열쇠',     icon: 'door',      r: 2, desc: '덱이 20장 이상이면 손패 +1' },
 ];
+// 덱 빌딩 유물 ↔ 그 계열 카드
+const SAME_CATS = ['four', 'yacht', 'full'];
+const ARCH = {
+  ember: c => hasKw(c, 'burn'), bloodcup: c => hasKw(c, 'vamp'), rampart: c => hasKw(c, 'guard'), keepbox: c => hasKw(c, 'keep'),
+  magnet: c => SAME_CATS.includes(c.cat), weight: c => c.cat === 'choice',
+};
+const ARCH_KW = { ember: 'burn', bloodcup: 'vamp', rampart: 'guard', keepbox: 'keep' };
+export const MAGNET_N = 3;
+export const ROSARY_MAX = 8, LIBKEY_MIN = 20;
 // 덱 방향: 숫자 카드(에이스~식스) · 스트레이트
 export const NUM_RELICS = ['basic', 'ace', 'small', 'pairs', 'quad'];
 export const STR_RELICS = ['straight', 'flow', 'combo'];
@@ -603,7 +621,7 @@ function pickFoe(R, kind) {
 
 // ── 전투 ─────────────────────────────────────────────────────────────────────
 export const C_ = R => R.C;
-export const handSize = R => HAND + (R.cls === 'mage' ? 1 : 0) + (hasRelic(R, 'crown') ? 1 : 0);
+export const handSize = R => HAND + (R.cls === 'mage' ? 1 : 0) + (hasRelic(R, 'crown') ? 1 : 0) + (hasRelic(R, 'libkey') && R.deck.length >= LIBKEY_MIN ? 1 : 0);
 export const diceCount = R => (hasRelic(R, 'sixth') ? 6 : 5);
 export function maxRolls(R) {
   const C = R.C;
@@ -718,6 +736,9 @@ function startTurn(R) {
   C.danced = false;
   C.sealed = []; C.frozen = []; C.gazed = [];
   C.pure = false; C.power = false; C.extraRolls = 0;
+  C.plays = 0; C.magnet = false;
+  // 보존 상자: 손패에 남아 있던 보존 카드 수 (그 턴 첫 카드)
+  C.keepUp = hasRelic(R, 'keepbox') ? C.hand.filter(c => hasKw(c, 'keep')).length * 0.15 : 0;
   C.swaps = 1 + (hasRelic(R, 'medal') ? 1 : 0);
   C.hex = C.e.intent?.hex ? { ...C.e.intent.hex } : null;
   const n = diceCount(R);
@@ -728,6 +749,7 @@ function startTurn(R) {
   if (R.cls === 'bard') { C.block += CLASS_TUNE.bardBlock; fx(R, { type: 'heroBlock', n: CLASS_TUNE.bardBlock, why: 'bard' }); }
   if (hasRelic(R, 'iron')) { C.block += 3; fx(R, { type: 'heroBlock', n: 3, why: 'iron' }); }
   if (hasRelic(R, 'midas')) addTool(R, 'nudge', 1);
+  if (C.rampart) { C.block += C.rampart; fx(R, { type: 'heroBlock', n: C.rampart, why: 'rampart' }); C.rampart = 0; }
   // 손패 채우기: 메아리 카드(지난 턴에 낸 것)가 먼저 돌아온다
   const drawn = [];
   while (C.top.length && C.hand.length < handSize(R)) { const c = C.top.shift(); C.hand.push(c); drawn.push(c.u); }
@@ -789,8 +811,24 @@ export const roll = act('roll', function roll(R) {
       fx(R, { type: 'lucky', dice: [i], from, to: C.dice[i] });
     }
   }
+  if (hasRelic(R, 'magnet') && !C.magnet) magnetDice(R);
   afterRollHex(R);
 });
+
+// 자석 주사위: 같은 눈이 MAGNET_N 개 이상이면 (많은 쪽, 같으면 큰 눈) 다른 주사위 1개를 그 눈으로
+function magnetDice(R) {
+  const C = R.C, cnt = [0, 0, 0, 0, 0, 0, 0];
+  C.dice.forEach(v => cnt[v]++);
+  let f = 0;
+  for (let v = 6; v >= 1; v--) if (cnt[v] >= MAGNET_N && cnt[v] > (cnt[f] || 0)) f = v;
+  if (!f) return;
+  const i = C.dice.findIndex((v, k) => v !== f && !isSealed(R, k) && !isFrozen(R, k));
+  if (i < 0) return;
+  C.magnet = true;
+  const from = C.dice.slice();
+  C.dice[i] = f;
+  fx(R, { type: 'lucky', dice: [i], from, to: f, why: 'magnet' });
+}
 
 // 적의 방해가 굴림 직후에 걸린다
 function afterRollHex(R) {
@@ -956,6 +994,9 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     } else if (hasRelic(R, 'flow') && (card.cat === 'sstr' || card.cat === 'lstr')) {
       adj = card.cat === 'sstr' ? 25 : 45;
       parts.push({ ko: '질풍', amt: adj - base });
+    } else if (hasRelic(R, 'weight') && card.cat === 'choice' && C?.rollsLeft > 0) {
+      parts.push({ ko: '저울추', amt: C.rollsLeft * 6 });
+      adj += C.rollsLeft * 6;
     }
   }
   const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
@@ -970,7 +1011,9 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     if (hasRelic(R, 'fourk') && card.cat === 'four') add('사냥 본능', 0.5);
     if (hasRelic(R, 'yacht') && card.cat === 'yacht') add('요트 신봉자', 0.5);
     if (R.cls === 'warrior' && isUpper(card.cat)) add('불굴', CLASS_TUNE.warriorMul);
+    if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) add('수도승의 묵주', 0.25);
     if (C) {
+      if (C.keepUp && !C.plays) add('보존 상자', C.keepUp);
       const first = C.rollNo === 1;
       if (R.cls === 'gambler' && C.bet === card.u) add('배팅', CLASS_TUNE.betMul - 1);
       if (R.cls === 'outlaw' && first) add('속전속결', (RUSH_CATS.includes(card.cat) && isCombo(card.cat, dice) ? CLASS_TUNE.rushMul : CLASS_TUNE.rushAny) - 1);
@@ -1019,10 +1062,10 @@ function splitOut(R, card, sc, want) {
     out.pierce = hasKw(card, 'pierce') || (R.cls === 'rogue' && C.flipped);
     const through = out.pierce ? d : Math.max(0, d - e.block);
     out.kill = through >= e.hp;
-    if (hasKw(card, 'vamp')) out.heal += Math.floor(atk / 3);
+    if (hasKw(card, 'vamp')) out.heal += Math.floor(atk / 3 * (hasRelic(R, 'bloodcup') ? 1.5 : 1));
     if (hasRelic(R, 'fang')) out.heal += Math.floor(through * 0.15);
     if (hasKw(card, 'gold')) out.gold = Math.floor(atk / 3);
-    if (hasKw(card, 'burn')) out.burn = Math.floor(atk / 4);
+    if (hasKw(card, 'burn')) out.burn = Math.floor(atk / 4) + (hasRelic(R, 'ember') ? 3 : 0);
     if (hasKw(card, 'weak')) out.weak = atk * 2 >= S;
     if (R.cls === 'warrior' && isUpper(card.cat)) out.wblk = Math.floor(atk / 2);
   }
@@ -1086,9 +1129,16 @@ export const playCard = act('playCard', function playCard(R, hi, target) {
   if (p.atk > 0 && card.cat === 'lstr' && p.dmg >= 60) feat(R, 'lstr60');
   if (p.atk > 0 && card.cat === 'yacht' && p.score > 0) feat(R, 'yacht');
   if (C.block >= 60 && incoming(R) > 0) feat(R, 'wall');
-  if (p.heal) ev.heal = healHero(R, p.heal, 'card', true);
+  if (p.heal) {
+    ev.heal = healHero(R, p.heal, 'card', true);
+    // 피의 성배: 넘친 회복은 보호막
+    const over = hasRelic(R, 'bloodcup') ? p.heal - ev.heal : 0;
+    if (over > 0) { C.block += over; ev.block += over; ev.cup = over; }
+  }
+  if (hasRelic(R, 'rampart') && hasKw(card, 'guard') && p.block) C.rampart = (C.rampart || 0) + Math.floor(p.block / 2);
+  C.plays = (C.plays || 0) + 1;
   if (p.gold) { R.gold += p.gold; R.stats.gold += p.gold; ev.gold = p.gold; }
-  if (p.burn) { C.e.burn += p.burn; C.e.burnT = BURN_TURNS; ev.burn = p.burn; }
+  if (p.burn) { C.e.burn += p.burn; C.e.burnT = BURN_TURNS + (hasRelic(R, 'ember') ? 1 : 0); ev.burn = p.burn; }
   if (p.weak) { C.e.weak = 1; ev.weak = true; }
   if (hasKw(card, 'lucky')) ev.flip = addTool(R, 'flip', 1);
   if (p.score === 0 && hasRelic(R, 'insure')) addTool(R, 'flip', 1);
@@ -1253,15 +1303,23 @@ function catWeights(R) {
   if (hasRelic(R, 'ace')) w.ones *= 4;
   if (hasRelic(R, 'small')) { w.ones *= 3; w.twos *= 3; w.threes *= 3; }
   if (sy.str) { w.sstr *= 1 + sy.str; w.lstr *= 1 + sy.str; }
+  if (hasRelic(R, 'magnet')) for (const c of SAME_CATS) w[c] *= 2.5;
+  if (hasRelic(R, 'weight')) w.choice *= 2.5;
+  return w;
+}
+function kwWeights(R) {
+  const w = { ...KW_W };
+  for (const [id, kw] of Object.entries(ARCH_KW)) if (hasRelic(R, id)) w[kw] *= 3;
   return w;
 }
 export function rollCard(R, rarity) {
   const cat = weighted(R, catWeights(R));
   if (rarity === 1) return mkCard(R, cat);
-  const kw = weighted(R, KW_W);
+  const kww = kwWeights(R);
+  const kw = weighted(R, kww);
   if (rarity === 2) return mkCard(R, cat, 0, kw);
   if (rand(R) < 0.3) return mkCard(R, 'yacht', 1, rand(R) < 0.5 ? kw : null);
-  if (rand(R) < 0.35) { let k2 = weighted(R, KW_W); if (k2 === kw) k2 = weighted(R, KW_W); return mkCard(R, cat, 0, k2 === kw ? [kw] : [kw, k2]); }
+  if (rand(R) < 0.35) { let k2 = weighted(R, kww); if (k2 === kw) k2 = weighted(R, kww); return mkCard(R, cat, 0, k2 === kw ? [kw] : [kw, k2]); }
   return mkCard(R, cat, 1, kw);
 }
 function cardOffer(R, kind) {
@@ -1281,7 +1339,9 @@ export function rollRelic(R, r, exclude = []) {
   const own = new Set([...R.relics, ...exclude]);
   const sy = synergy(R);
   // 이미 고른 덱 방향의 유물은 더 잘 나온다
-  const wt = id => 1 + (NUM_RELICS.includes(id) ? sy.num * 2 : 0) + (STR_RELICS.includes(id) ? sy.str * 2 : 0);
+  const wt = id => 1 + (NUM_RELICS.includes(id) ? sy.num * 2 : 0) + (STR_RELICS.includes(id) ? sy.str * 2 : 0)
+    + (ARCH[id] ? Math.min(3, R.deck.filter(ARCH[id]).length) * 0.8 : 0)
+    + (id === 'rosary' && R.deck.length <= 10 ? 2 : 0) + (id === 'libkey' && R.deck.length >= 17 ? 2 : 0);
   for (const rr of [Number(r), 2, 1, 3]) {
     const pool = RELICS.filter(x => x.r === rr && !own.has(x.id));
     if (pool.length) return weighted(R, Object.fromEntries(pool.map(x => [x.id, wt(x.id)])));
@@ -1605,6 +1665,8 @@ function prepHand(R, rollNo) {
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 1.5;
+    if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) mul += 0.25;
+    if (C.keepUp && !C.plays) mul += C.keepUp;
     if (C.weak > 0) mul *= 0.75;
     return {
       cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, ace: up === 'ones' && hasRelic(R, 'ace'), pairs: hasRelic(R, 'pairs'),
