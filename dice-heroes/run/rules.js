@@ -77,8 +77,8 @@ export const KEYWORDS = {
 };
 export const KW_IDS = Object.keys(KEYWORDS);
 export const CAT_SHORT = { ones: '1', twos: '2', threes: '3', fours: '4', fives: '5', sixes: '6' };
-// 카드 앞면에 쓰는 짧은 이름 (긴 이름은 카드 폭을 넘는다)
-export const cardTitle = cat => ({ sstr: '스몰 스트', lstr: '라지 스트' }[cat] || catInfo(cat).ko);
+// 카드 앞면에 쓰는 이름 (줄이지 않는다. 긴 이름은 카드 안에서 두 줄로 나뉜다)
+export const cardTitle = cat => catInfo(cat).ko;
 export const CAT_RULE = {
   ones: '1의 개수 × 1', twos: '2의 개수 × 2', threes: '3의 개수 × 3', fours: '4의 개수 × 4', fives: '5의 개수 × 5', sixes: '6의 개수 × 6',
   choice: '주사위 5개 합', four: '같은 눈 4개 → 5개 합', full: '3개 + 2개 → 5개 합',
