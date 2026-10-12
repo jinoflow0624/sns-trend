@@ -34,6 +34,7 @@ const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
 const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, adsPersonal: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
 preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
+preloadTray(traySkin(prefs.traySkin).id).catch(() => {});
 if (prefs.analytics) setAnalytics(true);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
 let live = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 1 };
@@ -219,7 +220,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
     });
@@ -846,6 +847,7 @@ const alive = token => token === online?.token || (!!online?.room?.seen?.[token]
 // 준비(레디): 방장을 뺀 사람 참가자가 모두 준비해야 시작할 수 있다
 const needReady = room => room.seats.filter(s => !s.bot && s.token !== room.host);
 function showLobby() {
+  if (online?.room) online.room.seats.forEach(st => st.skin && stageReady([st.skin]));   // 방 사람들의 주사위 · 트레이 그림을 미리
   screen = 'lobby';
   clearActors();
   const room = online.room;
@@ -998,6 +1000,8 @@ async function onRoom(room) {
   const prev = S && screen === 'game' ? S : null;
   const g = room.game;
   if (!prev) {
+    await stageReady(skinsOf(g));
+    if (!online || online.sig !== sig) return;     // 기다리는 사이 방이 또 바뀌었으면 그 신호가 이어서 그린다
     S = g;
     Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
     screen = 'game';
@@ -1162,6 +1166,8 @@ async function startGame(state) {
   S = state;
   gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxNote.includes('오류')) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
+  await stageReady(skinsOf(state));      // 화면을 열기 전에 트레이 · 그림을 다 준비 (그사이 이전 화면 그대로)
+  if (S !== state) return;
   Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
   setStage(null);
@@ -1208,11 +1214,13 @@ function trayOpts() {
     traySkin: traySkin(mySkin().tray).id,
   };
 }
+// 싸움 화면보다 먼저 트레이를 만들 때(stageReady) 잠시 붙여 둘 숨은 자리. 화면이 열리면 attach 로 옮긴다
+let trayPark = null;
+const trayHost = () => document.getElementById('tray') || (trayPark ||= document.createElement('div'));
 async function makeTray() {
-  const host = document.getElementById('tray');
   try {
     const { DiceTray } = await Promise.race([preload3d(), timeout(tray3dWait(), '3D 불러오기 시간 초과')]);
-    tray = new DiceTray(document.getElementById('tray') || host, trayOpts());
+    tray = new DiceTray(trayHost(), trayOpts());
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -1224,7 +1232,7 @@ async function makeTray() {
     }
   }
   // 3D를 쓸 수 없거나 제때 못 받은 기기: 2D 주사위로 대신한다 (3D는 뒤에서 계속 받아 두었다가 다음 판부터)
-  tray = new DiceTray2D(document.getElementById('tray') || host, trayOpts());
+  tray = new DiceTray2D(trayHost(), trayOpts());
   return tray;
 }
 // 3D 를 기다리는 시간: 처음엔 8초, 이미 한 번 늦었던 기기는 3초
@@ -3022,6 +3030,13 @@ const mySkin = () => {
   if (!Wal.wallet()) return { dice: d, tray: t };   // 지갑을 아직 못 불러왔으면 고른 그대로 (산 것만 고를 수 있다)
   return { dice: Wal.owns('dice', d) ? d : 'classic', tray: Wal.owns('tray', t) ? t : 'classic' };   // 산 것만 (안 산 걸 미리 보던 중이어도 남에게는 기본으로)
 };
+// 싸움 화면을 열기 전에: 3D 엔진 · 트레이를 만들어 두고, 쓰일 주사위 · 트레이 그림을 다 받아 둔다
+// (예전엔 화면이 먼저 뜨고 그림이 늦게 와서 트레이 없이 검은 화면이 보이곤 했다). 아주 느린 인터넷이면 8초까지만
+const skinsOf = g => [mySkin(), ...(g?.players || []).map(p => p.skin).filter(Boolean)];
+function stageReady(skins = [mySkin()]) {
+  const imgs = skins.flatMap(sk => [preloadDice(diceSkin(sk.dice).id), preloadTray(traySkin(sk.tray).id)]);
+  return Promise.race([Promise.all([ensureTray(), ...imgs].map(p => p.catch(() => {}))), sleep(8000)]);
+}
 // 지금 차례인 사람의 스킨으로 트레이를 바꾼다 (친구 차례엔 친구 것, 내 차례·봇·한 기기에선 내 것)
 function turnSkin(t) {
   const cur = S && online ? E.current(S) : null;

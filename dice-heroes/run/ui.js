@@ -119,7 +119,7 @@ const RUN_SONGS = ['run_map', 'run_battle', 'run_elite', 'run_win', 'run_lose'];
 async function preloadRun() {
   const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
   const songs = [...RUN_SONGS, bossSong(R.boss)].map(n => BGM_FILES[n]).filter(Boolean);
-  if (loaded) { preloadBgm(bossSong(R.boss)); return; }
+  if (loaded) { preloadBgm(bossSong(R.boss)); await X.stageReady(); return; }
   const imgs = [...runAssetURLs(bosses), ...relicURLs()];
   const total = imgs.length + songs.length + 1;
   let done = 0;
@@ -138,6 +138,7 @@ async function preloadRun() {
   await Promise.race([Promise.all([...Array(6)].map(run)), wait(25000)]);
   // 지도 곡과 이번 막 보스 곡은 바로 틀 수 있게 풀어 둔다
   await Promise.race([Promise.all([preloadBgm('run_map'), preloadBgm(bossSong(R.boss))]), wait(4000)]);
+  await X.stageReady();                    // 3D 트레이 · 주사위 · 트레이 그림
   if (performance.now() - t0 < 500) await wait(500 - (performance.now() - t0));   // 너무 짧게 번쩍이지 않게
   loaded = true;
   // 나머지 보스 곡은 뒤에서 (HTTP 캐시에만)
@@ -1609,7 +1610,7 @@ export function onAct(act, t) {
     const ty = Run.mapNode(R, id).type;
     const song = ty === 'boss' ? bossSong(R.boss) : ty === 'elite' ? 'run_elite' : ty === 'fight' ? 'run_battle' : null;
     const ready = song ? Promise.race([preloadBgm(song), wait(3000)]) : null;
-    return Promise.all([ready, wait(260)]).then(() => enterView(true));
+    return Promise.all([ready, wait(260), song && X.stageReady()]).then(() => enterView(true));
   }
   // 보상
   if (act === 'run-take') return takeItem(Number(t.dataset.k));
