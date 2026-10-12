@@ -1523,20 +1523,21 @@ function bossPanel() {
 function bossStatus(b) {
   if (b.id === 'hydra') {
     const now = E.HEADS[(S.round - 1) % 3], nxt = S.round < E.ROUNDS ? E.HEADS[S.round % 3] : null;
-    return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}${h === nxt && !b.cut?.[h] ? ' next' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}<small>${E.hydraHead(S) ? `이번 라운드: ${E.HEAD_KO[now]} 머리 · ${E.HYDRA_CUT}↑ 피해로 베기` : '이번 라운드 머리는 잘렸다'}</small></div>`;
+    return `<div class="boss-status heads">${E.HEADS.map(h => `<span class="head h-${h}${b.cut?.[h] ? ' cut' : ''}${h === now ? ' now' : ''}${h === nxt && !b.cut?.[h] ? ' next' : ''}">${ico(h === 'fire' ? 'fire' : h === 'ice' ? 'snow' : 'skull', 'xs')}${E.HEAD_KO[h]}</span>`).join('')}</div>`;
   }
   // 응시 · 저주가 없을 때도 같은 크기의 빈 줄을 둔다 (줄이 생겼다 사라지며 화면이 위아래로 밀리지 않게)
   if (b.id === 'cyclops') return b.gaze?.length && !ui.hideGaze
-    ? `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>이 칸은 피해 0</small></div>`
+    ? `<div class="boss-status">${ico('eye', 'xs')} 응시: <b>${b.gaze.map(c => E.catInfo(c).ko).join(' · ')}</b></div>`
     : `<div class="boss-status ph" aria-hidden="true">${ico('eye', 'xs')} 응시: <b>-</b> <small>-</small></div>`;
   if (b.id === 'archdemon' && !b.curse?.length) return `<div class="boss-status ph" aria-hidden="true">${ico('skull', 'xs')} 저주: <b>-</b> <small>-</small></div>`;
-  if (b.id === 'archdemon' && b.curse?.length) return `<div class="boss-status">${ico('skull', 'xs')} 저주: <b>${b.curse.map(c => E.catInfo(c).ko).join(' · ')}</b> <small>첫 굴림 그대로 완성하면 정화 ×2</small></div>`;
-  if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> <small>${n ? `라운드 끝마다 +${n * E.NECRO_HEAL} 회복` : '0점을 적으면 해골병이 생겨요'}</small></div>`; }
+  if (b.id === 'archdemon' && b.curse?.length) return `<div class="boss-status">${ico('skull', 'xs')} 저주: <b>${b.curse.map(c => E.catInfo(c).ko).join(' · ')}</b></div>`;
+  if (b.id === 'overlord') { const n = E.skeletons(S); return `<div class="boss-status">${ico('skull', 'xs')} 해골병 <b>${n}</b> ${n ? `<small>+${n * E.NECRO_HEAL} ${ico('heart', 'xs')}</small>` : ''}</div>`; }
   return '';
 }
 
 function tip(cur, myTurn, okQuests, combos = []) {
   if (S.ended) return '';
+  if (!S.tutorial) return '';            // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 튜토리얼만 안내한다
   if (!myControl()) return `${esc(cur.name)}의 차례…${online && cur.bot ? ' (봇)' : ''}`;
   if (!myTurn) return '';
   if (ui.tool === 'flip') return `<b class="tool-txt">${ico('flip', 'xs')} 뒤집을 주사위를 누르세요</b> · 주사위 위에 뒤집힌 눈이 보여요`;
@@ -2685,7 +2686,7 @@ function showLevelUp() {
     <div class="lv-hero">${portrait(p.cls, 'big')}</div>
     <h1>LEVEL UP!</h1>
     <div class="lv-sub">${esc(p.name)} · <b>Lv.${p.level - p.offers.length + 1}</b></div>
-    <p class="lv-hint">${total > 1 ? `<b class="lv-count">레벨업 보상 ${nth} / ${total}</b> · ` : ''}카드 한 장을 골라 영구 특성을 얻으세요</p>
+    ${total > 1 ? `<p class="lv-hint"><b class="lv-count">레벨업 보상 ${nth} / ${total}</b></p>` : ''}
     <div class="cards" style="--n:${offer.length}">
       ${offer.map(id => {
         const k = E.perkInfo(id), have = E.perkCount(p, id);
@@ -2800,7 +2801,7 @@ function gemInner() {
   if (!r || r.pending) return `<span class="hint">${ico('gem')} 보석 정산 중…</span>`;
   if (r.offline) return `<span class="hint">${ico('gem')} 오프라인이라 이번 판은 보석을 받지 못했어요</span>`;
   if (!r.ok) return `<span class="hint">${ico('gem')} 보석을 받지 못했어요 · ${esc(r.why || '')}</span>`;
-  const achLine = r.newAch?.length ? `<div class="ach-new">${ico('trophy', 'xs')} 도전과제 달성! ${r.newAch.map(a => `「${esc(a.ko)}」`).join(' ')}<small>메인 화면 도전과제에서 보석을 받으세요</small></div>` : '';
+  const achLine = r.newAch?.length ? `<div class="ach-new">${ico('trophy', 'xs')} 도전과제 달성! ${r.newAch.map(a => `「${esc(a.ko)}」`).join(' ')}</div>` : '';
   if (!r.total) return `<span class="hint">${ico('gem')} 이번 판 보석 없음 (점수 100점마다 5개)</span>${achLine}`;
   return `<b class="gem-total">${ico('gem')} +${r.total}</b>
     <span class="gem-parts">${r.parts.filter(p => p.gems || p.id === 'win').map(p => `${esc(p.ko)} ${p.gems ? '+' + p.gems : ''}`).join(' · ')}</span>
