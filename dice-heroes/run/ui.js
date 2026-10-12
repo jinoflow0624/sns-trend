@@ -1050,6 +1050,7 @@ async function playOne(f) {
       if (f.block) { if (fxOn) FX().shield(e); setShow({ eblk: f.block }); repaintBars(); floatAt(e.x, e.y - 30, `${ico('shield', 'xs')}+${f.block}`, 'sky'); sfx.hold(); await wait(380); }
       if (f.str) { floatAt(e.x, e.y - 40, `${ico('up', 'xs')}힘 +${f.str}`, 'dmg'); sfx.powerUp?.(1); if (fxOn) FX().burst(e.x, e.y, { n: 20, pal: PALETTES.fire, grav: -120 }); await wait(380); }
       if (f.heal) { setShow({ ehp: ui.show.ehp + f.heal }); repaintBars(); floatAt(e.x, e.y - 20, `+${f.heal}`, 'mint'); if (fxOn) FX().burst(e.x, e.y, { n: 18, pal: PALETTES.heal, grav: -60 }); await wait(360); }
+      if (f.kept) { floatAt(h.x, h.y - 40, `${ico('coins', 'xs')}금화를 지켰다`, 'gold'); await wait(300); }
       if (f.steal) { if (fxOn) FX().coins(h, e, 10); floatAt(h.x, h.y - 40, `${ico('coins', 'xs')}-${f.steal}`, 'gold'); sfx.coin(); await wait(500); }
       if (f.weak) { floatAt(h.x, h.y - 40, `${ico('snow', 'xs')}약화 ${f.weak}턴`, 'sky'); await wait(300); }
       if (!f.hits.length && !f.block && !f.str && !f.heal) await wait(200);
@@ -1797,12 +1798,13 @@ export function render() { if (R?.phase === 'combat') paint(); }
 function intentInfo(t) {
   const C = R.C, m = C.e.intent;
   if (!m) return;
-  const parts = Run.intentParts(R).map(p => {
+  const parts0 = Run.intentParts(R);
+  const parts = parts0.map(p => {
     if (p.k === 'atk') return `${ico('sword', 'xs')} 공격 ${p.n}${p.hits > 1 ? ` × ${p.hits}번` : ''}`;
     if (p.k === 'block') return `${ico('shield', 'xs')} 보호막 ${p.n}`;
     if (p.k === 'str') return `${ico('up', 'xs')} 힘 +${p.n} (이후 공격이 세진다)`;
     if (p.k === 'heal') return `${ico('heart', 'xs')} 체력 ${p.n} 회복`;
-    if (p.k === 'steal') return `${ico('coins', 'xs')} 골드 ${p.n} 훔치기`;
+    if (p.k === 'steal') return `${ico('coins', 'xs')} 골드 ${p.n} 훔치기${parts0.some(q => q.k === 'atk') ? ' (공격을 다 막으면 못 훔친다)' : ''}`;
     if (p.k === 'weak') return `${ico('snow', 'xs')} 약화 ${p.n}턴 (내 카드 점수 ×0.75)`;
     if (p.k === 'hex') return `${ico(Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>: ${Run.HEX[p.t].desc(p.n)} (이번 턴)`;
     return '';
