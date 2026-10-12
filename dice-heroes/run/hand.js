@@ -65,19 +65,25 @@ export class Hand {
   set(cards, how = 'instant') {
     this.list.forEach(c => c.el.remove());
     this.list = [];
-    if (how === 'deal') return this.draw(cards);
+    if (how === 'deal') return this.draw(cards, true);
     cards.forEach(c => this.list.push(this.make(c, { x: 0, y: 0 })));
     this.layout(true);
     return Promise.resolve();
   }
-  async draw(cards) {
+  // fancy: 전투 첫 손패 — 카드가 하나씩 날아와 뒤집히며 번쩍, 빛줄기가 스치고 금빛 고리가 퍼진다
+  async draw(cards, fancy = false) {
     for (const c of cards) {
       if (this.find(c.u)) continue;
       const it = this.make(c, this.pile('draw'));
       this.list.push(it);
       this.layout();
       this.o.sound?.('draw');
-      await wait(reduced() ? 0 : 80);
+      if (fancy && !reduced()) {
+        it.el.classList.add('drawn');
+        it.el.insertAdjacentHTML('beforeend', '<i class="deal-glint" aria-hidden="true"></i><i class="deal-ring" aria-hidden="true"></i>');
+        setTimeout(() => { it.el.classList.remove('drawn'); it.el.querySelectorAll('.deal-glint, .deal-ring').forEach(x => x.remove()); }, 900);
+      }
+      await wait(reduced() ? 0 : fancy ? 120 : 80);
     }
     await wait(reduced() ? 0 : 220);
   }

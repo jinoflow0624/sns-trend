@@ -668,6 +668,21 @@ const GRIDS = {
     ".kkkkkkkkkk.",
     "............",
   ],
+  // 카드 교체: 뒤 카드 → 앞 카드로 건너가고 돌아오는 두 화살표 (뒤집기의 둥근 화살표와 다르게)
+  swapcard: [
+    "kkkkk.......",
+    "kPPPkkkkkk..",
+    "kPppkmmmmmk.",
+    "kPppkkkkkmk.",
+    "kPppk..kmmmk",
+    "kkkkk...kmk.",
+    "..k.....kkkk",
+    ".kmk...kccck",
+    "kmmmk..kcrck",
+    ".kmkkkkkccck",
+    ".kmmmmmkcrck",
+    ".kkkkkkkkkkk",
+  ],
   card: [
     "..kkkkkk....",
     "..kwwwwwk...",

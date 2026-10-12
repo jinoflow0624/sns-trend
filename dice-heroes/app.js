@@ -1633,8 +1633,10 @@ function popover(anchor, html, { afterRelease = false } = {}) {
   el.innerHTML = html;
   document.body.appendChild(el);
   const r = anchor.getBoundingClientRect();
-  const w = Math.min(280, innerWidth - 24);
-  el.style.width = `${w}px`;
+  // 폭은 글자에 맞춘다 (짧은 이름 하나면 좁게, 긴 설명은 최대 280px 에서 줄바꿈)
+  el.style.maxWidth = `${Math.min(280, innerWidth - 24)}px`;
+  el.style.width = 'max-content';
+  const w = el.offsetWidth;
   el.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2))}px`;
   const below = r.bottom + 8 + el.offsetHeight < innerHeight;
   el.style.top = `${below ? r.bottom + 8 : r.top - el.offsetHeight - 8}px`;

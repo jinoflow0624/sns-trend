@@ -837,3 +837,56 @@
 .go-hard { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 8px 2px 4px; font-size: 14px; font-weight: 700; color: #fff;
   background: linear-gradient(180deg, #E8435A, #8E2226); border: 2px solid var(--ink); text-shadow: 1px 1px 0 var(--ink); box-shadow: 0 0 10px rgba(232,67,90,.7); }
 .go-hard .ico { width: 18px; height: 18px; }
+/* 전투 첫 손패: 날아와 뒤집히며 번쩍 · 빛줄기 · 금빛 고리 (run/hand.js draw fancy) */
+.hand .rc.drawn .rc-in { animation: drawFlip .5s cubic-bezier(.2, 1.3, .4, 1) both; }
+@keyframes drawFlip { 0% { scale: .15 1; filter: brightness(3) drop-shadow(0 4px 0 var(--ink)); } 55% { scale: 1.08 1.02; filter: brightness(1.5) drop-shadow(0 4px 0 var(--ink)); } 100% { scale: 1; filter: drop-shadow(0 4px 0 var(--ink)); } }
+.deal-glint { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+.deal-glint::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 34%; left: -50%; transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); animation: dealGlint .55s .28s ease-out both; }
+@keyframes dealGlint { to { left: 130%; } }
+.deal-ring { position: absolute; inset: -6px; z-index: 3; pointer-events: none; border: 3px solid #FFE27A; box-shadow: 0 0 14px #FFC83D; opacity: 0; animation: dealRing .5s .38s ease-out; }
+@keyframes dealRing { 0% { opacity: .95; transform: scale(.94); } 100% { opacity: 0; transform: scale(1.18); } }
+/* 손패 카드 1.25배: 카드 속(글자 · 그림)은 그대로 그리고 통째로 키운다 */
+.hand { height: 160px; }
+.hand .rc { --cw: 100px; --ch: 140px; }
+.hand .rc .rc-in { width: 80px; height: 112px; zoom: 1.25; }
+@media (max-height: 640px) {
+  .hand { height: 140px; }
+  .hand .rc { --cw: 92px; --ch: 130px; }
+  .hand .rc .rc-in { width: 74px; height: 104px; }
+}
+/* 카드 고르기 1.25배 (설명은 길게 누르면) */
+.pick-cards { gap: 10px; }
+.pick-cards .rc { --cw: 115px; --ch: 162px; -webkit-touch-callout: none; user-select: none; }
+.pick-cards .rc .rc-in { width: 92px; height: 130px; zoom: 1.25; }
+@media (max-width: 370px) { .pick-cards .rc { --cw: 100px; --ch: 141px; } .pick-cards .rc .rc-in { zoom: 1.087; } }
+/* 보상: 긴 가로 줄 대신 가로세로가 비슷한 타일 (2~3열) */
+.rw-items { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+.rw-items .rw { grid-template-columns: 1fr; grid-template-rows: auto; justify-items: center; align-content: start; gap: 3px; text-align: center; min-height: 118px; padding: 10px 6px 8px; }
+.rw-items .rw .ico, .rw-items .rw .run-ico, .rw-items .rw img.ico { grid-row: auto; width: 40px; height: 40px; }
+.rw-items .rw b { font-size: 13px; line-height: 1.2; }
+.rw-items .rw small { font-size: 10px; line-height: 1.3; }
+.rw-tag { margin-top: auto; padding: 1px 6px; white-space: nowrap; font-style: normal; font-size: 11px; font-weight: 700; border: 2px solid var(--ink); }
+.rw-tag.pick { color: #3B2300; background: var(--gold); }
+.rw-tag.ok { color: #fff; background: #139B74; }
+.rw-tag.warn { color: #fff; background: #8E2226; }
+.rw.done b::after { content: none; }
+/* 받은 보상은 반짝임을 멈춘다 (예전엔 고른 뒤에도 카드 · 유물 고르기 칸이 계속 깜빡였다) */
+.rw.done, .rw.done .rw-tag { animation: none !important; }
+.rw.full { filter: saturate(.6); }
+/* 보상 칸이 나타나는 연출은 처음 한 번만 (받을 때마다 다시 그려도 다시 날아오지 않게) */
+.run-reward.again .rw { animation: none; }
+.run-reward.again .rw.card-row:not(.done), .run-reward.again .rw.boss-relic:not(.done) { animation: legend 1.4s ease-in-out infinite; }
+/* 동전 던지기: 빙글빙글 올라갔다 내려와 앞면(금) · 뒷면(은) */
+.coin-toss { position: fixed; z-index: 75; pointer-events: none; width: 0; height: 0; }
+.coin-toss .ct-coin { position: absolute; left: -18px; top: -18px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--ink);
+  background: radial-gradient(circle at 35% 30%, #FFF4C2, #FFC83D 50%, #C8860E); box-shadow: 0 0 12px rgba(255,200,61,.8);
+  animation: coinUp .82s cubic-bezier(.3,.7,.5,1) both; }
+.coin-toss.tail .ct-coin { background: radial-gradient(circle at 35% 30%, #FFFFFF, #C9D3E8 50%, #7A86A8); box-shadow: 0 0 10px rgba(201,211,232,.7); }
+.coin-toss .ct-coin .ico { width: 20px; height: 20px; }
+@keyframes coinUp { 0% { transform: translateY(0) scaleX(1); } 12% { transform: translateY(-50px) scaleX(-1); } 25% { transform: translateY(-90px) scaleX(1); } 37% { transform: translateY(-112px) scaleX(-1); }
+  50% { transform: translateY(-118px) scaleX(1); } 62% { transform: translateY(-104px) scaleX(-1); } 75% { transform: translateY(-70px) scaleX(1); } 88% { transform: translateY(-20px) scaleX(-1); } 100% { transform: translateY(0) scaleX(1); } }
+.coin-toss.landed .ct-coin { animation: coinLand .3s ease-out; }
+@keyframes coinLand { 40% { transform: scale(1.35); filter: brightness(1.6); } }
+.coin-toss.out { opacity: 0; transition: opacity .28s; }
+@media (prefers-reduced-motion: reduce) { .coin-toss .ct-coin { animation: none; } }
