@@ -18,7 +18,7 @@ v0.38.7 에서 적 16종 · 유물 37종 · 지도 · 카드 틀 · 장면 그�
 | 3 별조각 | 완료 | `assets/run/ui/star.webp` (`starIco()`) |
 | 4 원정 준비 | 완료: 강화 아이콘 7종 · 단계 칸(◆) · 모닥불 머리 그림 · 테두리 있는 창 | `assets/run/ui/meta_*.webp` |
 | 5(가) 특수 주사위 2D | 완료 (원정 준비 목록 · 트레이 주사위 아래 표시) | `assets/run/ui/die_*.webp` |
-| 5(나) 특수 주사위 3D 면 | **면 그림만 완료, 3D 연결은 시스템 세션** | `assets/run/dice/<id>_1~6.webp`, 재질 메모는 `tools/make_special_dice.py` 의 `mat` |
+| 5(나) 특수 주사위 3D | 완료 (v0.38.13): 플레이어 스킨은 그대로 두고 주사위마다 그 색 테두리 껍질(`dice3d` `setMarks`, 원정에서만). 금: 1이 나오면 금화와 함께 다시 굴린 눈으로 · 무거운: 둔하게 구르고 첫 착지에 쿵 + 먼지 · 쌍둥이: 구르는 동안 분홍 잔상, 같은 눈이 되면 짝 주사위와 함께 빛남 · 계단: 이어지는 눈이 되면 민트 빛. 면 그림(`assets/run/dice/`)은 지금 쓰지 않음 (나중에 미리보기용) | `dice3d.js` `setMarks` · `markMat`, `run/ui.js` `sdie` |
 | 6 승천 휘장 | 완료 (단계 숫자를 겹쳐 그림). 단계별 10종은 안 함 | `assets/run/ui/asc.webp` |
 | 7 도전과제 메달 12종 | 완료 (못 이룬 것은 흑백) | `assets/run/ui/feat_*.webp` |
 | 8 나누기 막대 | 완료: 금속 틀 · 광택 · 칼과 방패 손잡이 · 끝 단추 | `assets/run/ui/split_knob.webp`, `.sp-*` |
