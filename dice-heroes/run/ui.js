@@ -547,6 +547,7 @@ function paintTray() {
   const box = ovl.getBoundingClientRect();
   t.setFrozen?.(C.rolled && !ui.hideIce ? C.frozen : []);
   t.setMarks?.(diceMarks());
+  t.setCustom?.([0, 1, 2, 3, 4, 5].map(i => R.dfaces?.[i] || null));   // 깎은 주사위는 3D 에도 새긴 눈이 보인다
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
   const sp = '';
@@ -1677,7 +1678,7 @@ export function onAct(act, t) {
   const now = performance.now();
   if (act === 'run-open') { sfx.select(); return open(); }
   if (act === 'run-resume') { sfx.start(); return resume(); }
-  if (act === 'run-home') { sfx.back(); X.tray()?.setMarks?.(null); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
+  if (act === 'run-home') { sfx.back(); X.tray()?.setMarks?.(null); X.tray()?.setCustom?.(null); hand?.destroy(); hand = null; R = null; ui.recorded = false; X.layer.innerHTML = ''; return X.showTitle(); }
   if (act === 'run-cls') {
     sfx.tap(); ui.cls = t.dataset.id; ui.spin = { d: Number(t.dataset.d) || 0, t: Date.now() }; X.store.set('diceheroes.runCls', ui.cls);
     paintSelect();

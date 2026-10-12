@@ -735,6 +735,18 @@ test('금화 훔치기: 함께 오는 공격을 다 막으면 못 훔친다', ()
   }
 });
 
+test('2막: 3층은 모두 이벤트이고, 2막의 첫 이벤트는 주사위 깎는 노인 · 막마다 7층 + 보스', () => {
+  assert.equal(Run.ROWS, 7);
+  const R = mk({ cls: 'monk', seed: 6 }); R.phase = 'map'; R.reward = null;
+  R.act = 2; R.map = Run.genMap(R); R.pos = null; R.path = [];
+  assert.ok(R.map.nodes.filter(n => n.row === 3).every(n => n.type === 'event'));
+  const r2 = R.map.nodes.find(n => n.row === 2 && n.next.some(j => R.map.nodes[j].row === 3));
+  R.pos = r2.id;
+  Run.enterNode(R, r2.next[0]);
+  assert.equal(R.event.id, 'carver');
+  assert.equal(Math.max(...R.map.nodes.map(n => n.row)), Run.ROWS + 1);
+});
+
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
 test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
   for (const [cls, seed] of [['gambler', 3], ['warrior', 11], ['bard', 21], ['sharper', 8]]) {

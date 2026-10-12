@@ -633,6 +633,23 @@ export class DiceTray {
     }
   }
 
+  // 원정 「주사위 깎는 노인」: 주사위마다 6면의 눈 (list[i] = [원래 1의 면, 2의 면, … 6의 면] 에 새긴 눈, 없으면 보통 주사위)
+  setCustom(list = null) {
+    const next = list && list.some(Boolean) ? list.map(f => (f ? f.slice() : null)) : null;
+    if (JSON.stringify(next) === JSON.stringify(this.custom || null)) return;
+    this.custom = next;
+    this.dice.forEach(d => { d.value = 0; });   // 다음 show() 에서 새 면으로 다시 입힌다
+    this.dirty = true;
+  }
+  // i 번째 주사위의 면 배치: faceIdx 면(위)에 눈 v 가 오게. 깎은 주사위는 그 눈이 새겨진 원래 면을 위로 보내고 면마다 새긴 눈을 입힌다
+  arr(i, faceIdx, v) {
+    const cf = this.custom?.[i];
+    if (!cf) return remap(faceIdx, v);
+    const f = cf.indexOf(v);
+    if (f < 0) return remap(faceIdx, v);          // 새긴 눈에 없는 눈(뒤집기 · 조정 결과): 그 순간만 보통 주사위로
+    return remap(faceIdx, f + 1).map(x => cf[x - 1]);
+  }
+
   setFaces(d, faces) {
     d.faces = faces;
     d.mesh.material = faces.map(v => this.faceMats[v]);
@@ -667,7 +684,7 @@ export class DiceTray {
       d.value = values[i];
       d.boxed = !!(d.held && values[i]);   // 처음부터 고정된 주사위(이어하기·다시 그리기)는 함 안에 둔다
       d.hop = null;
-      this.setFaces(d, remap(2, v));
+      this.setFaces(d, this.arr(i, 2, v));
       d.mesh.quaternion.identity();
       d.mesh.position.set(this.slotX(i, n), HALF, this.homeZ(d));
       d.mesh.material.forEach(m => (m.transparent = !!m.userData.baseTransparent));
@@ -938,7 +955,7 @@ export class DiceTray {
     };
     bodies.forEach(({ i }, k) => {
       const q = new THREE.Quaternion(last[k][3], last[k][4], last[k][5], last[k][6]);
-      const faces = remap(topFace(q), values[i]);
+      const faces = this.arr(i, topFace(q), values[i]);
       // 흔들다 이어서 굴린 주사위: 처음부터 보이던 주사위라 윗면을 곧바로 바꾸면 눈이 확 바뀌어 보인다 → 가장 빨리 도는 순간에 바꾼다
       if (liveIds.has(i)) swaps.push({ i, faces, f: fastest(k) });
       else pre.push({ i, faces });   // 던지는 순간 입힌다 (고정한 주사위가 함으로 가는 동안 제자리에서 눈이 바뀌어 보이지 않게)
@@ -1090,19 +1107,19 @@ export class DiceTray {
     if (m.kind === 'burn') {
       // 부들부들 떨다가 절반쯤에 눈이 타 버린다
       d.mesh.position.x = x + Math.sin(t / 22) * 0.07 * (1 - k);
-      if (k > 0.55 && !m.swapped) { m.swapped = true; this.setFaces(d, remap(2, m.v)); d.mesh.quaternion.identity(); d.lift = 0.8; }
+      if (k > 0.55 && !m.swapped) { m.swapped = true; this.setFaces(d, this.arr(i, 2, m.v)); d.mesh.quaternion.identity(); d.lift = 0.8; }
     } else {
       // 떠올라 한 바퀴 반 돌며 뒤집힌다
       d.lift = Math.sin(k * Math.PI) * 1.6;
       d.mesh.position.y = HALF + d.lift;
       const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0.35).normalize(), easeOut(k) * Math.PI * 3);
       d.mesh.quaternion.copy(m.base).premultiply(q);
-      if (k > 0.5 && !m.swapped) { m.swapped = true; this.setFaces(d, remap(2, m.v)); m.base.identity(); }
+      if (k > 0.5 && !m.swapped) { m.swapped = true; this.setFaces(d, this.arr(i, 2, m.v)); m.base.identity(); }
     }
     if (k >= 1) {
       d.mesh.position.x = x;
       d.mesh.quaternion.identity();
-      this.setFaces(d, remap(2, m.v));
+      this.setFaces(d, this.arr(i, 2, m.v));
       d.value = m.v;
       d.morph = null;
       m.resolve();
