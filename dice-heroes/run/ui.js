@@ -16,7 +16,7 @@ const SAVE = 'diceheroes.run';
 let X = null;            // app.js 도구
 let R = null;            // 원정 상태
 let hand = null;         // 손패 (스프링 카드)
-const ui = { busy: false, tool: null, dealDie: null, sel: null, split: null, rolling: false, show: null, dice: null, view: null, sealRoll: null, pickU: null, cardPick: null, relicPick: null, last: 0, featShown: new Set(), end: null };
+const ui = { busy: false, tool: null, dealDie: null, sel: null, split: null, rolling: false, show: null, dice: null, view: null, sealRoll: null, pickU: null, cardPick: null, relicPick: null, last: 0, featShown: new Set(), end: null, stamps: [], stampHide: new Set() };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -331,7 +331,7 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
   const sl = c.seal && Run.sealInfo(c.seal);
   return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
-    ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
+    ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
@@ -448,6 +448,7 @@ function showCombat(fresh) {
     paintTray();
   });
   if (fresh && C.turn === 1 && !C.rolled) introFoe();
+  if (ui.stamps.length) stampHand();
 }
 const canAct = () => R?.phase === 'combat' && R.C?.phase === 'roll' && !ui.busy;
 // 굴리는 동안(주사위가 다 멈추기 전)은 '?' — 점수는 주사위가 멈춘 뒤에 드러난다
@@ -586,7 +587,7 @@ function doBet(u) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
   if (hi < 0 || C.rolled) return;
   try { Run.placeBet(R, hi); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
-  Run.drainFx(R);
+  drain();
   ui.sel = null;
   hand.select(null);
   sfx.coin();
@@ -713,7 +714,7 @@ function dropCard(u, target) {
 async function act(fn, { roll = false } = {}) {
   const before = snap();
   try { fn(); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1500); return null; }
-  const list = Run.drainFx(R);
+  const list = drain();
   return { list, before };
 }
 function snap() { const C = R.C; return { hp: R.hp, blk: C?.block || 0, ehp: C?.e.hp || 0, eblk: C?.e.block || 0, gold: R.gold }; }
@@ -816,6 +817,73 @@ function moonset(p) {
   sfx.unseal?.();
   setTimeout(() => el.remove(), 1500);
 }
+// 인장이 카드에 찍힌다: 큰 인장이 기울어진 채 위에서 내려와 카드 오른쪽 위 휘장 자리에 쾅 (고리 · 불꽃 · 카드가 움찔)
+// 찍히기 전에는 카드의 휘장을 숨겨 둔다. 연출이 '최소'면 바로 붙인다
+function stampSeal(cardEl, id, u) {
+  const sl = Run.sealInfo(id), badge = cardEl?.querySelector('.rc-seal');
+  if (!sl || !badge || X.prefs.fx === 'min') { ui.stampHide.delete(u); if (badge) badge.style.visibility = ''; return wait(0); }
+  badge.style.visibility = 'hidden';
+  // 인장은 카드 안에 붙여서 내려온다 (카드가 아직 날아오는 중이어도 같이 움직이게). 자리는 휘장의 카드 안 좌표
+  const inEl = badge.offsetParent || cardEl;
+  const el = document.createElement('div');
+  el.className = 'seal-stamp';
+  el.style.cssText = `left:${(inEl === cardEl ? 0 : inEl.offsetLeft + inEl.clientLeft) + badge.offsetLeft}px;top:${(inEl === cardEl ? 0 : inEl.offsetTop + inEl.clientTop) + badge.offsetTop}px;--sc:${sl.color}`;
+  el.innerHTML = `<i class="ss-shadow"></i><i class="ss-disc">${sealIco(id, '')}</i>`;
+  cardEl.appendChild(el);
+  sfx.whoosh?.();
+  return new Promise(res => {
+    setTimeout(() => {                       // 쾅
+      ui.stampHide.delete(u);
+      badge.style.visibility = '';
+      badge.classList.add('just');
+      cardEl.classList.add('stamped');
+      const b = badge.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
+      FX().ring(x, y, { color: sl.color, r0: 6, r1: 46, dur: 360, width: 5 });
+      FX().burst(x, y, { n: 14, pal: [sl.color, '#FFFFFF'], speed: [60, 170] });
+      sfx.box?.(); sfx.quest?.();
+      floatAt(Math.max(64, Math.min(innerWidth - 64, x)), y - 34, `${sealIco(id)}${sl.ko}`, id === 'cloud' || id === 'moon' ? 'sky' : 'gold');
+      setTimeout(() => { el.remove(); badge.classList.remove('just'); cardEl.classList.remove('stamped'); }, 520);
+      res();
+    }, 380);
+  });
+}
+// 손패에 새로 붙은 인장 (전투 시작: 인장 주머니 · 인장의 비): 손패를 다 나눠 준 뒤 한 장씩
+async function stampHand() {
+  const list = ui.stamps.splice(0).filter(f => R.C?.hand.some(c => c.u === f.u && c.seal === f.seal));
+  if (!list.length || !hand) return;
+  list.forEach(f => { ui.stampHide.add(f.u); const b = hand.el(f.u)?.querySelector('.rc-seal'); if (b) b.style.visibility = 'hidden'; });
+  // 카드를 다 나눠 줄 때까지 (전투 시작 연출 뒤에 나눠 주기도 한다 — 최대 4초), 자리를 잡으면 찍는다
+  for (let k = 0; k < 40 && !list.every(f => hand?.el(f.u)); k++) await wait(100);
+  await wait(650);
+  for (const f of list) {
+    if (R?.phase !== 'combat') { ui.stampHide.clear(); return; }
+    await stampSeal(hand.el(f.u), f.seal, f.u);
+    await wait(240);
+  }
+}
+// 지도 · 상점에서 인장이 붙을 때 (출발할 때 인장 상자 · 상점에서 붙이기): 가운데에 그 카드들을 띄우고 하나씩 찍는다
+async function stampShow(cards, title) {
+  if (!cards.length) return;
+  const box = document.createElement('div');
+  box.className = 'overlay stamp-show';
+  box.dataset.act = 'noop';
+  box.innerHTML = `<div class="stamp-box">${title ? `<b class="stamp-title">${title}</b>` : ''}<div class="stamp-cards">${cards.map(c => `<div class="stamp-card rc rc-static" data-u="${c.u}">${cardFace(c)}</div>`).join('')}</div></div>`;
+  document.body.appendChild(box);
+  cards.forEach(c => { const b = box.querySelector(`[data-u="${c.u}"] .rc-seal`); if (b) b.style.visibility = 'hidden'; });
+  await wait(450);
+  for (const c of cards) { await stampSeal(box.querySelector(`[data-u="${c.u}"]`), c.seal, null); await wait(260); }
+  await wait(700);
+  box.classList.add('out');
+  await wait(260);
+  box.remove();
+}
+// 규칙이 낸 연출 목록을 비운다. 인장이 붙은 것(sealOn)은 따로 모아 두었다가 그 카드가 보일 때 찍는다
+function drain() {
+  const list = Run.drainFx(R);
+  ui.stamps.push(...list.filter(f => f.type === 'sealOn'));
+  return list;
+}
+
 // 뽑을 더미가 비면: 버린 카드들이 모여 두 더미로 갈라졌다가 엇갈려 섞인다 (리플 셔플)
 export async function shuffleFx() {   // (디버그에서도 부른다)
   const pile = X.app.querySelector('.pile');
@@ -1304,7 +1372,7 @@ async function takeItem(k) {
   const it = R.reward.items[k];
   if (!it || it.done) return;
   try { Run.takeReward(R, k); } catch (e) { return X.toast(ico('warn'), '받을 수 없어요', e.message, 1700); }
-  Run.drainFx(R);
+  drain();
   const el = X.app.querySelector(`[data-act=run-take][data-k="${k}"]`);
   const p = center(el);
   if (it.t === 'gold') { sfx.coin(); FX().coins(p, center($('r-gold')), 12); }
@@ -1328,7 +1396,7 @@ function cardTake(i) {
   const k = ui.cardPick;
   const el = X.layer.querySelector(`[data-act=run-cardtake][data-i="${i}"]`);
   try { Run.takeReward(R, k, i); } catch (e) { return X.toast(ico('warn'), '받을 수 없어요', e.message, 1500); }
-  Run.drainFx(R);
+  drain();
   sfx.legend();
   if (el) { el.classList.add('taken'); const p = center(el); FX().burst(p.x, p.y, { n: 40, pal: PALETTES.gold }); }
   ui.cardPick = null;
@@ -1575,7 +1643,12 @@ export function onAct(act, t) {
       ui.recorded = false; ui.end = null; ui.featShown.clear();
       save();
       const r0 = R;
-      return preloadRun().then(() => R === r0 && enterView(true));   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
+      return preloadRun().then(() => {
+        if (R !== r0) return;
+        enterView(true);
+        const sealed = R.deck.filter(c => c.seal);           // 영구 강화 「인장 상자」: 출발할 때 붙은 인장
+        if (sealed.length) stampShow(sealed, `${ico('sparkle', 'xs')} 인장 상자`);
+      });   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
     }).finally(() => { ui.starting = false; });   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
   }
   if (!R) return;
@@ -1603,7 +1676,7 @@ export function onAct(act, t) {
     }
     sfx.start();
     try { Run.enterNode(R, id); } catch (e) { return X.toast(ico('warn'), '갈 수 없어요', e.message, 1400); }
-    Run.drainFx(R);
+    drain();
     save();
     t.classList.add('go');
     // 전투 칸: 그 곡이 준비될 때까지 (최대 3초) 기다렸다가 들어간다
@@ -1616,11 +1689,11 @@ export function onAct(act, t) {
   if (act === 'run-take') return takeItem(Number(t.dataset.k));
   if (act === 'run-cardpick') return cardPick(Number(t.dataset.k));
   if (act === 'run-cardtake') return cardTake(Number(t.dataset.i));
-  if (act === 'run-cardskip') { Run.takeReward(R, ui.cardPick, -1); Run.drainFx(R); ui.cardPick = null; sfx.back(); X.layer.innerHTML = ''; save(); return showReward(); }
+  if (act === 'run-cardskip') { Run.takeReward(R, ui.cardPick, -1); drain(); ui.cardPick = null; sfx.back(); X.layer.innerHTML = ''; save(); return showReward(); }
   if (act === 'run-relicpick') return relicPick(Number(t.dataset.k));
   if (act === 'run-relictake' || act === 'run-relicskip') {
     Run.takeReward(R, ui.relicPick, act === 'run-relicskip' ? -1 : Number(t.dataset.i));
-    Run.drainFx(R);
+    drain();
     ui.relicPick = null;
     act === 'run-relictake' ? sfx.legend() : sfx.back();
     X.layer.innerHTML = ''; save();
@@ -1634,7 +1707,7 @@ export function onAct(act, t) {
     sfx.start();
     const boss = R.reward?.kind === 'boss';
     Run.leaveReward(R);
-    const fx = Run.drainFx(R);
+    const fx = drain();
     save();
     if (boss && R.phase === 'map') return actBanner(fx.find(f => f.type === 'act'));
     return enterView();
@@ -1642,7 +1715,7 @@ export function onAct(act, t) {
   // 상점
   if (act === 'run-omen') {
     try { Run.chooseOmen(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '고를 수 없어요', e.message, 1400); }
-    Run.drainFx(R); sfx.ascend?.(); save();
+    drain(); sfx.ascend?.(); save();
     const o = Run.omenInfo(R.omen);
     X.layer.innerHTML = '';
     showMap();
@@ -1655,7 +1728,7 @@ export function onAct(act, t) {
       sfx.select(); ui.pickU = null; return showPick();
     }
     try { Run.buy(R, t.dataset.kind, Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
-    Run.drainFx(R); sfx.coin(); save();
+    drain(); sfx.coin(); save();
     const p = center(t); FX().burst(p.x, p.y, { n: 24, pal: PALETTES.gold });
     return showShop();
   }
@@ -1664,14 +1737,14 @@ export function onAct(act, t) {
   // 휴식
   if (act === 'run-rest') {
     const p = center($('campfire'));
-    Run.restHeal(R); Run.drainFx(R); save();
+    Run.restHeal(R); drain(); save();
     sfx.quest?.(); FX().burst(p.x, p.y, { n: 40, pal: PALETTES.heal, grav: -80 });
     return setTimeout(showMap, 700);
   }
   if (act === 'run-upopt') {
     const pk = R.pick, from = pk?.from;
     try { Run.chooseUpgrade(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
-    Run.drainFx(R);
+    drain();
     sfx.legend?.();
     const p = center(t); FX().burst(p.x, p.y, { n: 36, pal: PALETTES.gold });
     X.layer.innerHTML = ''; save();
@@ -1686,25 +1759,28 @@ export function onAct(act, t) {
     if (ui.pickU == null) return;
     const why = R.pick?.why;
     try { Run.pickDeck(R, ui.pickU); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
-    Run.drainFx(R);
+    drain();
     if (R.pick?.opts) { sfx.select(); ui.pickU = null; return showUpgrade(); }
     why === 'upgrade' ? sfx.levelup?.() : sfx.select();
     ui.pickU = null; X.layer.innerHTML = ''; save();
     if (R.ended) return showEnd();
-    return enterView();
+    enterView();
+    const st = ui.stamps.splice(0).map(f => R.deck.find(c => c.u === f.u)).filter(c => c?.seal);   // 상점에서 붙인 인장
+    if (st.length) stampShow(st);
+    return;
   }
   // 이벤트
   if (act === 'run-evopt') {
     if (ui.evRoll) return;
     const had = R.event.dice, before = { hp: R.hp, blk: 0, gold: R.gold };
     try { Run.eventChoose(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '고를 수 없어요', e.message, 1400); }
-    Run.drainFx(R); sfx.select(); save();
+    drain(); sfx.select(); save();
     if (R.event?.dice && R.event.dice !== had) return rollEventDice(before);
     if (R.phase === 'lost') return showEnd();
     if (R.pick) { ui.pickU = null; showEvent(); return showPick(); }
     return showEvent();
   }
-  if (act === 'run-evleave') { sfx.start(); Run.eventLeave(R); Run.drainFx(R); save(); return enterView(true); }
+  if (act === 'run-evleave') { sfx.start(); Run.eventLeave(R); drain(); save(); return enterView(true); }
   // 전투
   if (R.phase !== 'combat') return;
   if (act === 'run-skip') return ui.skipIntro?.();
@@ -1734,13 +1810,13 @@ export function onAct(act, t) {
     const r0 = snap();
     try { Run.useDeal(R, i, v); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1400); return paint(); }
     ui.busy = true;
-    return playFx(Run.drainFx(R), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
+    return playFx(drain(), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
   }
   if (act === 'run-dance') {
     const r0 = snap();
     try { Run.useDance(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
     ui.busy = true;
-    return playFx(Run.drainFx(R), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
+    return playFx(drain(), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
   }
   if (act === 'run-play') {
     X.closePopover?.();
