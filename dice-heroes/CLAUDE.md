@@ -40,4 +40,4 @@
   `xFinish` 가 같은 `run/rules.js` 로 `replay()` 해서 승패 · 층 · 도전과제 · 별조각을 서버에서 계산한다.
 - 그래서 **판의 상태를 바꾸는 행동은 반드시 `act('이름', fn)` 으로 감싼 함수로만** 한다 (화면에서 `R` 을 직접 고치면 서버 다시 돌리기와 어긋난다).
   `node test/run.test.mjs` 의 다시 돌리기 테스트가 지켜 본다. 배포판 빌드는 `run/rules.js` 를 `functions/shared/run/` 에 복사한다.
-- 서버 함수(xProgress · xStart · xFinish · xBuy · xEquip)는 원정을 배포판에 넣을 때 함께 배포한다.
+- 서버 함수(xProgress · xStart · xFinish · xBuy)는 원정을 배포판에 넣을 때 함께 배포한다.

@@ -314,9 +314,7 @@ const UI = {
   node: ['fight', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'],
   kw: ['guard', 'vamp', 'burn', 'pierce', 'quick', 'lucky', 'weak', 'gold', 'echo', 'keep'],
   potion: ['heal', 'block', 'fire', 'time', 'power', 'pure'],
-  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'slot'],
-  die: ['gold', 'heavy', 'twin', 'stair'],
-  sdie: ['gold', 'heavy', 'twin', 'stair'],       // 트레이 주사위 아래 휘장 (192×96, 디자인 세션)
+  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp'],
   asc: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],   // 승천 단계 문장 (asc_<n>.webp)
   ui: ['star', 'asc', 'smith', 'shield', 'split_knob'],
   seal: ['cloud', 'moon', 'star', 'sun'],

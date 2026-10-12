@@ -13,7 +13,7 @@
 //     xStart  원정 시작: 서버가 시드를 정하고, 그때의 원정 준비(강화 · 주사위)를 함께 적어 둔다
 //     xFinish 원정 끝: 앱이 보낸 행동 기록을 서버가 같은 규칙(run/rules.js)으로 처음부터 다시 돌려 결과를 직접 계산한다.
 //             승패 · 층 · 보스 · 도전과제 · 별조각을 앱이 보내는 값으로 믿지 않는다 → 기기에서 숫자를 고쳐도 소용없다
-//     xBuy    원정 준비 강화 · 특수 주사위 사기, xEquip 주사위 칸에 넣기
+//     xBuy    원정 준비 강화 사기
 //
 // 가격 · 보상 규칙은 게임과 같은 파일(dice-heroes/wallet-rules.js)을 build.mjs 가 shared/ 로 복사해 쓴다.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -204,7 +204,7 @@ export const claimAch = onCall(async req => {
 });
 
 // ── 원정 (로그라이크) ─────────────────────────────────────────────────────────
-// 기록 · 사기 규칙은 게임과 같은 run/rules.js (recordRun · buyProgress · equipProgress)
+// 기록 · 사기 규칙은 게임과 같은 run/rules.js (recordRun · buyProgress)
 const xOf = w => (w.run = X.fixProgress(w.run));
 
 export const xProgress = onCall(async req => {
@@ -253,8 +253,3 @@ export const xBuy = onCall(async req => {
   return { run: wallet.run };
 });
 
-export const xEquip = onCall(async req => {
-  const uid = needUser(req);
-  const { wallet } = await change(uid, w => X.equipProgress(xOf(w), req.data?.equip));
-  return { run: wallet.run };
-});

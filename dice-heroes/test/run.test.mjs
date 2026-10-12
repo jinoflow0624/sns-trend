@@ -274,31 +274,45 @@ test('유물 · 인장 · 징조 그림(relic-art.js): 16줄 × 16글자, 팔레
     for (const c of Object.values(a.pal)) assert.match(c, /^#[0-9A-Fa-f]{6}$/, `${id} 색 형식`);
   }
 });
-test('원정 준비(원정 밖 성장): 체력 · 골드 · 도구 · 물약 · 대표 카드 · 시작 유물 · 주사위 칸', () => {
+test('원정 준비(원정 밖 성장): 체력 · 골드 · 도구 · 물약 · 대표 카드 · 시작 유물', () => {
   const base = mk({ cls: 'warrior', seed: 5 });
-  const R = mk({ cls: 'warrior', seed: 5, meta: { lv: { hp: 5, gold: 3, tools: 2, potion: 1, sharp: 1, relic: 1, slot: 1 }, equip: ['gold', 'twin'] } });
+  const R = mk({ cls: 'warrior', seed: 5, meta: { lv: { hp: 5, gold: 3, tools: 2, potion: 1, sharp: 1, relic: 1 } } });
   assert.equal(R.maxHp, base.maxHp + 10);
   assert.equal(R.gold, base.gold + 60);
   assert.equal(R.flip, base.flip + 1); assert.equal(R.nudge, base.nudge + 1);
   assert.deepEqual(R.potions, ['heal']);
   assert.equal(R.deck.at(-1).up, 1);
-  assert.deepEqual(R.dset, ['gold']);                       // 칸 수만큼만
   assert.equal(R.phase, 'reward'); assert.equal(R.reward.kind, 'start');
   Run.takeReward(R, 0); Run.leaveReward(R);
   assert.equal(R.relics.length, 1); assert.equal(R.phase, 'map');
 });
-test('특수 주사위: 금 주사위는 1이 드물고, 쌍둥이 · 계단은 다른 주사위에 맞춘다', () => {
-  const R = mk({ cls: 'rogue', seed: 8, meta: { lv: { slot: 2 }, equip: ['gold', 'twin'] } });
-  intoFight(R);
-  let ones = 0, twins = 0, n = 0;
-  for (let k = 0; k < 400; k++) {
-    R.C.rolled = false; R.C.rollsLeft = 3; R.C.held = R.C.held.map(() => false);
-    Run.roll(R); n++;
-    if (R.C.dice[0] === 1) ones++;
-    if (R.C.dice.slice(2).includes(R.C.dice[1]) || R.C.dice[0] === R.C.dice[1]) twins++;
-  }
-  assert.ok(ones / n < 0.06, `금 주사위 1 비율 ${ones / n}`);
-  assert.ok(twins / n > 0.6, `쌍둥이 맞춤 비율 ${twins / n}`);
+test('주사위 깎는 노인: 야추 한 턴 점수만큼 면을 깎고, 깎은 면이 굴림에 나온다', () => {
+  assert.deepEqual(Run.carveCount([1, 1, 2, 2, 3]), { n: 1, score: 9, cat: 'choice' });
+  assert.equal(Run.carveCount([3, 3, 2, 2, 5]).n, 2);   // 초이스 15
+  assert.equal(Run.carveCount([6, 6, 6, 5, 5]).n, 3);
+  assert.equal(Run.carveCount([4, 4, 4, 4, 4]).n, 4);
+  const R = run('bard', 4);
+  R.phase = 'event'; R.event = { id: 'carver', result: null, dice: null, fight: null };
+  Run.eventChoose(R, 0);
+  assert.throws(() => Run.eventHold(R, 0));                 // 굴리기 전엔 못 잡는다
+  Run.eventRoll(R); Run.eventHold(R, 0); const kept = R.event.yacht.dice[0];
+  Run.eventRoll(R); assert.equal(R.event.yacht.dice[0], kept);
+  Run.eventStop(R);
+  const n = R.pick.left;
+  assert.ok(n >= 1 && n <= 4);
+  for (let k = 0; k < n; k++) Run.carveFace(R, 0, k, 6);
+  assert.equal(R.pick, null); assert.ok(R.event.result);
+  assert.equal(Run.facesOf(R, 0).filter(v => v === 6).length, n + 1);   // 깎은 n면 + 원래 6의 면
+  // 6면을 모두 6으로 깎은 주사위는 늘 6
+  R.dfaces[1] = [6, 6, 6, 6, 6, 6];
+  Run.eventLeave(R); intoFight(R);
+  for (let k = 0; k < 20; k++) { R.C.rolled = false; R.C.rollsLeft = 3; R.C.held = R.C.held.map(() => false); Run.roll(R); assert.equal(R.C.dice[1], 6); }
+});
+test('예전 특수 주사위 · 주사위 칸은 별조각으로 돌려준다', () => {
+  const p = Run.fixProgress({ stars: 5, lv: { slot: 2, hp: 1 }, dice: ['gold', 'twin'], equip: ['gold'] });
+  assert.equal(p.stars, 5 + 80 + 120 + 60 + 150);
+  assert.ok(!p.dice && !p.equip && !p.lv.slot); assert.equal(p.lv.hp, 1);
+  assert.equal(Run.fixProgress(p).stars, 5 + 80 + 120 + 60 + 150);   // 한 번만
 });
 test('별조각: 지난 층 · 엘리트 · 보스 · 클리어, 승천이 높을수록 더', () => {
   const R = mk({ cls: 'rogue', seed: 1 });
@@ -525,6 +539,7 @@ test('이벤트는 모두 고를 수 있는 선택지가 있고 끝까지 진행
       R.event = { id: ev.id, result: null, dice: null, fight: null };
       if (!ev.opts[k].can(R)) continue;
       Run.eventChoose(R, k);
+      if (R.event.yacht) { Run.eventRoll(R); Run.eventStop(R); while (R.pick?.why === 'face') Run.carveFace(R, 0, R.pick.left - 1, 6 - (R.pick.left % 2)); }
       if (R.pick) { const c = R.deck.find(x => !x.up) || R.deck[0]; Run.pickDeck(R, c.u); if (R.pick?.opts) Run.chooseUpgrade(R, 0); }
       assert.ok(R.event.result, `${ev.id} ${k}: 결과 문장`);
       Run.eventLeave(R);
@@ -750,17 +765,11 @@ test('기록에 더하기 · 사기 · 넣기', () => {
   assert.equal(p.best.runs, 1); assert.equal(p.stars, out.stars);
   p.stars = 1000;
   assert.equal(Run.buyProgress(p, 'meta', 'nope'), '없는 강화예요.');
-  assert.equal(Run.buyProgress(p, 'meta', 'slot'), null);
-  assert.equal(p.lv.slot, 1);
-  assert.equal(Run.buyProgress(p, 'die', Run.DICE[0].id), null);
-  assert.ok(Run.buyProgress(p, 'die', Run.DICE[0].id));          // 두 번은 못 산다
+  assert.equal(Run.buyProgress(p, 'meta', 'seal'), null);
+  assert.equal(p.lv.seal, 1); assert.equal(p.stars, 950);
   p.stars = 0;
-  assert.ok(Run.buyProgress(p, 'die', Run.DICE[1].id));          // 별조각 부족
-  p.stars = 1000;
-  assert.equal(Run.buyProgress(p, 'die', Run.DICE[1].id), null);
-  assert.ok(Run.equipProgress(p, [Run.DICE[0].id, Run.DICE[1].id]));   // 칸보다 많이
-  assert.equal(Run.equipProgress(p, [Run.DICE[1].id, 'fake']), null);  // 없는 주사위는 빠진다
-  assert.deepEqual(p.equip, [Run.DICE[1].id]);
+  assert.ok(Run.buyProgress(p, 'meta', 'seal'));                 // 별조각 부족
+  assert.ok(Run.buyProgress(p, 'die', 'gold'));                  // 특수 주사위는 없다
 });
 test('출발 유물은 직업마다 하나로 정해져 있다', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {

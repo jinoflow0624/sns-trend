@@ -965,3 +965,23 @@
 .rs-info { display: grid; }
 .rs-info-in { grid-area: 1 / 1; display: grid; gap: 5px; align-content: start; visibility: hidden; }
 .rs-info-in.on { visibility: visible; }
+
+/* ── 주사위 깎는 노인: 야추 한 턴 · 면 깎기 ── */
+.ev-yacht { display: grid; gap: 8px; justify-items: center; width: 100%; }
+.ev-dice.yacht .dd-die { cursor: pointer; border: 0; padding: 0; background: none; font: inherit; }
+.ev-dice.yacht .dd-die.held .md { outline: 3px solid var(--gold); outline-offset: 2px; transform: translateY(-4px); box-shadow: 0 0 10px rgba(255,200,61,.7); }
+.ev-dice.yacht .dd-die:disabled { cursor: default; }
+.ev-dice.yacht.rolling .dd-die:not(.held) .md { animation: ddShake .12s steps(2, jump-none) infinite; }
+.ev-dice .md.q { display: grid; place-items: center; font-size: 16px; color: var(--muted); }
+.ev-carve-rule { margin: 0; font-size: 11px; color: var(--muted); text-align: center; }
+.carve-dice { display: grid; gap: 6px; width: 100%; }
+.carve-row { display: grid; grid-template-columns: 18px repeat(6, 1fr); gap: 4px; align-items: center; }
+.carve-row b { font-size: 12px; color: var(--muted); text-align: center; }
+.cface { display: grid; place-items: center; padding: 3px; border: 2px solid var(--ink); background: #1A1030; cursor: pointer; font: inherit; }
+.cface .md { width: 30px; height: 30px; padding: 4px; }
+.cface .md i { width: 5px; height: 5px; }
+.cface.on { box-shadow: inset 0 0 0 2px var(--gold), 0 0 10px rgba(255,200,61,.6); }
+.cface.carved { box-shadow: inset 0 0 0 2px #3EE6B4; }
+.carve-vals { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; width: 100%; }
+.cface.val:disabled { opacity: .35; cursor: default; }
+.run-carve .deck-box { background: #1A1030; padding: 12px; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #2A2270; }
