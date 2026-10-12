@@ -708,6 +708,18 @@ test('시작 덱: 초이스는 1장 (직업 대표 카드는 그대로) · 원�
   assert.equal(S.deck.filter(c => c.seal).length, 3);
 });
 
+test('금화 훔치기: 함께 오는 공격을 다 막으면 못 훔친다', () => {
+  for (const [blk, lost] of [[999, 0], [0, 10]]) {
+    const R = mk({ cls: 'rogue', seed: 3 }); R.gold = 50;
+    Run.startCombat(R, 'goblin'); R.C.e.hp = 999;
+    R.C.e.intent = { ko: '주머니 털기', atk: 6, steal: 10 };
+    R.C.rolled = true; R.C.dice = [1, 1, 1, 1, 1]; R.C.block = blk;
+    R.C.hand[0] = { u: 9911, cat: 'sixes', up: 0, kws: [] };   // 0점 카드
+    Run.playCard(R, 0, 'enemy');
+    assert.equal(50 - R.gold, lost);
+  }
+});
+
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
 test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
   for (const [cls, seed] of [['gambler', 3], ['warrior', 11], ['bard', 21], ['sharper', 8]]) {

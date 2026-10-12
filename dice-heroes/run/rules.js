@@ -1448,7 +1448,11 @@ function enemyTurn(R) {
     if (m.block) { e.block += m.block; act.block = m.block; }
     if (m.str) { e.str += m.str; act.str = m.str; }
     if (m.heal) { const h = Math.min(m.heal, e.maxHp - e.hp); e.hp += h; act.heal = h; }
-    if (m.steal) { const s = Math.min(R.gold, m.steal); R.gold -= s; act.steal = s; }
+    // 금화 훔치기: 함께 오는 공격(본 공격)을 보호막으로 다 막았으면 훔치지 못한다
+    if (m.steal) {
+      if (m.atk && act.hits.length && act.hits.every(h => h.dmg === 0)) act.kept = Math.min(R.gold, m.steal);
+      else { const s = Math.min(R.gold, m.steal); R.gold -= s; act.steal = s; }
+    }
     if (m.weak) { C.weak = Math.max(C.weak, m.weak); act.weak = m.weak; }
   }
   fx(R, act);
