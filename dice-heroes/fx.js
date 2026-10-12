@@ -913,38 +913,55 @@ class FxLayer {
     this.burst(at.x, at.y, { n: 40, pal: PALETTES.arcane, speed: [80, 260], life: [0.4, 0.9] });
   }
 
-  // 외눈 응시: 화면 가운데 거대한 눈이 번쩍 뜨이고 붉은 시선이 목표를 꿰뚫는다
+  // 외눈 응시: 눈꺼풀이 열리고 → 눈동자가 두리번거리다 → 목표 쪽을 똑바로 보며 눈을 가늘게 뜬다 → 깜빡 닫힘.
+  // 무섭지 않게: 어둡게 덮는 막은 옅게, 핏빛 광선 대신 시선이 점선으로 흘러가 목표에 조준 표시가 맺힌다
   async eye(c, target, ms = 1100) {
+    const ang = target ? Math.atan2(target.y - c.y, target.x - c.x) : Math.PI / 2;
     await this.add((g, k) => {
-      const open = k < 0.25 ? ease(k / 0.25) : k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1;
-      const W = Math.min(innerWidth * 0.42, 170), H = W * 0.5 * open;
+      const W = Math.min(innerWidth * 0.28, 113);            // 예전의 3분의 2
+      const open = k < 0.18 ? ease(k / 0.18) : k > 0.86 ? 1 - ease((k - 0.86) / 0.14) : 1;
+      const lock = k < 0.42 ? 0 : Math.min(1, (k - 0.42) / 0.12);   // 목표를 보는 정도
+      const squint = 1 - 0.28 * lock;                        // 집중하면 눈을 가늘게
+      const H = W * 0.55 * open * squint;
+      const ir = W * 0.34;
+      // 눈동자: 처음엔 좌우로 두리번, 그다음 목표 쪽으로 스르륵
+      const look = k < 0.42 ? Math.sin(k * 22) * 0.5 : 0;
+      const ox = ir * 0.55 * (look * (1 - lock) + Math.cos(ang) * lock);
+      const oy = ir * 0.4 * Math.sin(ang) * lock;
       g.save(); g.globalCompositeOperation = 'source-over';
-      g.globalAlpha = 0.5 * open; g.fillStyle = '#0A0008'; g.fillRect(0, 0, innerWidth, innerHeight);
+      g.globalAlpha = 0.22 * open; g.fillStyle = '#0A0820'; g.fillRect(0, 0, innerWidth, innerHeight);
       g.globalAlpha = 1;
-      g.fillStyle = '#1A1030'; g.beginPath(); g.ellipse(c.x, c.y, W + 6, H + 6, 0, 0, TAU); g.fill();
-      g.fillStyle = '#F2EEDD'; g.beginPath(); g.ellipse(c.x, c.y, W, Math.max(1, H), 0, 0, TAU); g.fill();
-      if (open > 0.3) {
-        const ir = W * 0.36, px = c.x + Math.sin(k * 6) * 6;
-        g.fillStyle = '#E8152A'; g.beginPath(); g.arc(px, c.y, ir, 0, TAU); g.fill();
-        g.fillStyle = '#1A1030'; g.beginPath(); g.arc(px, c.y, ir * 0.45, 0, TAU); g.fill();
-        g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(px - ir * 0.5), Math.round(c.y - ir * 0.5), 6, 6);
+      const almond = (w, h) => { g.beginPath(); g.moveTo(c.x - w, c.y); g.quadraticCurveTo(c.x, c.y - h * 2, c.x + w, c.y); g.quadraticCurveTo(c.x, c.y + h * 2, c.x - w, c.y); g.closePath(); };
+      almond(W + 5, Math.max(1, H) + 4); g.fillStyle = '#1A1030'; g.fill();
+      almond(W, Math.max(0.5, H)); g.fillStyle = '#F2EEDD'; g.fill();
+      if (open > 0.15) {
+        g.save(); almond(W, Math.max(0.5, H)); g.clip();
+        const px = c.x + ox, py = c.y + oy;
+        g.fillStyle = '#E8435A'; g.beginPath(); g.arc(px, py, ir, 0, TAU); g.fill();
+        g.fillStyle = 'rgba(142,34,38,0.45)'; g.beginPath(); g.arc(px, py, ir, 0.15 * Math.PI, 0.85 * Math.PI); g.fill();   // 아래쪽 은은한 그늘
+        g.fillStyle = '#1A1030'; g.beginPath(); g.arc(px, py, ir * (0.46 - 0.1 * lock), 0, TAU); g.fill();    // 집중하면 동공이 작아진다
+        g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(px - ir * 0.5), Math.round(py - ir * 0.55), 6, 6);
+        g.fillRect(Math.round(px + ir * 0.25), Math.round(py + ir * 0.15), 3, 3);
+        g.restore();
       }
       g.restore();
-      if (target && k > 0.45 && k < 0.85) {                    // 시선 광선
-        const ang = Math.atan2(target.y - c.y, target.x - c.x), L = Math.hypot(target.x - c.x, target.y - c.y);
+      if (target && lock > 0 && k < 0.88) {                  // 시선: 눈에서 목표로 흘러가는 점선 + 조준 표시
+        const L = Math.hypot(target.x - c.x, target.y - c.y), step = 16, shift = (k * 260) % step;
         g.save(); g.translate(c.x, c.y); g.rotate(ang);
-        const flick = 0.85 + Math.sin(k * 70) * 0.15;
-        for (const [w, col, a] of [[22, 'rgba(232,21,42,', 0.28], [11, 'rgba(255,59,59,', 0.6], [4, 'rgba(255,255,255,', 0.95]]) {
-          const lg = g.createLinearGradient(0, -w, 0, w);
-          lg.addColorStop(0, col + '0)'); lg.addColorStop(0.5, col + a * flick + ')'); lg.addColorStop(1, col + '0)');
-          g.fillStyle = lg; g.fillRect(0, -w, L, w * 2);
+        for (let d = W * 0.6 + shift; d < L - 18; d += step) {
+          g.globalAlpha = lock * (0.45 + 0.55 * (d / L)); g.fillStyle = '#FF7A8A'; g.fillRect(Math.round(d) - 3, -3, 6, 6);
+          g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(d) - 1, -1, 2, 2);
         }
         g.restore();
-        FxLayer.blob(g, target.x, target.y, 34 * flick, '#FFFFFF', '#E8152A', 0.8);
-        if (Math.random() < 0.7) this.spawn({ x: target.x + rnd(-14, 14), y: target.y + rnd(-14, 14), vx: rnd(-90, 90), vy: rnd(-90, 90), life: 0.4, size: rnd(3, 6), color: pick(['#FF3B3B', '#FFFFFF', '#E8152A']), drag: 2 });
+        const R = 22 + (1 - lock) * 18, spin = k * 3;
+        g.save(); g.translate(target.x, target.y); g.rotate(spin); g.globalAlpha = lock;
+        g.strokeStyle = '#FF5A6A'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.stroke();
+        g.fillStyle = '#FFFFFF';
+        for (let q = 0; q < 4; q++) { g.rotate(Math.PI / 2); g.fillRect(R - 4, -2, 9, 4); }
+        g.restore(); g.globalAlpha = 1;
       }
     }, ms);
-    if (target) this.ring(target.x, target.y, { color: '#FF3B3B', r0: 10, r1: 90, dur: 450, width: 8 });
+    if (target) this.ring(target.x, target.y, { color: '#FF7A8A', r0: 8, r1: 56, dur: 380, width: 5 });
   }
 
   // 바위 투척: 하늘에서 거대한 바위가 굴러떨어져 쾅 — 먼지 · 파편 · 금
