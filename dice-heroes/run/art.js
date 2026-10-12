@@ -1,11 +1,13 @@
-// 원정 일반 적 · 엘리트 도트 그림 (16×16 임시본). 보스는 협동 보스 그림(assets/boss)을 그대로 쓴다.
-// 디자인 세션에서 512px 그림을 만들면 assets/run/<id>.webp 로 넣고 FILES 에 이름만 적으면 그 그림으로 바뀐다.
+// 원정 그림. 적 · 엘리트는 512px 도트 그림(assets/run/<id>.webp), 보스는 협동 보스 그림(assets/boss)을 그대로 쓴다.
+// 아래 MON 은 처음 쓰던 16×16 임시본 (그림 파일이 없는 적만 이것으로 그린다).
+// 지도 · 키워드 · 물약 아이콘, 카드 틀, 장면, 막 배경도 여기서 주소를 만든다 (tools/make_run_art.py 로 변환).
 import { GAME } from '../config.js';
 import { spriteURL } from '../pixel.js';
+import { ico } from '../icons.js';
 
 const AV = `?v=${GAME.version}`;
 // 그림 파일이 생긴 적 (예: ['slime', 'goblin'])
-const FILES = [];
+const FILES = ['slime', 'goblin', 'bat', 'wolf', 'shaman', 'mimic', 'skeleton', 'ghost', 'wisp', 'knight', 'golem', 'imp', 'hound', 'gargoyle', 'shade', 'champion'];
 const K = '#1A1030';
 const MON = {
   slime: { pal: { g: '#6BE06B', G: '#2E9E4A', w: '#FFFFFF' }, rows: [
@@ -306,3 +308,18 @@ export function foeURL(id, scale = 6) {
   return cache.get(key);
 }
 export const isPixelFoe = id => !!MON[id] && !FILES.includes(id);
+
+// 원정 전용 아이콘 그림 (assets/run/ui/<kind>_<id>.webp, 128px). 그림이 없으면 공용 12×12 아이콘
+const UI = {
+  node: ['fight', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'],
+  kw: ['guard', 'vamp', 'burn', 'pierce', 'quick', 'lucky', 'weak', 'gold', 'echo'],
+  potion: ['heal', 'block', 'fire', 'time', 'power', 'pure'],
+};
+export function runIco(kind, id, fallback, cls = '') {
+  if (!UI[kind]?.includes(id)) return ico(fallback, cls);
+  return `<img class="ico run-ico${cls ? ' ' + cls : ''}" src="assets/run/ui/${kind}_${id}.webp${AV}" alt="">`;
+}
+// 상점 · 휴식 · 보물 · 이벤트 장면 그림 (assets/run/scene/<id>.webp, 512px)
+const SCENES = ['shop', 'rest', 'treasure', 'chest', 'spring', 'altar', 'smith', 'gamble', 'shrine', 'library', 'trap', 'fairy'];
+export const sceneURL = id => (SCENES.includes(id) ? `assets/run/scene/${id}.webp${AV}` : null);
+export const actBgURL = act => `assets/run/bg_act${Math.min(3, Math.max(1, act))}.webp${AV}`;
