@@ -55,7 +55,8 @@ function save() {
   syncFeats();
   if (R.ended) X.store.del(SAVE); else X.store.set(SAVE, R);
 }
-function best() { const b = X.store.get(BEST) || { runs: 0, wins: 0, top: 0, cls: {} }; b.asc ||= {}; b.feats ||= []; return b; }
+function best() { const b = X.store.get(BEST) || { runs: 0, wins: 0, top: 0, cls: {} }; b.asc ||= {}; b.feats ||= []; b.meta ||= { stars: 0, lv: {}, dice: [], equip: [] }; return b; }
+const mlv = (b, id) => b.meta.lv[id] || 0;
 // 승천: 원정을 깬 단계 + 1 까지 고를 수 있다 (직업마다)
 const ascOpen = (b, cls) => Math.min(Run.ASC_MAX, (b.asc[cls] ?? -1) + 1);
 // 판 안에서 이룬 도전과제를 기록에 옮기고, 처음 이룬 것은 알린다
@@ -130,6 +131,7 @@ function paintSelect() {
     <div class="rs-foot">
       ${b.runs ? `<p class="rs-best">지금까지 ${b.runs}번 원정 · 클리어 ${b.wins}번 · 최고 ${b.top >= 3 * 7 ? '클리어' : `${Math.floor(b.top / 7) + 1}막`}</p>` : '<p class="rs-best">첫 원정이에요</p>'}
       <button class="pbtn small" data-act="run-feats">${ico('trophy', 'xs')} 도전과제 ${b.feats.length}/${Run.FEATS.length}</button>
+      <button class="pbtn small gold meta-btn" data-act="run-meta">${ico('star', 'xs')} 원정 준비 <b>${ico('star', 'xs')}${b.meta.stars}</b></button>
     </div>
     <button class="pbtn gold big" data-act="run-start">원정 떠나기${ui.asc ? ` <small>승천 ${ui.asc}</small>` : ''}</button>
   </div>`;
@@ -146,6 +148,46 @@ function ascPicker(b, cls) {
       <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button></div>
     ${a ? `<ol class="asc-list">${list}</ol>` : '<p class="hint">승천 0: 기본 원정</p>'}
   </section>`;
+}
+// 원정 준비: 별조각(✦)으로 영구 강화 · 특수 주사위. 원정이 끝날 때마다 별조각을 얻는다
+function showMeta() {
+  const b = best(), m = b.meta, slots = mlv(b, 'slot');
+  const ups = Run.META.map(u => {
+    const n = mlv(b, u.id), full = n >= u.max, cost = full ? 0 : u.cost[n];
+    return `<div class="meta-row${full ? ' full' : ''}">${ico(u.icon)}<span><b>${u.ko} <small>${n}/${u.max}</small></b><small>${n ? u.desc(n) : '없음'}${full ? '' : ` → <em>${u.desc(n + 1)}</em>`}</small></span>
+      <button class="pbtn small${!full && m.stars >= cost ? ' gold' : ''}" data-act="run-metabuy" data-id="${u.id}" ${full || m.stars < cost ? 'disabled' : ''}>${full ? '완료' : `${ico('star', 'xs')}${cost}`}</button></div>`;
+  }).join('');
+  const dice = Run.DICE.map(d => {
+    const own = m.dice.includes(d.id), on = m.equip.includes(d.id);
+    return `<div class="meta-row die-row${on ? ' on' : ''}" style="--dc:${d.color}"><i class="sdie"></i><span><b>${d.ko}</b><small>${d.desc}</small></span>
+      ${own ? `<button class="pbtn small${on ? ' gold' : ''}" data-act="run-dieequip" data-id="${d.id}" ${!on && m.equip.length >= slots ? 'disabled' : ''}>${on ? '빼기' : slots ? '넣기' : '칸 없음'}</button>`
+        : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${ico('star', 'xs')}${d.cost}</button>`}</div>`;
+  }).join('');
+  X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
+    <h2>${ico('star')} 원정 준비 <b class="stars">${ico('star', 'xs')}${m.stars}</b></h2>
+    <p class="hint">원정이 끝날 때마다 별조각을 얻어요 (지난 층 · 엘리트 · 보스 · 클리어, 승천이 높을수록 더). 강화는 모든 직업에 적용돼요.</p>
+    <div class="meta-list">${ups}</div>
+    <h3>특수 주사위 <small>주사위 칸 ${m.equip.length}/${slots}</small></h3>
+    <div class="meta-list">${dice}</div>
+    <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
+  </div></div>`;
+}
+function metaAct(act, id) {
+  const b = best(), m = b.meta;
+  if (act === 'run-metabuy') {
+    const u = Run.META.find(x => x.id === id), n = mlv(b, id);
+    if (!u || n >= u.max || m.stars < u.cost[n]) return;
+    m.stars -= u.cost[n]; m.lv[id] = n + 1;
+  }
+  if (act === 'run-diebuy') { const d = Run.diceInfo(id); if (!d || m.dice.includes(id) || m.stars < d.cost) return; m.stars -= d.cost; m.dice.push(id); if (m.equip.length < mlv(b, 'slot')) m.equip.push(id); }
+  if (act === 'run-dieequip') {
+    if (m.equip.includes(id)) m.equip = m.equip.filter(x => x !== id);
+    else if (m.dice.includes(id) && m.equip.length < mlv(b, 'slot')) m.equip.push(id);
+  }
+  X.store.set(BEST, b);
+  sfx.coin?.();
+  paintSelect();                         // 직업 고르기 화면의 별조각 수를 바꾸고 (창을 지운다)
+  showMeta();
 }
 function showFeats() {
   const b = best();
@@ -381,8 +423,10 @@ function paintTray() {
   t.setFrozen?.(C.rolled && !ui.hideIce ? C.frozen : []);
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
-  if (!ui.tool || ui.tool === 'swap' || !canAct() || !C.rolled || t.anim) { ovl.innerHTML = seals; return; }
-  ovl.innerHTML = seals + C.dice.map((v, i) => {
+  // 특수 주사위: 주사위 아래 색 보석 표시
+  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 24}px;--dc:${d.color}" title="${d.ko}"></i>`; }).join('');
+  if (!ui.tool || ui.tool === 'swap' || !canAct() || !C.rolled || t.anim) { ovl.innerHTML = seals + sp; return; }
+  ovl.innerHTML = seals + sp + C.dice.map((v, i) => {
     const p = t.screenPos(i);
     const x = p.x - box.left, y = p.y - box.top;
     if (Run.isSealed(R, i)) return '';
@@ -1021,7 +1065,7 @@ function showReward() {
   const rw = R.reward;
   if (!rw) { R.phase = 'map'; return showMap(); }
   playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'run_map');
-  const title = rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : '승리!';
+  const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : '승리!';
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-reward">
@@ -1032,7 +1076,7 @@ function showReward() {
       <div class="rw-items">
         ${rw.items.map((it, k) => rewardRow(it, k)).join('')}
       </div>
-      <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? '다음 막으로' : '지도로'}</button>
+      <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? '다음 막으로' : rw.kind === 'start' ? '출발' : '지도로'}</button>
     </div>
     ${heroStrip()}
   </div>`;
@@ -1218,6 +1262,8 @@ function showEnd() {
     b.top = Math.max(b.top, won ? 21 : reach);
     (b.cls[R.cls] ||= { runs: 0, wins: 0 }).runs++;
     if (won) { b.cls[R.cls].wins++; b.asc[R.cls] = Math.max(b.asc[R.cls] ?? -1, R.asc || 0); }
+    ui.gotStars = Run.starsOf(R);
+    b.meta.stars += ui.gotStars;
     X.store.set(BEST, b);
     syncFeats();
   }
@@ -1236,6 +1282,7 @@ function showEnd() {
       </div>
       <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
       <p class="hint">${R.asc ? `승천 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
+      <p class="end-stars">${ico('star', 'xs')} 별조각 <b>+${ui.gotStars || 0}</b> <small>원정 준비에서 영구 강화에 써요</small></p>
       ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 승천 ${(R.asc || 0) + 1} 열림!</p>` : ''}
       <div class="res-actions"><button class="pbtn" data-act="run-home">메인으로</button><button class="pbtn gold" data-act="run-again">다시 원정</button></div>
     </div>
@@ -1272,14 +1319,16 @@ export function onAct(act, t) {
     return paintSelect();
   }
   if (act === 'run-feats') { sfx.select(); return showFeats(); }
+  if (act === 'run-meta') { sfx.select(); return showMeta(); }
+  if (act === 'run-metabuy' || act === 'run-diebuy' || act === 'run-dieequip') return metaAct(act, t.dataset.id);
   if (act === 'run-start' || act === 'run-again') {
     sfx.start();
     const cls = act === 'run-again' ? R?.cls || ui.cls : ui.cls;
     const lv = act === 'run-again' && R ? R.asc || 0 : ui.asc || 0;
-    R = Run.createRun({ cls, name: X.name(), asc: lv });
+    R = Run.createRun({ cls, name: X.name(), asc: lv, meta: best().meta });
     ui.recorded = false;
     save();
-    return showMap();
+    return enterView(true);              // 원정 준비 '보물 지도'가 있으면 출발 유물부터
   }
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
