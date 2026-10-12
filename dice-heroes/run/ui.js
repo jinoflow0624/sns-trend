@@ -379,7 +379,7 @@ function showMap() {
         </button>`;
       }).join('')}
     </div></div>
-    <p class="tip">${next.size ? '빛나는 칸을 눌러 나아가세요' : ''}</p>
+    <p class="tip"></p>
     ${heroStrip()}
   </div>`;
   // 지금 갈 수 있는 층이 보이게
@@ -463,16 +463,10 @@ function paint() {
 function tipText(needBet) {
   const C = R.C;
   if (ui.busy) return '';
-  if (ui.tool === 'swap') return '바꿀 카드를 누르세요 (버리고 새로 1장)';
-  if (ui.tool === 'flip') return '뒤집을 주사위를 누르세요 (7 - 눈)';
-  if (ui.tool === 'nudge') return '주사위 위의 +1 / −1 을 누르세요';
-  if (ui.tool === 'deal') return ui.dealDie == null ? '바꿀 주사위를 누르세요' : '원하는 눈을 고르세요';
+  // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 도박사 배팅만 남긴다 (배팅해야 굴릴 수 있다)
   if (R.cls === 'gambler' && !C.rolled && ui.sel != null) return '배팅할지 정해 주세요';
   if (needBet) return `${ico('coins', 'xs')} 배팅: 이번 턴에 노릴 카드를 누르세요 (그 카드 ×${Run.CLASS_TUNE.betMul})`;
-  if (!C.rolled) return '주사위를 굴려 족보를 만드세요';
-  const live = C.hand.filter(c => Run.scoreCard(R, c).total > 0).length;
-  if (ui.sel != null) return '막대를 밀어 <b>공격 · 방어</b>를 나누고 <b>내기</b>';
-  return live ? `카드를 눌러 <b>공격 · 방어 나누기</b> · 끌어서 바로 내기` : (C.rollsLeft ? '맞는 족보가 없어요 · 다시 굴리거나 카드를 바꿔 보세요' : '0점이라도 카드 1장을 내야 턴이 끝나요');
+  return '';
 }
 
 function foePanel() {
@@ -557,7 +551,7 @@ function tapCard(u) {
     $('rtip').innerHTML = tipText(false);
     return;
   }
-  if (!C.rolled) { sfx.back(); X.toast(ico('dice'), '먼저 굴려 주세요', '주사위를 굴린 뒤에 카드를 낼 수 있어요.', 1300); return; }
+  if (!C.rolled) { sfx.back(); X.toast(ico('dice'), '먼저 굴려 주세요', '', 1100); return; }
   sfx.card();
   if (ui.sel === u && hand.sel === u) return closeSplit();
   openSplit(u);
@@ -669,7 +663,6 @@ function paintSplit() {
   const inc = Run.incomingAfter(R, p.weak), taken = Run.takenAfter(R, p);
   const info = [];
   if (p.atk > 0) {
-    if (p.kill) info.push(`<b class="kill">${ico('skull', 'xs')}처치!</b>`);
     if (p.pierce) info.push(`${ico('dagger', 'xs')}관통`);
     if (p.whet) info.push(`숫돌 +${p.whet}`);
     if (p.arcane) info.push(`비전 +${p.arcane}`);
@@ -679,15 +672,15 @@ function paintSplit() {
     if (p.gold) info.push(`${ico('coins', 'xs')}+${p.gold}`);
     if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
   }
-  if (Run.hasKw(card, 'weak')) info.push(p.weak ? `${ico('snow', 'xs')}약화` : `<s>약화</s><small>절반 이상 공격</small>`);
+  if (Run.hasKw(card, 'weak')) info.push(p.weak ? `${ico('snow', 'xs')}약화` : '<s>약화</s>');
   if (p.def > 0 && p.defMul > 1) info.push(`${ico('shield', 'xs')}방어 +${Math.round((p.defMul - 1) * 100)}%`);
   if (p.wblk) info.push(`불굴 +${p.wblk}`);
   if (p.always) info.push(`보호막 +${p.always}`);
-  if (inc > 0 && !p.kill) info.push(taken ? `<em class="hurt">받을 피해 ${taken}</em>` : '<em class="safe">공격을 다 막아요</em>');
+  if (inc > 0 && !p.kill && taken) info.push(`<em class="hurt">${ico('sword', 'xs')}-${taken}</em>`);
   $('sp-info').innerHTML = info.join('<i class="sep">·</i>') || '&nbsp;';
   const cov = Run.coverAtk(R, hi), cb = $('sp-cover');
-  if (!inc) { cb.disabled = true; cb.innerHTML = '적이 공격하지 않아요'; }
-  else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.score - cov.atk}</small>` : '전부 방어<small>다 못 막아요</small>'; }
+  if (!inc) { cb.disabled = true; cb.innerHTML = '딱 막기'; }
+  else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.score - cov.atk}</small>` : '전부 방어'; }
   hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3));
 }
 function dropCard(u, target) {
@@ -1389,7 +1382,6 @@ function showPick() {
     <h2>${title}</h2>
     ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : pk.hp ? `<p class="hint">체력 ${pk.hp}을 잃어요</p>` : ''}
     <div class="deck-grid">${list.map(c => `<button class="rc rc-static mini${ui.pickU === c.u ? ' on' : ''}" data-act="run-pickcard" data-u="${c.u}">${cardFace(c)}</button>`).join('')}</div>
-    ${pk.why === 'upgrade' ? `<p class="hint">강화는 점수 +30% 한 번, 그리고 효과를 ${Run.KW_MAX}개까지 새길 수 있어요</p>` : ''}
     ${sel ? `<div class="pick-prev"><div class="rc rc-static">${cardFace(sel)}</div></div>` : ''}
     <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '다음', remove: '제거', dup: '복제' }[pk.why]}</button></div>
   </div></div>`;
