@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, sceneURL, actBgURL } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL } from './art.js';
 import { relicIco } from './relic-art.js';
 import { Hand } from './hand.js';
 
@@ -131,7 +131,7 @@ function paintSelect() {
     <div class="rs-foot">
       ${b.runs ? `<p class="rs-best">지금까지 ${b.runs}번 원정 · 클리어 ${b.wins}번 · 최고 ${b.top >= 3 * 7 ? '클리어' : `${Math.floor(b.top / 7) + 1}막`}</p>` : '<p class="rs-best">첫 원정이에요</p>'}
       <button class="pbtn small" data-act="run-feats">${ico('trophy', 'xs')} 도전과제 ${b.feats.length}/${Run.FEATS.length}</button>
-      <button class="pbtn small gold meta-btn" data-act="run-meta">${ico('star', 'xs')} 원정 준비 <b>${ico('star', 'xs')}${b.meta.stars}</b></button>
+      <button class="pbtn small gold meta-btn" data-act="run-meta">${runIco('meta', 'slot', 'star', 'xs')} 원정 준비 <b>${starIco()}${b.meta.stars}</b></button>
     </div>
     <button class="pbtn gold big" data-act="run-start">원정 떠나기${ui.asc ? ` <small>승천 ${ui.asc}</small>` : ''}</button>
   </div>`;
@@ -144,7 +144,7 @@ function ascPicker(b, cls) {
   const list = Run.ASCENSION.slice(1, a + 1).map((x, k) => `<li><b>${k + 1}</b> ${x.ko} · ${x.desc}</li>`).join('');
   return `<section class="rs-asc frame">
     <div class="asc-row"><button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="승천 낮추기">◀</button>
-      <div class="asc-lv"><small>승천</small><b>${a}</b><small>열린 단계 ${open}</small></div>
+      <div class="asc-lv"><span class="asc-badge${a ? '' : ' off'}">${runIco('ui', 'asc', 'skull')}<b>${a}</b></span><span><small>승천</small><small>열린 단계 ${open}</small></span></div>
       <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="승천 높이기">▶</button></div>
     ${a ? `<ol class="asc-list">${list}</ol>` : '<p class="hint">승천 0: 기본 원정</p>'}
   </section>`;
@@ -154,17 +154,18 @@ function showMeta() {
   const b = best(), m = b.meta, slots = mlv(b, 'slot');
   const ups = Run.META.map(u => {
     const n = mlv(b, u.id), full = n >= u.max, cost = full ? 0 : u.cost[n];
-    return `<div class="meta-row${full ? ' full' : ''}">${ico(u.icon)}<span><b>${u.ko} <small>${n}/${u.max}</small></b><small>${n ? u.desc(n) : '없음'}${full ? '' : ` → <em>${u.desc(n + 1)}</em>`}</small></span>
-      <button class="pbtn small${!full && m.stars >= cost ? ' gold' : ''}" data-act="run-metabuy" data-id="${u.id}" ${full || m.stars < cost ? 'disabled' : ''}>${full ? '완료' : `${ico('star', 'xs')}${cost}`}</button></div>`;
+    const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('');
+    return `<div class="meta-row${full ? ' full' : ''}">${runIco('meta', u.id, u.icon)}<span><b>${u.ko} <span class="mpips">${pips}</span></b><small>${n ? u.desc(n) : '없음'}${full ? '' : ` → <em>${u.desc(n + 1)}</em>`}</small></span>
+      <button class="pbtn small${!full && m.stars >= cost ? ' gold' : ''}" data-act="run-metabuy" data-id="${u.id}" ${full || m.stars < cost ? 'disabled' : ''}>${full ? '완료' : `${starIco()}${cost}`}</button></div>`;
   }).join('');
   const dice = Run.DICE.map(d => {
     const own = m.dice.includes(d.id), on = m.equip.includes(d.id);
-    return `<div class="meta-row die-row${on ? ' on' : ''}" style="--dc:${d.color}"><i class="sdie"></i><span><b>${d.ko}</b><small>${d.desc}</small></span>
+    return `<div class="meta-row die-row${on ? ' on' : ''}" style="--dc:${d.color}">${runIco('die', d.id, 'die6')}<span><b>${d.ko}</b><small>${d.desc}</small></span>
       ${own ? `<button class="pbtn small${on ? ' gold' : ''}" data-act="run-dieequip" data-id="${d.id}" ${!on && m.equip.length >= slots ? 'disabled' : ''}>${on ? '빼기' : slots ? '넣기' : '칸 없음'}</button>`
-        : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${ico('star', 'xs')}${d.cost}</button>`}</div>`;
+        : `<button class="pbtn small${m.stars >= d.cost ? ' gold' : ''}" data-act="run-diebuy" data-id="${d.id}" ${m.stars < d.cost ? 'disabled' : ''}>${starIco()}${d.cost}</button>`}</div>`;
   }).join('');
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <h2>${ico('star')} 원정 준비 <b class="stars">${ico('star', 'xs')}${m.stars}</b></h2>
+    <div class="meta-head"><img class="run-scene" src="${sceneURL('rest')}" alt=""><h2>원정 준비 <b class="stars">${starIco('')}${m.stars}</b></h2></div>
     <p class="hint">원정이 끝날 때마다 별조각을 얻어요 (지난 층 · 엘리트 · 보스 · 클리어, 승천이 높을수록 더). 강화는 모든 직업에 적용돼요.</p>
     <div class="meta-list">${ups}</div>
     <h3>특수 주사위 <small>주사위 칸 ${m.equip.length}/${slots}</small></h3>
@@ -185,15 +186,15 @@ function metaAct(act, id) {
     else if (m.dice.includes(id) && m.equip.length < mlv(b, 'slot')) m.equip.push(id);
   }
   X.store.set(BEST, b);
-  sfx.coin?.();
+  if (act === 'run-dieequip') sfx.select(); else sfx.forge?.();
   paintSelect();                         // 직업 고르기 화면의 별조각 수를 바꾸고 (창을 지운다)
   showMeta();
 }
 function showFeats() {
   const b = best();
   X.layer.innerHTML = `<div class="overlay run-feats" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <h2>${ico('trophy')} 원정 도전과제 ${b.feats.length}/${Run.FEATS.length}</h2>
-    <div class="feat-list">${Run.FEATS.map(f => { const ok = b.feats.includes(f.id); return `<div class="feat${ok ? ' ok' : ''}">${ico(ok ? f.icon : 'lock')}<span><b>${f.ko}</b><small>${f.desc}</small></span></div>`; }).join('')}</div>
+    <h2>${runIco('feat', 'clear', 'trophy')} 원정 도전과제 ${b.feats.length}/${Run.FEATS.length}</h2>
+    <div class="feat-list">${Run.FEATS.map(f => { const ok = b.feats.includes(f.id); return `<div class="feat${ok ? ' ok' : ''}">${runIco('feat', f.id, ok ? f.icon : 'lock')}<span><b>${f.ko}</b><small>${f.desc}</small></span></div>`; }).join('')}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
   </div></div>`;
 }
@@ -238,11 +239,11 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const r = Run.cardRarity(c);
   const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
-  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
+  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
-    ${ks.length > 1 ? `<span class="rc-kws n${ks.length}">${ks.map(k => `<i class="rc-kw" style="--kc:${Run.KEYWORDS[k].color}">${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')}${Run.KEYWORDS[k].ko}</i>`).join('')}</span>`
+    ${ks.length > 1 ? `<span class="rc-gems n${ks.length}">${Array.from({ length: Run.KW_MAX }, (_, i) => ks[i] ? `<i class="gem" style="--kc:${Run.KEYWORDS[ks[i]].color}" title="${Run.KEYWORDS[ks[i]].ko}">${runIco('kw', ks[i], Run.KEYWORDS[ks[i]].icon, 'xs')}</i>` : '<i class="gem empty"></i>').join('')}</span>`
       : kw ? `<span class="rc-kw">${runIco('kw', ks[0], kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
     ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
     <i class="rc-sheen"></i>
@@ -408,7 +409,7 @@ function foePanel() {
     <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
-      <div class="hp-row"><div class="hp foe-hp"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge" title="보호막">${ico('shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
+      <div class="hp-row"><div class="hp foe-hp"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
       <div class="foe-st">${st.join('')}</div>
     </div>
     ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : ''}`;
@@ -424,7 +425,7 @@ function paintTray() {
   const sealList = ui.sealRoll || C.sealed || [];
   const seals = C.rolled ? sealList.map(i => { const p = t.topPos?.(i) || t.screenPos(i); return `<div class="seal-tag" style="left:${p.x - box.left}px;top:${p.y - box.top}px">${X.sealSigil || ico('chain')}</div>`; }).join('') : '';
   // 특수 주사위: 주사위 아래 색 보석 표시
-  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 24}px;--dc:${d.color}" title="${d.ko}"></i>`; }).join('');
+  const sp = (R.dset || []).map((id, i) => { const d = Run.diceInfo(id); if (!d || !C.dice[i] && C.dice[i] !== 0) return ''; const p = t.screenPos(i); return `<i class="sdie-tag" style="left:${p.x - box.left}px;top:${p.y - box.top + 24}px;--dc:${d.color}" title="${d.ko}">${runIco('die', d.id, 'die6', 'xs')}</i>`; }).join('');
   if (!ui.tool || ui.tool === 'swap' || !canAct() || !C.rolled || t.anim) { ovl.innerHTML = seals + sp; return; }
   ovl.innerHTML = seals + sp + C.dice.map((v, i) => {
     const p = t.screenPos(i);
@@ -519,7 +520,7 @@ function splitHTML(u) {
   return `<div class="split" id="split">
     <div class="sp-top">
       <button class="sp-end atk" data-act="run-split" data-v="all" aria-label="전부 공격">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>피해</small></button>
-      <div class="sp-bar" id="sp-bar" role="slider" aria-label="공격 · 방어 나누기"><i class="sp-a" id="sp-a"></i><span class="sp-knob" id="sp-knob"><em id="sp-n"></em></span></div>
+      <div class="sp-bar" id="sp-bar" role="slider" aria-label="공격 · 방어 나누기"><i class="sp-a" id="sp-a"></i><span class="sp-knob" id="sp-knob">${runIco('ui', 'split_knob', 'sword')}<em id="sp-n"></em></span></div>
       <button class="sp-end def" data-act="run-split" data-v="none" aria-label="전부 방어">${ico('shield', 'xs')}<b id="sp-blk"></b><small>보호막</small></button>
     </div>
     <p class="sp-info" id="sp-info"></p>
@@ -733,14 +734,16 @@ function updHero(hurt = false) {
   if (hurt) { const st = $('rhero'); st?.classList.remove('hurt'); void st?.offsetWidth; st?.classList.add('hurt'); }
 }
 function popBlk() { const b = $('rh-blk'); b?.classList.remove('pop'); void b?.offsetWidth; b?.classList.add('pop'); }
-// 할퀸 자국 세 줄 (영웅 초상 위)
+// 영웅 피격 자국 (영웅 초상 위, 도트 스프라이트 assets/run/fx/<종류>.webp 6프레임). 적에 따라 할퀴기 · 물기 · 타격 별
+const BITE = new Set(['wolf', 'hound', 'bat', 'mimic', 'dragon', 'hydra']);
+const CLAW = new Set(['goblin', 'skeleton', 'knight', 'shade', 'champion', 'gargoyle', 'imp', 'orc', 'demon', 'archdemon']);
+const hitKind = id => (BITE.has(id) ? 'bite' : CLAW.has(id) ? 'claw' : 'star');
 function clawAt(p, big) {
   const el = document.createElement('div');
-  el.className = `claw${big ? ' big' : ''}`;
+  el.className = `hitfx k-${hitKind(R?.C?.e?.id)}${big ? ' big' : ''}`;
   el.style.left = `${p.x}px`; el.style.top = `${p.y}px`;
-  el.innerHTML = '<i></i><i></i><i></i>';
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 650);
+  setTimeout(() => el.remove(), 520);
 }
 // 적의 입 (방해 광선이 나가는 곳)
 function mouth() { const c = foeAt(); return { x: c.x, y: c.y + 6 }; }
@@ -999,7 +1002,7 @@ async function playOne(f) {
       return;
     }
     case 'dance': {
-      sfx.dance?.();
+      (sfx.danceRun || sfx.dance)?.();
       if (t) await Promise.all(f.to.map((v, i) => (v !== f.from[i] ? t.morph(i, v, 'lucky', 500) : null)));
       return;
     }
@@ -1072,7 +1075,7 @@ function showReward() {
     ${hud()}
     <div class="rw-box">
       <h1 class="rw-title">${title}</h1>
-      ${rw.kind === 'treasure' ? `<div class="chest"><img class="run-scene" src="${sceneURL('treasure')}" alt=""></div>` : ''}
+      ${rw.kind === 'treasure' || rw.kind === 'start' ? `<div class="chest"><img class="run-scene" src="${sceneURL(rw.kind)}" alt=""></div>` : ''}
       <div class="rw-items">
         ${rw.items.map((it, k) => rewardRow(it, k)).join('')}
       </div>
@@ -1158,7 +1161,7 @@ function showShop() {
         ${sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return `<button class="shop-good relic-row r${r.r}${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="relic" data-i="${i}" ${it.sold ? 'disabled' : ''}>${relicIco(r)}<span><b>${r.ko}</b><small>${r.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="potion" data-i="${i}" ${it.sold ? 'disabled' : ''} style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<span><b>${p.ko}</b><small>${p.desc}</small></span>${price(it.price, it.sold)}</button>`; }).join('')}
         ${sh.tools.map((it, i) => `<button class="shop-good${it.sold ? ' sold' : ''}" data-act="run-buy" data-kind="tool" data-i="${i}" ${it.sold ? 'disabled' : ''}>${ico(it.kind)}<span><b>${it.kind === 'flip' ? '뒤집기' : '조정'} +1</b><small>${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})</small></span>${price(it.price, it.sold)}</button>`).join('')}
-        <button class="shop-good smith${sh.smithed ? ' sold' : ''}" data-act="run-shopsmith" ${sh.smithed || !R.deck.some(Run.canUpgrade) ? 'disabled' : ''}>${ico('axe')}<span><b>대장장이</b><small>카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 ${Run.KW_MAX}개)</small></span>${price(Run.smithPrice(R), sh.smithed)}</button>
+        <button class="shop-good smith${sh.smithed ? ' sold' : ''}" data-act="run-shopsmith" ${sh.smithed || !R.deck.some(Run.canUpgrade) ? 'disabled' : ''}>${runIco('ui', 'smith', 'axe')}<span><b>대장장이</b><small>카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 ${Run.KW_MAX}개)</small></span>${price(Run.smithPrice(R), sh.smithed)}</button>
         <button class="shop-good remove${sh.removed ? ' sold' : ''}" data-act="run-remove" ${sh.removed ? 'disabled' : ''}>${ico('skull')}<span><b>카드 제거</b><small>덱에서 카드 1장을 없앤다</small></span>${price(Run.removePrice(R), sh.removed)}</button>
       </div>
     </div>
@@ -1177,7 +1180,7 @@ function showRest() {
     <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>모닥불</b><small>잠시 쉬어 갈 수 있다</small></div>
     <div class="rest-opts">
       <button class="pbtn big rest-btn" data-act="run-rest">${ico('heart')}<span>휴식<small>체력 ${Run.restAmount(R)} 회복</small></span></button>
-      <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(Run.canUpgrade) ? '' : 'disabled'}>${ico('axe')}<span>단련<small>카드 1장 강화 (+30% 또는 효과)</small></span></button>
+      <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(Run.canUpgrade) ? '' : 'disabled'}>${runIco('ui', 'smith', 'axe')}<span>단련<small>카드 1장 강화 (+30% 또는 효과)</small></span></button>
     </div>
     ${heroStrip()}
   </div>`;
@@ -1227,7 +1230,7 @@ function showUpgrade() {
   const pk = R.pick, c = R.deck.find(x => x.u === pk.u);
   const after = o => (o === 'up' ? { ...c, up: 1 } : { ...c, kws: [...Run.kwsOf(c), o] });
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
-    <h2>어떻게 강화할까요?</h2>
+    <div class="up-head"><img class="run-scene" src="${sceneURL('smith')}" alt=""><h2>어떻게 강화할까요?</h2></div>
     ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : ''}
     <div class="up-opts">${pk.opts.map((o, k) => {
       const kw = o !== 'up' && Run.KEYWORDS[o];
@@ -1254,6 +1257,7 @@ function showEnd() {
   const won = R.won;
   const b = best();
   const opened = won && (b.asc[R.cls] ?? -1) < (R.asc || 0) && (R.asc || 0) < Run.ASC_MAX;
+  const fresh = !ui.recorded;
   if (!ui.recorded) {
     ui.recorded = true;
     b.runs++;
@@ -1282,12 +1286,14 @@ function showEnd() {
       </div>
       <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
       <p class="hint">${R.asc ? `승천 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
-      <p class="end-stars">${ico('star', 'xs')} 별조각 <b>+${ui.gotStars || 0}</b> <small>원정 준비에서 영구 강화에 써요</small></p>
+      <p class="end-stars">${starIco()} 별조각 <b>+${ui.gotStars || 0}</b> <small>원정 준비에서 영구 강화에 써요</small></p>
       ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 승천 ${(R.asc || 0) + 1} 열림!</p>` : ''}
       <div class="res-actions"><button class="pbtn" data-act="run-home">메인으로</button><button class="pbtn gold" data-act="run-again">다시 원정</button></div>
     </div>
   </div>`;
   if (won && X.prefs.fx !== 'min') { FX().burst(innerWidth / 2, innerHeight * 0.3, { n: 90, pal: PALETTES.rainbow, speed: [100, 420] }); sfx.levelup?.(); }
+  if (fresh && ui.gotStars) setTimeout(() => sfx.stars?.(ui.gotStars), won ? 1100 : 600);
+  if (fresh && opened) setTimeout(() => sfx.ascend?.(), 2000);
 }
 
 // ── 메뉴 ─────────────────────────────────────────────────────────────────────

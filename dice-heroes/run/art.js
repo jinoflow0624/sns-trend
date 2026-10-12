@@ -312,14 +312,20 @@ export const isPixelFoe = id => !!MON[id] && !FILES.includes(id);
 // 원정 전용 아이콘 그림 (assets/run/ui/<kind>_<id>.webp, 128px). 그림이 없으면 공용 12×12 아이콘
 const UI = {
   node: ['fight', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'],
-  kw: ['guard', 'vamp', 'burn', 'pierce', 'quick', 'lucky', 'weak', 'gold', 'echo'],
+  kw: ['guard', 'vamp', 'burn', 'pierce', 'quick', 'lucky', 'weak', 'gold', 'echo', 'keep'],
   potion: ['heal', 'block', 'fire', 'time', 'power', 'pure'],
+  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'slot'],
+  die: ['gold', 'heavy', 'twin', 'stair'],
+  ui: ['star', 'asc', 'smith', 'shield', 'split_knob'],
+  feat: ['act1', 'clear', 'flawless', 'ace30', 'lstr60', 'yacht', 'wall', 'rich', 'hoard', 'asc5', 'asc10', 'five'],                                   // 종류 없이 이름 그대로인 그림 (assets/run/ui/<id>.webp)
 };
 export function runIco(kind, id, fallback, cls = '') {
   if (!UI[kind]?.includes(id)) return ico(fallback, cls);
-  return `<img class="ico run-ico${cls ? ' ' + cls : ''}" src="assets/run/ui/${kind}_${id}.webp${AV}" alt="">`;
+  return `<img class="ico run-ico${cls ? ' ' + cls : ''}" src="assets/run/ui/${kind === 'ui' ? id : `${kind}_${id}`}.webp${AV}" alt="">`;
 }
+// 별조각 아이콘 (원정 밖 성장 화폐)
+export const starIco = (cls = 'xs') => runIco('ui', 'star', 'star', cls);
 // 상점 · 휴식 · 보물 · 이벤트 장면 그림 (assets/run/scene/<id>.webp, 512px)
-const SCENES = ['shop', 'rest', 'treasure', 'chest', 'spring', 'altar', 'smith', 'gamble', 'shrine', 'library', 'trap', 'fairy'];
+const SCENES = ['start', 'shop', 'rest', 'treasure', 'chest', 'spring', 'altar', 'smith', 'gamble', 'shrine', 'library', 'trap', 'fairy'];
 export const sceneURL = id => (SCENES.includes(id) ? `assets/run/scene/${id}.webp${AV}` : null);
 export const actBgURL = act => `assets/run/bg_act${Math.min(3, Math.max(1, act))}.webp${AV}`;
