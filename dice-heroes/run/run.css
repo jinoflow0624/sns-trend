@@ -686,3 +686,42 @@
 .die-faces { display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; }
 .die-faces img { width: 56px; height: 56px; border-radius: 8px; box-shadow: 0 2px 0 var(--ink), 0 0 8px color-mix(in srgb, var(--dc) 40%, transparent); }
 .die-pop p { margin: 0; font-size: 11px; line-height: 1.4; }
+
+/* ── 승천: 고르기 화면의 버튼 · 승천 창 ── */
+.rs-ascbtn { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; text-align: left; color: inherit; font: inherit; cursor: pointer;
+  background: linear-gradient(90deg, rgba(142,34,38,calc(.18 + var(--t) * .5)), rgba(26,16,48,.6)); }
+.rs-ascbtn.on { box-shadow: inset 0 0 0 2px rgba(255,138,138,calc(.3 + var(--t) * .6)), 0 0 calc(4px + var(--t) * 14px) rgba(232,67,90,calc(var(--t) * .7)); }
+.rs-ascbtn .ab-txt { display: grid; line-height: 1.25; }
+.rs-ascbtn .ab-txt b { font-size: 15px; color: #FFB3B3; }
+.rs-ascbtn:not(.on) .ab-txt b { color: var(--muted); }
+.rs-ascbtn .ab-txt small { font-size: 10px; color: var(--muted); }
+.rs-ascbtn .ab-go { font-size: 11px; color: #FF8A8A; font-weight: 700; }
+.rs-ascbtn:active { transform: translateY(1px); }
+
+.run-ascbox .deck-box { background: radial-gradient(ellipse at 50% 0%, rgba(232,67,90,calc(.15 + var(--t) * .45)), transparent 60%), #1A1030; padding: 12px; border: 3px solid #8E2226; box-shadow: 0 0 0 3px var(--ink), 0 0 30px rgba(232,67,90,calc(.2 + var(--t) * .5)); }
+.asc-hero, .asc-ladder { width: 100%; }
+.asc-hero { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 6px; padding: 4px 0 8px; }
+.ah-mid { display: grid; justify-items: center; gap: 2px; text-align: center; }
+.ah-emb { width: 88px; height: 88px; display: grid; place-items: center; filter: drop-shadow(0 0 calc(6px + var(--t) * 16px) rgba(232,67,90,.85)); animation: ahFloat 2.4s ease-in-out infinite; }
+.ah-emb .ico { width: 88px; height: 88px; image-rendering: pixelated; }
+.ah-emb.off { filter: grayscale(1) brightness(.6); animation: none; }
+.ah-mid b { font-size: 20px; color: #FFB3B3; text-shadow: 0 0 8px rgba(232,67,90,.8); }
+.ah-mid small { font-size: 10px; color: var(--muted); }
+@keyframes ahFloat { 50% { transform: translateY(-4px); } }
+.asc-ladder { display: grid; gap: 4px; max-height: min(46vh, 380px); overflow-y: auto; padding: 2px; }
+.asc-step { display: grid; grid-template-columns: 34px 22px 1fr; align-items: center; gap: 6px; padding: 4px 8px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.08); animation: stepIn .3s calc(var(--i) * 25ms) backwards; }
+.asc-step .as-emb { width: 32px; height: 32px; display: grid; place-items: center; }
+.asc-step .as-emb .run-ico { width: 32px; height: 32px; image-rendering: pixelated; }
+.asc-step .as-n { font-size: 16px; font-weight: 700; text-align: center; color: var(--muted); }
+.asc-step .as-txt { display: grid; line-height: 1.25; }
+.asc-step .as-txt b { font-size: 12px; }
+.asc-step .as-txt small { font-size: 10px; color: var(--muted); }
+.asc-step.can .as-emb { filter: grayscale(.7) brightness(.85); }
+.asc-step.on { background: linear-gradient(90deg, rgba(142,34,38,.55), rgba(142,34,38,.12)); border-color: rgba(255,138,138,.45); }
+.asc-step.on .as-n, .asc-step.on .as-txt b { color: #FFB3B3; }
+.asc-step.on .as-txt small { color: #FFD0D0; }
+.asc-step.cur { border-color: #FF8A8A; box-shadow: 0 0 10px rgba(232,67,90,.6); }
+.asc-step.cur .as-emb { animation: ahFloat 1.6s ease-in-out infinite; }
+.asc-step.lock { opacity: .4; cursor: default; }
+@keyframes stepIn { from { opacity: 0; transform: translateX(-10px); } }
