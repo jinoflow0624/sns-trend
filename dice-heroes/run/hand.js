@@ -120,6 +120,7 @@ export class Hand {
     const sc = this.o.score(it.card);
     const bet = this.o.bet?.(it.u), gaze = this.o.gazed?.(it.u);
     const key = `${sc}|${bet}|${gaze}`;
+    it.el.classList.toggle('swappable', !!this.o.swappable?.(it.u));   // 교체를 누른 동안 바꿀 수 있는 카드는 반짝
     if (!force && key === it.key) return;
     const prev = it.score;
     it.key = key;

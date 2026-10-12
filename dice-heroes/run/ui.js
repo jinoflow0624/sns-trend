@@ -467,6 +467,7 @@ function showCombat(fresh) {
     targets: () => ({ enemy: $('foe'), self: $('r-hero') }),
     canPlay: () => canAct() && R.C.rolled,
     bet: u => R.C.bet === u, gazed: u => R.C.gazed.includes(u) && !R.C.pure,
+    swappable: u => ui.tool === 'swap' && R.C.swaps > 0 && R.C.bet !== u && canAct(),
     sound: (k, n) => ({ draw: () => sfx.card(), touch: () => sfx.tap(), lift: () => sfx.select(), aim: () => sfx.hold(), nope: () => sfx.back(), slam: () => sfx.whoosh?.(),
       live: () => sfx.tick?.(Math.min(1, 0.35 + n / 50)), dead: () => {} }[k]?.()),
   });
