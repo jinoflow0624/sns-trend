@@ -359,7 +359,8 @@ function showMap() {
     const open = R.pos === n.id && next.has(j);
     return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${walked ? 'walked' : open ? 'open' : ''}"/>`;
   })).join('');
-  // 보스는 들어가기 전까지 ? (막마다 후보 중 하나가 정해져 있지만 보여 주지 않는다)
+  // 보스는 들어가기 전까지 ? (막마다 후보 중 하나가 정해져 있지만 보여 주지 않는다). 마지막 막(마왕)은 실루엣만
+  const lastAct = R.act >= Run.ACTS;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-map">
@@ -372,7 +373,7 @@ function showMap() {
         const st = n.id === R.pos ? 'here' : next.has(n.id) ? 'can' : visited.has(n.id) ? 'done' : 'far';
         const boss = n.type === 'boss';
         return `<button class="mnode t-${n.type} ${st}" data-act="run-node" data-id="${n.id}" style="left:${p.x}%;top:${p.y}px" ${st === 'can' ? '' : 'tabindex="-1"'} aria-label="${Run.NODE[n.type].ko}">
-          ${boss ? '<b class="mboss-q" aria-hidden="true">?</b>' : runIco('node', n.type, Run.NODE[n.type].icon)}
+          ${boss ? (lastAct ? `<img class="mboss shadow" src="${foeURL(R.boss)}" alt="">` : '<b class="mboss-q" aria-hidden="true">?</b>') : runIco('node', n.type, Run.NODE[n.type].icon)}
           ${n.id === R.pos ? `<span class="mhere">${hero(R.cls)}</span>` : ''}
           ${st === 'can' ? `<i class="mlabel">${Run.NODE[n.type].ko}</i>` : ''}
         </button>`;
