@@ -223,7 +223,7 @@ function paintSelect() {
       <span class="rs-count">${ico('card', 'xs')}${deck.length + 1}</span>
     </div>
     <div class="rs-go">
-      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 잡화점 <b>${starIco()}${b.meta.stars}</b></span></button>
+      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 출정 채비 <b>${starIco()}${b.meta.stars}</b></span></button>
       <button class="pbtn gold big" data-act="run-go">원정 떠나기</button>
       <button class="pbtn small trial-btn" data-act="run-trial">시험 원정 · 특별 카드</button>
     </div>
@@ -273,14 +273,14 @@ function showMeta() {
   const rows = [];
   for (let k = 0; k < Run.META.length; k += 3) rows.push(Run.META.slice(k, k + 3));
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box meta-store" data-act="noop">
-    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>잡화점</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
+    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>출정 채비</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
     <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></div>
     <div class="shop-stall meta-stall">${rows.map(shelf).join('')}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
   </div></div>`;
   ui.walletWas = m.stars;
 }
-// 잡화점 물건을 누르면: 설명(지금 → 다음) + 구매 / 취소
+// 출정 채비 물건을 누르면: 설명(지금 → 다음) + 구매 / 취소
 function metaItemTip(el, id) {
   const b = best(), m = b.meta, u = Run.META.find(x => x.id === id);
   if (!u) return;
@@ -1702,7 +1702,7 @@ function showDeck() {
 
 // ── 시험 원정 샌드박스 (테스트판 전용 · 정식 출시 전에 시험 원정 버튼과 함께 지울 것) ──
 // 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 바꾸고, 손패 카드의 점수 계산을 줄줄이 본다.
-const SB_TABS = [['score', '점수'], ['relic', '유물'], ['card', '카드'], ['item', '소모품'], ['foe', '적'], ['omen', '징조']];
+const SB_TABS = [['score', '점수'], ['relic', '유물'], ['card', '카드'], ['item', '소모품'], ['foe', '적'], ['event', '이벤트'], ['omen', '징조']];
 const sbState = () => (ui.sb ||= { tab: R.phase === 'combat' ? 'score' : 'relic', cat: 'ones', up: 0, kws: [], seal: '' });
 function showSandbox() {
   const sb = sbState(), C = R.phase === 'combat' && R.C?.phase === 'roll' ? R.C : null;
@@ -1746,6 +1746,8 @@ function showSandbox() {
     body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
       <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
       ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act}막</small></button>`).join('')}</div>`).join('')}`;
+  } else if (sb.tab === 'event') {
+    body = `<p class="dim">눌러서 그 이벤트로 바로 가기</p><div class="sb-grid events">${Run.EVENTS.map(e => `<button class="sb-ev" data-act="run-sbevent" data-v="${e.id}">${sceneURL(e.id) ? `<img src="${sceneURL(e.id)}" alt="">` : ico(e.art, 'lg')}<span>${esc(e.ko)}</span></button>`).join('')}</div>`;
   } else if (sb.tab === 'omen') {
     body = `<div class="sb-col">${chip('run-sbomen', '', !R.omen, '징조 없음')}${Run.OMENS.map(o => chip('run-sbomen', o.id, R.omen === o.id, `${omenIco(o, 'xs')}<b>${o.ko}</b> <small>${esc(o.desc)}</small>`)).join('')}</div>`;
   }
@@ -1754,7 +1756,8 @@ function showSandbox() {
     <div class="sb-tabs">${SB_TABS.map(([id, ko]) => `<button class="sb-tab${sb.tab === id ? ' on' : ''}" data-act="run-sbtab" data-v="${id}">${ko}</button>`).join('')}</div>
     <div class="sb-body">${body}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="run-sbclose">닫기</button></div>
-  </div></div>`;
+  </div></div>`;  // 유물을 길게 누르면 설명 (짧게 누르면 넣고 빼기)
+  X.layer.querySelectorAll('.sb-relic').forEach(el => longPress(el, () => { const x = Run.relicInfo(el.dataset.v); X.popover(el, `<b>${relicIco(x, 'xs')} ${esc(x.ko)}</b> <small>${['', '일반', '희귀', '보스'][x.r] || ''}</small><p>${esc(x.desc)}</p>`, { afterRelease: true }); }));
 }
 // 샌드박스에서 판을 바꾼 뒤 화면을 다시 그린다 (전투면 손패 · 주사위까지)
 function sbRefresh(panel = true) {
@@ -1787,6 +1790,13 @@ function sbAct(act, t) {
       hp: () => S.res(R, 'hp'), maxhp: () => S.res(R, 'maxHp', 10), god: () => S.god(R, !R.sbGod) }[v];
     if (f) run(f);
     return sbRefresh();
+  }
+  if (act === 'run-sbevent') {
+    if (!run(() => S.event(R, v))) return;
+    save();
+    X.layer.innerHTML = '';
+    hand?.destroy(); hand = null;
+    return enterView(true);
   }
   if (act === 'run-sbfoe') {
     if (!run(() => S.fight(R, v))) return;

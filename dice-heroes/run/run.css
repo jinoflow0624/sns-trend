@@ -1091,3 +1091,11 @@
 .rc-spec { display: flex; align-items: center; justify-content: center; gap: 1px; }
 .rc-spec::before, .rc-spec::after { content: none; }
 .rc-spec .ico { width: 11px; height: 11px; flex: none; }
+/* 시험 원정 · 이벤트 탭: 장면 그림 + 이름 */
+.sb-grid.events { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.sb-ev { display: grid; justify-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; color: #E8E4FF; background: #221B57; border: 2px solid var(--ink); }
+.sb-ev img, .sb-ev .ico.lg { width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated; }
+.sb-relic { -webkit-touch-callout: none; user-select: none; }
+.sb-tabs { grid-template-columns: repeat(7, minmax(0, 1fr)); } .sb-tab { font-size: 11px; padding: 0 1px; }
+/* 샌드박스 창(z 300) 위에서도 설명 창이 보이게 */
+body:has(.run-sb) .popover { z-index: 310; }
