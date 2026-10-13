@@ -638,10 +638,10 @@ test('합연산: 유물 +% 끼리 더하고, 카드 자신의 강화 · 속공�
   assert.equal(sc.total, Math.round(Math.round(Math.round(38 * 1.2) * 1.3) * 1.5));   // 같은 눈 3개 · 강화 · 속공은 곱
   assert.ok(sc.parts.find(p => p.ko === '강화').mul);
 });
-test('인장: 해 ×2 피해 · 구름 보호막 20 · 별 골드 15 · 달은 일회성 복사본', () => {
+test('인장: 해 ×1.5 점수 · 구름 보호막 20 · 별 골드 15 · 달은 일회성 복사본', () => {
   const R = duel([], R => { R.C.dice = [6, 6, 6, 6, 6]; });
   R.C.hand[0] = { u: 8001, cat: 'sixes', up: 0, kws: [], seal: 'sun' };
-  assert.equal(Run.preview(R, 0, 'enemy').dmg, 120);           // 30 × 같은 눈 5개 2 × 해 2
+  assert.equal(Run.preview(R, 0, 'enemy').dmg, 90);            // 30 × 같은 눈 5개 2 × 해 1.5
   R.C.hand[1] = { u: 8002, cat: 'sixes', up: 0, kws: [], seal: 'cloud' };
   assert.equal(Run.preview(R, 1, 'self').block - Run.preview(R, 1, 'self').def, 20);
   const M = duel([], R => { R.C.dice = [6, 6, 6, 6, 6]; });

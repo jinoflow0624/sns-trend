@@ -100,7 +100,7 @@ export function replay({ seed, cls, asc = 0, meta = null, acts = [] }) {
 
 // ── 인장 (족보 카드에 붙이는 일회용 효과. 붙은 카드를 한 번 내면 터지고 사라진다) ──
 export const SEALS = {
-  sun:   { ko: '해 인장',   icon: 'sun',     color: '#FFB020', desc: '이 카드로 주는 피해 ×2' },
+  sun:   { ko: '해 인장',   icon: 'sun',     color: '#FFB020', desc: '이 카드 점수 ×1.5' },
   moon:  { ko: '달 인장',   icon: 'sparkle', color: '#B9C8FF', desc: '낸 뒤, 이 카드의 달빛 복사본이 다음 턴 손패로 온다 (복사본은 한 번 쓰면 달이 지듯 사라진다)' },
   star:  { ko: '별 인장',   icon: 'star',    color: '#FFE27A', desc: '골드 +15' },
   cloud: { ko: '구름 인장', icon: 'fog',     color: '#CFE6FF', desc: '보호막 +20' },
@@ -1119,6 +1119,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     // 같은 눈 보너스 (숫자 카드 자신의 효과라 곱연산): 맞는 주사위 3개 ×1.2 · 4개 ×1.5 · 5개 ×2
     if (isUpper(card.cat)) { const n = Math.round(base / (UPPER.indexOf(card.cat) + 1)); const m = SAME_BONUS[Math.min(5, n)] || 0; if (m) mulBy(`같은 눈 ${n}개`, m); }
     if (card.up) mulBy('강화', UP_MUL);
+    if (card.seal === 'sun') { mulBy('해 인장', 0.5); if (hasRelic(R, 'goldframe')) mulBy('해 인장 (황금 인장틀)', 0.5); }   // 카드에 붙은 효과라 곱연산
     if (C && hasKw(card, 'quick') && C.rollNo === 1) mulBy('속공', 0.5);
   }
   const notes = notes0;
@@ -1155,7 +1156,7 @@ function splitOut(R, card, sc, want) {
     if (hasRelic(R, 'bloodsword') && R.kills) out.bsword = Math.round(R.kills * share);
     let d = atk + out.whet + out.arcane + (out.kal || 0) + (out.bsword || 0);
     // 해 인장: 피해 ×2 (카드에 붙은 효과라 곱연산. 황금 인장틀이면 두 번)
-    if (card.seal === 'sun') { d *= hasRelic(R, 'goldframe') ? 4 : 2; out.sun = true; }
+
     if (hasRelic(R, 'combo') && (card.cat === 'sstr' || card.cat === 'lstr')) { d *= 2; out.combo = true; }
     if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
     if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
