@@ -301,7 +301,7 @@ const shownBlk = () => (ui.show ? ui.show.blk : R.C?.block || 0);
 function hud() {
   const C = R.C;
   const fl = Run.floorOf(R);
-  return `<header class="rhud">
+  return `${R.trial ? '<button class="sb-open" data-act="run-sb" aria-label="샌드박스">시험</button>' : ''}<header class="rhud">
     <button class="icon-btn" data-act="run-menu" aria-label="메뉴">☰</button>
     <div class="rh-act" ${X.tipAttr(`${R.act}막${R.asc ? ` · 하드모드 ${R.asc}` : ''}`, `${Run.ROWS}층 + 보스 · 3막까지`)}><small>${R.act}막${R.asc ? ` · 하드모드${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
     <div class="rh-res">
@@ -1685,6 +1685,105 @@ function showDeck() {
   </div></div>`;
 }
 
+// ── 시험 원정 샌드박스 (테스트판 전용 · 정식 출시 전에 시험 원정 버튼과 함께 지울 것) ──
+// 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 바꾸고, 손패 카드의 점수 계산을 줄줄이 본다.
+const SB_TABS = [['score', '점수'], ['relic', '유물'], ['card', '카드'], ['item', '소모품'], ['foe', '적'], ['omen', '징조']];
+const sbState = () => (ui.sb ||= { tab: R.phase === 'combat' ? 'score' : 'relic', cat: 'ones', up: 0, kws: [], seal: '' });
+function showSandbox() {
+  const sb = sbState(), C = R.phase === 'combat' && R.C?.phase === 'roll' ? R.C : null;
+  const chip = (act, v, on, label, extra = '') => `<button class="sb-chip${on ? ' on' : ''}" data-act="${act}" data-v="${v}"${extra}>${label}</button>`;
+  let body = '';
+  if (sb.tab === 'score') {
+    if (!C) body = '<p class="dim">전투 중에만 볼 수 있어요. 「적」 탭에서 싸울 적을 고르세요.</p>';
+    else {
+      const dice = C.rolled ? C.dice : [];
+      body = `<h3>주사위 <small>${C.rolled ? '눈을 눌러 바꾸기' : '먼저 굴려 주세요'}</small></h3>
+        <div class="sb-dice">${dice.map((v, i) => `<button class="sb-die" data-act="run-sbdie" data-i="${i}">${miniDie(v)}<b>${v}</b></button>`).join('')}</div>
+        <div class="sb-row">${chip('run-sbx', 'rolls', false, '굴림 +1')}${chip('run-sbx', 'hex', false, '방해 · 약화 풀기')}${chip('run-sbx', 'foe999', false, '적 체력 999')}${chip('run-sbx', 'foe1', false, '적 체력 1')}</div>
+        <h3>손패 점수 계산</h3>
+        ${C.hand.map((c, hi) => {
+          if (!C.rolled) return `<div class="sb-score"><b>${esc(Run.cardName(c))}</b><span class="dim">굴린 뒤에 계산</span></div>`;
+          const sc = Run.scoreCard(R, c), a = Run.preview(R, hi, 'enemy', sc), d = Run.preview(R, hi, 'self', sc);
+          return `<div class="sb-score"><b>${esc(Run.cardName(c))}${c.seal ? ` ${sealIco(c.seal)}` : ''}</b>
+            <ol><li>기본 점수 <em>${sc.base}</em></li>${sc.parts.map(p => `<li class="${p.mul ? 'mul' : ''}">${esc(p.ko)} <em>${p.amt > 0 ? '+' : ''}${p.amt}</em>${p.mul ? ' <small>곱</small>' : ''}</li>`).join('')}${sc.notes.map(n => `<li class="note">${esc(n)}</li>`).join('')}</ol>
+            <p class="sb-tot">= <b>${sc.total}</b> · ${ico('sword', 'xs')}피해 ${a.dmg}${a.gold ? ` · ${ico('coins', 'xs')}${a.gold}` : ''} · ${ico('shield', 'xs')}전부 방어 ${d.block}</p></div>`;
+        }).join('')}`;
+    }
+  } else if (sb.tab === 'relic') {
+    const grp = [[1, '일반'], [2, '희귀'], [3, '보스']];
+    body = `<p class="dim">눌러서 넣고 빼기 · 가진 유물 ${R.relics.length}개</p>${grp.map(([r, ko]) => `<h3>${ko}</h3><div class="sb-grid">${Run.RELICS.filter(x => x.r === r).map(x => `<button class="sb-relic${Run.hasRelic(R, x.id) ? ' on' : ''}" data-act="run-sbrelic" data-v="${x.id}" title="${esc(x.desc)}">${relicIco(x, 'xs')}<span>${esc(x.ko)}</span></button>`).join('')}</div>`).join('')}`;
+  } else if (sb.tab === 'card') {
+    const preview = { u: -7, cat: sb.cat, up: sb.up, kws: sb.kws, seal: sb.seal || null };
+    body = `<h3>족보</h3><div class="sb-row">${Run.SAME_CATS_ALL.map(c => chip('run-sbcat', c, sb.cat === c, esc(Run.cardTitle(c)))).join('')}</div>
+      <h3>효과 <small>3개까지</small></h3><div class="sb-row">${Run.KW_IDS.map(k => chip('run-sbkw', k, sb.kws.includes(k), `${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')}${Run.KEYWORDS[k].ko}`)).join('')}</div>
+      <h3>강화 · 인장</h3><div class="sb-row">${chip('run-sbup', 1, sb.up, '강화 +')}${chip('run-sbseal', '', !sb.seal, '인장 없음')}${Run.SEAL_IDS.map(id => chip('run-sbseal', id, sb.seal === id, `${sealIco(id)}${Run.sealInfo(id).ko}`)).join('')}</div>
+      <div class="sb-make"><div class="rc rc-static">${cardFace(preview)}</div><div class="sb-col">
+        <button class="pbtn small gold" data-act="run-sbadd" data-v="deck">덱에 넣기</button>
+        ${C ? '<button class="pbtn small" data-act="run-sbadd" data-v="hand">손패에 바로 넣기</button>' : ''}</div></div>
+      <h3>내 덱 <small>${R.deck.length}장 · 눌러서 빼기</small></h3>
+      <div class="deck-grid">${Run.deckCards(R).map(c => `<button class="rc rc-static mini sb-del" data-act="run-sbdel" data-v="${c.u}">${cardFace(c)}</button>`).join('')}</div>`;
+  } else if (sb.tab === 'item') {
+    body = `<h3>물약 <small>${R.potions.length}/${Run.POTION_SLOTS}</small></h3><div class="sb-row">${Run.POTIONS.map(p => chip('run-sbpot', p.id, false, `${runIco('potion', p.id, p.icon, 'xs')}${p.ko}`)).join('')}${chip('run-sbx', 'nopot', false, '물약 비우기')}</div>
+      <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}</div>
+      <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
+  } else if (sb.tab === 'foe') {
+    const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스']];
+    body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
+      <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
+      ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act}막</small></button>`).join('')}</div>`).join('')}`;
+  } else if (sb.tab === 'omen') {
+    body = `<div class="sb-col">${chip('run-sbomen', '', !R.omen, '징조 없음')}${Run.OMENS.map(o => chip('run-sbomen', o.id, R.omen === o.id, `${omenIco(o, 'xs')}<b>${o.ko}</b> <small>${esc(o.desc)}</small>`)).join('')}</div>`;
+  }
+  X.layer.innerHTML = `<div class="overlay run-sb" data-act="close-bg"><div class="deck-box sb-box" data-act="noop">
+    <h2>시험 원정 · 샌드박스</h2>
+    <div class="sb-tabs">${SB_TABS.map(([id, ko]) => `<button class="sb-tab${sb.tab === id ? ' on' : ''}" data-act="run-sbtab" data-v="${id}">${ko}</button>`).join('')}</div>
+    <div class="sb-body">${body}</div>
+    <div class="pick-actions"><button class="pbtn small gold" data-act="run-sbclose">닫기</button></div>
+  </div></div>`;
+}
+// 샌드박스에서 판을 바꾼 뒤 화면을 다시 그린다 (전투면 손패 · 주사위까지)
+function sbRefresh(panel = true) {
+  save();
+  if (R.phase === 'combat' && hand && R.C) { hand.set(R.C.hand, 'instant'); paint(); if (R.C.rolled) X.tray()?.show(R.C.dice, R.C.held); }
+  else if (R.phase !== 'combat') enterView();
+  if (panel) showSandbox();
+}
+function sbAct(act, t) {
+  const sb = sbState(), v = t.dataset.v, S = Run.sandbox;
+  const run = fn => { try { fn(); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1400); return false; } drain(); return true; };
+  sfx.tap();
+  if (act === 'run-sb') { sfx.select(); return showSandbox(); }
+  if (act === 'run-sbclose') { X.layer.innerHTML = ''; return sbRefresh(false); }
+  if (act === 'run-sbtab') { sb.tab = v; return showSandbox(); }
+  if (act === 'run-sbcat') { sb.cat = v; return showSandbox(); }
+  if (act === 'run-sbkw') { sb.kws = sb.kws.includes(v) ? sb.kws.filter(k => k !== v) : sb.kws.length < Run.KW_MAX ? [...sb.kws, v] : sb.kws; return showSandbox(); }
+  if (act === 'run-sbup') { sb.up = sb.up ? 0 : 1; return showSandbox(); }
+  if (act === 'run-sbseal') { sb.seal = v; return showSandbox(); }
+  if (act === 'run-sbadd') { if (run(() => S.card(R, sb, v === 'hand'))) X.toast(ico('card'), '카드를 넣었어요', v === 'hand' ? '손패 · 덱' : '덱', 900); return sbRefresh(); }
+  if (act === 'run-sbdel') { run(() => S.removeCard(R, Number(v))); return sbRefresh(); }
+  if (act === 'run-sbrelic') { run(() => S.relic(R, v)); return sbRefresh(); }
+  if (act === 'run-sbpot') { run(() => S.potion(R, v)); return sbRefresh(); }
+  if (act === 'run-sbomen') { run(() => S.omen(R, v)); return sbRefresh(); }
+  if (act === 'run-sbact') { run(() => S.act(R, Number(v))); return sbRefresh(); }
+  if (act === 'run-sbdie') { const i = Number(t.dataset.i); run(() => S.dice(R, i, R.C.dice[i] % 6 + 1)); return sbRefresh(); }
+  if (act === 'run-sbx') {
+    const f = { rolls: () => S.rolls(R, 1), hex: () => S.clearHex(R), foe999: () => S.foeHp(R, 999), foe1: () => S.foeHp(R, 1), nopot: () => S.clearPotions(R),
+      gold: () => S.res(R, 'gold', 100), flip: () => S.res(R, 'flip', 1), nudge: () => S.res(R, 'nudge', 1), dance: () => S.res(R, 'dance', 1),
+      hp: () => S.res(R, 'hp'), maxhp: () => S.res(R, 'maxHp', 10), god: () => S.god(R, !R.sbGod) }[v];
+    if (f) run(f);
+    return sbRefresh();
+  }
+  if (act === 'run-sbfoe') {
+    if (!run(() => S.fight(R, v))) return;
+    save();
+    X.layer.innerHTML = '';
+    ui.sb.tab = 'score';
+    const kind = Run.ENEMIES[v].kind;
+    const song = kind === 'boss' ? bossSong(v) : kind === 'elite' ? 'run_elite' : 'run_battle';
+    return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady()]).then(() => enterView(true));
+  }
+}
+
 // ── 결과 ─────────────────────────────────────────────────────────────────────
 function showEnd() {
   hand?.destroy(); hand = null;
@@ -1739,7 +1838,7 @@ function showMenu() {
     <p class="hint">${R.act}막 · ${esc(Run.ACT_INFO[R.act].ko)} · 체력 ${R.hp}/${R.maxHp}</p>
     <div class="modal-actions">
       <button class="pbtn gold" data-act="close">계속하기</button>
-      <button class="pbtn" data-act="run-deck">덱 보기</button>
+      <button class="pbtn" data-act="run-deck">덱 보기</button>${R.trial ? '\n      <button class="pbtn" data-act="run-sb">샌드박스</button>' : ''}
       <button class="pbtn" data-act="settings">설정</button>
       <button class="pbtn" data-act="run-home">메인 메뉴로</button>
       <button class="pbtn danger" data-act="run-giveup">원정 포기</button>
@@ -1803,6 +1902,7 @@ export function onAct(act, t) {
   }
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
+  if (act.startsWith('run-sb')) return R.trial ? sbAct(act, t) : undefined;
   if (act === 'run-giveup') {
     if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = '한 번 더 누르면 포기해요'; sfx.select(); return; }
     try { Run.giveUp(R); } catch { /* 이미 끝남 */ }

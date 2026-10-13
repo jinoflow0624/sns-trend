@@ -816,6 +816,32 @@ test('시험 원정: 특별 카드 3장 · 전용 유물 3개를 들고 출발',
   assert.deepEqual(R.deck.filter(c => Run.isSpecial(c.cat)).map(c => c.cat).sort(), ['ones', 'threes', 'twos']);
   for (const id of ['cape', 'culture', 'prism']) assert.ok(Run.hasRelic(R, id));
 });
+test('시험 원정 샌드박스: 유물 · 카드 · 물약 · 징조 · 적 · 주사위 · 무적 (시험 원정에서만)', () => {
+  const N = mk({ cls: 'gambler', seed: 4 });
+  assert.throws(() => Run.sandbox.relic(N, 'coin'));
+  const R = Run.trialKit(mk({ cls: 'monk', seed: 4 }));
+  Run.sandbox.relic(R, 'coin'); assert.ok(Run.hasRelic(R, 'coin'));
+  Run.sandbox.relic(R, 'coin'); assert.ok(!Run.hasRelic(R, 'coin'));
+  const c = Run.sandbox.card(R, { cat: 'yacht', up: 1, kws: ['guard', 'vamp'], seal: 'sun' });
+  assert.ok(R.deck.some(x => x.u === c.u && x.seal === 'sun' && x.up));
+  Run.sandbox.potion(R, 'fire'); assert.ok(R.potions.includes('fire'));
+  Run.sandbox.omen(R, 'glass'); assert.equal(R.omen, 'glass');
+  Run.sandbox.act(R, 3);
+  Run.sandbox.fight(R, 'orc');
+  assert.equal(R.phase, 'combat'); assert.equal(R.C.e.id, 'orc');
+  Run.roll(R);
+  Run.sandbox.dice(R, 0, 6); assert.equal(R.C.dice[0], 6);
+  Run.sandbox.god(R, true); R.hp = 1;
+  R.C.e.intent = { ko: '테스트', atk: 999 }; R.C.block = 0;
+  Run.playCard(R, 0, 'self');
+  assert.equal(R.hp, 1); assert.ok(!R.ended);                     // 무적: 죽지 않는다
+  Run.sandbox.foeHp(R, 1); R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6]; R.C.e.block = 0; R.C.hand[0] = { u: 7777, cat: 'choice', up: 0, kws: [] };
+  Run.playCard(R, 0, 'enemy');
+  assert.equal(R.phase, 'reward');                                 // 3막 보스여도 원정이 끝나지 않는다
+  Run.leaveReward(R);
+  assert.equal(R.phase, 'map'); assert.equal(R.act, 3);
+  Run.sandbox.removeCard(R, c.u); assert.ok(!R.deck.some(x => x.u === c.u));
+});
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
 test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
   for (const [cls, seed] of [['gambler', 3], ['warrior', 11], ['bard', 21], ['sharper', 8]]) {

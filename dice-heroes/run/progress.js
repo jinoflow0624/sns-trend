@@ -53,6 +53,7 @@ export async function startRun(cls, asc) {
 
 // 원정 끝: { stars, won, opened, fresh } — 배포판은 서버가 행동 기록을 다시 돌려 계산한다
 export async function finishRun(R) {
+  if (R.trial) return { stars: 0, won: !!R.won, opened: false, fresh: [], trial: true };   // 시험 원정은 기록 · 별조각에 넣지 않는다
   if (!PROD) { const out = Run.recordRun(progress(), R); saveLocal(); syncRunAch(progress()); return out; }
   if (!R.xid) return { stars: 0, won: !!R.won, opened: false, fresh: [], offline: true };
   try {
