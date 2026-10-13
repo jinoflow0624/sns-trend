@@ -26,7 +26,8 @@ test('직업마다 시작 덱 9장 · 체력 · 도구', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {
     const R = run(cls);
     const ci = Run.RUN_CLASSES[cls];
-    assert.equal(R.deck.length, Run.BASE_DECK.length + 1);
+    assert.equal(R.deck.length, Run.BASE_DECK.length + 2);
+    assert.equal(R.deck.filter(c => Run.isSpecial(c.cat)).length, 1);     // 특별 카드 1장
     assert.equal(R.hp, ci.hp);
     assert.equal(R.flip, ci.flip);
     assert.equal(R.deck.at(-1).cat, ci.sig.cat);
@@ -197,7 +198,7 @@ test('다 막을 만큼만 방어하고 나머지는 공격 (coverAtk)', () => {
   assert.ok(Run.takenAfter(R, Run.preview(R, 0, c.atk + 1)) > 0);
   assert.ok(Run.coverAtk(R, 1).atk > c.atk);                // 수호는 덜 방어해도 다 막는다
   R.C.e.intent = { ko: '큰 공격', atk: 200 };
-  assert.deepEqual(Run.coverAtk(R, 0), { atk: 0, full: false });
+  assert.deepEqual(Run.coverAtk(R, 0), { atk: 0, gold: 0, full: false });
 });
 test('보존: 턴이 끝나도 손패에 남고, 나머지 카드만 버린다', () => {
   const R = run('rogue');
@@ -236,7 +237,7 @@ test('낮은 족보 유물: 에이스의 긍지 · 수집가의 상자 · 작은
   assert.equal(Run.preview(R, 0, 'enemy').dmg, 60);
 });
 test('덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다', () => {
-  const count = relics => { const R = run('rogue', 3); R.relics = relics; let n = 0; for (let k = 0; k < 400; k++) if (Run.isUpper(Run.rollCard(R, 1).cat)) n++; return n; };
+  const count = relics => { const R = run('rogue', 3); R.relics = relics; let n = 0; for (let k = 0; k < 400; k++) if (Run.isUpper(Run.rollCard(R, 2).cat)) n++; return n; };
   assert.ok(count(['ace', 'small']) > count([]) * 2);
 });
 test('승천: 단계가 쌓이며 적 · 회복 · 체력이 바뀐다', () => {
@@ -714,11 +715,14 @@ test('새 유물을 모두 가진 봇도 원정을 끝까지 진행한다 (막�
   }
 });
 
-test('시작 덱: 초이스는 1장 (직업 대표 카드는 그대로) · 원정 준비 인장 상자', () => {
+test('시작 덱: 초이스 없음 (직업 대표 카드는 그대로) · 특별 카드 1장 · 원정 준비 인장 상자', () => {
   const R = mk({ cls: 'gambler', seed: 1 });
-  assert.equal(R.deck.filter(c => c.cat === 'choice').length, 1);
+  assert.equal(R.deck.filter(c => c.cat === 'choice').length, 0);
   const M = mk({ cls: 'monk', seed: 1 });
-  assert.equal(M.deck.filter(c => c.cat === 'choice').length, 2);     // 수도승 대표 카드(초이스)
+  assert.equal(M.deck.filter(c => c.cat === 'choice').length, 1);     // 수도승 대표 카드(초이스)
+  const seen = new Set();
+  for (let s = 1; s <= 40; s++) seen.add(mk({ cls: 'gambler', seed: s }).deck.find(c => Run.isSpecial(c.cat)).cat);
+  assert.equal(seen.size, 3);
   const S = mk({ cls: 'warrior', seed: 2, meta: { lv: { seal: 3 }, equip: [] } });
   assert.equal(S.deck.filter(c => c.seal).length, 3);
 });
@@ -745,6 +749,66 @@ test('2막: 3층은 모두 이벤트이고, 2막의 첫 이벤트는 주사위 �
   Run.enterNode(R, r2.next[0]);
   assert.equal(R.event.id, 'carver');
   assert.equal(Math.max(...R.map.nodes.map(n => n.row)), Run.ROWS + 1);
+});
+
+console.log('\n특별 카드 (에이스 · 듀스 · 트레이)');
+test('특별 카드는 실버 등급, 일반(브론즈) 보상에는 나오지 않는다', () => {
+  const R = run('rogue', 5);
+  for (const cat of Run.SPECIAL_CATS) assert.equal(Run.cardRarity({ cat, kws: [] }), 2);
+  for (let k = 0; k < 300; k++) assert.ok(!Run.isSpecial(Run.rollCard(R, 1).cat));
+  let n = 0; for (let k = 0; k < 300; k++) if (Run.isSpecial(Run.rollCard(R, 2).cat)) n++;
+  assert.ok(n > 0);
+});
+test('에이스 <주인공>: 낼 때마다 기본 점수 +2 영구 (망토 +3, 달빛 복사본도 원래 카드를 키운다)', () => {
+  const R = duel([], R => { R.C.dice = [1, 1, 5, 5, 6]; });
+  R.deck.push({ u: 7001, cat: 'ones', up: 0, kws: [], seal: 'moon' });
+  R.C.hand[0] = { u: 7001, cat: 'ones', up: 0, kws: [], seal: 'moon' };
+  assert.equal(Run.scoreCard(R, R.C.hand[0]).total, 2);
+  Run.playCard(R, 0, 'enemy');
+  assert.equal(R.deck.find(c => c.u === 7001).grow, 2);
+  const copy = R.C.hand.find(c => c.temp);
+  R.C.rolled = true; R.C.dice = [2, 3, 4, 5, 6];
+  assert.equal(Run.scoreCard(R, copy).total, 2);                  // 1이 없어도 자란 만큼은 나온다
+  Run.playCard(R, R.C.hand.indexOf(copy), 'enemy');
+  assert.equal(R.deck.find(c => c.u === 7001).grow, 4);
+  const M = duel(['cape'], R => { R.C.dice = [1, 2, 3, 4, 6]; });
+  M.deck.push({ u: 7002, cat: 'ones', up: 0, kws: [] }); M.C.hand[0] = { u: 7002, cat: 'ones', up: 0, kws: [] };
+  Run.playCard(M, 0, 'enemy');
+  assert.equal(M.deck.find(c => c.u === 7002).grow, 3);
+});
+test('듀스 <두배>: 2,4,8,16,32 (세포배양관이면 4 ~ 64), 같은 눈 보너스 없음', () => {
+  const R = duel([]);
+  const two = { u: 7003, cat: 'twos', up: 0, kws: [] };
+  for (const [d, v] of [[[2, 1, 3, 4, 5], 2], [[2, 2, 3, 4, 5], 4], [[2, 2, 2, 4, 5], 8], [[2, 2, 2, 2, 5], 16], [[2, 2, 2, 2, 2], 32], [[1, 3, 4, 5, 6], 0]]) {
+    R.C.dice = d; assert.equal(Run.scoreCard(R, two).total, v);
+  }
+  const C = duel(['culture'], R => { R.C.dice = [2, 2, 2, 2, 2]; });
+  assert.equal(Run.scoreCard(C, two).total, 64);
+  C.C.dice = [2, 1, 3, 4, 5]; assert.equal(Run.scoreCard(C, two).total, 4);
+});
+test('트레이 <삼위일체>: 점수만큼 공격 · 방어 · 골드, 나눌 수 없다 (프리즘이면 3배를 나눈다)', () => {
+  const R = duel([], R => { R.C.dice = [3, 3, 3, 5, 6]; R.C.e.block = 0; });
+  R.C.hand[0] = { u: 7004, cat: 'threes', up: 0, kws: [] };
+  const S = Run.scoreCard(R, R.C.hand[0]).total;
+  for (const want of ['enemy', 'self', 3]) {
+    const p = Run.preview(R, 0, want);
+    assert.equal(p.atk, S); assert.equal(p.def, S); assert.equal(p.gold, S); assert.equal(p.dmg, S);
+  }
+  const g0 = R.gold;
+  Run.playCard(R, 0, 'self');
+  assert.equal(R.gold, g0 + S);
+  const P = duel(['prism'], R => { R.C.dice = [3, 3, 3, 5, 6]; R.C.e.block = 0; });
+  P.C.hand[0] = { u: 7005, cat: 'threes', up: 0, kws: [] };
+  const q = Run.preview(P, 0, 10, null, 5);
+  assert.equal(q.atk, 10); assert.equal(q.gold, 5); assert.equal(q.def, S * 3 - 15);
+  P.C.e.intent = { ko: '테스트', atk: 6 };
+  const c = Run.coverAtk(P, 0);
+  assert.ok(c.full && Math.abs(c.atk - c.gold) <= 1);             // 딱 막기: 남은 몫은 공격 · 골드 반반
+  assert.equal(Run.takenAfter(P, Run.preview(P, 0, c.atk, null, c.gold)), 0);
+});
+test('특별 카드 전용 유물: 그 카드가 덱에 있으면 더 잘 나온다', () => {
+  const freq = (deckCat) => { const R = run('rogue', 6); R.deck = R.deck.filter(c => !Run.isSpecial(c.cat)); if (deckCat) R.deck.push({ u: 999, cat: deckCat, up: 0, kws: [] }); let n = 0; for (let k = 0; k < 3000; k++) if (Run.rollRelic(R, 2) === 'cape') n++; return n; };
+  assert.ok(freq('ones') > freq(null));
 });
 
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');

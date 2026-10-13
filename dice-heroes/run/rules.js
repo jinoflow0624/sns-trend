@@ -148,17 +148,29 @@ export const CAT_SHORT = { ones: '1', twos: '2', threes: '3', fours: '4', fives:
 // 카드 앞면에 쓰는 이름 (줄이지 않는다. 긴 이름은 카드 안에서 두 줄로 나뉜다)
 export const cardTitle = cat => catInfo(cat).ko;
 export const CAT_RULE = {
-  ones: '1의 개수 × 1', twos: '2의 개수 × 2', threes: '3의 개수 × 3', fours: '4의 개수 × 4', fives: '5의 개수 × 5', sixes: '6의 개수 × 6',
+  ones: '1의 개수 + 성장', twos: '2 하나마다 점수 두 배', threes: '3의 개수 × 3', fours: '4의 개수 × 4', fives: '5의 개수 × 5', sixes: '6의 개수 × 6',
   choice: '주사위 5개 합', four: '같은 눈 4개 → 5개 합', full: '3개 + 2개 → 5개 합',
   sstr: '연속 4개 → 20', lstr: '연속 5개 → 30', yacht: '5개 모두 같음 → 50',
 };
+// 에이스 · 듀스 · 트레이: 원정에서는 실버 등급의 특별 카드 (시작 덱에 무작위 1장, 보상은 실버 이상에서만)
+export const SPECIAL = {
+  ones: { ko: '주인공', icon: 'crown', desc: '낼 때마다 이 카드의 기본 점수가 영구히 +2' },
+  twos: { ko: '두배', icon: 'sparkle', desc: '2가 하나면 2점, 2가 하나 늘 때마다 두 배 (2 → 4 → 8 → 16 → 32)' },
+  threes: { ko: '삼위일체', icon: 'star', desc: '점수만큼 공격 · 방어 · 골드를 모두 얻는다 (공격 · 방어를 나눌 수 없다)' },
+};
+export const SPECIAL_CATS = Object.keys(SPECIAL);
+export const isSpecial = cat => SPECIAL_CATS.includes(cat);
+export const HERO_GROW = 2;       // 주인공: 낼 때마다 기본 점수 +2 (회귀자의 망토면 +3)
+export const heroGrow = R => HERO_GROW + (hasRelic(R, 'cape') ? 1 : 0);
+// 두배: 2가 n개면 2^n (세포배양관이면 2^(n+1))
+export const twoScore = (R, n) => (n > 0 ? 2 ** (n + (hasRelic(R, 'culture') ? 1 : 0)) : 0);
 export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${catInfo(c.cat).ko}${c.up ? '+' : ''}`;
 // 희귀도: 1 일반(키워드 없음) · 2 희귀(키워드) · 3 전설(키워드 + 강화, 또는 강화 요트)
 export const KW_MAX = 3;                 // 카드 한 장에 붙는 효과는 3개까지 (강화로 하나씩 새긴다)
 export const kwsOf = c => c.kws || (c.kw ? [c.kw] : []);
 export const hasKw = (c, k) => kwsOf(c).includes(k);
-// 초이스는 아무 때나 낼 수 있는 족보라 그 자체로 실버(2) 이상
-export const cardRarity = c => { const n = kwsOf(c).length; return n >= 2 || (n && c.up) || (c.cat === 'yacht' && c.up) ? 3 : n || c.cat === 'choice' ? 2 : 1; };
+// 초이스(아무 때나 낼 수 있는 족보) · 에이스 · 듀스 · 트레이(특별 카드)는 그 자체로 실버(2) 이상
+export const cardRarity = c => { const n = kwsOf(c).length; return n >= 2 || (n && c.up) || (c.cat === 'yacht' && c.up) ? 3 : n || c.cat === 'choice' || isSpecial(c.cat) ? 2 : 1; };
 function mkCard(R, cat, up = 0, kws = []) { return { u: ++R.uid, cat, up: up ? 1 : 0, kws: [kws].flat().filter(Boolean) }; }
 // 강화할 수 있는 카드: 아직 +30% 강화를 안 했거나, 효과 칸이 남았다
 export const canUpgrade = c => !c.up || kwsOf(c).length < KW_MAX;
@@ -274,7 +286,8 @@ function checkFeats(R) {
 // ── 직업 (원정용 능력) ──────────────────────────────────────────────────────
 // 보석 해금 직업이 무료 직업(도박사 · 수도승)보다 조금 더 잘 이기도록 맞춘다 (sim/run.mjs).
 // sig: 직업마다 시작 덱에 한 장 더 들어가는 대표 카드
-export const BASE_DECK = ['choice', 'fours', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];   // 초이스는 1장만 (나머지 한 장은 포스)
+// 기본 덱에는 초이스가 없다. 대신 특별 카드(에이스 · 듀스 · 트레이) 중 무작위 1장이 들어간다 (createRun)
+export const BASE_DECK = ['fours', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];
 export const RUN_CLASSES = {
   gambler: { hp: 76, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}. 전투에서 얻는 골드 +25%`; } },
@@ -380,7 +393,13 @@ export const RELICS = [
   { id: 'sandbank',  ko: '모래 저금통',     icon: 'hourglass', r: 2, desc: '쓰지 않고 남긴 굴림을 다음 턴으로 넘긴다 (최대 +2)' },
   { id: 'zero',      ko: '0점의 기적',      icon: 'sparkle',   r: 1, desc: '0점으로 낸 카드는 그 카드가 영구히 +20% (쌓인다)' },
   { id: 'loupe',     ko: '감정사의 돋보기', icon: 'eye',       r: 1, desc: '유물을 고를 때 3개가 아니라 4개 중에서 고른다' },
+  // 특별 카드 전용 (그 카드가 덱에 있으면 더 잘 나온다)
+  { id: 'cape',      ko: '회귀자의 망토',   icon: 'crown',     r: 2, desc: '에이스 <주인공>: 낼 때마다 기본 점수가 +2 대신 +3 자란다' },
+  { id: 'culture',   ko: '세포배양관',      icon: 'potion',    r: 2, desc: '듀스 <두배>: 점수가 한 단계 커진다 (4 → 8 → 16 → 32 → 64)' },
+  { id: 'prism',     ko: '프리즘',          icon: 'gem',       r: 2, desc: '트레이 <삼위일체>: 점수 3배를 공격 · 방어 · 골드로 마음대로 나눌 수 있다' },
 ];
+// 특별 카드 전용 유물 ↔ 그 카드
+export const SPECIAL_RELIC = { cape: 'ones', culture: 'twos', prism: 'threes' };
 export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
 export const relicChoices = R => 3 + (hasRelic(R, 'loupe') ? 1 : 0);
 // 덱 빌딩 유물 ↔ 그 계열 카드
@@ -583,6 +602,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
     ended: false, won: false, last: null,
   };
   for (const cat of BASE_DECK) R.deck.push(mkCard(R, cat));
+  R.deck.push(mkCard(R, pick(R, SPECIAL_CATS)));      // 특별 카드 1장 (에이스 · 듀스 · 트레이 중 무작위)
   R.deck.push(mkCard(R, ci.sig.cat, 0, ci.sig.kw || []));
   // 원정 성장
   R.gold += ml('gold') * 20;
@@ -1030,12 +1050,18 @@ export const dropPotion = act('dropPotion', (R, slot) => { R.potions.splice(slot
 export const SAME_BONUS = { 3: 0.2, 4: 0.5, 5: 1 };
 // 균형의 추: 1의 눈을 6으로 셀 수 있다 → 1을 6으로 바꾼 모든 경우 중 가장 좋은 점수
 function bestBase(R, cat, dice) {
-  const one = (d) => Math.max(0, ...fiveSets(d).map(set => baseScore(cat, set)));
+  const bs = set => (cat === 'twos' ? twoScore(R, set.filter(v => v === 2).length) : baseScore(cat, set));
+  const one = (d) => Math.max(0, ...fiveSets(d).map(bs));
   if (!hasRelic(R, 'balance') || !dice.includes(1)) return one(dice);
   const ones = dice.map((v, i) => (v === 1 ? i : -1)).filter(i => i >= 0);
   let best = 0;
   for (let m = 0; m < 1 << ones.length; m++) best = Math.max(best, one(dice.map((v, i) => (ones.includes(i) && m & (1 << ones.indexOf(i)) ? 6 : v))));
   return best;
+}
+// 숫자 카드에 맞는 주사위 수 (듀스는 점수가 2^n 이라 거꾸로 센다)
+function upN(R, cat, base) {
+  if (cat === 'twos') return base > 0 ? Math.round(Math.log2(base)) - (hasRelic(R, 'culture') ? 1 : 0) : 0;
+  return Math.round(base / (UPPER.indexOf(cat) + 1));
 }
 // 점수 계산 규칙 (사용자 결정): 유물 · 직업 · 물약 · 징조의 배수는 모두 합연산 (+% 끼리 더해 한 번에 곱한다).
 // 곱연산은 카드 자신의 것만: 강화(+30%) · 속공(×1.5). 응시 · 약화는 마지막에.
@@ -1044,14 +1070,18 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   let base = dice.length && !dice.includes(0) ? bestBase(R, card.cat, dice) : 0;
   const parts = [];
   const notes0 = [];
-  if (base > 0 && omen(R, 'forbid') && R.omenCat === card.cat) { base = 0; notes0.push('금지된 족보'); }
+  const forbid = omen(R, 'forbid') && R.omenCat === card.cat;
+  if (base > 0 && forbid) { base = 0; notes0.push('금지된 족보'); }
+  // 주인공(에이스): 낼 때마다 자란 기본 점수. 1이 없어도 붙는다
+  const hero = card.cat === 'ones' && card.grow && dice.length && !dice.includes(0) && !forbid ? card.grow : 0;
+  const on = base > 0 || hero > 0;
   // 유물이 기본 점수를 바꾼다 (에이스의 긍지 · 수집가의 상자 · 질풍). 배율은 바뀐 기본 점수에 붙는다
   let adj = base;
-  if (base > 0) {
+  if (on) {
     if (isUpper(card.cat)) {
-      const f = UPPER.indexOf(card.cat) + 1, n = Math.round(base / f);
-      if (card.cat === 'ones' && hasRelic(R, 'ace')) { parts.push({ ko: '에이스의 긍지', amt: n * 8 - base }); adj = n * 8; }
-      if (hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * 3 }); adj += n * 3; }
+      const n = upN(R, card.cat, base);
+      if (n && card.cat === 'ones' && hasRelic(R, 'ace')) { parts.push({ ko: '에이스의 긍지', amt: n * 8 - base }); adj = n * 8; }
+      if (n && hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * 3 }); adj += n * 3; }
     } else if (card.cat === 'sstr' && !hasRelic(R, 'flow')) {
       adj = 20; parts.push({ ko: '스몰 스트레이트', amt: 5 });          // 원정에서는 15 → 20 (낮은 족보 살리기)
     } else if (hasRelic(R, 'flow') && (card.cat === 'sstr' || card.cat === 'lstr')) {
@@ -1061,14 +1091,15 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
       parts.push({ ko: '저울추', amt: C.rollsLeft * 6 });
       adj += C.rollsLeft * 6;
     }
+    if (hero) { parts.push({ ko: '주인공', amt: hero }); adj += hero; }
     const hm = hasRelic(R, 'hammer') ? R.hammer?.[card.cat] || 0 : 0;
     if (hm) { parts.push({ ko: '장인의 망치', amt: hm }); adj += hm; }
   }
   // 합연산: 모든 +% 를 모아 바뀐 기본 점수에 한 번에 붙인다
   const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
-  if (base > 0) {
+  if (on) {
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add('작은 수의 힘', 1.5);
-    if (hasRelic(R, 'quad') && isUpper(card.cat) && Math.round(base / (UPPER.indexOf(card.cat) + 1)) >= 4) add('쌍둥이 별', 1);
+    if (hasRelic(R, 'quad') && isUpper(card.cat) && upN(R, card.cat, base) >= 4) add('쌍둥이 별', 1);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add('기초 수련', 0.3);
     if (hasRelic(R, 'choice') && card.cat === 'choice') add('선택의 달인', 0.3);
     if (hasRelic(R, 'full') && card.cat === 'full') add('풀하우스 장인', 0.5);
@@ -1117,7 +1148,8 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   const mulBy = (ko, m) => { const amt = Math.round(total * m); if (amt) { parts.push({ ko, amt, mul: true }); total += amt; } };
   if (total > 0) {
     // 같은 눈 보너스 (숫자 카드 자신의 효과라 곱연산): 맞는 주사위 3개 ×1.2 · 4개 ×1.5 · 5개 ×2
-    if (isUpper(card.cat)) { const n = Math.round(base / (UPPER.indexOf(card.cat) + 1)); const m = SAME_BONUS[Math.min(5, n)] || 0; if (m) mulBy(`같은 눈 ${n}개`, m); }
+    // 듀스 <두배> 는 점수가 이미 두 배씩 커지므로 붙지 않는다
+    if (isUpper(card.cat) && card.cat !== 'twos') { const n = upN(R, card.cat, base); const m = SAME_BONUS[Math.min(5, n)] || 0; if (m) mulBy(`같은 눈 ${n}개`, m); }
     if (card.up) mulBy('강화', UP_MUL);
     if (card.seal === 'sun') { mulBy('해 인장', 0.5); if (hasRelic(R, 'goldframe')) mulBy('해 인장 (황금 인장틀)', 0.5); }   // 카드에 붙은 효과라 곱연산
     if (C && hasKw(card, 'quick') && C.rollNo === 1) mulBy('속공', 0.5);
@@ -1138,16 +1170,28 @@ export function splitAtk(score, want) {
   const n = Math.round(Number(want));
   return Number.isFinite(n) ? Math.max(0, Math.min(score, n)) : null;
 }
-export function preview(R, hi, want = 'enemy', sc = null) {
+// 트레이 <삼위일체>: 점수만큼 공격 · 방어 · 골드를 모두 얻는다 (나눌 수 없다).
+// 프리즘이 있으면 점수 3배를 공격(want) · 골드(gold) · 방어(나머지)로 마음대로 나눈다.
+export const isTrinity = card => card?.cat === 'threes';
+export const prismOn = (R, card) => isTrinity(card) && hasRelic(R, 'prism');
+export const splitPool = (R, card, S) => (prismOn(R, card) ? S * 3 : S);
+export function preview(R, hi, want = 'enemy', sc = null, gold = 0) {
   const C = R.C, card = C.hand[hi];
-  return splitOut(R, card, sc || scoreCard(R, card), want);
+  return splitOut(R, card, sc || scoreCard(R, card), want, gold);
 }
-function splitOut(R, card, sc, want) {
+function splitOut(R, card, sc, want, gwant = 0) {
   const C = R.C, e = C.e;
-  const S = sc.total;
-  const atk = splitAtk(S, want) ?? S, def = S - atk, share = S > 0 ? atk / S : 0;
-  const out = { score: S, atk, def, dmg: 0, pierce: false, block: 0, heal: 0, gold: 0, burn: 0, weak: false, kill: false,
-    whet: 0, arcane: 0, combo: false, horn: false, poison: false, defMul: 1, wblk: 0, always: 0 };
+  const S = sc.total, T = splitPool(R, card, S);
+  let atk, def, tri = 0;
+  if (isTrinity(card) && !prismOn(R, card)) { atk = S; def = S; tri = S; }
+  else {
+    atk = splitAtk(T, want) ?? T;
+    if (prismOn(R, card)) tri = Math.max(0, Math.min(T - atk, Math.round(Number(gwant) || 0)));
+    def = T - atk - tri;
+  }
+  const share = S > 0 ? Math.min(1, atk / S) : 0;
+  const out = { score: S, pool: T, atk, def, dmg: 0, pierce: false, block: 0, heal: 0, gold: 0, burn: 0, weak: false, kill: false,
+    whet: 0, arcane: 0, combo: false, horn: false, poison: false, defMul: 1, wblk: 0, always: 0, tri };
   if (atk > 0) {
     if (hasRelic(R, 'whet')) out.whet = Math.round(3 * share);
     if (R.cls === 'mage') out.arcane = Math.round((C.hand.length - 1) * CLASS_TUNE.mageBonus * share);
@@ -1168,7 +1212,7 @@ function splitOut(R, card, sc, want) {
     if (hasRelic(R, 'fang')) out.heal += Math.floor(through * 0.15);
     if (hasKw(card, 'gold')) out.gold = Math.floor(atk / 3);
     if (hasKw(card, 'burn')) out.burn = Math.floor(atk / 4) + (hasRelic(R, 'ember') ? 3 : 0);
-    if (hasKw(card, 'weak')) out.weak = atk * 2 >= S;
+    if (hasKw(card, 'weak')) out.weak = atk * 2 >= T;
     if (R.cls === 'warrior' && isUpper(card.cat)) out.wblk = Math.floor(atk / 2);
   }
   out.defMul = 1 + (hasKw(card, 'guard') ? GUARD_MUL : 0) + (hasRelic(R, 'scale') ? 0.3 : 0);
@@ -1182,6 +1226,7 @@ function splitOut(R, card, sc, want) {
   const twice = hasRelic(R, 'goldframe') ? 2 : 1;
   if (card.seal === 'cloud') out.always += 20 * twice;
   if (card.seal === 'star') out.gold += 15 * twice;
+  out.gold += tri;
   out.block += out.always;
   return { ...out, sc };
 }
@@ -1196,14 +1241,22 @@ export function incomingAfter(R, weak = false) {
 // 이 미리보기대로 내면 다음 적의 턴에 잃을 체력
 export const takenAfter = (R, p) => Math.max(0, incomingAfter(R, p.weak) - R.C.block - p.block);
 // 다음 공격을 다 막으면서 공격에 쓸 수 있는 가장 큰 점수. 다 못 막으면 { atk: 0, full: false }
+// 프리즘 삼위일체: 막고 남은 몫을 공격 · 골드에 똑같이 나눈다 (gold)
 export function coverAtk(R, hi, sc = null) {
   const card = R.C.hand[hi];
   sc ||= scoreCard(R, card);
-  for (let a = sc.total; a >= 0; a--) if (!takenAfter(R, splitOut(R, card, sc, a))) return { atk: a, full: true };
-  return { atk: 0, full: false };
+  if (isTrinity(card) && !prismOn(R, card)) return { atk: sc.total, gold: sc.total, full: !takenAfter(R, splitOut(R, card, sc, 'enemy')) };
+  const T = splitPool(R, card, sc.total);
+  for (let a = T; a >= 0; a--) {
+    if (takenAfter(R, splitOut(R, card, sc, a))) continue;
+    if (!prismOn(R, card)) return { atk: a, gold: 0, full: true };
+    const g = Math.floor(a / 2);
+    return { atk: a - g, gold: g, full: true };
+  }
+  return { atk: 0, gold: 0, full: false };
 }
 
-export const playCard = act('playCard', function playCard(R, hi, target) {
+export const playCard = act('playCard', function playCard(R, hi, target, gold = 0) {
   const C = inCombat(R);
   if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
   const card = C.hand[hi];
@@ -1213,14 +1266,15 @@ export const playCard = act('playCard', function playCard(R, hi, target) {
   const coin = hasRelic(R, 'coin') ? (rand(R) < 0.5 ? 1 : -1) : 0;
   const sc = scoreCard(R, card, C.dice, { coin });
   // 나눠 낸 카드: 동전이 바꾼 비율만큼 공격 몫도 같이 (공격 · 방어가 같은 % 로 늘고 준다)
-  if (coin && typeof target === 'number') { const t0 = scoreCard(R, card, C.dice, {}).total; if (t0 > 0) target = Math.round(target * sc.total / t0); }
-  if (hasRelic(R, 'madscale')) target = Math.round(sc.total * rand(R));
-  const p = preview(R, hi, target, sc);
+  gold = Math.max(0, Math.round(Number(gold) || 0));
+  if (coin && typeof target === 'number') { const t0 = scoreCard(R, card, C.dice, {}).total; if (t0 > 0) { target = Math.round(target * sc.total / t0); gold = Math.round(gold * sc.total / t0); } }
+  if (hasRelic(R, 'madscale')) target = Math.round(splitPool(R, card, sc.total) * rand(R));
+  const p = preview(R, hi, target, sc, gold);
   C.hand.splice(hi, 1);
   R.stats.cards++;
   const ev = { type: 'play', u: card.u, cat: card.cat, kws: kwsOf(card), up: card.up, target: p.atk > 0 ? 'enemy' : 'self', atk: p.atk, def: p.def,
     score: p.score, parts: p.sc.parts, base: p.sc.base, notes: p.sc.notes, dmg: 0, blocked: 0, block: 0, heal: 0, gold: 0,
-    coin: coin || undefined, mad: hasRelic(R, 'madscale') || undefined, seal: card.seal || undefined, temp: card.temp || undefined };
+    coin: coin || undefined, mad: hasRelic(R, 'madscale') || undefined, seal: card.seal || undefined, temp: card.temp || undefined, tri: p.tri || undefined };
   fx(R, ev);
   // 피해
   if (p.atk > 0 && p.dmg > 0) {
@@ -1286,6 +1340,13 @@ function afterPlay(R, card, p, ev) {
     ev.pilgrim = true;
   }
   if (hasRelic(R, 'ytower') && cat === 'yacht' && p.score > 0) R.ytower = (R.ytower || 0) + 1;
+  // 주인공: 낼 때마다 기본 점수가 영구히 자란다 (달빛 복사본을 내도 원래 카드가 자란다)
+  if (cat === 'ones') {
+    const u0 = card.src || card.u, g = heroGrow(R);
+    ev.grow = g;
+    const d = deckCard(R, u0); if (d) d.grow = (d.grow || 0) + g;
+    for (const c of [card, ...C.hand, ...C.draw, ...C.discard, ...C.top]) if (c.u === u0 || c.src === u0) c.grow = (c.grow || 0) + g;
+  }
   if (hasRelic(R, 'zero') && p.score === 0 && !card.temp) {
     card.zeroUp = Math.round(((card.zeroUp || 0) + 0.2) * 100) / 100;
     const d = deckCard(R, card.u); if (d) d.zeroUp = card.zeroUp;
@@ -1295,7 +1356,7 @@ function afterPlay(R, card, p, ev) {
     const seal = card.seal;
     if (seal === 'moon') {
       for (let k = 0; k < (hasRelic(R, 'goldframe') ? 2 : 1); k++) {
-        const copy = { ...card, u: ++R.uid, seal: null, temp: true, waxUp: 0 };
+        const copy = { ...card, u: ++R.uid, src: card.src || card.u, seal: null, temp: true, waxUp: 0 };
         C.top.push(copy);
         ev.moon = (ev.moon || 0) + 1;
       }
@@ -1471,7 +1532,7 @@ function winCombat(R) {
 }
 
 // ── 보상 ─────────────────────────────────────────────────────────────────────
-const CAT_W = { choice: 8, four: 12, full: 14, sstr: 15, lstr: 10, yacht: 6, sixes: 13, fives: 11, fours: 7, threes: 3, twos: 1, ones: 1 };   // 초이스는 줄이고 식스 · 파이브 · 스몰 스트레이트를 늘렸다
+const CAT_W = { choice: 8, four: 12, full: 14, sstr: 15, lstr: 10, yacht: 6, sixes: 13, fives: 11, fours: 7, threes: 5, twos: 5, ones: 5 };   // 초이스는 줄이고 식스 · 파이브 · 스몰 스트레이트를 늘렸다. 에이스 · 듀스 · 트레이는 실버 이상에서만
 const KW_W = { guard: 14, vamp: 12, burn: 12, pierce: 10, quick: 12, lucky: 10, weak: 8, gold: 8, echo: 10, keep: 10 };
 // 덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다
 function catWeights(R) {
@@ -1491,7 +1552,7 @@ function kwWeights(R) {
 }
 export function rollCard(R, rarity) {
   const w = catWeights(R);
-  if (rarity === 1) { delete w.choice; return mkCard(R, weighted(R, w)); }   // 초이스는 실버 이상에서만
+  if (rarity === 1) { delete w.choice; for (const c of SPECIAL_CATS) delete w[c]; return mkCard(R, weighted(R, w)); }   // 초이스 · 특별 카드는 실버 이상에서만
   const cat = weighted(R, w);
   const kww = kwWeights(R);
   const kw = weighted(R, kww);
@@ -1519,6 +1580,7 @@ export function rollRelic(R, r, exclude = []) {
   // 이미 고른 덱 방향의 유물은 더 잘 나온다
   const wt = id => 1 + (NUM_RELICS.includes(id) ? sy.num * 2 : 0) + (STR_RELICS.includes(id) ? sy.str * 2 : 0)
     + (ARCH[id] ? Math.min(3, R.deck.filter(ARCH[id]).length) * 0.8 : 0)
+    + (SPECIAL_RELIC[id] && R.deck.some(c => c.cat === SPECIAL_RELIC[id]) ? 0.3 : 0)   // 전용 카드가 있으면 +30%
     + (id === 'rosary' && R.deck.length <= 10 ? 2 : 0) + (id === 'libkey' && R.deck.length >= 17 ? 2 : 0);
   for (const rr of [Number(r), 2, 1, 3]) {
     const pool = RELICS.filter(x => x.r === rr && !own.has(x.id));
@@ -1928,7 +1990,8 @@ function prepHand(R, rollNo) {
     mul *= (card.up ? 1 + UP_MUL : 1) * (hasKw(card, 'quick') && first ? 1.5 : 1);
     if (C.weak > 0) mul *= 0.75;
     return {
-      cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, ace: up === 'ones' && hasRelic(R, 'ace'), pairs: hasRelic(R, 'pairs'),
+      cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, grow: up === 'ones' && !(omen(R, 'forbid') && R.omenCat === up) ? card.grow || 0 : 0,
+      two: up === 'twos' ? (hasRelic(R, 'culture') ? 1 : 0) : null, tri: isTrinity(card), ace: up === 'ones' && hasRelic(R, 'ace'), pairs: hasRelic(R, 'pairs'),
       quad: hasRelic(R, 'quad') ? (C.weak > 0 ? 0.75 : 1) : 0, flow: hasRelic(R, 'flow') && (up === 'sstr' || up === 'lstr'),
       combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), zero: C.gazed.includes(card.u) && !C.pure,
       flat: (R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0) + (hasRelic(R, 'whet') ? 3 : 0),
@@ -1966,16 +2029,16 @@ function fastSplit(R, info, s, a, ctx) {
     const through = info.pierce ? d : Math.max(0, d - e.block);
     if (through >= e.hp) return 1000 + through;
     weak = info.weak && a * 2 >= s;
-    v += through * ctx.k + (info.vamp ? Math.min(a / 3, ctx.miss) * 0.8 : 0) + (info.burn ? a / 2 * ctx.k : 0) + (info.gold ? a / 10 : 0);
+    v += through * ctx.k + (info.vamp ? Math.min(a / 3, ctx.miss) * 0.8 : 0) + (info.burn ? a / 2 * ctx.k : 0) + (info.gold ? a / 10 : 0) + (info.tri ? s / 10 : 0);
   }
-  const blk = (s - a) * info.dmul + (info.wblk ? a / 2 : 0);
+  const blk = (info.tri ? s : s - a) * info.dmul + (info.wblk ? a / 2 : 0);
   const taken = Math.max(0, (weak ? ctx.raw / 2 : ctx.raw) - ctx.have - blk);
   return v + (ctx.base - taken) * ctx.bw;
 }
 function fastValue(R, info, s, ctx) {
   if (s <= 0) return 0;
   let best = fastSplit(R, info, s, s, ctx);
-  if (best >= 1000 || !ctx.base) return best;
+  if (best >= 1000 || !ctx.base || info.tri) return best;      // 삼위일체: 공격 · 방어를 모두 얻는다 (봇은 프리즘도 이렇게 본다)
   // 다 막을 만큼만 방어하고 나머지로 공격 (약화 카드는 절반 이상 공격해 피해를 반으로 줄이는 경우도)
   best = Math.max(best, fastSplit(R, info, s, s - Math.min(s, Math.ceil(ctx.base / info.dmul)), ctx));
   if (info.weak) {
@@ -1986,15 +2049,17 @@ function fastValue(R, info, s, ctx) {
 }
 // 빠른 카드 점수 (유물의 기본 점수 변경 포함)
 function fastScore(info, dice) {
-  const raw = fastBase(info.cat, dice);
-  if (raw <= 0) return 0;
+  const n2 = info.two != null ? Math.min(5, dice.filter(v => v === 2).length) : 0;
+  const raw = info.two != null ? (n2 ? 2 ** (n2 + info.two) : 0) : fastBase(info.cat, dice);
+  if (raw <= 0 && !info.grow) return 0;
   let adj = raw, mul = info.mul;
   if (info.face) {
-    const n = Math.round(raw / info.face);
-    if (info.ace) adj = n * 8;
+    const n = info.two != null ? n2 : Math.round(raw / info.face);
+    if (info.ace && n) adj = n * 8;
     if (info.pairs) adj += n * 3;
+    adj += info.grow;
     if (n >= 4) mul += info.quad;
-    return Math.round(adj * mul * (1 + (SAME_BONUS[Math.min(5, n)] || 0)));
+    return Math.round(adj * mul * (1 + (info.two != null ? 0 : SAME_BONUS[Math.min(5, n)] || 0)));
   } else if (info.flow) adj = info.cat === 'sstr' ? 25 : 45;
   else if (info.cat === 'sstr') adj = 20;
   return Math.round(adj * mul);
@@ -2015,15 +2080,16 @@ function playValue(R, p, ctx) {
   if (p.atk > 0) {
     const through = p.pierce ? p.dmg : Math.max(0, p.dmg - e.block);
     if (through >= e.hp) return 1000 + through;
-    v += through * ctx.k + p.burn * 2 * ctx.k + p.gold * 0.1;
+    v += through * ctx.k + p.burn * 2 * ctx.k;
   }
+  v += p.gold * 0.1;
   return v + (ctx.base - takenAfter(R, p)) * ctx.bw + Math.min(p.heal, ctx.miss) * 0.8;
 }
 function bestPlay(R) {
   const C = R.C, ctx = botCtx(R);
   let best = { v: -Infinity, hi: 0, atk: 'enemy' };
   C.hand.forEach((card, hi) => {
-    const sc = scoreCard(R, card), S = sc.total;
+    const sc = scoreCard(R, card), S = splitPool(R, card, sc.total);
     for (const a of new Set([S, 0, Math.ceil(S / 2), coverAtk(R, hi, sc).atk])) {
       const v = playValue(R, preview(R, hi, a, sc), ctx);
       if (v > best.v + 1e-9) best = { v, hi, atk: a };
@@ -2053,7 +2119,7 @@ export function botCombat(R, rng = Math.random, samples = 12) {
   const now = handFast(R, cur, C.dice, ctx);
   // 첫 굴림 뒤, 가망 없는 카드(0점인 작은 숫자 카드 · 요트)는 한 장 바꾼다
   if (C.swaps > 0 && C.rollNo === 1) {
-    const dead = C.hand.findIndex(c => C.bet !== c.u && ['ones', 'twos', 'threes', 'yacht'].includes(c.cat) && fastBase(c.cat, C.dice) === 0);
+    const dead = C.hand.findIndex(c => C.bet !== c.u && ['ones', 'twos', 'threes', 'yacht'].includes(c.cat) && !c.grow && fastBase(c.cat, C.dice) === 0);
     if (dead >= 0) return { type: 'swap', hi: dead };
   }
   if (!toolsLocked(R) && (R.flip > 0 || R.nudge > 0)) {
@@ -2134,7 +2200,7 @@ export function applyCombat(R, a) {
 }
 
 // 카드 가치 (봇이 보상 · 상점에서 고를 때). 대략 '노렸을 때 기대 점수'
-const CARD_EV = { choice: 23, four: 9, full: 10, sstr: 11, lstr: 10, yacht: 6, sixes: 12.6, fives: 10.5, fours: 8.4, threes: 6.3, twos: 4.2, ones: 2.1 };
+const CARD_EV = { choice: 23, four: 9, full: 10, sstr: 11, lstr: 10, yacht: 6, sixes: 12.6, fives: 10.5, fours: 8.4, threes: 14, twos: 7, ones: 8 };   // 특별 카드: 자람 · 두 배 · 삼위일체를 대충 친다
 const KW_V = { guard: 4, vamp: 5, burn: 6, pierce: 3, quick: 4, lucky: 3, weak: 3, gold: 2, echo: 3, keep: 4 };
 export function botCardValue(R, c) {
   let v = CARD_EV[c.cat] * (c.up ? 1 + UP_MUL : 1);
