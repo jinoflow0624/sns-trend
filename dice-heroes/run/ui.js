@@ -337,9 +337,9 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const sl = c.seal && Run.sealInfo(c.seal);
   return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
     ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
-    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}</b>
+    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
     <div class="rc-pat">${pat}</div>
-    <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
+    <small class="rc-rule">${ruleOf(c)}</small>
     ${ks.length > 1 ? `<span class="rc-gems n${ks.length}">${Array.from({ length: Run.KW_MAX }, (_, i) => ks[i] ? `<i class="gem" style="--kc:${Run.KEYWORDS[ks[i]].color}" title="${Run.KEYWORDS[ks[i]].ko}">${runIco('kw', ks[i], Run.KEYWORDS[ks[i]].icon, 'xs')}</i>` : '<i class="gem empty"></i>').join('')}</span>`
       : kw ? `<span class="rc-kw">${runIco('kw', ks[0], kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
     ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
@@ -359,7 +359,9 @@ function longPress(el, fn, ms = 450) {
   el.addEventListener('click', e => { if (fired) { fired = false; e.stopPropagation(); e.preventDefault(); } }, true);
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${Run.CAT_RULE[c.cat]}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
+// 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
+const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
+const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.isSpecial(c.cat) ? `<p>${ico(Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -627,15 +629,24 @@ function doBet(u) {
 // ── 공격 · 방어 나누기 ───────────────────────────────────────────────────────
 // 카드를 누르면 손패 위에 막대가 열린다. 빨강(왼쪽부터) = 공격, 파랑 = 방어. 손잡이를 밀어 나누고 '내기'.
 // 적에게 끌면 전부 공격, 나에게 끌면 전부 방어 (지름길).
+// 트레이 <삼위일체>: 나눌 수 없어 막대 없이 공격 · 골드 · 방어를 보여 준다 (fixed).
+// 프리즘이 있으면 점수 3배(S)를 공격(빨강) · 골드(노랑) · 방어(파랑)로 나눈다 (prism) — 골드 막대가 하나 더 생긴다.
 function openSplit(u) {
-  const C = R.C, hi = C.hand.findIndex(c => c.u === u);
-  const S = Run.scoreCard(R, C.hand[hi]).total;
+  const C = R.C, hi = C.hand.findIndex(c => c.u === u), card = C.hand[hi];
+  const S = Run.splitPool(R, card, Run.scoreCard(R, card).total);
   ui.sel = u;
   // 기본은 '딱 막기' (다음 공격을 다 막을 만큼만 방어 · 나머지 공격). 막을 공격이 없으면 전부 공격.
   // 짙은 안개: 적의 다음 행동을 모르므로 막대 위치로 새지 않게 처음엔 전부 방어
   const fog = Run.omen(R, 'fog');
-  ui.split = { u, S, atk: fog ? 0 : Run.incomingAfter(R) > 0 ? Run.coverAtk(R, hi).atk : S };
-  hand.select(u, splitHTML(u), { wide: true });
+  const fixed = Run.isTrinity(card) && !Run.prismOn(R, card), prism = Run.prismOn(R, card);
+  ui.split = { u, S, atk: fog ? 0 : Run.incomingAfter(R) > 0 ? Run.coverAtk(R, hi).atk : S, gold: 0, fixed, prism };
+  if (prism) {
+    const sp = ui.split;
+    if (fog) sp.atk = 0;
+    else if (Run.incomingAfter(R) > 0) { const c = Run.coverAtk(R, hi); sp.atk = c.atk; sp.gold = c.gold; }
+    else { sp.atk = Math.ceil(S / 3); sp.gold = Math.round(S / 3); }      // 막을 공격이 없으면 셋으로 나눈다
+  }
+  hand.select(u, fixed ? trinityHTML(u) : splitHTML(u, prism), { wide: true });
   hand.el(u)?.classList.add('splitting');
   bindSplit();
   paintSplit();
@@ -650,17 +661,29 @@ function closeSplit() {
 function syncSplit() {
   const sp = ui.split, C = R.C, c = C.hand.find(x => x.u === sp.u);
   if (!c) return closeSplit();
-  const S = Run.scoreCard(R, c).total;
-  if (S !== sp.S) { sp.atk = sp.S ? Math.round(sp.atk / sp.S * S) : S; sp.S = S; }
+  const S = Run.splitPool(R, c, Run.scoreCard(R, c).total);
+  if (S !== sp.S) { sp.atk = sp.S ? Math.round(sp.atk / sp.S * S) : S; sp.gold = sp.S ? Math.min(S - sp.atk, Math.round(sp.gold / sp.S * S)) : 0; sp.S = S; }
   paintSplit();
 }
-function splitHTML(u) {
-  return `<div class="split" id="split">
+function trinityHTML(u) {
+  return `<div class="split tri" id="split">
+    <div class="sp-tri">
+      <span class="sp-end atk">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>피해</small></span>
+      <span class="sp-end gold">${ico('coins', 'xs')}<b id="sp-gold"></b><small>골드</small></span>
+      <span class="sp-end def">${ico('shield', 'xs')}<b id="sp-blk"></b><small>보호막</small></span>
+    </div>
+    <p class="sp-info" id="sp-info"></p>
+    <div class="sp-row one"><span class="sp-note">${ico('star', 'xs')}삼위일체 · 모두 얻는다</span><button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button></div>
+  </div>`;
+}
+function splitHTML(u, prism = false) {
+  return `<div class="split${prism ? ' prism' : ''}" id="split">
     <div class="sp-top">
       <button class="sp-end atk" data-act="run-split" data-v="all" aria-label="전부 공격">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>피해</small></button>
-      <div class="sp-bar" id="sp-bar" role="slider" aria-label="공격 · 방어 나누기"><i class="sp-a" id="sp-a"></i><span class="sp-knob" id="sp-knob">${runIco('ui', 'split_knob', 'sword')}<em id="sp-n"></em></span></div>
+      <div class="sp-bar" id="sp-bar" role="slider" aria-label="공격 · 방어 나누기"><i class="sp-a" id="sp-a"></i>${prism ? '<i class="sp-g" id="sp-g"></i>' : ''}<span class="sp-knob" id="sp-knob">${runIco('ui', 'split_knob', 'sword')}<em id="sp-n"></em></span></div>
       <button class="sp-end def" data-act="run-split" data-v="none" aria-label="전부 방어">${ico('shield', 'xs')}<b id="sp-blk"></b><small>보호막</small></button>
     </div>
+    ${prism ? `<div class="sp-gtop"><span class="sp-glab">${ico('coins', 'xs')}<b id="sp-gold"></b></span><div class="sp-bar sp-gbar" id="sp-gbar" role="slider" aria-label="골드 나누기"><i class="sp-gf" id="sp-gf"></i></div></div>` : ''}
     <p class="sp-info" id="sp-info"></p>
     <div class="sp-row">
       <button class="sp-step" data-act="run-split" data-v="-1" aria-label="공격 1 줄이기">◀</button>
@@ -671,27 +694,43 @@ function splitHTML(u) {
   </div>`;
 }
 function bindSplit() {
-  const bar = $('sp-bar');
-  if (!bar) return;
-  const at = e => { const r = bar.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * ui.split.S); };
-  bar.addEventListener('pointerdown', e => {
-    if (!ui.split) return;
-    e.preventDefault(); e.stopPropagation();
-    bar.setPointerCapture?.(e.pointerId);
-    bar.classList.add('drag');
-    setSplit(at(e));
-  });
-  bar.addEventListener('pointermove', e => { if (ui.split && bar.classList.contains('drag')) { e.preventDefault(); setSplit(at(e)); } });
-  const end = () => bar.classList.remove('drag');
-  bar.addEventListener('pointerup', end);
-  bar.addEventListener('pointercancel', end);
+  const drag = (bar, set) => {
+    if (!bar) return;
+    const at = e => { const r = bar.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * ui.split.S); };
+    bar.addEventListener('pointerdown', e => {
+      if (!ui.split) return;
+      e.preventDefault(); e.stopPropagation();
+      bar.setPointerCapture?.(e.pointerId);
+      bar.classList.add('drag');
+      set(at(e));
+    });
+    bar.addEventListener('pointermove', e => { if (ui.split && bar.classList.contains('drag')) { e.preventDefault(); set(at(e)); } });
+    const end = () => bar.classList.remove('drag');
+    bar.addEventListener('pointerup', end);
+    bar.addEventListener('pointercancel', end);
+  };
+  drag($('sp-bar'), setSplit);
+  drag($('sp-gbar'), setGold);
 }
-function setSplit(a) {
+// 프리즘: 골드 막대. 골드를 늘려 자리가 모자라면 공격이 줄어든다
+function setGold(g) {
   const sp = ui.split;
-  if (!sp) return;
+  if (!sp?.prism) return;
+  g = Math.max(0, Math.min(sp.S, Math.round(g)));
+  if (g === sp.gold) return;
+  sp.gold = g;
+  sp.atk = Math.min(sp.atk, sp.S - g);
+  sfx.tick?.(sp.S ? g / sp.S : 1);
+  buzz(4);
+  paintSplit();
+}
+function setSplit(a, gold = null) {
+  const sp = ui.split;
+  if (!sp || sp.fixed) return;
   a = Math.max(0, Math.min(sp.S, Math.round(a)));
-  if (a === sp.atk) return;
-  sp.atk = a;
+  const g = sp.prism ? Math.max(0, Math.min(sp.S - a, gold ?? sp.gold)) : 0;
+  if (a === sp.atk && g === sp.gold) return;
+  sp.atk = a; sp.gold = g;
   sfx.tick?.(sp.S ? a / sp.S : 1);
   buzz(4);
   paintSplit();
@@ -700,14 +739,29 @@ function paintSplit() {
   const sp = ui.split, C = R.C;
   const hi = sp ? C.hand.findIndex(c => c.u === sp.u) : -1;
   if (hi < 0 || !$('split')) return;
-  const p = Run.preview(R, hi, sp.atk), card = C.hand[hi];
-  const k = p.score ? p.atk / p.score : 1;
+  const p = Run.preview(R, hi, sp.atk, null, sp.gold), card = C.hand[hi];
+  const k = p.pool ? p.atk / p.pool : 1;
+  $('sp-dmg').textContent = p.dmg;
+  $('sp-blk').textContent = p.block;
+  if ($('sp-gold')) $('sp-gold').textContent = p.tri;
+  if (sp.fixed) {
+    const fog = Run.omen(R, 'fog'), taken = fog ? 0 : Run.takenAfter(R, p);
+    const info = [];
+    if (p.pierce) info.push(`${ico('dagger', 'xs')}관통`);
+    if (card.seal) info.unshift(`${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}`);
+    if (!fog && Run.incomingAfter(R, p.weak) > 0 && !p.kill && taken) info.push(`<em class="hurt">${ico('sword', 'xs')}-${taken}</em>`);
+    $('sp-info').innerHTML = info.join('<i class="sep">·</i>') || '&nbsp;';
+    return;
+  }
   $('sp-a').style.width = `${k * 100}%`;
   $('sp-knob').style.left = `${k * 100}%`;
   $('sp-bar').style.setProperty('--k', k.toFixed(3));
-  $('sp-n').textContent = `${p.atk} : ${p.def}`;
-  $('sp-dmg').textContent = p.dmg;
-  $('sp-blk').textContent = p.block;
+  if (sp.prism) {
+    const g = p.pool ? p.tri / p.pool : 0;
+    $('sp-g').style.left = `${k * 100}%`; $('sp-g').style.width = `${g * 100}%`;
+    $('sp-gf').style.width = `${g * 100}%`;
+  }
+  $('sp-n').textContent = sp.prism ? `${p.atk} : ${p.tri} : ${p.def}` : `${p.atk} : ${p.def}`;
   $('split').classList.toggle('all-atk', p.def === 0 && p.score > 0);
   $('split').classList.toggle('all-def', p.atk === 0);
   const fog = Run.omen(R, 'fog');   // 짙은 안개: 적의 공격으로 계산한 값(받을 피해 · 딱 막기)은 보여 주지 않는다
@@ -720,7 +774,7 @@ function paintSplit() {
     if (p.horn) info.push('뿔피리 ×1.25');
     if (p.poison) info.push('독: 피해 ½');
     if (p.heal) info.push(`${ico('heart', 'xs')}+${p.heal}`);
-    if (p.gold) info.push(`${ico('coins', 'xs')}+${p.gold}`);
+    if (p.gold - p.tri > 0) info.push(`${ico('coins', 'xs')}+${p.gold - p.tri}`);
     if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
   }
   if (Run.hasRelic(R, 'madscale')) info.unshift(`${ico('scale', 'xs')}나눔은 무작위`);
@@ -735,7 +789,7 @@ function paintSplit() {
   if (fog) { cb.disabled = true; cb.innerHTML = '?'; hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3)); return; }
   const cov = Run.coverAtk(R, hi);
   if (!inc) { cb.disabled = true; cb.innerHTML = '딱 막기'; }
-  else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.score - cov.atk}</small>` : '전부 방어'; }
+  else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.pool - cov.atk - cov.gold}</small>` : '전부 방어'; }
   hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3));
 }
 function dropCard(u, target) {
@@ -801,11 +855,11 @@ async function doRoll() {
   paint();
 }
 
-async function doPlay(u, target) {
+async function doPlay(u, target, gold = 0) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
   if (hi < 0) return;
   ui.sel = null; ui.split = null; ui.tool = null;
-  const r = await act(() => Run.playCard(R, hi, target));
+  const r = await act(() => Run.playCard(R, hi, target, gold));
   if (!r) { hand.select(null); hand.layout(); return; }
   ui.busy = true;
   await playFx(r.list, r.before);
@@ -1123,6 +1177,7 @@ async function playOne(f) {
       if (f.nudge) floatAt(h.x + 30, h.y - 70, `${ico('nudge', 'xs')}+${f.nudge}`, 'mint');
       if (f.sealUsed) sealBurst(f.sealUsed, f.target === 'enemy' ? e : h);
       if (f.moon) floatAt(h.x, h.y - 100, `달빛 복사본 +${f.moon}`, 'sky');
+      if (f.grow) floatAt(h.x - 30, h.y - 90, `${ico('crown', 'xs')}주인공 기본 점수 +${f.grow}`, 'gold');
       if (f.pilgrim) floatAt(h.x + 20, h.y - 110, `${ico('scroll', 'xs')}순례 · 골드 +15 · 최대 체력 +2`, 'gold');
       if (f.palette) { sfx.legend?.(); X.toast(relicIco(Run.relicInfo('palette')), '무지개 팔레트 완성!', '이제 모든 카드 +50%', 2200); }
       if (f.temp) moonset(f.target === 'enemy' ? e : h);   // 달빛 복사본은 달이 지듯 스르륵
@@ -1950,16 +2005,17 @@ export function onAct(act, t) {
   if (act === 'run-play') {
     X.closePopover?.();
     const u = Number(t.dataset.u), tt = t.dataset.t;
-    const target = tt == null || tt === '' ? (ui.split?.u === u ? ui.split.atk : 'enemy') : tt === 'enemy' || tt === 'self' ? tt : Number(tt);
-    return doPlay(u, target);
+    const mine = ui.split?.u === u;
+    const target = tt == null || tt === '' ? (mine ? ui.split.atk : 'enemy') : tt === 'enemy' || tt === 'self' ? tt : Number(tt);
+    return doPlay(u, target, mine && (tt == null || tt === '') ? ui.split.gold || 0 : 0);
   }
   if (act === 'run-split') {
     const sp = ui.split;
     if (!sp) return;
     const v = t.dataset.v, hi = R.C.hand.findIndex(c => c.u === sp.u);
-    if (v === 'all') return setSplit(sp.S);
-    if (v === 'none') return setSplit(0);
-    if (v === 'cover') { if (Run.omen(R, 'fog')) return; return setSplit(hi >= 0 ? Run.coverAtk(R, hi).atk : sp.atk); }
+    if (v === 'all') return setSplit(sp.S, 0);
+    if (v === 'none') return setSplit(0, 0);
+    if (v === 'cover') { if (Run.omen(R, 'fog')) return; const c = hi >= 0 ? Run.coverAtk(R, hi) : sp; return setSplit(c.atk, c.gold); }   // 프리즘: 남은 몫은 공격 · 골드 반반
     return setSplit(sp.atk + Number(v));
   }
   if (act === 'run-bet') return doBet(Number(t.dataset.u));
