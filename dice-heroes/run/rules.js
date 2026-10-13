@@ -1413,7 +1413,7 @@ function hurtHero(R, amount, why) {
   const blocked = C ? Math.min(C.block, left) : 0;
   if (C) C.block -= blocked;
   left -= blocked;
-  const dmg = Math.min(R.hp, left);
+  const dmg = Math.min(R.hp - (R.sbGod ? 1 : 0), left);   // 시험 원정 무적: 체력 1 아래로 안 내려간다
   R.hp -= dmg;
   R.stats.taken += dmg;
   if (C) C.taken += dmg;
@@ -1526,7 +1526,7 @@ function winCombat(R) {
   }
   if (R.cls === 'bard') healHero(R, CLASS_TUNE.bardHeal, 'bard');
   if (hasRelic(R, 'lotus')) healHero(R, 6, 'lotus');
-  if (def.kind === 'boss' && R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
+  if (def.kind === 'boss' && R.act >= ACTS && !R.sbFight) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
   R.phase = 'reward';
   R.reward = genReward(R, def.kind);
 }
@@ -1644,6 +1644,7 @@ export const leaveReward = act('leaveReward', function leaveReward(R) {
   const rw = inReward(R);
   R.reward = null;
   R.C = null;
+  if (R.sbFight) { R.sbFight = false; R.phase = 'map'; return; }   // 시험 원정에서 고른 싸움: 막 · 층은 그대로
   if (rw.kind === 'boss') {
     if (R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
     R.act++;
@@ -2226,6 +2227,77 @@ export function trialKit(R) {
   R.trial = true;
   return R;
 }
+// ── 시험 원정 샌드박스: 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 (R.trial 에서만) ──
+// 테스트판 전용이라 서버 다시 돌리기(act)와 상관없이 판을 바로 고친다.
+const sbOn = R => { if (!R?.trial) fail('시험 원정에서만 쓸 수 있어요.'); };
+const sbCombat = R => { sbOn(R); if (R.phase !== 'combat' || !R.C || R.C.phase !== 'roll') fail('전투 중에만 쓸 수 있어요.'); return R.C; };
+export const sandbox = {
+  relic(R, id) {
+    sbOn(R);
+    if (!relicInfo(id)) fail('없는 유물이에요.');
+    if (hasRelic(R, id)) R.relics = R.relics.filter(x => x !== id);
+    else gainRelic(R, id);
+  },
+  // spec: { cat, up, kws, seal }, toHand: 전투 중이면 손패에도 바로
+  card(R, spec, toHand = false) {
+    sbOn(R);
+    if (!CAT_IDS.includes(spec.cat)) fail('없는 족보예요.');
+    const c = mkCard(R, spec.cat, spec.up ? 1 : 0, (spec.kws || []).filter(k => KEYWORDS[k]).slice(0, KW_MAX));
+    if (spec.seal && SEALS[spec.seal]) c.seal = spec.seal;
+    if (spec.grow) c.grow = Math.max(0, Math.round(spec.grow));
+    R.deck.push(c);
+    if (toHand && R.C) R.C.hand.push({ ...c });
+    return c;
+  },
+  removeCard(R, u) {
+    sbOn(R);
+    R.deck = R.deck.filter(c => c.u !== u);
+    if (R.C) for (const k of ['hand', 'draw', 'discard', 'top']) R.C[k] = R.C[k].filter(c => c.u !== u);
+  },
+  potion(R, id) {
+    sbOn(R);
+    if (!potionInfo(id)) fail('없는 물약이에요.');
+    if (R.potions.length >= POTION_SLOTS) fail(`물약은 ${POTION_SLOTS}개까지예요.`);
+    R.potions.push(id);
+  },
+  clearPotions(R) { sbOn(R); R.potions = []; },
+  // kind: gold · flip · nudge · dance · hp(가득) · maxHp
+  res(R, kind, n) {
+    sbOn(R);
+    if (kind === 'gold') R.gold = Math.max(0, R.gold + n);
+    if (kind === 'flip') R.flip = Math.max(0, R.flip + n);
+    if (kind === 'nudge') R.nudge = Math.max(0, R.nudge + n);
+    if (kind === 'dance') R.dance = Math.max(0, Math.min(DANCE_CAP, R.dance + n));
+    if (kind === 'maxHp') { R.maxHp = Math.max(10, R.maxHp + n); R.hp = Math.min(R.hp + Math.max(0, n), R.maxHp); }
+    if (kind === 'hp') R.hp = R.maxHp;
+  },
+  omen(R, id) {
+    sbOn(R);
+    if (id && !omenInfo(id)) fail('없는 징조예요.');
+    R.omen = id || null; R.omenOpts = null;
+    if (id === 'forbid') R.omenCat = pick(R, SAME_CATS_ALL.filter(c => c !== 'choice'));
+  },
+  act(R, n) { sbOn(R); R.act = Math.max(1, Math.min(ACTS, n)); },
+  god(R, on) { sbOn(R); R.sbGod = !!on; },
+  // 고른 적과 바로 싸운다 (이기면 보상 뒤 지도로, 막 · 층은 그대로)
+  fight(R, foeId) {
+    sbOn(R);
+    if (!ENEMIES[foeId]) fail('없는 적이에요.');
+    if (R.ended) fail('이미 끝난 원정이에요.');
+    R.reward = null; R.shop = null; R.event = null; R.pick = null; R.omenOpts = null;
+    R.sbFight = true;
+    startCombat(R, foeId);
+  },
+  dice(R, i, v) {
+    const C = sbCombat(R);
+    if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
+    if (!(i >= 0 && i < C.dice.length) || !(v >= 1 && v <= 6)) fail('주사위 눈은 1~6이에요.');
+    C.dice[i] = v;
+  },
+  rolls(R, n = 1) { const C = sbCombat(R); C.rollsLeft = Math.max(0, C.rollsLeft + n); },
+  foeHp(R, hp) { const C = sbCombat(R); C.e.hp = C.e.maxHp = Math.max(1, Math.round(hp)); },
+  clearHex(R) { const C = sbCombat(R); C.hex = null; C.sealed = []; C.frozen = []; C.gazed = []; C.weak = 0; },
+};
 // 원정 진행(지도 · 보상 · 상점 · 휴식 · 이벤트)을 한 걸음 진행한다
 export function botRunStep(R, rng = Math.random) {
   if (R.pick?.why === 'face') {             // 가장 낮은 면을 6으로
