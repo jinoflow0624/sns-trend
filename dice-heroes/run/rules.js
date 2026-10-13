@@ -2218,6 +2218,14 @@ export function botCardValue(R, c) {
   const same = R.deck.filter(x => x.cat === c.cat).length;
   return v - same * 1.5;
 }
+// 시험 원정 (테스트판 전용 버튼): 특별 카드 3장 + 전용 유물 3개를 들고 출발. 정식 출시 전에 버튼과 함께 지울 것
+export function trialKit(R) {
+  R.deck = R.deck.filter(c => !isSpecial(c.cat));
+  for (const cat of SPECIAL_CATS) R.deck.push(mkCard(R, cat));
+  for (const id of Object.keys(SPECIAL_RELIC)) if (!hasRelic(R, id)) gainRelic(R, id);
+  R.trial = true;
+  return R;
+}
 // 원정 진행(지도 · 보상 · 상점 · 휴식 · 이벤트)을 한 걸음 진행한다
 export function botRunStep(R, rng = Math.random) {
   if (R.pick?.why === 'face') {             // 가장 낮은 면을 6으로
