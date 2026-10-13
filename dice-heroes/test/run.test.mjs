@@ -88,7 +88,7 @@ test('점수 = 요트 원룰 + 강화 30%', () => {
   R.C.dice = [3, 3, 3, 5, 5];
   assert.equal(Run.scoreCard(R, { u: 999, cat: 'full', up: 0, kw: null }).total, 19);
   assert.equal(Run.scoreCard(R, { u: 999, cat: 'full', up: 1, kw: null }).total, 19 + Math.round(19 * 0.3));
-  assert.equal(Run.scoreCard(R, { u: 999, cat: 'threes', up: 0, kw: null }).total, 11);   // 9 × 같은 눈 3개 1.2
+  assert.equal(Run.scoreCard(R, { u: 999, cat: 'threes', up: 0, kw: null }).total, 9);    // 같은 눈 보너스 없음 (공명의 종 유물로 옮김)
   assert.equal(Run.scoreCard(R, { u: 999, cat: 'yacht', up: 0, kw: null }).total, 0);
 });
 test('방어로 내면 점수만큼 보호막, 적 공격은 보호막부터 깎는다', () => {
@@ -218,15 +218,15 @@ test('낮은 족보 유물: 에이스의 긍지 · 수집가의 상자 · 작은
   Run.roll(R);
   const ace = { u: 9301, cat: 'ones', up: 0, kw: null };
   R.C.dice = [1, 1, 1, 1, 6];
-  assert.equal(Run.scoreCard(R, ace).total, 6);               // 4 × 같은 눈 4개 1.5
+  assert.equal(Run.scoreCard(R, ace).total, 4);
   R.relics.push('ace');
-  assert.equal(Run.scoreCard(R, ace).total, 48);              // 1의 눈 4개 × 8, × 1.5
+  assert.equal(Run.scoreCard(R, ace).total, 32);              // 1의 눈 4개 × 8
   R.relics.push('pairs');
-  assert.equal(Run.scoreCard(R, ace).total, 66);              // (32 + 4 × 3) × 1.5
+  assert.equal(Run.scoreCard(R, ace).total, 44);              // 32 + 4 × 3
   R.relics.push('quad');
-  assert.equal(Run.scoreCard(R, ace).total, 132);             // 4개 이상 +100% (합연산), × 1.5
+  assert.equal(Run.scoreCard(R, ace).total, 88);              // 4개 이상 +100% (합연산)
   R.relics = ['small'];
-  assert.equal(Run.scoreCard(R, ace).total, 15);              // 4 × 2.5 × 1.5
+  assert.equal(Run.scoreCard(R, ace).total, 10);              // 4 × 2.5
   R.relics = ['flow'];
   R.C.dice = [1, 2, 3, 4, 5];
   assert.equal(Run.scoreCard(R, { u: 9302, cat: 'lstr', up: 0, kw: null }).total, 45);
@@ -601,11 +601,11 @@ test('불씨 항아리 · 피의 성배 · 성벽 설계도 · 보존 상자', (
   const R = fight(['ember']); R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6]; R.C.e.hp = 999;
   R.C.hand[0] = { u: 7001, cat: 'sixes', up: 0, kws: ['burn'] };
   Run.playCard(R, 0, 'enemy');
-  assert.equal(R.C.e.burn, Math.floor(60 / 4) + 3);   // 30 × 같은 눈 5개 2
+  assert.equal(R.C.e.burn, Math.floor(30 / 4) + 3);
   const B = fight(['bloodcup']); B.C.rolled = true; B.C.dice = [6, 6, 6, 6, 6]; B.C.e.hp = 999; B.hp = B.maxHp;
   B.C.hand[0] = { u: 7002, cat: 'sixes', up: 0, kws: ['vamp'] };
   const blk0 = B.C.block; Run.playCard(B, 0, 'enemy');
-  assert.ok(Run.drainFx(B).some(f => f.type === 'play' && f.cup === 30));
+  assert.ok(Run.drainFx(B).some(f => f.type === 'play' && f.cup === 15))   // 30 / 3 × 1.5;
   const G = fight(['rampart']); G.C.rolled = true; G.C.dice = [6, 6, 6, 6, 6]; G.C.e.hp = 999;
   G.C.hand[0] = { u: 7003, cat: 'sixes', up: 0, kws: ['guard'] };
   Run.playCard(G, 0, 'self');
@@ -636,13 +636,13 @@ test('합연산: 유물 +% 끼리 더하고, 카드 자신의 강화 · 속공�
   const R = duel(['glasscannon', 'bloodpact']); R.C.dice = [6, 6, 6, 1, 2]; R.C.rollNo = 1;
   const sc = Run.scoreCard(R, { u: 1, cat: 'sixes', up: 1, kws: ['quick'] });
   // 18 × (1 + 0.6 + 0.5) = 37.8 → 38, 강화 ×1.3 → 49, 속공 ×1.5 → 74
-  assert.equal(sc.total, Math.round(Math.round(Math.round(38 * 1.2) * 1.3) * 1.5));   // 같은 눈 3개 · 강화 · 속공은 곱
+  assert.equal(sc.total, Math.round(Math.round(38 * 1.3) * 1.5));   // 강화 · 속공은 곱
   assert.ok(sc.parts.find(p => p.ko === '강화').mul);
 });
 test('인장: 해 ×1.5 점수 · 구름 보호막 20 · 별 골드 15 · 달은 일회성 복사본', () => {
   const R = duel([], R => { R.C.dice = [6, 6, 6, 6, 6]; });
   R.C.hand[0] = { u: 8001, cat: 'sixes', up: 0, kws: [], seal: 'sun' };
-  assert.equal(Run.preview(R, 0, 'enemy').dmg, 90);            // 30 × 같은 눈 5개 2 × 해 1.5
+  assert.equal(Run.preview(R, 0, 'enemy').dmg, 45);            // 30 × 해 1.5
   R.C.hand[1] = { u: 8002, cat: 'sixes', up: 0, kws: [], seal: 'cloud' };
   assert.equal(Run.preview(R, 1, 'self').block - Run.preview(R, 1, 'self').def, 20);
   const M = duel([], R => { R.C.dice = [6, 6, 6, 6, 6]; });
@@ -841,6 +841,16 @@ test('시험 원정 샌드박스: 유물 · 카드 · 물약 · 징조 · 적 ·
   Run.leaveReward(R);
   assert.equal(R.phase, 'map'); assert.equal(R.act, 3);
   Run.sandbox.removeCard(R, c.u); assert.ok(!R.deck.some(x => x.u === c.u));
+});
+test('공명의 종: 포 · 파이브 · 식스에 맞는 주사위 3개 이상이면 ×2 (합연산), 다른 숫자 카드엔 없음', () => {
+  const R = duel(['reso'], R => { R.C.dice = [6, 6, 6, 1, 2]; });
+  assert.equal(Run.scoreCard(R, { u: 1, cat: 'sixes', up: 0, kws: [] }).total, 36);
+  R.C.dice = [6, 6, 1, 2, 3];
+  assert.equal(Run.scoreCard(R, { u: 1, cat: 'sixes', up: 0, kws: [] }).total, 12);
+  R.C.dice = [3, 3, 3, 1, 2];
+  assert.equal(Run.scoreCard(R, { u: 2, cat: 'threes', up: 0, kws: [] }).total, 9);
+  const N = duel([], R => { R.C.dice = [6, 6, 6, 1, 2]; });
+  assert.equal(Run.scoreCard(N, { u: 1, cat: 'sixes', up: 0, kws: [] }).total, 18);   // 유물이 없으면 그대로
 });
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
 test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
