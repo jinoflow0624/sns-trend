@@ -260,20 +260,35 @@ function showAsc() {
 // 원정 준비: 별조각(✦)으로 영구 강화. 원정이 끝날 때마다 별조각을 얻는다
 function showMeta() {
   const b = best(), m = b.meta;
-  const ups = Run.META.map(u => {
+  // 진열대: 물건(그림) · 이름표 · 단계 구슬 · 가격표. 누르면 설명 + 구매 / 취소 (원정 상점과 같은 손맛)
+  const item = u => {
     const n = mlv(b, u.id), full = n >= u.max, cost = full ? 0 : u.cost[n];
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('');
-    return `<div class="meta-row${full ? ' full' : ''}">${runIco('meta', u.id, u.icon)}<span><b>${u.ko} <span class="mpips">${pips}</span></b><small>${n ? u.desc(n) : '없음'}${full ? '' : ` → <em>${u.desc(n + 1)}</em>`}</small></span>
-      <button class="pbtn small${!full && m.stars >= cost ? ' gold' : ''}" data-act="run-metabuy" data-id="${u.id}" ${full || m.stars < cost ? 'disabled' : ''}>${full ? '완료' : `${starIco()}${cost}`}</button></div>`;
-  }).join('');
-  X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><h2>잡화점</h2></div>
-    <h3 class="meta-sub"><span>영구 강화</span>
-      <span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></h3>
-    <div class="meta-list">${ups}</div>
+    return `<button class="shelf-item meta-ware${full ? ' sold' : ''}" data-act="run-metaitem" data-id="${u.id}">
+      <span class="si-ico">${runIco('meta', u.id, u.icon, 'lg')}</span>
+      <span class="mw-name">${u.ko}</span><span class="mpips">${pips}</span>
+      <em class="price${!full && m.stars < cost ? ' poor' : ''}">${full ? '완료' : `${starIco()}${cost}`}</em></button>`;
+  };
+  const shelf = list => `<div class="shelf"><div class="shelf-row">${list.map(item).join('')}</div><i class="shelf-plank" aria-hidden="true"></i></div>`;
+  const rows = [];
+  for (let k = 0; k < Run.META.length; k += 3) rows.push(Run.META.slice(k, k + 3));
+  X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box meta-store" data-act="noop">
+    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>잡화점</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
+    <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></div>
+    <div class="shop-stall meta-stall">${rows.map(shelf).join('')}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
   </div></div>`;
   ui.walletWas = m.stars;
+}
+// 잡화점 물건을 누르면: 설명(지금 → 다음) + 구매 / 취소
+function metaItemTip(el, id) {
+  const b = best(), m = b.meta, u = Run.META.find(x => x.id === id);
+  if (!u) return;
+  const n = mlv(b, id), full = n >= u.max, cost = full ? 0 : u.cost[n];
+  sfx.tap();
+  X.popover(el, `<b>${runIco('meta', u.id, u.icon, 'xs')} ${u.ko}</b> <small>${n}/${u.max}단계</small>
+    <p>${n ? u.desc(n) : '아직 없음'}${full ? '' : `<br>→ <em class="mint">${u.desc(n + 1)}</em>`}</p>
+    ${full ? '<p class="dim">다 올렸어요</p>' : `<div class="buy-btns"><button class="hb" data-act="run-metaclose">취소</button><button class="hb gold" data-act="run-metabuy" data-id="${id}" ${m.stars < cost ? 'disabled' : ''}>${starIco()}${cost} 구매</button></div>`}`);
 }
 async function metaAct(act, id) {
   if (ui.metaBusy) return;
@@ -668,10 +683,10 @@ function syncSplit() {
 }
 function trinityHTML(u) {
   return `<div class="split tri" id="split">
-    <div class="sp-tri">
-      <span class="sp-end atk">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>피해</small></span>
-      <span class="sp-end gold">${ico('coins', 'xs')}<b id="sp-gold"></b><small>골드</small></span>
-      <span class="sp-end def">${ico('shield', 'xs')}<b id="sp-blk"></b><small>보호막</small></span>
+    <div class="sp-tri" aria-label="삼위일체: 모두 얻는다">
+      <span class="sp-stat atk"><small>${ico('sword', 'xs')}피해</small><b id="sp-dmg"></b></span><i class="sp-plus">+</i>
+      <span class="sp-stat gold"><small>${ico('coins', 'xs')}골드</small><b id="sp-gold"></b></span><i class="sp-plus">+</i>
+      <span class="sp-stat def"><small>${ico('shield', 'xs')}보호막</small><b id="sp-blk"></b></span>
     </div>
     <p class="sp-info" id="sp-info"></p>
     <div class="sp-row one"><span class="sp-note">${ico('star', 'xs')}삼위일체 · 모두 얻는다</span><button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button></div>
@@ -1876,7 +1891,9 @@ export function onAct(act, t) {
   }
   if (act === 'run-feats') { sfx.select(); return showFeats(); }
   if (act === 'run-meta') { sfx.select(); return showMeta(); }
-  if (act === 'run-metabuy') return metaAct(act, t.dataset.id);
+  if (act === 'run-metaitem') return metaItemTip(t, t.dataset.id);
+  if (act === 'run-metaclose') { sfx.back(); return X.closePopover(); }
+  if (act === 'run-metabuy') { X.closePopover?.(); return metaAct(act, t.dataset.id); }
   if (act === 'run-start' || act === 'run-again' || act === 'run-trial') {
     sfx.start();
     const trial = act === 'run-trial' || (act === 'run-again' && R?.trial);
