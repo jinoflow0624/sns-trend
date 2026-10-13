@@ -811,6 +811,11 @@ test('특별 카드 전용 유물: 그 카드가 덱에 있으면 더 잘 나온
   assert.ok(freq('ones') > freq(null));
 });
 
+test('시험 원정: 특별 카드 3장 · 전용 유물 3개를 들고 출발', () => {
+  const R = Run.trialKit(mk({ cls: 'gambler', seed: 3 }));
+  assert.deepEqual(R.deck.filter(c => Run.isSpecial(c.cat)).map(c => c.cat).sort(), ['ones', 'threes', 'twos']);
+  for (const id of ['cape', 'culture', 'prism']) assert.ok(Run.hasRelic(R, id));
+});
 console.log('\n기록 · 별조각 (서버 다시 돌리기)');
 test('행동 기록을 다시 돌리면 같은 판이 나온다', () => {
   for (const [cls, seed] of [['gambler', 3], ['warrior', 11], ['bard', 21], ['sharper', 8]]) {

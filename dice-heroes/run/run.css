@@ -1021,3 +1021,5 @@
 .sp-glab b { font-size: 14px; }
 .sp-gbar { grid-column: 2; height: 20px; background: #2A2270; }
 .sp-gf { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(90deg, #FFE04A 0 6px, #F5B82E 6px 8px); box-shadow: inset -2px 0 0 #fff; }
+/* 시험 원정 (테스트판 전용): 특별 카드 3장 + 전용 유물 3개 */
+.rs-go .trial-btn { grid-column: 1 / -1; min-height: 32px; font-size: 12px; background: linear-gradient(180deg, #C9A2FF, #8A5BE0); color: #1A0B3A; }

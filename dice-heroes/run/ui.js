@@ -217,18 +217,19 @@ function paintSelect() {
       <button class="dial-arrow" data-act="run-cls" data-id="${at(1)}" data-d="1" aria-label="다음 직업">▶</button>
     </div>
     <b class="rs-name" style="--c:${info.color}">${info.ko}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${X.owns(sel) ? '' : ` ${ico('lock', 'xs')}`}</b>
-    <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
+    <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length + 1}장">
       ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n}"></i>`).join('')}
       <div class="rc rc-static rs-front">${cardFace(sig)}</div>
-      <span class="rs-count">${ico('card', 'xs')}${deck.length}</span>
+      <span class="rs-count">${ico('card', 'xs')}${deck.length + 1}</span>
     </div>
     <div class="rs-go">
       <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 잡화점 <b>${starIco()}${b.meta.stars}</b></span></button>
       <button class="pbtn gold big" data-act="run-go">원정 떠나기</button>
+      <button class="pbtn small trial-btn" data-act="run-trial">시험 원정 · 특별 카드</button>
     </div>
   </div>`;
   // 덱 더미를 길게 누르면 시작 덱 9장
-  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${ico('card', 'xs')} 시작 덱 ${deck.length}장</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div>`, { afterRelease: true }));
+  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${ico('card', 'xs')} 시작 덱 ${deck.length + 1}장</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div><p>+ 특별 카드 1장 (에이스 · 듀스 · 트레이 중 무작위)</p>`, { afterRelease: true }));
 }
 
 // 승천: 직업 고르기 화면에는 버튼 하나. 누르면 승천 창에서 단계를 고른다 (이 직업으로 깬 단계 + 1 까지)
@@ -1777,8 +1778,9 @@ export function onAct(act, t) {
   if (act === 'run-feats') { sfx.select(); return showFeats(); }
   if (act === 'run-meta') { sfx.select(); return showMeta(); }
   if (act === 'run-metabuy') return metaAct(act, t.dataset.id);
-  if (act === 'run-start' || act === 'run-again') {
+  if (act === 'run-start' || act === 'run-again' || act === 'run-trial') {
     sfx.start();
+    const trial = act === 'run-trial' || (act === 'run-again' && R?.trial);
     const cls = act === 'run-again' ? R?.cls || ui.cls : ui.cls;
     const lv = act === 'run-again' && R ? R.asc || 0 : ui.asc || 0;
     if (ui.starting) return;
@@ -1787,6 +1789,7 @@ export function onAct(act, t) {
     return Prog.startRun(cls, lv).then(s => {
       R = Run.createRun({ cls, name: X.name(), asc: lv, seed: s.seed, meta: s.meta });
       R.xid = s.id;
+      if (trial) Run.trialKit(R);          // 시험 원정: 에이스 · 듀스 · 트레이 + 회귀자의 망토 · 세포배양관 · 프리즘
       ui.recorded = false; ui.end = null; ui.featShown.clear();
       save();
       const r0 = R;
