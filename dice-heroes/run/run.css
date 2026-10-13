@@ -1010,7 +1010,13 @@
 .rc-spec { display: block; font-style: normal; font-size: 8px; line-height: 1.1; font-weight: 400; color: #8A3FC8; letter-spacing: -.02em; }
 .rc-spec::before { content: '<'; } .rc-spec::after { content: '>'; }
 /* 삼위일체: 나눌 수 없어 공격 · 골드 · 방어를 함께 보여 준다 */
-.sp-tri { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.sp-tri { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2px; padding: 4px 6px; background: rgba(0,0,0,.28); border-top: 1px dashed #4A4290; border-bottom: 1px dashed #4A4290; }
+/* 누를 수 없는 표시: 테두리 · 그림자 없이 글자 색만 */
+.sp-stat { display: grid; justify-items: center; line-height: 1.05; pointer-events: none; }
+.sp-stat small { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; opacity: .85; }
+.sp-stat b { font-size: 22px; text-shadow: 2px 2px 0 var(--ink); }
+.sp-stat.atk { color: #FF9A55; } .sp-stat.gold { color: #FFD84A; } .sp-stat.def { color: #7CC8FF; }
+.sp-plus { font-style: normal; font-size: 14px; color: #6A62A8; }
 .sp-end.gold { background: linear-gradient(180deg, #FFE98A, #F5B82E); color: #3B2600; }
 .sp-row.one { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; }
 .sp-note { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #FFE27A; }
@@ -1059,3 +1065,25 @@
 .sb-make { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; }
 .sb-make .rc { width: 92px; height: 128px; }
 .sb-del { padding: 0; border: 0; background: none; }
+/* 잡화점: 원정 상점처럼 진열대에 늘어놓는다 */
+.meta-store { width: min(100%, 440px); gap: 8px; padding: 12px 10px 10px !important; background: linear-gradient(180deg, #3A2414 0 4px, #24160C 4px), #24160C !important;
+  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 18px, transparent 18px 36px), linear-gradient(180deg, #3A2414, #1E1209) !important;
+  border: 3px solid var(--ink) !important; box-shadow: inset 0 0 0 2px #7A4E28, inset 0 0 0 4px #1A0E06, 0 10px 30px rgba(0,0,0,.6) !important; }
+.meta-store .meta-head { gap: 10px; }
+.meta-store .mh-sign { display: grid; justify-items: start; padding: 4px 10px; background: #F1DDAE; border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.meta-store .mh-sign h2 { color: #5A2E10; text-shadow: none; font-size: 18px; }
+.meta-store .mh-sign small { font-size: 10px; color: #8A5A30; }
+.meta-counter { display: flex; justify-content: flex-end; padding: 0 4px; }
+.meta-stall { display: grid; gap: 16px; padding: 4px 0 6px; max-height: 52vh; overflow-y: auto; }
+.meta-ware { width: 96px; gap: 2px; }
+.meta-ware .si-ico { width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle, rgba(255,226,122,.2), transparent 70%); }
+.meta-ware .si-ico .run-ico { width: 44px; height: 44px; }
+.meta-ware .mw-name { font-size: 11px; font-weight: 700; color: #FFE9C2; text-shadow: 1px 1px 0 var(--ink); white-space: nowrap; }
+.meta-ware .mpips { display: flex; gap: 2px; justify-content: center; min-height: 8px; }
+.meta-ware .mpips i { width: 7px; height: 7px; background: #3A2C1A; border: 1px solid var(--ink); transform: rotate(45deg); }
+.meta-ware .mpips i.on { background: var(--gold); box-shadow: 0 0 4px rgba(255,200,61,.6); }
+.meta-ware .price { display: inline-flex; align-items: center; gap: 2px; }
+.meta-ware .price .run-ico { width: 12px; height: 12px; }
+.meta-ware.sold .price { background: #5A8A3A; color: #fff; }
+.meta-ware.sold .si-ico { opacity: .55; filter: none; }
+.run-meta .mint { font-style: normal; color: var(--mint); }
