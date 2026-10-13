@@ -1087,3 +1087,7 @@
 .meta-ware.sold .price { background: #5A8A3A; color: #fff; }
 .meta-ware.sold .si-ico { opacity: .55; filter: none; }
 .run-meta .mint { font-style: normal; color: var(--mint); }
+/* 특별 카드 휘장 (spec_<cat>.webp): 이름 아래 작은 그림 + 이름 */
+.rc-spec { display: flex; align-items: center; justify-content: center; gap: 1px; }
+.rc-spec::before, .rc-spec::after { content: none; }
+.rc-spec .ico { width: 11px; height: 11px; flex: none; }

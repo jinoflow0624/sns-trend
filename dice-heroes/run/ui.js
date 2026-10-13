@@ -353,7 +353,7 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const sl = c.seal && Run.sealInfo(c.seal);
   return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
     ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
-    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
+    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')}${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${ruleOf(c)}</small>
     ${ks.length > 1 ? `<span class="rc-gems n${ks.length}">${Array.from({ length: Run.KW_MAX }, (_, i) => ks[i] ? `<i class="gem" style="--kc:${Run.KEYWORDS[ks[i]].color}" title="${Run.KEYWORDS[ks[i]].ko}">${runIco('kw', ks[i], Run.KEYWORDS[ks[i]].icon, 'xs')}</i>` : '<i class="gem empty"></i>').join('')}</span>`
@@ -377,7 +377,7 @@ function longPress(el, fn, ms = 450) {
 }
 // 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
 const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.isSpecial(c.cat) ? `<p>${ico(Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
+const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
