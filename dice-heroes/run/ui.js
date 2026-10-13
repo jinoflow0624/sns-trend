@@ -498,6 +498,10 @@ function paint() {
   $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure && !Run.omen(R, 'fog') ? `<button class="hex-badge" data-act="run-hex">${runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
   $('rtip').innerHTML = tipText(needBet);
   hand?.refresh();
+  // 도박사: 배팅할 때 손패가 반짝인다, 배팅한 카드는 금빛
+  $('hand')?.classList.toggle('bet-pick', !!needBet && my);
+  $('hand')?.querySelectorAll('.bet-on').forEach(e => e.classList.remove('bet-on'));
+  if (C.bet != null) hand?.el(C.bet)?.classList.add('bet-on');
   if (ui.split && ui.sel === ui.split.u) syncSplit();
   paintTray();
   $('rc')?.classList.toggle('my-turn', my);
@@ -833,7 +837,7 @@ function sealBurst(id, p) {
   if (!sl || !p) return;
   if (X.prefs.fx !== 'min') { FX().ring(p.x, p.y, { color: sl.color, r0: 8, r1: 80, dur: 420, width: 7 }); FX().burst(p.x, p.y, { n: 26, pal: [sl.color, '#FFFFFF', '#FFF4D2'], speed: [80, 260] }); }
   sfx.quest?.();
-  floatAt(p.x, p.y - 60, `${sealIco(id)}${sl.ko}${id === 'sun' ? ' · 피해 ×2' : ''}`, id === 'cloud' ? 'sky' : 'gold');
+  floatAt(p.x, p.y - 60, `${sealIco(id)}${sl.ko}${id === 'sun' ? ' · 점수 ×1.5' : ''}`, id === 'cloud' ? 'sky' : 'gold');
 }
 // 동전 던지기 유물: 영웅 위로 동전이 빙글빙글 올라갔다 떨어져 앞면(금 · 왕관) / 뒷면(은 · 해골)이 보인다
 async function coinToss(side, h) {
@@ -1486,6 +1490,7 @@ function showShop() {
     <button class="pbtn gold" data-act="run-shopleave">상점 나가기</button>
     ${heroStrip()}
   </div>`;
+  ui.shopTips = tips;
   X.app.querySelectorAll('.shelf-item[data-ti]').forEach(el => longPress(el, () => X.popover(el, tips[el.dataset.ti], { afterRelease: true })));
 }
 
@@ -1823,8 +1828,19 @@ export function onAct(act, t) {
     showMap();
     return X.toast(omenIco(o), `${R.act}막 징조 · ${o.ko}`, omenText(o), 2200);
   }
+  if (act === 'run-closepop') { sfx.back(); return X.closePopover(); }
   if (act === 'run-omeninfo') { const o = Run.omenInfo(R.omen); sfx.tap(); return X.popover(t, `<b>${omenIco(o, 'xs')} ${o.ko}</b><p>${omenText(o)}</p>`); }
   if (act === 'run-buy') {
+    // 짧게 누르면: 설명 + 구매 / 취소. 구매를 누르면 산다
+    if (!t.dataset.ok) {
+      const list = { card: R.shop.cards, relic: R.shop.relics, potion: R.shop.potions, tool: R.shop.tools, seal: R.shop.seals || [] }[t.dataset.kind];
+      const it = list?.[Number(t.dataset.i)];
+      if (!it || it.sold) return;
+      sfx.tap();
+      const poor = R.gold < it.price;
+      return X.popover(t, `${ui.shopTips?.[t.dataset.ti] || ''}<div class="buy-btns"><button class="hb" data-act="run-closepop">취소</button><button class="hb gold" data-act="run-buy" data-kind="${t.dataset.kind}" data-i="${t.dataset.i}" data-ok="1" ${poor ? 'disabled' : ''}>${ico('coins', 'xs')}${it.price} 구매</button></div>`);
+    }
+    X.closePopover();
     if (t.dataset.kind === 'seal') {
       try { Run.buy(R, 'seal', Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
       sfx.select(); ui.pickU = null; return showPick();
