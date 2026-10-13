@@ -2288,6 +2288,16 @@ export const sandbox = {
     R.sbFight = true;
     startCombat(R, foeId);
   },
+  // 고른 이벤트를 바로 연다 (전투 중이면 전투를 접고)
+  event(R, id) {
+    sbOn(R);
+    const ev = EVENTS.find(e => e.id === id);
+    if (!ev) fail('없는 이벤트예요.');
+    if (R.ended) fail('이미 끝난 원정이에요.');
+    R.reward = null; R.shop = null; R.pick = null; R.omenOpts = null; R.C = null;
+    R.phase = 'event';
+    R.event = { id: ev.id, result: null, dice: null, fight: null };
+  },
   dice(R, i, v) {
     const C = sbCombat(R);
     if (!C.rolled) fail('먼저 주사위를 굴려 주세요.');
