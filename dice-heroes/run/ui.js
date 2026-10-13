@@ -1588,11 +1588,19 @@ function showPick() {
   const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
     <h2>${title}</h2>
-    ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : pk.hp ? `<p class="hint">체력 ${pk.hp}을 잃어요</p>` : ''}
+    ${pk.why === 'seal' ? sealNotice(pk) : pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : pk.hp ? `<p class="hint">체력 ${pk.hp}을 잃어요</p>` : ''}
     <div class="deck-grid">${list.map(c => `<button class="rc rc-static mini${ui.pickU === c.u ? ' on' : ''}" data-act="run-pickcard" data-u="${c.u}">${cardFace(c)}</button>`).join('')}</div>
     ${sel ? `<div class="pick-prev"><div class="rc rc-static">${cardFace(sel)}</div></div>` : ''}
     <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '다음', remove: '제거', dup: '복제', seal: '붙이기' }[pk.why]}</button></div>
   </div></div>`;
+}
+// 인장을 붙일 카드 고르기 안내: 어떤 인장을 · 어떤 카드에 붙이는지
+function sealNotice(pk) {
+  const sl = Run.sealInfo(pk.seal);
+  const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
+  return `<div class="seal-notice" style="--sc:${sl.color}"><i class="sn-ico">${sealIco(pk.seal, '')}</i>
+    <span><i class="sn-line"><b>${sl.ko}</b>을 붙일 카드를 고르세요</i><small>${sl.desc}${pk.cost ? ` · ${ico('coins', 'xs')}${pk.cost}` : ''}</small>
+    ${sel ? `<em>→ <b>${esc(Run.cardName(sel))}</b> 에 붙여요</em>` : '<em>인장이 없는 카드만 고를 수 있어요</em>'}</span></div>`;
 }
 // 강화 고르기: 점수 +30% 또는 새 효과 (3개 중 1개). 고르면 바뀐 카드를 미리 보여 준다
 function showUpgrade() {
@@ -1843,7 +1851,10 @@ export function onAct(act, t) {
     X.closePopover();
     if (t.dataset.kind === 'seal') {
       try { Run.buy(R, 'seal', Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
-      sfx.select(); ui.pickU = null; return showPick();
+      sfx.select(); ui.pickU = null;
+      const sl = Run.sealInfo(R.pick.seal);
+      X.toast(sealIco(R.pick.seal, ''), `${sl.ko} · 붙일 카드를 고르세요`, sl.desc, 1800);
+      return showPick();
     }
     try { Run.buy(R, t.dataset.kind, Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
     drain(); sfx.coin(); save();
