@@ -1106,3 +1106,7 @@ body:has(.run-sb) .popover { z-index: 310; }
 @keyframes rerollOut { to { opacity: 0; transform: translateY(-14px) scale(.85) rotate(-4deg); } }
 .reroll-in { animation: rerollIn .32s cubic-bezier(.2, 1.4, .4, 1) backwards; }
 @keyframes rerollIn { from { opacity: 0; transform: translateY(16px) scale(.8); } }
+/* 받는 피해 배율(피의 축제 · 유리 대포)이 반영된 적 공격: 붉게 강조 + 배율 표시 */
+.it.atk.boosted { box-shadow: 0 0 0 2px #FF4A5A, 0 0 8px rgba(255,74,90,.7); }
+.it.atk.boosted b { color: #E0102E; }
+.it-mul { font-style: normal; font-size: 9px; font-weight: 700; color: #fff; background: #C2263D; padding: 0 3px; margin-left: 2px; border-radius: 2px; }

@@ -808,11 +808,13 @@ export function intentParts(R) {
   return out;
 }
 // 적 한 대의 실제 공격력 (힘 · 막 배율 · 약화 반영)
+// 받는 피해 배율 (유리 대포 ×1.4 · 피의 축제 ×1.5). 적 공격 수치(의도 · 딱 막기 · 받을 피해)에 처음부터 넣는다
+export const hurtMul = R => (hasRelic(R, 'glasscannon') ? 1.4 : 1) * (omen(R, 'feast') ? 1.5 : 1);
 export function atkOf(R, base) {
   const e = R.C.e;
   const kind = ENEMIES[e.id].kind;
   const am = (kind === 'normal' && asc(R, 2) ? 1.1 : 1) * (kind === 'elite' && asc(R, 8) ? 1.15 : 1) * (kind === 'boss' && asc(R, 9) ? 1.1 : 1);
-  const v = Math.round((base + e.str) * TUNE.atk[kind][R.act - 1] * am);
+  const v = Math.round((base + e.str) * TUNE.atk[kind][R.act - 1] * am * hurtMul(R));
   return e.weak > 0 ? Math.floor(v / 2) : v;
 }
 export const incoming = R => { const m = R.C?.e?.intent; return m?.atk ? atkOf(R, m.atk) * (m.hits || 1) : 0; };
@@ -1438,7 +1440,6 @@ function healHero(R, n, why, quiet = false) {
 // 영웅이 맞는다. 보호막이 먼저 깎인다
 function hurtHero(R, amount, why) {
   const C = R.C;
-  if (why === 'atk') amount *= (hasRelic(R, 'glasscannon') ? 1.4 : 1) * (omen(R, 'feast') ? 1.5 : 1);
   let left = Math.max(0, Math.round(amount));
   const blocked = C ? Math.min(C.block, left) : 0;
   if (C) C.block -= blocked;
