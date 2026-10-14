@@ -314,7 +314,8 @@ const UI = {
   node: ['fight', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'],
   kw: ['guard', 'vamp', 'burn', 'pierce', 'quick', 'lucky', 'weak', 'gold', 'echo', 'keep'],
   potion: ['heal', 'block', 'fire', 'time', 'power', 'pure'],
-  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp'],
+  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'seal'],
+  spec: ['ones', 'twos', 'threes'],      // 특별 카드 휘장 (에이스 주인공 · 듀스 두배 · 트레이 삼위일체)
   asc: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],   // 승천 단계 문장 (asc_<n>.webp)
   ui: ['star', 'asc', 'smith', 'shield', 'split_knob'],
   seal: ['cloud', 'moon', 'star', 'sun'],
@@ -329,7 +330,7 @@ export function runIco(kind, id, fallback, cls = '') {
 // 별조각 아이콘 (원정 밖 성장 화폐)
 export const starIco = (cls = 'xs') => runIco('ui', 'star', 'star', cls);
 // 상점 · 휴식 · 보물 · 이벤트 장면 그림 (assets/run/scene/<id>.webp, 512px)
-const SCENES = ['start', 'shop', 'rest', 'treasure', 'chest', 'spring', 'altar', 'smith', 'gamble', 'shrine', 'library', 'trap', 'fairy'];
+const SCENES = ['start', 'shop', 'rest', 'treasure', 'chest', 'spring', 'altar', 'smith', 'gamble', 'shrine', 'library', 'trap', 'fairy', 'carver'];
 export const sceneURL = id => (SCENES.includes(id) ? `assets/run/scene/${id}.webp${AV}` : null);
 export const actBgURL = act => `assets/run/bg_act${Math.min(3, Math.max(1, act))}.webp${AV}`;
 

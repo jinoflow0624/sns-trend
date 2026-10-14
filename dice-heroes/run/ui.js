@@ -168,17 +168,19 @@ function enterView(fresh = false) {
 
 // ── 직업 고르기 ──────────────────────────────────────────────────────────────
 // 원정 대사: 직업 그림을 누르면 스킬에 맞는 한마디 (대전 직업 대사는 app.js CLASS_LINES)
+// 원정 대사: 영화 · 애니 명대사를 스킬에 맞게 비튼 오마주 (대전 대사는 app.js CLASS_LINES)
 const RUN_LINES = {
-  gambler: ['숨 참고 골드 다이브!', '올인 각. 이번 판 떡상 간다', '배팅은 기세야, 기세!'],
-  monk: ['굴림 아끼는 게 진짜 갓생이지', '멘탈 방어력 만렙 찍음', '조급함? 그거 먹는 건가요'],
-  rogue: ['방패? 그거 패스할게요~', '뒤집기 한 번이면 킹받지?', '그림자에서 조용히 캐리 중'],
-  warrior: ['숫자 카드는 내가 다 씹어먹음', '공격도 방어도 원툴 아님, 투툴임', '불굴? 그냥 내 MBTI'],
-  bard: ['방패는 노래로 깔아 드림~', '이기면 앵콜에 체력까지, ㅇㅈ?', '분위기 메이커 등장했다구요'],
-  mage: ['손패가 곧 내 마력 통장', '카드 한 장 더 보는 게 국룰', '아는 만큼 세진다, 완전 럭키비키잖아'],
-  dancer: ['춤사위 쌓이는 중… 텐션 미쳤다', '박자 타고 전부 +1 가보자고', '오늘 무대 찢는다'],
-  outlaw: ['첫 굴림에 끝냄. 고민은 배송만 늦출 뿐', '빠르게 쏘고 칼퇴한다', '두 번 굴리면 지는 거야'],
-  sharper: ['원하는 눈? 손기술로 뚝딱', '밑장 빼기? 그거 실력임', '요트 각 잡혔다, 손이 기억함'],
+  gambler: ['묻고 더블로 가! 배팅 들어간다', '웅성웅성… 이 카드, 터진다', '인생은 한 방, 배팅도 한 방'],
+  monk: ['어제는 역사, 내일은 미스터리, 남은 굴림은 방패', '하거나 안 하거나. 서두름은 없다', '물처럼 흘러라, 친구여'],
+  rogue: ['그림자 속에서… 방패째 꿰뚫는다', '진실은 없다. 모든 눈이 뒤집힐 뿐', '보호막? 그런 건 없는 셈 치자고'],
+  warrior: ['이것이… 숫자 카드다!', '즐겁지 아니한가! 치면서 막는다!', 'I’ll be back. 불굴로'],
+  bard: ['음유시인에게 동전을~ 그리고 방패를~', '이기면 앙코르! 체력도 조금~', '다 잊어~ 방패는 깔아 뒀으니~'],
+  mage: ['너는 지나갈 수 없다!', '마법사는 늦지 않는다. 카드 한 장 더 보고 올 뿐', '손패가 곧 마나다. 윙가르디움 레비-오사!'],
+  dancer: ['댄싱 퀸~ 춤사위 쌓는 중', '흔들어 주세요, 모든 주사위 +1!', '이 무대는 내가 찢는다'],
+  outlaw: ['자, 쏴 봐. 내 하루를 완성시켜 줘', '정오의 결투. 첫 굴림이면 충분해', '빠르게 쏘고, 남은 굴림으로 막는다'],
+  sharper: ['싸늘하다. 가슴에 주사위가 비수처럼 꽂힌다', '손은 눈보다 빠르다. 밑장 들어간다', '원하는 눈? 묻고 요트로 가'],
 };
+const runLine = id => { const l = RUN_LINES[id] || ['…']; return l[runLineK++ % l.length]; };
 let runLineK = 0;
 // 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
 const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
@@ -224,7 +226,7 @@ function paintSelect() {
       <span class="rs-count">${ico('card', 'xs')}${deck.length + 1}</span>
     </div>
     <div class="rs-go">
-      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 잡화점 <b>${starIco()}${b.meta.stars}</b></span></button>
+      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 출정 채비 <b>${starIco()}${b.meta.stars}</b></span></button>
       <button class="pbtn gold big" data-act="run-go">원정 떠나기</button>
       <button class="pbtn small trial-btn" data-act="run-trial">시험 원정 · 특별 카드</button>
     </div>
@@ -274,14 +276,14 @@ function showMeta() {
   const rows = [];
   for (let k = 0; k < Run.META.length; k += 3) rows.push(Run.META.slice(k, k + 3));
   X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box meta-store" data-act="noop">
-    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>잡화점</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
+    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>출정 채비</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
     <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></div>
     <div class="shop-stall meta-stall">${rows.map(shelf).join('')}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
   </div></div>`;
   ui.walletWas = m.stars;
 }
-// 잡화점 물건을 누르면: 설명(지금 → 다음) + 구매 / 취소
+// 출정 채비 물건을 누르면: 설명(지금 → 다음) + 구매 / 취소
 function metaItemTip(el, id) {
   const b = best(), m = b.meta, u = Run.META.find(x => x.id === id);
   if (!u) return;
@@ -354,7 +356,7 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const sl = c.seal && Run.sealInfo(c.seal);
   return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
     ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
-    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
+    <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')}${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${ruleOf(c)}</small>
     ${ks.length > 1 ? `<span class="rc-gems n${ks.length}">${Array.from({ length: Run.KW_MAX }, (_, i) => ks[i] ? `<i class="gem" style="--kc:${Run.KEYWORDS[ks[i]].color}" title="${Run.KEYWORDS[ks[i]].ko}">${runIco('kw', ks[i], Run.KEYWORDS[ks[i]].icon, 'xs')}</i>` : '<i class="gem empty"></i>').join('')}</span>`
@@ -378,7 +380,7 @@ function longPress(el, fn, ms = 450) {
 }
 // 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
 const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.isSpecial(c.cat) ? `<p>${ico(Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
+const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -1505,7 +1507,7 @@ function cardPick(k) {
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
     <h2>보상</h2>
     <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}</button>`).join('')}</div>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
+    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
   </div></div>`;  // 카드를 길게 누르면 설명 (누르면 바로 가져간다)
   X.layer.querySelectorAll('.pick-cards .rc').forEach((el, i) => longPress(el, () => X.popover(el, cardTip(it.opts[i]), { afterRelease: true })));
 }
@@ -1520,6 +1522,8 @@ function cardTake(i) {
   save();
   setTimeout(() => { X.layer.innerHTML = ''; if (R.phase === 'reward') showReward(); }, 520);
 }
+// 새로고침 버튼 (남은 횟수가 없으면 회색)
+const rerollBtn = (act, n, k = '') => `<button class="pbtn small reroll-btn" data-act="${act}" ${k !== '' ? `data-k="${k}"` : ''} ${n > 0 ? '' : 'disabled'}>${ico('recycle', 'xs')} 새로고침 <b>${n}</b></button>`;
 function relicPick(k) {
   const it = R.reward.items[k];
   if (!it || it.done) return;
@@ -1528,7 +1532,7 @@ function relicPick(k) {
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
     <h2>${it.kind === 'boss' ? '보스 유물' : '유물'} 1개를 고르세요</h2>
     <div class="relic-picks n${it.opts.length}">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r${r.r}" data-act="run-relictake" data-i="${i}">${relicIco(r, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
+    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
   </div></div>`;
 }
 
@@ -1553,7 +1557,7 @@ function showShop() {
   X.app.innerHTML = `
   <div class="screen run-shop">
     ${hud()}
-    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div></div>
+    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div>${rerollBtn('run-reshop', Run.rrOf(R).shop)}</div>
     <div class="shop-scroll shop-stall">
       ${shelf(cards, ' cards')}
       ${shelf([...seals, ...relics])}
@@ -1703,7 +1707,7 @@ function showDeck() {
 
 // ── 시험 원정 샌드박스 (테스트판 전용 · 정식 출시 전에 시험 원정 버튼과 함께 지울 것) ──
 // 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 바꾸고, 손패 카드의 점수 계산을 줄줄이 본다.
-const SB_TABS = [['score', '점수'], ['relic', '유물'], ['card', '카드'], ['item', '소모품'], ['foe', '적'], ['omen', '징조']];
+const SB_TABS = [['score', '점수'], ['relic', '유물'], ['card', '카드'], ['item', '소모품'], ['foe', '적'], ['event', '이벤트'], ['omen', '징조']];
 const sbState = () => (ui.sb ||= { tab: R.phase === 'combat' ? 'score' : 'relic', cat: 'ones', up: 0, kws: [], seal: '' });
 function showSandbox() {
   const sb = sbState(), C = R.phase === 'combat' && R.C?.phase === 'roll' ? R.C : null;
@@ -1740,13 +1744,15 @@ function showSandbox() {
       <div class="deck-grid">${Run.deckCards(R).map(c => `<button class="rc rc-static mini sb-del" data-act="run-sbdel" data-v="${c.u}">${cardFace(c)}</button>`).join('')}</div>`;
   } else if (sb.tab === 'item') {
     body = `<h3>물약 <small>${R.potions.length}/${Run.POTION_SLOTS}</small></h3><div class="sb-row">${Run.POTIONS.map(p => chip('run-sbpot', p.id, false, `${runIco('potion', p.id, p.icon, 'xs')}${p.ko}`)).join('')}${chip('run-sbx', 'nopot', false, '물약 비우기')}</div>
-      <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}</div>
+      <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}${chip('run-sbx', 'rrshop', false, `${ico('recycle', 'xs')}상점 새로고침 +1 (${Run.rrOf(R).shop})`)}${chip('run-sbx', 'rrpick', false, `${ico('recycle', 'xs')}카드 · 유물 새로고침 +1 (${Run.rrOf(R).pick})`)}</div>
       <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
   } else if (sb.tab === 'foe') {
     const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스']];
     body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
       <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
       ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act}막</small></button>`).join('')}</div>`).join('')}`;
+  } else if (sb.tab === 'event') {
+    body = `<p class="dim">눌러서 그 이벤트로 바로 가기</p><div class="sb-grid events">${Run.EVENTS.map(e => `<button class="sb-ev" data-act="run-sbevent" data-v="${e.id}">${sceneURL(e.id) ? `<img src="${sceneURL(e.id)}" alt="">` : ico(e.art, 'lg')}<span>${esc(e.ko)}</span></button>`).join('')}</div>`;
   } else if (sb.tab === 'omen') {
     body = `<div class="sb-col">${chip('run-sbomen', '', !R.omen, '징조 없음')}${Run.OMENS.map(o => chip('run-sbomen', o.id, R.omen === o.id, `${omenIco(o, 'xs')}<b>${o.ko}</b> <small>${esc(o.desc)}</small>`)).join('')}</div>`;
   }
@@ -1755,7 +1761,8 @@ function showSandbox() {
     <div class="sb-tabs">${SB_TABS.map(([id, ko]) => `<button class="sb-tab${sb.tab === id ? ' on' : ''}" data-act="run-sbtab" data-v="${id}">${ko}</button>`).join('')}</div>
     <div class="sb-body">${body}</div>
     <div class="pick-actions"><button class="pbtn small gold" data-act="run-sbclose">닫기</button></div>
-  </div></div>`;
+  </div></div>`;  // 유물을 길게 누르면 설명 (짧게 누르면 넣고 빼기)
+  X.layer.querySelectorAll('.sb-relic').forEach(el => longPress(el, () => { const x = Run.relicInfo(el.dataset.v); X.popover(el, `<b>${relicIco(x, 'xs')} ${esc(x.ko)}</b> <small>${['', '일반', '희귀', '보스'][x.r] || ''}</small><p>${esc(x.desc)}</p>`, { afterRelease: true }); }));
 }
 // 샌드박스에서 판을 바꾼 뒤 화면을 다시 그린다 (전투면 손패 · 주사위까지)
 function sbRefresh(panel = true) {
@@ -1785,9 +1792,16 @@ function sbAct(act, t) {
   if (act === 'run-sbx') {
     const f = { rolls: () => S.rolls(R, 1), hex: () => S.clearHex(R), foe999: () => S.foeHp(R, 999), foe1: () => S.foeHp(R, 1), nopot: () => S.clearPotions(R),
       gold: () => S.res(R, 'gold', 100), flip: () => S.res(R, 'flip', 1), nudge: () => S.res(R, 'nudge', 1), dance: () => S.res(R, 'dance', 1),
-      hp: () => S.res(R, 'hp'), maxhp: () => S.res(R, 'maxHp', 10), god: () => S.god(R, !R.sbGod) }[v];
+      hp: () => S.res(R, 'hp'), maxhp: () => S.res(R, 'maxHp', 10), rrshop: () => S.res(R, 'rrshop', 1), rrpick: () => S.res(R, 'rrpick', 1), god: () => S.god(R, !R.sbGod) }[v];
     if (f) run(f);
     return sbRefresh();
+  }
+  if (act === 'run-sbevent') {
+    if (!run(() => S.event(R, v))) return;
+    save();
+    X.layer.innerHTML = '';
+    hand?.destroy(); hand = null;
+    return enterView(true);
   }
   if (act === 'run-sbfoe') {
     if (!run(() => S.fight(R, v))) return;
@@ -1874,10 +1888,10 @@ export function onAct(act, t) {
     // 가운데 온 캐릭터가 한마디 (다이얼이 다 돈 뒤)
     const id = ui.cls;
     clearTimeout(ui.lineT);
-    ui.lineT = setTimeout(() => { const el = X.app.querySelector('.rs-dial .dial-hero.d0'); if (el && ui.cls === id) onAct('run-talk', el); }, 280);
+    ui.lineT = setTimeout(() => { const el = X.app.querySelector('.rs-dial .dial-hero.d0'); if (el && ui.cls === id) X.speak(el, runLine(id), true); }, 280);   // 넘기는 소리 한 번만
     return;
   }
-  if (act === 'run-talk') { const l = RUN_LINES[t.dataset.id] || ['…']; return X.speak(t, l[runLineK++ % l.length]); }
+  if (act === 'run-talk') return X.speak(t, runLine(t.dataset.id));
   // 원정 떠나기: 하드모드가 열렸으면 단계를 고르는 창, 아니면 바로 출발
   if (act === 'run-go') { if (!ascOpen(best(), ui.cls)) return onAct('run-start', t); sfx.select(); return showAsc(); }
   if (act === 'run-ascopen') { sfx.select(); return showAsc(); }
@@ -1959,6 +1973,20 @@ export function onAct(act, t) {
   if (act === 'run-cardtake') return cardTake(Number(t.dataset.i));
   if (act === 'run-cardskip') { Run.takeReward(R, ui.cardPick, -1); drain(); ui.cardPick = null; sfx.back(); X.layer.innerHTML = ''; save(); return showReward(); }
   if (act === 'run-relicpick') return relicPick(Number(t.dataset.k));
+  // 새로고침: 카드 · 유물 고르기 후보 / 상점 물건을 새로 (남은 횟수 1 소모)
+  if (act === 'run-repick') {
+    const k = Number(t.dataset.k), it = R.reward?.items[k];
+    try { Run.rerollPick(R, k); } catch (e) { return X.toast(ico('warn'), '새로고침할 수 없어요', e.message, 1400); }
+    drain(); save(); sfx.card(); sfx.whoosh?.();
+    X.layer.querySelectorAll('.pick-cards .rc, .relic-card').forEach(el => el.classList.add('reroll-out'));
+    return wait(220).then(() => (it.t === 'card' ? cardPick(k) : relicPick(k)));
+  }
+  if (act === 'run-reshop') {
+    try { Run.rerollShop(R); } catch (e) { return X.toast(ico('warn'), '새로고침할 수 없어요', e.message, 1400); }
+    drain(); save(); sfx.whoosh?.(); sfx.coin();
+    X.app.querySelectorAll('.shelf-item').forEach(el => el.classList.add('reroll-out'));
+    return wait(220).then(() => { showShop(); X.app.querySelectorAll('.shelf-item').forEach((el, i) => { el.classList.add('reroll-in'); el.style.animationDelay = `${i * 30}ms`; }); });
+  }
   if (act === 'run-relictake' || act === 'run-relicskip') {
     Run.takeReward(R, ui.relicPick, act === 'run-relicskip' ? -1 : Number(t.dataset.i));
     drain();

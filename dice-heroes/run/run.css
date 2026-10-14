@@ -1087,3 +1087,22 @@
 .meta-ware.sold .price { background: #5A8A3A; color: #fff; }
 .meta-ware.sold .si-ico { opacity: .55; filter: none; }
 .run-meta .mint { font-style: normal; color: var(--mint); }
+/* 특별 카드 휘장 (spec_<cat>.webp): 이름 아래 작은 그림 + 이름 */
+.rc-spec { display: flex; align-items: center; justify-content: center; gap: 1px; }
+.rc-spec::before, .rc-spec::after { content: none; }
+.rc-spec .ico { width: 11px; height: 11px; flex: none; }
+/* 시험 원정 · 이벤트 탭: 장면 그림 + 이름 */
+.sb-grid.events { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.sb-ev { display: grid; justify-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; color: #E8E4FF; background: #221B57; border: 2px solid var(--ink); }
+.sb-ev img, .sb-ev .ico.lg { width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated; }
+.sb-relic { -webkit-touch-callout: none; user-select: none; }
+.sb-tabs { grid-template-columns: repeat(7, minmax(0, 1fr)); } .sb-tab { font-size: 11px; padding: 0 1px; }
+/* 샌드박스 창(z 300) 위에서도 설명 창이 보이게 */
+body:has(.run-sb) .popover { z-index: 310; }
+/* 새로고침 (상점 · 카드 / 유물 고르기): 남은 횟수가 숫자로, 없으면 회색. 누르면 물건이 휙 빠졌다가 새로 깔린다 */
+.reroll-btn { gap: 3px; } .reroll-btn b { color: var(--gold); }
+.shop-head .reroll-btn { margin-left: auto; }
+.reroll-out { animation: rerollOut .22s ease-in forwards !important; }
+@keyframes rerollOut { to { opacity: 0; transform: translateY(-14px) scale(.85) rotate(-4deg); } }
+.reroll-in { animation: rerollIn .32s cubic-bezier(.2, 1.4, .4, 1) backwards; }
+@keyframes rerollIn { from { opacity: 0; transform: translateY(16px) scale(.8); } }
