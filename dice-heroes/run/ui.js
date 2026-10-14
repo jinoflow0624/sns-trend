@@ -167,17 +167,19 @@ function enterView(fresh = false) {
 
 // ── 직업 고르기 ──────────────────────────────────────────────────────────────
 // 원정 대사: 직업 그림을 누르면 스킬에 맞는 한마디 (대전 직업 대사는 app.js CLASS_LINES)
+// 원정 대사: 영화 · 애니 명대사를 스킬에 맞게 비튼 오마주 (대전 대사는 app.js CLASS_LINES)
 const RUN_LINES = {
-  gambler: ['숨 참고 골드 다이브!', '올인 각. 이번 판 떡상 간다', '배팅은 기세야, 기세!'],
-  monk: ['굴림 아끼는 게 진짜 갓생이지', '멘탈 방어력 만렙 찍음', '조급함? 그거 먹는 건가요'],
-  rogue: ['방패? 그거 패스할게요~', '뒤집기 한 번이면 킹받지?', '그림자에서 조용히 캐리 중'],
-  warrior: ['숫자 카드는 내가 다 씹어먹음', '공격도 방어도 원툴 아님, 투툴임', '불굴? 그냥 내 MBTI'],
-  bard: ['방패는 노래로 깔아 드림~', '이기면 앵콜에 체력까지, ㅇㅈ?', '분위기 메이커 등장했다구요'],
-  mage: ['손패가 곧 내 마력 통장', '카드 한 장 더 보는 게 국룰', '아는 만큼 세진다, 완전 럭키비키잖아'],
-  dancer: ['춤사위 쌓이는 중… 텐션 미쳤다', '박자 타고 전부 +1 가보자고', '오늘 무대 찢는다'],
-  outlaw: ['첫 굴림에 끝냄. 고민은 배송만 늦출 뿐', '빠르게 쏘고 칼퇴한다', '두 번 굴리면 지는 거야'],
-  sharper: ['원하는 눈? 손기술로 뚝딱', '밑장 빼기? 그거 실력임', '요트 각 잡혔다, 손이 기억함'],
+  gambler: ['묻고 더블로 가! 배팅 들어간다', '웅성웅성… 이 카드, 터진다', '인생은 한 방, 배팅도 한 방'],
+  monk: ['어제는 역사, 내일은 미스터리, 남은 굴림은 방패', '하거나 안 하거나. 서두름은 없다', '물처럼 흘러라, 친구여'],
+  rogue: ['그림자 속에서… 방패째 꿰뚫는다', '진실은 없다. 모든 눈이 뒤집힐 뿐', '보호막? 그런 건 없는 셈 치자고'],
+  warrior: ['이것이… 숫자 카드다!', '즐겁지 아니한가! 치면서 막는다!', 'I’ll be back. 불굴로'],
+  bard: ['음유시인에게 동전을~ 그리고 방패를~', '이기면 앙코르! 체력도 조금~', '다 잊어~ 방패는 깔아 뒀으니~'],
+  mage: ['너는 지나갈 수 없다!', '마법사는 늦지 않는다. 카드 한 장 더 보고 올 뿐', '손패가 곧 마나다. 윙가르디움 레비-오사!'],
+  dancer: ['댄싱 퀸~ 춤사위 쌓는 중', '흔들어 주세요, 모든 주사위 +1!', '이 무대는 내가 찢는다'],
+  outlaw: ['자, 쏴 봐. 내 하루를 완성시켜 줘', '정오의 결투. 첫 굴림이면 충분해', '빠르게 쏘고, 남은 굴림으로 막는다'],
+  sharper: ['싸늘하다. 가슴에 주사위가 비수처럼 꽂힌다', '손은 눈보다 빠르다. 밑장 들어간다', '원하는 눈? 묻고 요트로 가'],
 };
+const runLine = id => { const l = RUN_LINES[id] || ['…']; return l[runLineK++ % l.length]; };
 let runLineK = 0;
 // 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
 const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
@@ -1885,10 +1887,10 @@ export function onAct(act, t) {
     // 가운데 온 캐릭터가 한마디 (다이얼이 다 돈 뒤)
     const id = ui.cls;
     clearTimeout(ui.lineT);
-    ui.lineT = setTimeout(() => { const el = X.app.querySelector('.rs-dial .dial-hero.d0'); if (el && ui.cls === id) onAct('run-talk', el); }, 280);
+    ui.lineT = setTimeout(() => { const el = X.app.querySelector('.rs-dial .dial-hero.d0'); if (el && ui.cls === id) X.speak(el, runLine(id), true); }, 280);   // 넘기는 소리 한 번만
     return;
   }
-  if (act === 'run-talk') { const l = RUN_LINES[t.dataset.id] || ['…']; return X.speak(t, l[runLineK++ % l.length]); }
+  if (act === 'run-talk') return X.speak(t, runLine(t.dataset.id));
   // 원정 떠나기: 하드모드가 열렸으면 단계를 고르는 창, 아니면 바로 출발
   if (act === 'run-go') { if (!ascOpen(best(), ui.cls)) return onAct('run-start', t); sfx.select(); return showAsc(); }
   if (act === 'run-ascopen') { sfx.select(); return showAsc(); }
