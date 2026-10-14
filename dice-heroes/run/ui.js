@@ -550,7 +550,7 @@ function foePanel() {
   if (e.raged) st.push('<span class="rage-tag">분노</span>');
   if (e.cut) st.push(`<span class="st heads">머리 ${['fire', 'ice', 'poison'].filter(h => !e.cut[h]).length}/3</span>`);
   const intent = parts.map(p => {
-    if (p.k === 'atk') return `<span class="it atk">${ico('sword', 'xs')}<b>${p.n}${p.hits > 1 ? `×${p.hits}` : ''}</b></span>`;
+    if (p.k === 'atk') return `<span class="it atk${Run.hurtMul(R) > 1 ? ' boosted' : ''}">${ico('sword', 'xs')}<b>${p.n}${p.hits > 1 ? `×${p.hits}` : ''}</b>${Run.hurtMul(R) > 1 ? `<i class="it-mul">×${Run.hurtMul(R)}</i>` : ''}</span>`;
     if (p.k === 'block') return `<span class="it blk">${ico('shield', 'xs')}<b>${p.n}</b></span>`;
     if (p.k === 'str') return `<span class="it str">${ico('up', 'xs')}<b>+${p.n}</b></span>`;
     if (p.k === 'heal') return `<span class="it heal">${ico('heart', 'xs')}<b>${p.n}</b></span>`;
@@ -2208,12 +2208,17 @@ export function dieInfo(i) {
 }
 export function render() { if (R?.phase === 'combat') paint(); }
 
+// 받는 피해 배율이 붙었으면 무엇 때문인지 (의도 설명)
+function hurtWhy() {
+  const w = [Run.omen(R, 'feast') && '피의 축제 ×1.5', Run.hasRelic(R, 'glasscannon') && '유리 대포 ×1.4'].filter(Boolean);
+  return w.length ? ` <em class="hurt">(${w.join(' · ')} 반영)</em>` : '';
+}
 function intentInfo(t) {
   const C = R.C, m = C.e.intent;
   if (!m) return;
   const parts0 = Run.intentParts(R);
   const parts = parts0.map(p => {
-    if (p.k === 'atk') return `${ico('sword', 'xs')} 공격 ${p.n}${p.hits > 1 ? ` × ${p.hits}번` : ''}`;
+    if (p.k === 'atk') return `${ico('sword', 'xs')} 공격 ${p.n}${p.hits > 1 ? ` × ${p.hits}번` : ''}${hurtWhy()}`;
     if (p.k === 'block') return `${ico('shield', 'xs')} 보호막 ${p.n}`;
     if (p.k === 'str') return `${ico('up', 'xs')} 힘 +${p.n} (이후 공격이 세진다)`;
     if (p.k === 'heal') return `${ico('heart', 'xs')} 체력 ${p.n} 회복`;
