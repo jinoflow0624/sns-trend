@@ -899,3 +899,31 @@ test('출발 유물은 직업마다 하나로 정해져 있다', () => {
 
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
+test('새로고침: 출정 채비 횟수 · 징조 +1 · 상점 · 카드/유물 고르기', () => {
+  const R = Run.createRun({ cls: 'warrior', seed: 21, meta: { stars: 0, lv: { reshop: 2, repick: 1 } } });
+  assert.deepEqual(Run.rrOf(R), { shop: 2, pick: 1 });
+  R.omenOpts = ['regular', 'wish'];
+  Run.chooseOmen(R, 0);
+  assert.equal(Run.rrOf(R).shop, 3);
+  // 상점
+  const id = Run.nextNodes(R)[0];
+  Run.mapNode(R, id).type = 'shop';
+  Run.enterNode(R, id);
+  const before = JSON.stringify([R.shop.cards, R.shop.relics]);
+  R.shop.tools[0].sold = true;
+  Run.rerollShop(R);
+  assert.equal(Run.rrOf(R).shop, 2);
+  assert.notEqual(JSON.stringify([R.shop.cards, R.shop.relics]), before);
+  assert.equal(R.shop.tools[0].sold, true);              // 도구 · 대장장이 · 제거는 그대로
+  Run.rerollShop(R); Run.rerollShop(R);
+  assert.throws(() => Run.rerollShop(R));
+  // 카드 · 유물 고르기
+  R.phase = 'reward'; R.shop = null;
+  R.reward = { kind: 'elite', items: [{ t: 'relicPick', kind: 'elite', opts: ['iron', 'lotus', 'fang'] }, { t: 'gold', n: 10 }] };
+  Run.rerollPick(R, 0);
+  assert.equal(Run.rrOf(R).pick, 0);
+  assert.equal(R.reward.items[0].opts.length, 3);
+  assert.ok(!R.reward.items[0].opts.some(x => ['iron', 'lotus', 'fang'].includes(x)));
+  assert.throws(() => Run.rerollPick(R, 0));
+  assert.throws(() => Run.rerollPick(R, 1));
+});

@@ -1099,3 +1099,10 @@
 .sb-tabs { grid-template-columns: repeat(7, minmax(0, 1fr)); } .sb-tab { font-size: 11px; padding: 0 1px; }
 /* 샌드박스 창(z 300) 위에서도 설명 창이 보이게 */
 body:has(.run-sb) .popover { z-index: 310; }
+/* 새로고침 (상점 · 카드 / 유물 고르기): 남은 횟수가 숫자로, 없으면 회색. 누르면 물건이 휙 빠졌다가 새로 깔린다 */
+.reroll-btn { gap: 3px; } .reroll-btn b { color: var(--gold); }
+.shop-head .reroll-btn { margin-left: auto; }
+.reroll-out { animation: rerollOut .22s ease-in forwards !important; }
+@keyframes rerollOut { to { opacity: 0; transform: translateY(-14px) scale(.85) rotate(-4deg); } }
+.reroll-in { animation: rerollIn .32s cubic-bezier(.2, 1.4, .4, 1) backwards; }
+@keyframes rerollIn { from { opacity: 0; transform: translateY(16px) scale(.8); } }
