@@ -154,7 +154,7 @@ export const CAT_RULE = {
   choice: '주사위 5개 합', four: '같은 눈 4개 → 5개 합', full: '3개 + 2개 → 5개 합',
   sstr: '연속 4개 → 20', lstr: '연속 5개 → 30', yacht: '5개 모두 같음 → 50',
 };
-// 에이스 · 듀스 · 트레이: 원정에서는 실버 등급의 특별 카드 (시작 덱에 무작위 1장, 보상은 실버 이상에서만)
+// 에이스 · 듀스 · 트레이: 원정에서는 실버 등급의 특별 카드 (시작 덱에 직업마다 정해진 1장 — RUN_CLASSES 의 sp, 보상은 실버 이상에서만)
 export const SPECIAL = {
   ones: { ko: '주인공', icon: 'crown', desc: '낼 때마다 이 카드의 기본 점수가 영구히 +2' },
   twos: { ko: '두배', icon: 'sparkle', desc: '2가 하나면 2점, 2가 하나 늘 때마다 두 배 (2 → 4 → 8 → 16 → 32)' },
@@ -171,8 +171,12 @@ export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')
 export const KW_MAX = 3;                 // 카드 한 장에 붙는 효과는 3개까지 (강화로 하나씩 새긴다)
 export const kwsOf = c => c.kws || (c.kw ? [c.kw] : []);
 export const hasKw = (c, k) => kwsOf(c).includes(k);
-// 초이스(아무 때나 낼 수 있는 족보) · 에이스 · 듀스 · 트레이(특별 카드)는 그 자체로 실버(2) 이상
-export const cardRarity = c => { const n = kwsOf(c).length; return n >= 2 || (n && c.up) || (c.cat === 'yacht' && c.up) ? 3 : n || c.cat === 'choice' || isSpecial(c.cat) ? 2 : 1; };
+// 초이스(아무 때나 낼 수 있는 족보) · 에이스 · 듀스 · 트레이(특별 카드)는 그 자체로 실버(2) — 효과가 하나 붙으면 골드(3)
+export const silverCat = cat => cat === 'choice' || isSpecial(cat);
+export const cardRarity = c => {
+  const n = kwsOf(c).length, base = silverCat(c.cat);
+  return n >= 2 || (n && (c.up || base)) || (c.cat === 'yacht' && c.up) ? 3 : n || base ? 2 : 1;
+};
 function mkCard(R, cat, up = 0, kws = []) { return { u: ++R.uid, cat, up: up ? 1 : 0, kws: [kws].flat().filter(Boolean) }; }
 // 강화할 수 있는 카드: 아직 +30% 강화를 안 했거나, 효과 칸이 남았다
 export const canUpgrade = c => !c.up || kwsOf(c).length < KW_MAX;
@@ -290,26 +294,26 @@ function checkFeats(R) {
 // ── 직업 (원정용 능력) ──────────────────────────────────────────────────────
 // 보석 해금 직업이 무료 직업(도박사 · 수도승)보다 조금 더 잘 이기도록 맞춘다 (sim/run.mjs).
 // sig: 직업마다 시작 덱에 한 장 더 들어가는 대표 카드
-// 기본 덱에는 초이스가 없다. 대신 특별 카드(에이스 · 듀스 · 트레이) 중 무작위 1장이 들어간다 (createRun)
+// 기본 덱에는 초이스가 없다. 대신 직업 특별 카드(sp: 에이스 · 듀스 · 트레이) 1장이 들어간다 (createRun)
 export const BASE_DECK = ['fours', 'sixes', 'fives', 'full', 'four', 'sstr', 'lstr'];
 export const RUN_CLASSES = {
-  gambler: { hp: 100, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
+  gambler: { hp: 104, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}${CLASS_TUNE.gamblerGold ? `. 전투에서 얻는 골드 +${Math.round(CLASS_TUNE.gamblerGold * 100)}%` : ''}`; } },
-  monk:    { hp: 68, flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
+  monk:    { hp: 62, sp: 'ones', flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
     get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1 · 보호막 +${CLASS_TUNE.monkBlock}`; } },
-  rogue:   { hp: 100, flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
+  rogue:   { hp: 104, sp: 'ones', flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
     get desc() { return `전투를 시작할 때마다 뒤집기 +${CLASS_TUNE.rogueFlip}. 뒤집기를 쓴 턴에 내는 카드는 점수 +${Math.round(CLASS_TUNE.rogueMul * 100)}%, 적 보호막을 무시한다`; } },
-  warrior: { hp: 100, flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
+  warrior: { hp: 100, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
     get desc() { return `숫자 카드(에이스~식스) 점수 +${Math.round(CLASS_TUNE.warriorMul * 100)}%. 숫자 카드로 공격하면 공격한 점수의 절반만큼 보호막도 얻는다`; } },
-  bard:    { hp: 95, flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
+  bard:    { hp: 95, sp: 'ones', flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
     get desc() { return `매 턴 시작에 보호막 +${CLASS_TUNE.bardBlock}. 전투에서 이기면 체력 ${CLASS_TUNE.bardHeal} 회복`; } },
-  mage:    { hp: 70, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
+  mage:    { hp: 68, sp: 'twos', flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
     get desc() { return `손패 5장. 카드로 공격할 때 손에 남은 카드 1장당 피해 +${CLASS_TUNE.mageBonus} (나눠 내면 공격 비율만큼). 카드 보상을 한 장 더 보고 고른다`; } },
-  dancer:  { hp: 62, flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
+  dancer:  { hp: 62, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
     get desc() { return `${DANCE_NEED}점 이상 카드를 내면 춤사위 +1 (최대 ${DANCE_CAP}, 원정 내내 유지). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로), 그 턴 카드 점수 +${Math.round(CLASS_TUNE.danceMul * 100)}% (턴당 1번)`; } },
-  outlaw:  { hp: 120, flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
+  outlaw:  { hp: 120, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
     get desc() { return `첫 굴림 그대로(다시 굴리지 않고) 카드를 내면 점수 ×${CLASS_TUNE.rushAny}, 포카인드 · 풀하우스 · 스트레이트 · 요트면 ×${CLASS_TUNE.rushMul}. 남은 굴림 1회당 보호막 +${CLASS_TUNE.rushBlock}`; } },
-  sharper: { hp: 86, flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
+  sharper: { hp: 86, sp: 'ones', flip: 1, nudge: 1, sig: { cat: 'yacht' }, skill: '밑장빼기',
     get desc() { return `굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다. 턴마다 ${CLASS_TUNE.dealsTurn}번, 전투마다 ${CLASS_TUNE.deals}번까지`; } },
 };
 // 직업 수치 (sim/run.mjs 로 맞춘다)
@@ -617,7 +621,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
     ended: false, won: false, last: null,
   };
   for (const cat of BASE_DECK) R.deck.push(mkCard(R, cat));
-  R.deck.push(mkCard(R, pick(R, SPECIAL_CATS)));      // 특별 카드 1장 (에이스 · 듀스 · 트레이 중 무작위)
+  R.deck.push(mkCard(R, ci.sp));      // 직업 특별 카드 1장 (에이스 · 듀스 · 트레이 중 직업에 어울리는 것)
   R.deck.push(mkCard(R, ci.sig.cat, 0, ci.sig.kw || []));
   // 원정 성장
   R.gold += ml('gold') * 20;

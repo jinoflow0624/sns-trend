@@ -183,14 +183,16 @@ const RUN_LINES = {
 const runLine = id => { const l = RUN_LINES[id] || ['…']; return l[runLineK++ % l.length]; };
 let runLineK = 0;
 // 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
-const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
+// 시작 덱 미리보기 (마지막 장 = 대표 카드). 직업 특별 카드(sp)는 대표 카드 바로 앞
+const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -98, cat: ci.sp, up: 0, kw: null }, { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
 // 상단 직업 설명 (모든 직업을 같은 칸에 겹쳐 두고 고른 직업만 보인다 → 칸 높이가 가장 긴 설명에 맞춰 고정)
 function classInfoHTML(id, b) {
   const ci = Run.RUN_CLASSES[id], sig = startDeck(id).at(-1), kw = sig.kw ? Run.KEYWORDS[sig.kw] : null;
   const relic = mlv(b, 'relic') && Run.START_RELIC[id] ? Run.relicInfo(Run.START_RELIC[id]) : null;
   return `<div class="rs-stats"><span>${ico('heart', 'xs')}<b>${ci.hp}</b></span><span>${ico('flip', 'xs')}<b>${ci.flip}</b></span><span>${ico('nudge', 'xs')}<b>${ci.nudge}</b></span>${relic ? `<span>${relicIco(relic, 'xs')}${relic.ko}</span>` : ''}</div>
       <p class="rs-skill"><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>
-      <p class="rs-sig"><b>${ico('card', 'xs')} ${Run.cardName(sig)}</b> ${Run.CAT_RULE[sig.cat]}${kw ? ` · ${runIco('kw', sig.kw, kw.icon, 'xs')}${kw.ko}: ${kw.desc}` : ''}</p>`;
+      <p class="rs-sig"><b>${ico('card', 'xs')} ${Run.cardName(sig)}</b> ${Run.CAT_RULE[sig.cat]}${kw ? ` · ${runIco('kw', sig.kw, kw.icon, 'xs')}${kw.ko}: ${kw.desc}` : ''}</p>
+      <p class="rs-sig"><b>${ico(Run.SPECIAL[ci.sp].icon, 'xs')} ${Run.cardTitle(ci.sp)} &lt;${Run.SPECIAL[ci.sp].ko}&gt;</b> ${Run.SPECIAL[ci.sp].desc}</p>`;
 }
 function paintSelect() {
   const sel = ui.cls || X.store.get('diceheroes.runCls') || 'gambler';
@@ -220,10 +222,10 @@ function paintSelect() {
       <button class="dial-arrow" data-act="run-cls" data-id="${at(1)}" data-d="1" aria-label="다음 직업">▶</button>
     </div>
     <b class="rs-name" style="--c:${info.color}">${info.ko}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${X.owns(sel) ? '' : ` ${ico('lock', 'xs')}`}</b>
-    <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length + 1}장">
+    <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
       ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n}"></i>`).join('')}
       <div class="rc rc-static rs-front">${cardFace(sig)}</div>
-      <span class="rs-count">${ico('card', 'xs')}${deck.length + 1}</span>
+      <span class="rs-count">${ico('card', 'xs')}${deck.length}</span>
     </div>
     <div class="rs-go">
       <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 출정 채비 <b>${starIco()}${b.meta.stars}</b></span></button>
@@ -232,7 +234,7 @@ function paintSelect() {
     </div>
   </div>`;
   // 덱 더미를 길게 누르면 시작 덱 9장
-  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${ico('card', 'xs')} 시작 덱 ${deck.length + 1}장</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div><p>+ 특별 카드 1장 (에이스 · 듀스 · 트레이 중 무작위)</p>`, { afterRelease: true }));
+  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${ico('card', 'xs')} 시작 덱 ${deck.length}장</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div>`, { afterRelease: true }));
 }
 
 // 승천: 직업 고르기 화면에는 버튼 하나. 누르면 승천 창에서 단계를 고른다 (이 직업으로 깬 단계 + 1 까지)
