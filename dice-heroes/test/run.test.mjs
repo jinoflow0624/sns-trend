@@ -822,7 +822,7 @@ test('트레이 <삼위일체>: 점수만큼 공격 · 방어 · 골드, 나눌 
   assert.equal(Run.takenAfter(P, Run.preview(P, 0, c.atk, null, c.gold)), 0);
 });
 test('특별 카드 전용 유물: 그 카드가 덱에 있으면 더 잘 나온다', () => {
-  const freq = (deckCat) => { const R = run('rogue', 6); R.deck = R.deck.filter(c => !Run.isSpecial(c.cat)); if (deckCat) R.deck.push({ u: 999, cat: deckCat, up: 0, kws: [] }); let n = 0; for (let k = 0; k < 3000; k++) if (Run.rollRelic(R, 2) === 'cape') n++; return n; };
+  const freq = (deckCat) => { const R = run('rogue', 6); R.deck = R.deck.filter(c => !Run.isSpecial(c.cat)); if (deckCat) R.deck.push({ u: 999, cat: deckCat, up: 0, kws: [] }); let n = 0; for (let k = 0; k < 3000; k++) if (Run.rollRelic(R, Run.relicInfo('cape').r) === 'cape') n++; return n; };
   assert.ok(freq('ones') > freq(null));
 });
 
