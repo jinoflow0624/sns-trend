@@ -212,21 +212,34 @@ test('보존: 턴이 끝나도 손패에 남고, 나머지 카드만 버린다',
   assert.ok(!R.C.discard.some(c => c.u === 9201));
   assert.equal(R.C.hand.length, Run.handSize(R));
 });
-test('낮은 족보 유물: 에이스의 긍지 · 수집가의 상자 · 작은 수의 힘 · 쌍둥이 별 · 질풍 · 연환', () => {
+test('낮은 족보 유물: 수집가의 상자 · 작은 수의 힘 · 쌍둥이 별 · 질풍 · 연환 · 목발 · 빈집', () => {
   const R = run('rogue');
   intoFight(R);
   Run.roll(R);
   const ace = { u: 9301, cat: 'ones', up: 0, kw: null };
   R.C.dice = [1, 1, 1, 1, 6];
   assert.equal(Run.scoreCard(R, ace).total, 4);
-  R.relics.push('ace');
-  assert.equal(Run.scoreCard(R, ace).total, 32);              // 1의 눈 4개 × 8
+  assert.ok(!Run.relicInfo('ace'));                           // 에이스의 긍지는 없앴다
   R.relics.push('pairs');
-  assert.equal(Run.scoreCard(R, ace).total, 44);              // 32 + 4 × 3
-  R.relics.push('quad');
-  assert.equal(Run.scoreCard(R, ace).total, 88);              // 4개 이상 +100% (합연산)
+  assert.equal(Run.scoreCard(R, ace).total, 16);              // 4 + 4 × 3
+  R.relics = ['quad'];
+  assert.equal(Run.scoreCard(R, ace).total, 4);               // 쌍둥이 별: 4개는 안 된다
+  R.C.dice = [1, 1, 5, 5, 6];
+  assert.equal(Run.scoreCard(R, ace).total, 4);               // 딱 2개면 2 × 2
+  R.C.dice = [1, 1, 1, 1, 6];
   R.relics = ['small'];
-  assert.equal(Run.scoreCard(R, ace).total, 10);              // 4 × 2.5
+  assert.equal(Run.scoreCard(R, ace).total, 5);               // 4 × 1.2
+  R.relics = ['crutch'];
+  R.C.dice = [2, 3, 4, 5, 2];
+  assert.equal(Run.scoreCard(R, { u: 9305, cat: 'lstr', up: 0, kw: null }).total, 30);   // 목발: 4개 연속도 라지
+  R.C.dice = [1, 2, 3, 5, 6];
+  assert.equal(Run.scoreCard(R, { u: 9305, cat: 'lstr', up: 0, kw: null }).total, 0);
+  R.relics = ['emptyhouse'];
+  R.C.dice = [5, 5, 5, 2, 1];
+  assert.equal(Run.scoreCard(R, { u: 9306, cat: 'full', up: 0, kw: null }).total, 18);   // 빈집: 같은 눈 3개면 풀하우스
+  assert.equal(Run.scoreCard(R, { u: 9307, cat: 'four', up: 0, kw: null }).total, 18);   // · 포카인드도
+  R.C.dice = [5, 5, 2, 2, 1];
+  assert.equal(Run.scoreCard(R, { u: 9306, cat: 'full', up: 0, kw: null }).total, 0);
   R.relics = ['flow'];
   R.C.dice = [1, 2, 3, 4, 5];
   assert.equal(Run.scoreCard(R, { u: 9302, cat: 'lstr', up: 0, kw: null }).total, 45);
@@ -238,7 +251,7 @@ test('낮은 족보 유물: 에이스의 긍지 · 수집가의 상자 · 작은
 });
 test('덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다', () => {
   const count = relics => { const R = run('rogue', 3); R.relics = relics; let n = 0; for (let k = 0; k < 400; k++) if (Run.isUpper(Run.rollCard(R, 2).cat)) n++; return n; };
-  assert.ok(count(['ace', 'small']) > count([]) * 2);
+  assert.ok(count(['basic', 'small']) > count([]) * 2);
 });
 test('승천: 단계가 쌓이며 적 · 회복 · 체력이 바뀐다', () => {
   const a0 = mk({ cls: 'warrior', seed: 9 }), a10 = mk({ cls: 'warrior', seed: 9, asc: 10 });
@@ -842,9 +855,9 @@ test('시험 원정 샌드박스: 유물 · 카드 · 물약 · 징조 · 적 ·
   assert.equal(R.phase, 'map'); assert.equal(R.act, 3);
   Run.sandbox.removeCard(R, c.u); assert.ok(!R.deck.some(x => x.u === c.u));
 });
-test('공명의 종: 포 · 파이브 · 식스에 맞는 주사위 3개 이상이면 ×2 (합연산), 다른 숫자 카드엔 없음', () => {
+test('공명의 종: 포 · 파이브 · 식스에 맞는 주사위 3개 이상이면 ×1.25 (합연산), 다른 숫자 카드엔 없음', () => {
   const R = duel(['reso'], R => { R.C.dice = [6, 6, 6, 1, 2]; });
-  assert.equal(Run.scoreCard(R, { u: 1, cat: 'sixes', up: 0, kws: [] }).total, 36);
+  assert.equal(Run.scoreCard(R, { u: 1, cat: 'sixes', up: 0, kws: [] }).total, 23);
   R.C.dice = [6, 6, 1, 2, 3];
   assert.equal(Run.scoreCard(R, { u: 1, cat: 'sixes', up: 0, kws: [] }).total, 12);
   R.C.dice = [3, 3, 3, 1, 2];
