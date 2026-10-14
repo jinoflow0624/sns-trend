@@ -320,15 +320,15 @@ export const CLASS_TUNE = { mageBonus: 1, betMul: 1.25, monkBlock: 3, rogueFlip:
 // r: 1 일반 · 2 희귀 · 3 보스
 export const RELICS = [
   { id: 'flip',      ko: '뒤집기 두루마리', icon: 'flip',      r: 1, desc: '전투를 시작할 때마다 뒤집기 +1' },
-  { id: 'nudge',     ko: '미세 조정',       icon: 'nudge',     r: 1, desc: '전투를 시작할 때마다 조정 +2' },
+  { id: 'nudge',     ko: '미세 조정',       icon: 'nudge',     r: 1, desc: '전투를 시작할 때마다 조정 +1' },
   { id: 'basic',     ko: '기초 수련',       icon: 'belt',      r: 1, desc: '숫자 카드(에이스~식스) 점수 ×1.3' },
-  { id: 'choice',    ko: '선택의 달인',     icon: 'clover',    r: 1, desc: '초이스 점수 ×1.3' },
+  { id: 'choice',    ko: '선택의 달인',     icon: 'clover',    r: 1, desc: '초이스 점수 ×1.2' },
   { id: 'insure',    ko: '보험',            icon: 'shield',    r: 1, desc: '0점 카드를 내면 보호막 14, 뒤집기 +1' },
   { id: 'iron',      ko: '철갑',            icon: 'dscale',    r: 2, desc: '매 턴 시작에 보호막 +3' },
   { id: 'camp',      ko: '모닥불 주머니',   icon: 'fire',      r: 1, desc: '휴식할 때 체력 20 더 회복' },
   { id: 'purse',     ko: '금화 주머니',     icon: 'coins',     r: 1, desc: '전투에서 얻는 골드 +30%' },
   { id: 'drum',      ko: '전쟁 북',         icon: 'drum',      r: 1, desc: '전투 첫 턴에 내는 카드 점수 ×1.5' },
-  { id: 'bone',      ko: '뼈 방패',         icon: 'bone',      r: 1, desc: '전투를 시작할 때 보호막 16' },
+  { id: 'bone',      ko: '뼈 방패',         icon: 'bone',      r: 1, desc: '전투를 시작할 때 보호막 10' },
   { id: 'lotus',     ko: '연꽃',            icon: 'lotus',     r: 1, desc: '전투에서 이기면 체력 6 회복' },
   { id: 'whet',      ko: '숫돌',            icon: 'axe',       r: 1, desc: '공격 피해 +3 (나눠 내면 공격 비율만큼)' },
   { id: 'full',      ko: '풀하우스 장인',   icon: 'house',     r: 2, desc: '풀하우스 점수 ×1.5' },
@@ -337,7 +337,7 @@ export const RELICS = [
   { id: 'lucky',     ko: '행운의 부적',     icon: 'amulet',    r: 2, desc: '매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴린다' },
   { id: 'scholar',   ko: '현자의 눈',       icon: 'eye',       r: 2, desc: '카드 보상을 한 장 더 보고 고른다' },
   { id: 'yacht',     ko: '요트 신봉자',     icon: 'boat',      r: 2, desc: '요트 점수 ×1.5, 전투를 시작할 때마다 뒤집기 +1' },
-  { id: 'fang',      ko: '흡혈 송곳니',     icon: 'anger',     r: 2, desc: '공격으로 준 피해의 15%만큼 체력 회복' },
+  { id: 'fang',      ko: '흡혈 송곳니',     icon: 'anger',     r: 2, desc: '공격으로 준 피해의 10%만큼 체력 회복' },
   { id: 'thorn',     ko: '가시 갑옷',       icon: 'swords',    r: 2, desc: '공격받을 때마다 적에게 4 피해' },
   { id: 'heart',     ko: '거인의 심장',     icon: 'heart',     r: 2, desc: '얻을 때 최대 체력 +20' },
   { id: 'hourglass', ko: '모래시계',        icon: 'hourglass', r: 2, desc: '카드를 낼 때 남은 굴림 1회당 보호막 +3' },
@@ -346,42 +346,42 @@ export const RELICS = [
   { id: 'scale',     ko: '수호자의 저울',   icon: 'scale',     r: 2, desc: '방어로 돌린 점수의 보호막 +30%' },
   { id: 'reroll',    ko: '재굴림의 반지',   icon: 'recycle',   r: 3, desc: '매 턴 굴림 기회 +1' },
   { id: 'crown',     ko: '지혜의 왕관',     icon: 'crown',     r: 3, desc: '손패 +1' },
-  { id: 'sixth',     ko: '여섯 번째 주사위', icon: 'star',     r: 3, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1' },
+  { id: 'sixth',     ko: '여섯 번째 주사위', icon: 'star',     r: 3, desc: '주사위 6개를 굴려 가장 좋은 5개로 계산' },
   { id: 'midas',     ko: '황금손',          icon: 'hand',      r: 3, desc: '매 턴 시작에 조정 +1' },
   { id: 'phoenix',   ko: '불사조 깃털',     icon: 'sparkle',   r: 3, desc: '쓰러지면 한 번, 최대 체력의 40%로 되살아난다' },
   { id: 'chalice',   ko: '생명의 성배',     icon: 'trophy',    r: 3, desc: '얻을 때 최대 체력 +30, 체력 모두 회복' },
   // 낮은 족보를 살리는 유물 (덱 방향을 정한다 — 가지면 같은 계열 카드 · 유물이 더 자주 나온다)
   { id: 'small',     ko: '작은 수의 힘',    icon: 'die2',      r: 2, desc: '에이스 · 듀스 · 트레이 카드 점수 ×1.2' },
-  { id: 'pairs',     ko: '수집가의 상자',   icon: 'bag',       r: 1, desc: '숫자 카드는 맞는 주사위 1개당 +3점' },
+  { id: 'pairs',     ko: '수집가의 상자',   icon: 'bag',       r: 1, desc: '숫자 카드는 맞는 주사위 1개당 +2점' },
   { id: 'reso',      ko: '공명의 종',       icon: 'pairs',     r: 2, desc: '포 · 파이브 · 식스 카드: 맞는 주사위가 3개 이상이면 점수 ×1.25' },
   { id: 'quad',      ko: '쌍둥이 별',       icon: 'pair4',     r: 2, desc: '숫자 카드에 맞는 주사위가 딱 2개면 점수 ×2' },
-  { id: 'flow',      ko: '질풍',            icon: 'rainbow',   r: 2, desc: '스몰 스트레이트 기본 25점 · 라지 스트레이트 기본 45점' },
+  { id: 'flow',      ko: '질풍',            icon: 'rainbow',   r: 2, desc: '스몰 스트레이트 기본 25점 · 라지 스트레이트 기본 40점' },
   { id: 'crutch',    ko: '목발',            icon: 'boot',      r: 2, desc: '라지 스트레이트: 4개만 이어져도 성공으로 친다' },
   { id: 'emptyhouse', ko: '빈집',           icon: 'house',     r: 2, desc: '풀하우스 · 포카인드: 같은 눈이 3개만 있어도 성공으로 친다' },
-  { id: 'combo',     ko: '연환',            icon: 'link',      r: 2, desc: '스트레이트 카드로 공격하면 피해가 두 번 들어간다' },
+  { id: 'combo',     ko: '연환',            icon: 'link',      r: 2, desc: '스트레이트 카드로 공격하면 피해 ×1.3' },
   // 덱 빌딩 유물: 특정 키워드 · 족보 · 덱 크기를 살린다 (가지면 그 계열 카드가 더 자주 나오고, 그 계열 카드가 많으면 더 자주 나온다)
   { id: 'ember',     ko: '불씨 항아리',     icon: 'volcano',   r: 2, desc: '화염 카드의 화상 피해 +3, 화상이 1턴 더 간다' },
   { id: 'bloodcup',  ko: '피의 성배',       icon: 'gem',       r: 2, desc: '흡혈 회복 +50%. 체력이 가득 차서 넘치는 회복은 보호막이 된다' },
   { id: 'rampart',   ko: '성벽 설계도',     icon: 'castle',    r: 2, desc: '수호 카드로 얻은 보호막의 절반을 다음 턴 시작에 다시 얻는다' },
   { id: 'keepbox',   ko: '보존 상자',       icon: 'toolbox',   r: 1, desc: '턴 시작에 손패에 남아 있던 보존 카드 1장당, 그 턴 첫 카드 점수 +15%' },
   { id: 'magnet',    ko: '자석 주사위',     icon: 'vortex',    r: 2, desc: '굴린 뒤 같은 눈이 3개 이상이면, 다른 주사위 1개가 그 눈으로 바뀐다 (턴마다 1번)' },
-  { id: 'weight',    ko: '저울추',          icon: 'rock',      r: 1, desc: '초이스 카드: 남은 굴림 1회당 기본 점수 +6' },
+  { id: 'weight',    ko: '저울추',          icon: 'rock',      r: 1, desc: '초이스 카드: 남은 굴림 1회당 기본 점수 +3' },
   { id: 'rosary',    ko: '수도승의 묵주',   icon: 'beads',     r: 2, desc: '덱이 8장 이하면 모든 카드 점수 +25%' },
   { id: 'libkey',    ko: '도서관 열쇠',     icon: 'door',      r: 2, desc: '덱이 20장 이상이면 손패 +1' },
   // ── 새 유물 (발라트로식: 족보를 내는 순서 · 인장 · 위험 · 주사위 눈 · 덱 · 성장 · 리듬) ──
   // 배수는 모두 합연산 (+%끼리 더한다). 곱연산은 카드 자신의 강화 · 효과(속공 등) · 인장만.
   { id: 'echodrum',  ko: '메아리 북',       icon: 'drum',      r: 2, desc: '직전과 같은 족보를 내면 +25%. 같은 족보가 이어질 때마다 +25%씩 쌓인다 (다른 족보를 내면 처음부터)' },
-  { id: 'hammer',    ko: '장인의 망치',     icon: 'axe',       r: 2, desc: '족보 카드를 낼 때마다 그 족보의 기본 점수가 영구히 +1' },
+  { id: 'hammer',    ko: '장인의 망치',     icon: 'axe',       r: 2, desc: '같은 족보 카드를 3번 낼 때마다 그 족보의 기본 점수가 영구히 +1 (족보마다 +6까지)' },
   { id: 'pairring',  ko: '페어 반지',       icon: 'link',      r: 1, desc: '손패에 같은 족보 카드가 2장 이상이면 그 카드들 +50%' },
-  { id: 'kaleido',   ko: '만화경',          icon: 'rainbow',   r: 2, desc: '직전과 다른 족보를 내면 피해 +4. 다른 족보가 이어질 때마다 +4씩 쌓인다 (같은 족보를 내면 처음부터)' },
-  { id: 'palette',   ko: '무지개 팔레트',   icon: 'rainbow',   r: 3, desc: '얻은 뒤로 12가지 족보 카드를 모두 한 번씩 내면, 그때부터 모든 카드 +50%' },
+  { id: 'kaleido',   ko: '만화경',          icon: 'rainbow',   r: 2, desc: '직전과 다른 족보를 내면 피해 +2. 다른 족보가 이어질 때마다 +2씩 쌓인다 (같은 족보를 내면 처음부터)' },
+  { id: 'palette',   ko: '무지개 팔레트',   icon: 'rainbow',   r: 3, desc: '얻은 뒤로 서로 다른 족보 카드를 8가지 내면, 그때부터 모든 카드 +50%' },
   { id: 'pilgrim',   ko: '순례자의 지도',   icon: 'scroll',    r: 1, desc: '얻은 뒤로 처음 내는 족보마다 골드 15 · 최대 체력 +2' },
   { id: 'sealbag',   ko: '인장 주머니',     icon: 'bag',       r: 1, desc: '전투를 시작할 때마다 손패의 무작위 카드에 인장 1개가 붙는다 (그 전투 동안)' },
   { id: 'goldframe', ko: '황금 인장틀',     icon: 'crown',     r: 2, desc: '인장 효과가 두 번 터진다' },
   { id: 'wax',       ko: '밀랍 봉인',       icon: 'lotus',     r: 1, desc: '인장이 붙은 카드를 내지 않고 턴을 넘기면, 넘길 때마다 그 카드 +10% (쌓인다)' },
   { id: 'sealknife', ko: '인장공의 칼',     icon: 'dagger',    r: 1, desc: '상점의 인장이 반값, 상점마다 인장 하나는 공짜' },
   { id: 'madscale',  ko: '광기의 저울',     icon: 'scale',     r: 3, desc: '공격 · 방어 나누기가 무작위가 되는 대신 모든 카드 +100%' },
-  { id: 'coin',      ko: '동전 던지기',     icon: 'coins',     r: 2, desc: '카드를 낼 때마다 50% 확률로 +100%, 50% 확률로 −50%' },
+  { id: 'coin',      ko: '동전 던지기',     icon: 'coins',     r: 2, desc: '카드를 낼 때마다 50% 확률로 +100%, 50% 확률로 −25%' },
   { id: 'bloodpact', ko: '피의 계약',       icon: 'heart',     r: 3, desc: '얻을 때 최대 체력 −30%. 모든 카드 +50%' },
   { id: 'glasscannon', ko: '유리 대포',     icon: 'bolt',      r: 2, desc: '모든 카드 +60%. 대신 받는 피해 ×1.4' },
   { id: 'parity',    ko: '홀짝 부적',       icon: 'yinyang',   r: 1, desc: '주사위가 모두 홀수거나 모두 짝수면 +30%' },
@@ -392,8 +392,8 @@ export const RELICS = [
   { id: 'dust',      ko: '서고의 먼지',     icon: 'scroll',    r: 1, desc: '뽑을 더미에 남은 카드 5장당 +4%' },
   { id: 'trinity',   ko: '세 조각 성표',    icon: 'star',      r: 2, desc: '전투에서 이기면 그 전투에 가장 많이 낸 카드가 덱에 1장 더 생긴다 (원정에서 3번까지)' },
   { id: 'bloodsword', ko: '피에 굶주린 검', icon: 'sword',     r: 2, desc: '적을 쓰러뜨릴 때마다 공격 피해가 영구히 +1' },
-  { id: 'miser',     ko: '수전노의 금고',   icon: 'money',     r: 1, desc: '가진 골드 50당 +5%' },
-  { id: 'beast',     ko: '상처 입은 짐승',  icon: 'wolf',      r: 2, desc: '잃은 체력 10%당 +8%' },
+  { id: 'miser',     ko: '수전노의 금고',   icon: 'money',     r: 1, desc: '가진 골드 50당 +3%' },
+  { id: 'beast',     ko: '상처 입은 짐승',  icon: 'wolf',      r: 2, desc: '잃은 체력 10%당 +5%' },
   { id: 'ytower',    ko: '요트 탑',         icon: 'castle',    r: 2, desc: '요트를 낼 때마다 이후 모든 카드 영구히 +3%' },
   { id: 'counter',   ko: '반격의 문장',     icon: 'shield',    r: 2, desc: '적의 공격을 보호막으로 다 막으면, 남은 보호막만큼 적에게 피해' },
   { id: 'sandbank',  ko: '모래 저금통',     icon: 'hourglass', r: 2, desc: '쓰지 않고 남긴 굴림을 다음 턴으로 넘긴다 (최대 +2)' },
@@ -406,6 +406,11 @@ export const RELICS = [
 ];
 // 특별 카드 전용 유물 ↔ 그 카드
 export const SPECIAL_RELIC = { cape: 'ones', culture: 'twos', prism: 'threes' };
+// 유물 수치 (sim: 유물 하나를 들고 출발한 봇의 클리어율 차이로 맞춘다 — 희귀도에 맞게)
+export const RELIC_TUNE = { hammerEvery: 3, hammerCap: 6, comboMul: 1.3, weight: 3, pairs: 2, miser: 0.03, choice: 0.2, bone: 10, nudge: 1,
+  beast: 0.05, kaleido: 2, flowL: 40, fang: 0.1, paletteN: 8, coinLow: -0.25 };
+const RT = RELIC_TUNE;
+export const hammerBonus = (R, cat) => Math.min(RT.hammerCap, Math.floor((R.hammer?.[cat] || 0) / RT.hammerEvery));
 export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
 export const relicChoices = R => 3 + (hasRelic(R, 'loupe') ? 1 : 0);
 // 덱 빌딩 유물 ↔ 그 계열 카드
@@ -697,7 +702,7 @@ export const handSize = R => Math.max(1, HAND + (R.cls === 'mage' ? 1 : 0) + (ha
 export const diceCount = R => (hasRelic(R, 'sixth') ? 6 : 5);
 export function maxRolls(R) {
   const C = R.C;
-  let n = ROLLS + (hasRelic(R, 'reroll') ? 1 : 0) - (hasRelic(R, 'sixth') ? 1 : 0) + (C?.extraRolls || 0) + (omen(R, 'rift') ? 1 : 0);
+  let n = ROLLS + (hasRelic(R, 'reroll') ? 1 : 0) + (C?.extraRolls || 0) + (omen(R, 'rift') ? 1 : 0);
   if (C?.hex?.t === 'drums') n--;
   return Math.max(1, n);
 }
@@ -729,12 +734,12 @@ export function startCombat(R, foeId) {
   if (R.cls === 'rogue') addTool(R, 'flip', CLASS_TUNE.rogueFlip);
   if (hasRelic(R, 'flip')) addTool(R, 'flip', 1);
   if (hasRelic(R, 'yacht')) addTool(R, 'flip', 1);
-  if (hasRelic(R, 'nudge')) addTool(R, 'nudge', 2);
+  if (hasRelic(R, 'nudge')) addTool(R, 'nudge', RT.nudge);
   fx(R, { type: 'combat', foe: foeId, kind: def.kind, hp });
   log(R, `${def.ko} 등장!`);
   chooseIntent(R);
   startTurn(R);
-  if (hasRelic(R, 'bone')) { R.C.block += 16; fx(R, { type: 'heroBlock', n: 16, why: 'bone' }); }
+  if (hasRelic(R, 'bone')) { R.C.block += RT.bone; fx(R, { type: 'heroBlock', n: RT.bone, why: 'bone' }); }
   // 인장 주머니 · 인장의 비: 손패의 무작위 카드에 그 전투 동안 인장
   const n = (hasRelic(R, 'sealbag') ? 1 : 0) + (omen(R, 'sealrain') ? 1 : 0);
   for (let k = 0; k < n; k++) {
@@ -1101,18 +1106,18 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   if (on) {
     if (isUpper(card.cat)) {
       const n = upN(R, card.cat, base);
-      if (n && hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * 3 }); adj += n * 3; }
+      if (n && hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * RT.pairs }); adj += n * RT.pairs; }
     } else if (card.cat === 'sstr' && !hasRelic(R, 'flow')) {
       adj = 20; parts.push({ ko: '스몰 스트레이트', amt: 5 });          // 원정에서는 15 → 20 (낮은 족보 살리기)
     } else if (hasRelic(R, 'flow') && (card.cat === 'sstr' || card.cat === 'lstr')) {
-      adj = card.cat === 'sstr' ? 25 : 45;
+      adj = card.cat === 'sstr' ? 25 : RT.flowL;
       parts.push({ ko: '질풍', amt: adj - base });
     } else if (hasRelic(R, 'weight') && card.cat === 'choice' && C?.rollsLeft > 0) {
-      parts.push({ ko: '저울추', amt: C.rollsLeft * 6 });
-      adj += C.rollsLeft * 6;
+      parts.push({ ko: '저울추', amt: C.rollsLeft * RT.weight });
+      adj += C.rollsLeft * RT.weight;
     }
     if (hero) { parts.push({ ko: '주인공', amt: hero }); adj += hero; }
-    const hm = hasRelic(R, 'hammer') ? R.hammer?.[card.cat] || 0 : 0;
+    const hm = hasRelic(R, 'hammer') ? hammerBonus(R, card.cat) : 0;
     if (hm) { parts.push({ ko: '장인의 망치', amt: hm }); adj += hm; }
   }
   // 합연산: 모든 +% 를 모아 바뀐 기본 점수에 한 번에 붙인다
@@ -1122,7 +1127,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     if (hasRelic(R, 'quad') && isUpper(card.cat) && upN(R, card.cat, base) === 2) add('쌍둥이 별', 1);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add('기초 수련', 0.3);
     if (hasRelic(R, 'reso') && RESO_CATS.includes(card.cat) && upN(R, card.cat, base) >= RESO_N) add('공명의 종', RESO_MUL);
-    if (hasRelic(R, 'choice') && card.cat === 'choice') add('선택의 달인', 0.3);
+    if (hasRelic(R, 'choice') && card.cat === 'choice') add('선택의 달인', RT.choice);
     if (hasRelic(R, 'full') && card.cat === 'full') add('풀하우스 장인', 0.5);
     if (hasRelic(R, 'straight') && (card.cat === 'sstr' || card.cat === 'lstr')) add('질주', 0.3);
     if (hasRelic(R, 'fourk') && card.cat === 'four') add('사냥 본능', 0.5);
@@ -1133,14 +1138,14 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     if (hasRelic(R, 'palette') && R.palette?.done) add('무지개 팔레트', 0.5);
     if (hasRelic(R, 'madscale')) add('광기의 저울', 1);
     if (opts.coin === 1) add('동전 앞면', 1);
-    if (opts.coin === -1) add('동전 뒷면', -0.5);
+    if (opts.coin === -1) add('동전 뒷면', RT.coinLow);
     if (hasRelic(R, 'bloodpact')) add('피의 계약', 0.5);
     if (hasRelic(R, 'glasscannon')) add('유리 대포', 0.6);
     if (hasRelic(R, 'parity') && dice.length && (dice.every(v => v % 2) || dice.every(v => !(v % 2)))) add('홀짝 부적', 0.3);
     if (hasRelic(R, 'seven') && dice.length && !(dice.reduce((a, v) => a + v, 0) % 7)) add('칠의 축복', 0.5);
     if (hasRelic(R, 'emptyhand')) add('빈손의 무사', 0.6);
-    if (hasRelic(R, 'miser') && R.gold >= 50) add('수전노의 금고', Math.floor(R.gold / 50) * 0.05);
-    if (hasRelic(R, 'beast')) { const k = Math.floor((1 - R.hp / R.maxHp) * 10); if (k > 0) add('상처 입은 짐승', k * 0.08); }
+    if (hasRelic(R, 'miser') && R.gold >= 50) add('수전노의 금고', Math.floor(R.gold / 50) * RT.miser);
+    if (hasRelic(R, 'beast')) { const k = Math.floor((1 - R.hp / R.maxHp) * 10); if (k > 0) add('상처 입은 짐승', k * RT.beast); }
     if (hasRelic(R, 'ytower') && R.ytower) add('요트 탑', R.ytower * 0.03);
     if (hasRelic(R, 'zero') && card.zeroUp) add('0점의 기적', card.zeroUp);
     if (hasRelic(R, 'wax') && card.waxUp) add('밀랍 봉인', card.waxUp);
@@ -1214,12 +1219,12 @@ function splitOut(R, card, sc, want, gwant = 0) {
     if (hasRelic(R, 'whet')) out.whet = Math.round(3 * share);
     if (R.cls === 'mage') out.arcane = Math.round((C.hand.length - 1) * CLASS_TUNE.mageBonus * share);
     // 만화경 (다른 족보가 이어진 만큼) · 피에 굶주린 검 (쓰러뜨린 적 수): 고정 피해, 공격 비율만큼
-    if (hasRelic(R, 'kaleido') && C.lastCat && C.lastCat !== card.cat) out.kal = Math.round(4 * ((C.kal || 0) + 1) * share);
+    if (hasRelic(R, 'kaleido') && C.lastCat && C.lastCat !== card.cat) out.kal = Math.round(RT.kaleido * ((C.kal || 0) + 1) * share);
     if (hasRelic(R, 'bloodsword') && R.kills) out.bsword = Math.round(R.kills * share);
     let d = atk + out.whet + out.arcane + (out.kal || 0) + (out.bsword || 0);
     // 해 인장: 피해 ×2 (카드에 붙은 효과라 곱연산. 황금 인장틀이면 두 번)
 
-    if (hasRelic(R, 'combo') && (card.cat === 'sstr' || card.cat === 'lstr')) { d *= 2; out.combo = true; }
+    if (hasRelic(R, 'combo') && (card.cat === 'sstr' || card.cat === 'lstr')) { d = Math.round(d * RT.comboMul); out.combo = true; }
     if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
     if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
     out.dmg = d;
@@ -1227,7 +1232,7 @@ function splitOut(R, card, sc, want, gwant = 0) {
     const through = out.pierce ? d : Math.max(0, d - e.block);
     out.kill = through >= e.hp;
     if (hasKw(card, 'vamp')) out.heal += Math.floor(atk / 3 * (hasRelic(R, 'bloodcup') ? 1.5 : 1));
-    if (hasRelic(R, 'fang')) out.heal += Math.floor(through * 0.15);
+    if (hasRelic(R, 'fang')) out.heal += Math.floor(through * RT.fang);
     if (hasKw(card, 'gold')) out.gold = Math.floor(atk / 3);
     if (hasKw(card, 'burn')) out.burn = Math.floor(atk / 4) + (hasRelic(R, 'ember') ? 3 : 0);
     if (hasKw(card, 'weak')) out.weak = atk * 2 >= T;
@@ -1350,7 +1355,7 @@ function afterPlay(R, card, p, ev) {
   if (hasRelic(R, 'hammer')) (R.hammer ||= {})[cat] = (R.hammer[cat] || 0) + 1;
   if (hasRelic(R, 'palette') && R.palette && !R.palette.done) {
     if (!R.palette.seen.includes(cat)) R.palette.seen.push(cat);
-    if (SAME_CATS_ALL.every(c => R.palette.seen.includes(c))) { R.palette.done = true; ev.palette = true; }
+    if (R.palette.seen.length >= RT.paletteN) { R.palette.done = true; ev.palette = true; }
   }
   if (hasRelic(R, 'pilgrim') && R.pilgrim && !R.pilgrim.includes(cat)) {
     R.pilgrim.push(cat);
@@ -2016,7 +2021,7 @@ function prepHand(R, rollNo) {
     let mul = 1;
     const up = card.cat;
     if (hasRelic(R, 'basic') && isUpper(up)) mul += 0.3;
-    if (hasRelic(R, 'choice') && up === 'choice') mul += 0.3;
+    if (hasRelic(R, 'choice') && up === 'choice') mul += RT.choice;
     if (hasRelic(R, 'full') && up === 'full') mul += 0.5;
     if (hasRelic(R, 'straight') && (up === 'sstr' || up === 'lstr')) mul += 0.3;
     if (hasRelic(R, 'fourk') && up === 'four') mul += 0.5;
@@ -2075,7 +2080,7 @@ function fastSplit(R, info, s, a, ctx) {
   let v = 0, weak = false;
   if (a > 0) {
     let d = a + Math.round(info.flat * a / s);
-    if (info.combo) d *= 2;
+    if (info.combo) d = Math.round(d * RT.comboMul);
     if (info.horn) d = Math.round(d * 1.25);
     if (info.poison && d <= 15) d = Math.floor(d / 2);
     const through = info.pierce ? d : Math.max(0, d - e.block);
@@ -2109,12 +2114,12 @@ function fastScore(info, dice) {
   let adj = raw, mul = info.mul;
   if (info.face) {
     const n = info.two != null ? n2 : Math.round(raw / info.face);
-    if (info.pairs) adj += n * 3;
+    if (info.pairs) adj += n * RT.pairs;
     adj += info.grow;
     if (n === 2) mul += info.quad;
     if (info.reso && n >= RESO_N) mul += RESO_MUL;
     return Math.round(adj * mul);
-  } else if (info.flow) adj = info.cat === 'sstr' ? 25 : 45;
+  } else if (info.flow) adj = info.cat === 'sstr' ? 25 : RT.flowL;
   else if (info.cat === 'sstr') adj = 20;
   return Math.round(adj * mul);
 }
@@ -2261,11 +2266,11 @@ export function botCardValue(R, c) {
   if (R.cls === 'warrior' && isUpper(c.cat)) v *= 1.5;
   const sy = synergy(R);
   if (isUpper(c.cat)) {
-    if (hasRelic(R, 'pairs')) v += (CARD_EV[c.cat] / (UPPER.indexOf(c.cat) + 1)) * 3;
+    if (hasRelic(R, 'pairs')) v += (CARD_EV[c.cat] / (UPPER.indexOf(c.cat) + 1)) * RT.pairs;
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(c.cat)) v *= 1.2;
     if (hasRelic(R, 'quad')) v *= 1.3;
   }
-  if ((c.cat === 'sstr' || c.cat === 'lstr') && sy.str) v *= 1 + (hasRelic(R, 'flow') ? 0.6 : 0) + (hasRelic(R, 'combo') ? 0.8 : 0);
+  if ((c.cat === 'sstr' || c.cat === 'lstr') && sy.str) v *= 1 + (hasRelic(R, 'flow') ? 0.6 : 0) + (hasRelic(R, 'combo') ? 0.5 : 0);
   for (const k of kwsOf(c)) v += KW_V[k];
   // 이미 있는 카드와 겹치면 조금 덜
   const same = R.deck.filter(x => x.cat === c.cat).length;

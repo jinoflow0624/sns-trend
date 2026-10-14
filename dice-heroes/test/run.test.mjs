@@ -221,7 +221,7 @@ test('낮은 족보 유물: 수집가의 상자 · 작은 수의 힘 · 쌍둥�
   assert.equal(Run.scoreCard(R, ace).total, 4);
   assert.ok(!Run.relicInfo('ace'));                           // 에이스의 긍지는 없앴다
   R.relics.push('pairs');
-  assert.equal(Run.scoreCard(R, ace).total, 16);              // 4 + 4 × 3
+  assert.equal(Run.scoreCard(R, ace).total, 12);              // 4 + 4 × 2
   R.relics = ['quad'];
   assert.equal(Run.scoreCard(R, ace).total, 4);               // 쌍둥이 별: 4개는 안 된다
   R.C.dice = [1, 1, 5, 5, 6];
@@ -242,12 +242,12 @@ test('낮은 족보 유물: 수집가의 상자 · 작은 수의 힘 · 쌍둥�
   assert.equal(Run.scoreCard(R, { u: 9306, cat: 'full', up: 0, kw: null }).total, 0);
   R.relics = ['flow'];
   R.C.dice = [1, 2, 3, 4, 5];
-  assert.equal(Run.scoreCard(R, { u: 9302, cat: 'lstr', up: 0, kw: null }).total, 45);
+  assert.equal(Run.scoreCard(R, { u: 9302, cat: 'lstr', up: 0, kw: null }).total, 40);
   assert.equal(Run.scoreCard(R, { u: 9303, cat: 'sstr', up: 0, kw: null }).total, 25);
   R.relics = ['combo'];
   R.C.e.block = 0;
   R.C.hand[0] = { u: 9304, cat: 'lstr', up: 0, kw: null };
-  assert.equal(Run.preview(R, 0, 'enemy').dmg, 60);
+  assert.equal(Run.preview(R, 0, 'enemy').dmg, 39);              // 연환 ×1.3
 });
 test('덱 방향 유물이 있으면 그 계열 카드가 더 자주 나온다', () => {
   const count = relics => { const R = run('rogue', 3); R.relics = relics; let n = 0; for (let k = 0; k < 400; k++) if (Run.isUpper(Run.rollCard(R, 2).cat)) n++; return n; };
@@ -602,7 +602,7 @@ test('자석 주사위: 같은 눈 3개면 다른 주사위 1개가 그 눈으�
 });
 test('저울추 · 묵주 · 도서관 열쇠', () => {
   const R = fight(['weight']); R.C.rolled = true; R.C.dice = [1, 2, 3, 4, 6]; R.C.rollsLeft = 2;
-  assert.equal(Run.scoreCard(R, { u: 1, cat: 'choice', up: 0 }).total, 16 + 12);
+  assert.equal(Run.scoreCard(R, { u: 1, cat: 'choice', up: 0 }).total, 16 + 6);           // 남은 굴림 2 × 3
   const T = fight(['rosary']); T.C.rolled = true; T.C.dice = [6, 6, 6, 1, 2];
   T.deck = T.deck.slice(0, 8);
   assert.equal(Run.scoreCard(T, { u: 1, cat: 'sixes', up: 0 }).parts.find(p => p.ko === '수도승의 묵주').amt, 5);
@@ -685,8 +685,10 @@ test('메아리 북 · 만화경 · 페어 반지 · 장인의 망치', () => {
   R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6];
   assert.ok(Run.scoreCard(R, R.C.hand.find(c => c.u === 2)).parts.some(p => p.ko === '메아리 북'));
   assert.equal(R.hammer.sixes, 1);
+  assert.equal(Run.hammerBonus(R, 'sixes'), 0);                    // 3번 낼 때마다 +1
+  R.hammer.sixes = 99; assert.equal(Run.hammerBonus(R, 'sixes'), Run.RELIC_TUNE.hammerCap);
   const ci = R.C.hand.findIndex(c => c.cat === 'choice');
-  assert.ok(Run.preview(R, ci, 'enemy').kal >= 4);                 // 다른 족보 → 만화경
+  assert.ok(Run.preview(R, ci, 'enemy').kal >= 2);                 // 다른 족보 → 만화경
   const P = duel(['pairring'], R => { R.C.dice = [6, 6, 6, 1, 2]; R.C.hand = [six(1), six(2)]; });
   assert.ok(Run.scoreCard(P, P.C.hand[0]).parts.some(p => p.ko === '페어 반지'));
 });
