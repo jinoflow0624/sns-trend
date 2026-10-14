@@ -1504,7 +1504,7 @@ function cardPick(k) {
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
     <h2>보상</h2>
     <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}</button>`).join('')}</div>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
+    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
   </div></div>`;  // 카드를 길게 누르면 설명 (누르면 바로 가져간다)
   X.layer.querySelectorAll('.pick-cards .rc').forEach((el, i) => longPress(el, () => X.popover(el, cardTip(it.opts[i]), { afterRelease: true })));
 }
@@ -1519,6 +1519,8 @@ function cardTake(i) {
   save();
   setTimeout(() => { X.layer.innerHTML = ''; if (R.phase === 'reward') showReward(); }, 520);
 }
+// 새로고침 버튼 (남은 횟수가 없으면 회색)
+const rerollBtn = (act, n, k = '') => `<button class="pbtn small reroll-btn" data-act="${act}" ${k !== '' ? `data-k="${k}"` : ''} ${n > 0 ? '' : 'disabled'}>${ico('recycle', 'xs')} 새로고침 <b>${n}</b></button>`;
 function relicPick(k) {
   const it = R.reward.items[k];
   if (!it || it.done) return;
@@ -1527,7 +1529,7 @@ function relicPick(k) {
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
     <h2>${it.kind === 'boss' ? '보스 유물' : '유물'} 1개를 고르세요</h2>
     <div class="relic-picks n${it.opts.length}">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r${r.r}" data-act="run-relictake" data-i="${i}">${relicIco(r, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
+    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
   </div></div>`;
 }
 
@@ -1552,7 +1554,7 @@ function showShop() {
   X.app.innerHTML = `
   <div class="screen run-shop">
     ${hud()}
-    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div></div>
+    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div>${rerollBtn('run-reshop', Run.rrOf(R).shop)}</div>
     <div class="shop-scroll shop-stall">
       ${shelf(cards, ' cards')}
       ${shelf([...seals, ...relics])}
@@ -1739,7 +1741,7 @@ function showSandbox() {
       <div class="deck-grid">${Run.deckCards(R).map(c => `<button class="rc rc-static mini sb-del" data-act="run-sbdel" data-v="${c.u}">${cardFace(c)}</button>`).join('')}</div>`;
   } else if (sb.tab === 'item') {
     body = `<h3>물약 <small>${R.potions.length}/${Run.POTION_SLOTS}</small></h3><div class="sb-row">${Run.POTIONS.map(p => chip('run-sbpot', p.id, false, `${runIco('potion', p.id, p.icon, 'xs')}${p.ko}`)).join('')}${chip('run-sbx', 'nopot', false, '물약 비우기')}</div>
-      <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}</div>
+      <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}${chip('run-sbx', 'rrshop', false, `${ico('recycle', 'xs')}상점 새로고침 +1 (${Run.rrOf(R).shop})`)}${chip('run-sbx', 'rrpick', false, `${ico('recycle', 'xs')}카드 · 유물 새로고침 +1 (${Run.rrOf(R).pick})`)}</div>
       <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
   } else if (sb.tab === 'foe') {
     const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스']];
@@ -1787,7 +1789,7 @@ function sbAct(act, t) {
   if (act === 'run-sbx') {
     const f = { rolls: () => S.rolls(R, 1), hex: () => S.clearHex(R), foe999: () => S.foeHp(R, 999), foe1: () => S.foeHp(R, 1), nopot: () => S.clearPotions(R),
       gold: () => S.res(R, 'gold', 100), flip: () => S.res(R, 'flip', 1), nudge: () => S.res(R, 'nudge', 1), dance: () => S.res(R, 'dance', 1),
-      hp: () => S.res(R, 'hp'), maxhp: () => S.res(R, 'maxHp', 10), god: () => S.god(R, !R.sbGod) }[v];
+      hp: () => S.res(R, 'hp'), maxhp: () => S.res(R, 'maxHp', 10), rrshop: () => S.res(R, 'rrshop', 1), rrpick: () => S.res(R, 'rrpick', 1), god: () => S.god(R, !R.sbGod) }[v];
     if (f) run(f);
     return sbRefresh();
   }
@@ -1968,6 +1970,20 @@ export function onAct(act, t) {
   if (act === 'run-cardtake') return cardTake(Number(t.dataset.i));
   if (act === 'run-cardskip') { Run.takeReward(R, ui.cardPick, -1); drain(); ui.cardPick = null; sfx.back(); X.layer.innerHTML = ''; save(); return showReward(); }
   if (act === 'run-relicpick') return relicPick(Number(t.dataset.k));
+  // 새로고침: 카드 · 유물 고르기 후보 / 상점 물건을 새로 (남은 횟수 1 소모)
+  if (act === 'run-repick') {
+    const k = Number(t.dataset.k), it = R.reward?.items[k];
+    try { Run.rerollPick(R, k); } catch (e) { return X.toast(ico('warn'), '새로고침할 수 없어요', e.message, 1400); }
+    drain(); save(); sfx.card(); sfx.whoosh?.();
+    X.layer.querySelectorAll('.pick-cards .rc, .relic-card').forEach(el => el.classList.add('reroll-out'));
+    return wait(220).then(() => (it.t === 'card' ? cardPick(k) : relicPick(k)));
+  }
+  if (act === 'run-reshop') {
+    try { Run.rerollShop(R); } catch (e) { return X.toast(ico('warn'), '새로고침할 수 없어요', e.message, 1400); }
+    drain(); save(); sfx.whoosh?.(); sfx.coin();
+    X.app.querySelectorAll('.shelf-item').forEach(el => el.classList.add('reroll-out'));
+    return wait(220).then(() => { showShop(); X.app.querySelectorAll('.shelf-item').forEach((el, i) => { el.classList.add('reroll-in'); el.style.animationDelay = `${i * 30}ms`; }); });
+  }
   if (act === 'run-relictake' || act === 'run-relicskip') {
     Run.takeReward(R, ui.relicPick, act === 'run-relicskip' ? -1 : Number(t.dataset.i));
     drain();

@@ -123,6 +123,8 @@ export const OMENS = [
   { id: 'sealrain', ko: '인장의 비',     icon: 'sparkle', tier: 1, desc: '전투를 시작할 때마다 손패에 인장 1개가 붙는다' },
   { id: 'drought',  ko: '메마른 땅',     icon: 'sun',     tier: 2, desc: '휴식 회복 절반 · 상점 가격 −30%' },
   { id: 'glass',    ko: '유리 세계',     icon: 'gem',     tier: 3, desc: '모든 회복 절반 · 대신 모든 카드 +30% (합연산)' },
+  { id: 'regular',  ko: '단골손님의 날', icon: 'coins',   tier: 1, desc: '상점 새로고침 +1' },
+  { id: 'wish',     ko: '별똥별 소원',   icon: 'star',    tier: 1, desc: '카드 · 유물 고르기 새로고침 +1' },
 ];
 export const omenInfo = id => OMENS.find(o => o.id === id);
 export const omen = (R, id) => R.omen === id;
@@ -185,6 +187,8 @@ export const META = [
   { id: 'relic', ko: '보물 지도',   icon: 'scroll', max: 1, cost: [200],                  desc: () => '출발할 때 직업 유물 1개 (직업마다 어울리는 유물)' },
   { id: 'sharp', ko: '연마된 덱',   icon: 'axe',    max: 1, cost: [100],                  desc: () => '대표 카드 점수 +30%' },
   { id: 'seal',  ko: '인장 상자',   icon: 'sparkle', max: 3, cost: [50, 90, 140],         desc: n => `출발할 때 덱의 무작위 카드 ${n}장에 무작위 인장` },
+  { id: 'reshop', ko: '단골 장부',  icon: 'coins',  max: 3, cost: [60, 100, 150],        desc: n => `원정마다 상점 새로고침 ${n}번` },
+  { id: 'repick', ko: '다시 뽑기 부적', icon: 'card', max: 3, cost: [60, 100, 150],      desc: n => `원정마다 카드 · 유물 고르기 새로고침 ${n}번` },
 ];
 // (예전) 특수 주사위 · 주사위 칸은 없앴다. 이미 산 것은 별조각으로 돌려준다 (fixProgress)
 const OLD_DIE_COST = { gold: 80, heavy: 100, twin: 120, stair: 120 }, OLD_SLOT_COST = [60, 150];
@@ -611,6 +615,8 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   if (ml('tools') >= 2) R.nudge = Math.min(TOOL_CAP, R.nudge + 1);
   for (let n = 0; n < ml('potion'); n++) R.potions.push('heal');
   // 인장 상자: 덱의 무작위 카드에 인장 (원정 내내 붙어 있다가, 그 카드를 내면 터진다)
+  // 새로고침 횟수 (원정 내내): 상점 · 카드/유물 고르기
+  R.rr = { shop: ml('reshop'), pick: ml('repick') };
   for (let n = 0; n < ml('seal'); n++) { const free = R.deck.filter(c => !c.seal); if (free.length) pick(R, free).seal = pick(R, SEAL_IDS); }
   const sig = R.deck[R.deck.length - 1];
   if (ml('sharp') >= 1) sig.up = 1;
@@ -645,6 +651,8 @@ export const chooseOmen = act('chooseOmen', function chooseOmen(R, k) {
   const id = R.omenOpts[k];
   if (!id) fail('없는 징조예요.');
   R.omen = id; R.omenOpts = null;
+  if (id === 'regular') R.rr = { ...rrOf(R), shop: rrOf(R).shop + 1 };   // 단골손님의 날: 상점 새로고침 +1
+  if (id === 'wish') R.rr = { ...rrOf(R), pick: rrOf(R).pick + 1 };      // 별똥별 소원: 카드 · 유물 새로고침 +1
   if (id === 'forbid') R.omenCat = pick(R, SAME_CATS_ALL.filter(c => c !== 'choice'));
   // 상인의 길: 전투 칸 일부가 상점으로 (1층 · 마지막 층 제외)
   const to = id === 'merchant' ? 'shop' : null;
@@ -1608,6 +1616,39 @@ function genReward(R, kind) {
   return { kind, items: items.filter(it => it.t !== 'relic' || it.id) };
 }
 
+// 새로고침 남은 횟수 (예전 저장 판은 0)
+export const rrOf = R => ({ shop: R.rr?.shop || 0, pick: R.rr?.pick || 0 });
+// 상점 새로고침: 팔던 물건(카드 · 인장 · 유물 · 물약)을 새로 깐다. 도구 · 대장장이 · 카드 제거는 그대로
+export const rerollShop = act('rerollShop', function rerollShop(R) {
+  if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
+  if (R.pick) fail('먼저 카드 고르기를 끝내 주세요.');
+  if (rrOf(R).shop <= 0) fail('상점 새로고침이 남지 않았어요.');
+  const old = R.shop, nu = genShop(R);
+  R.shop = { ...nu, tools: old.tools, removed: old.removed, smithed: old.smithed };
+  R.rr = { ...rrOf(R), shop: rrOf(R).shop - 1 };
+  fx(R, { type: 'reroll', k: 'shop' });
+});
+// 카드 · 유물 고르기 새로고침: 그 보상의 후보를 새로 뽑는다 (지금 후보는 되도록 빼고)
+export const rerollPick = act('rerollPick', function rerollPick(R, idx) {
+  const rw = inReward(R);
+  const it = rw.items[idx];
+  if (!it || it.done || (it.t !== 'card' && it.t !== 'relicPick')) fail('새로고침할 수 없는 보상이에요.');
+  if (rrOf(R).pick <= 0) fail('카드 · 유물 새로고침이 남지 않았어요.');
+  if (it.t === 'card') it.opts = cardOffer(R, rw.kind);
+  else {
+    const old = it.opts, opts = [];
+    for (let k = 0; k < old.length; k++) { const id = rollRelic(R, relicRarity(R, it.kind), [...opts, ...old]) || rollRelic(R, relicRarity(R, it.kind), opts); if (id) opts.push(id); }
+    if (opts.length) it.opts = opts;
+  }
+  R.rr = { ...rrOf(R), pick: rrOf(R).pick - 1 };
+  fx(R, { type: 'reroll', k: it.t });
+});
+// 유물 고르기 후보의 희귀도 (genReward 와 같은 규칙)
+function relicRarity(R, kind) {
+  if (kind === 'boss') return 3;
+  if (kind === 'elite') return weighted(R, omen(R, 'war') ? { 2: 70, 3: 30 } : { 1: 60, 2: 40 });
+  return weighted(R, { 1: 70, 2: 30 });
+}
 function inReward(R) { if (R.phase !== 'reward' || !R.reward) fail('보상을 받을 때가 아니에요.'); return R.reward; }
 // 보상 하나 받기. choice: 카드 · 유물 고르기 보상에서 고른 번호 (-1 = 건너뛰기)
 export const takeReward = act('takeReward', function takeReward(R, idx, choice = 0) {
@@ -2270,6 +2311,8 @@ export const sandbox = {
     if (kind === 'dance') R.dance = Math.max(0, Math.min(DANCE_CAP, R.dance + n));
     if (kind === 'maxHp') { R.maxHp = Math.max(10, R.maxHp + n); R.hp = Math.min(R.hp + Math.max(0, n), R.maxHp); }
     if (kind === 'hp') R.hp = R.maxHp;
+    if (kind === 'rrshop') R.rr = { ...rrOf(R), shop: rrOf(R).shop + n };
+    if (kind === 'rrpick') R.rr = { ...rrOf(R), pick: rrOf(R).pick + n };
   },
   omen(R, id) {
     sbOn(R);
