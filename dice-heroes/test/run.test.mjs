@@ -735,9 +735,8 @@ test('시작 덱: 초이스 없음 (직업 대표 카드는 그대로) · 특별
   assert.equal(R.deck.filter(c => c.cat === 'choice').length, 0);
   const M = mk({ cls: 'monk', seed: 1 });
   assert.equal(M.deck.filter(c => c.cat === 'choice').length, 1);     // 수도승 대표 카드(초이스)
-  const seen = new Set();
-  for (let s = 1; s <= 40; s++) seen.add(mk({ cls: 'gambler', seed: s }).deck.find(c => Run.isSpecial(c.cat)).cat);
-  assert.equal(seen.size, 3);
+  for (const cls of Object.keys(Run.RUN_CLASSES)) for (const seed of [1, 2, 3])        // 특별 카드는 직업마다 정해진 1장
+    assert.deepEqual(mk({ cls, seed }).deck.filter(c => Run.isSpecial(c.cat)).map(c => c.cat), [Run.RUN_CLASSES[cls].sp]);
   const S = mk({ cls: 'warrior', seed: 2, meta: { lv: { seal: 3 }, equip: [] } });
   assert.equal(S.deck.filter(c => c.seal).length, 3);
 });
@@ -770,6 +769,9 @@ console.log('\n특별 카드 (에이스 · 듀스 · 트레이)');
 test('특별 카드는 실버 등급, 일반(브론즈) 보상에는 나오지 않는다', () => {
   const R = run('rogue', 5);
   for (const cat of Run.SPECIAL_CATS) assert.equal(Run.cardRarity({ cat, kws: [] }), 2);
+  assert.equal(Run.cardRarity({ cat: 'choice', kws: ['burn'] }), 3);       // 실버 족보 + 효과 = 골드 (무희 대표 카드)
+  assert.equal(Run.cardRarity({ cat: 'twos', kws: ['guard'] }), 3);
+  assert.equal(Run.cardRarity({ cat: 'sixes', kws: ['guard'] }), 2);      // 일반 족보 + 효과 = 실버
   for (let k = 0; k < 300; k++) assert.ok(!Run.isSpecial(Run.rollCard(R, 1).cat));
   let n = 0; for (let k = 0; k < 300; k++) if (Run.isSpecial(Run.rollCard(R, 2).cat)) n++;
   assert.ok(n > 0);
