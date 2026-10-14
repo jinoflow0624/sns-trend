@@ -630,7 +630,7 @@ let dialSpin = null;
 function speakDial(i, ms, want) {
   setTimeout(() => {
     const el = document.querySelector(`.cls-dial[data-i="${i}"] .dial-hero.d0`);
-    if (el && (!want || el.dataset.cls === want)) speak(el, classLine(el.dataset.cls));
+    if (el && (!want || el.dataset.cls === want)) speak(el, classLine(el.dataset.cls), true);
   }, ms);
 }      // 방금 돌린 다이얼 (그 다이얼만 도는 연출)
 const dialDirOf = t => (t.closest('.cls-dial') ? Math.sign([...t.closest('.cls-dial').querySelectorAll('[data-cls]')].indexOf(t) - 3) : 0);
@@ -3268,21 +3268,22 @@ function showSettings(inGame = false) {
   </div></div>`;
 }
 // 캐릭터를 누르면 하는 한마디 (스킬 특징에 맞게). 원정 직업 대사는 run/ui.js
+// 영화 · 애니 명대사를 직업 스킬에 맞게 비틀어 쓴 오마주
 const CLASS_LINES = {
-  warrior: ['위쪽 칸 싹쓸이 각', '보너스 50점 컷? 이건 못 참지', '탱커인데 딜도 함 ㅋ'],
-  rogue: ['뒤집기 하나 챙겨 왔지롱', '운빨? 뒤집으면 그만임', '스틸은 기본 소양이죠'],
-  mage: ['경험치 버프 받고 레벨 떡상', '공부한 보람 있다~ 경험치 +30%', '만렙까지 숨 참고 직진'],
-  bard: ['의뢰 깨고 앵콜 받아요~', '조정은 팬서비스야', '오늘도 무대 체질'],
-  gambler: ['숨 참고 골드 다이브!', '풀하우스에 올인. 가즈아!', '배팅은 기세야, 기세!'],
-  monk: ['급할수록 굴림 아끼기, 이게 갓생', '멘탈 이미 해탈함', '남은 굴림 = 내 자산'],
-  dancer: ['큰 점수 찍고 텐션 업!', '박자 맞춰서 전부 +1 갑니다', '무대 찢으러 왔어요'],
-  outlaw: ['첫 굴림 그대로 간다. 쫄?', '고민은 배송만 늦출 뿐', '속전속결, 칼퇴 각'],
-  sharper: ['손은 눈보다 빠르다… 국룰', '밑장 빼기? 그거 손기술임', '경험치는 안 줘도 승리는 내 거'],
+  warrior: ['This is… 상단 보너스다!', '즐겁지 아니한가! 위쪽 칸이 꽉 찼다!', '나는 칸을 채우러 왔고, 다 채웠다'],
+  rogue: ['왜 6은 늘 없는 거야? …뒤집으면 되지', '진실은 없다. 모든 눈은 뒤집힐 뿐', '훔친 게 아니야. 살짝 뒤집었을 뿐'],
+  mage: ['너는 지나갈 수 없다! …경험치 없이는', '마법사는 늦지 않는다. 정확히 레벨 업할 때 온다', '윙가르디움 레비-오사! 레벨아 떠올라라'],
+  bard: ['음유시인에게 동전을~ 의뢰엔 조정을~', '다 잊어~ 의뢰는 이미 깼으니까~', '노래는 끝나지 않았다! 앙코르!'],
+  gambler: ['묻고 더블로 가!', '웅성웅성… 이 배팅, 통한다', '쫄리면 그만두시든가. 난 걸 거야'],
+  monk: ['어제는 굴림, 내일은 미스터리, 남은 굴림은 선물', '하거나, 안 하거나. 다시 굴림은 없다', '물처럼 흘러라, 친구여'],
+  dancer: ['댄싱 퀸~ 주사위 눈이 하나씩 업!', '흔들어 주세요, 모두 +1!', '오늘 이 무대는 내가 접수한다'],
+  outlaw: ['자, 쏴 봐. 내 하루를 완성시켜 줘', '정오의 결투다. 첫 굴림에 끝낸다', '내 장화 속에 주사위가 있어!'],
+  sharper: ['싸늘하다. 가슴에 주사위가 비수처럼 꽂힌다', '손은 눈보다 빠르다', '밑장 빼기냐? …증거 있어?'],
 };
 let lineK = 0;
 const classLine = id => { const l = CLASS_LINES[id] || ['…']; return l[lineK++ % l.length]; };
 // 말풍선: 그림 위에 잠깐 떴다가 사라진다 (원정도 X.speak 로 쓴다)
-function speak(el, text) {
+function speak(el, text, quiet = false) {   // quiet: 다이얼을 돌려 저절로 말할 때 (넘기는 소리와 겹치지 않게)
   if (!el || !text) return;
   document.querySelectorAll('.speech').forEach(b => b.remove());
   const r = el.getBoundingClientRect();
@@ -3294,7 +3295,7 @@ function speak(el, text) {
   b.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
   b.style.top = `${Math.max(8, r.top - b.offsetHeight - 10)}px`;
   b.style.setProperty('--ax', `${Math.max(12, Math.min(w - 12, r.left + r.width / 2 - parseFloat(b.style.left)))}px`);
-  sfx.tap();
+  if (!quiet) sfx.tap();
   el.classList.remove('talk'); void el.offsetWidth; el.classList.add('talk');
   setTimeout(() => b.classList.add('out'), 2000);
   setTimeout(() => b.remove(), 2350);
