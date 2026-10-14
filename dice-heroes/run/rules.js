@@ -351,12 +351,13 @@ export const RELICS = [
   { id: 'phoenix',   ko: '불사조 깃털',     icon: 'sparkle',   r: 3, desc: '쓰러지면 한 번, 최대 체력의 40%로 되살아난다' },
   { id: 'chalice',   ko: '생명의 성배',     icon: 'trophy',    r: 3, desc: '얻을 때 최대 체력 +30, 체력 모두 회복' },
   // 낮은 족보를 살리는 유물 (덱 방향을 정한다 — 가지면 같은 계열 카드 · 유물이 더 자주 나온다)
-  { id: 'ace',       ko: '에이스의 긍지',   icon: 'die1',      r: 2, desc: '에이스 카드: 1의 눈 하나를 8점으로 센다' },
-  { id: 'small',     ko: '작은 수의 힘',    icon: 'die2',      r: 2, desc: '에이스 · 듀스 · 트레이 카드 점수 ×2.5' },
+  { id: 'small',     ko: '작은 수의 힘',    icon: 'die2',      r: 2, desc: '에이스 · 듀스 · 트레이 카드 점수 ×1.2' },
   { id: 'pairs',     ko: '수집가의 상자',   icon: 'bag',       r: 1, desc: '숫자 카드는 맞는 주사위 1개당 +3점' },
-  { id: 'reso',      ko: '공명의 종',       icon: 'pairs',     r: 2, desc: '포 · 파이브 · 식스 카드: 맞는 주사위가 3개 이상이면 점수 ×2' },
-  { id: 'quad',      ko: '쌍둥이 별',       icon: 'pair4',     r: 2, desc: '숫자 카드에 맞는 주사위가 4개 이상이면 점수 ×2' },
+  { id: 'reso',      ko: '공명의 종',       icon: 'pairs',     r: 2, desc: '포 · 파이브 · 식스 카드: 맞는 주사위가 3개 이상이면 점수 ×1.25' },
+  { id: 'quad',      ko: '쌍둥이 별',       icon: 'pair4',     r: 2, desc: '숫자 카드에 맞는 주사위가 딱 2개면 점수 ×2' },
   { id: 'flow',      ko: '질풍',            icon: 'rainbow',   r: 2, desc: '스몰 스트레이트 기본 25점 · 라지 스트레이트 기본 45점' },
+  { id: 'crutch',    ko: '목발',            icon: 'boot',      r: 2, desc: '라지 스트레이트: 4개만 이어져도 성공으로 친다' },
+  { id: 'emptyhouse', ko: '빈집',           icon: 'house',     r: 2, desc: '풀하우스 · 포카인드: 같은 눈이 3개만 있어도 성공으로 친다' },
   { id: 'combo',     ko: '연환',            icon: 'link',      r: 2, desc: '스트레이트 카드로 공격하면 피해가 두 번 들어간다' },
   // 덱 빌딩 유물: 특정 키워드 · 족보 · 덱 크기를 살린다 (가지면 그 계열 카드가 더 자주 나오고, 그 계열 카드가 많으면 더 자주 나온다)
   { id: 'ember',     ko: '불씨 항아리',     icon: 'volcano',   r: 2, desc: '화염 카드의 화상 피해 +3, 화상이 1턴 더 간다' },
@@ -410,6 +411,7 @@ export const relicChoices = R => 3 + (hasRelic(R, 'loupe') ? 1 : 0);
 // 덱 빌딩 유물 ↔ 그 계열 카드
 const SAME_CATS = ['four', 'yacht', 'full'];
 const ARCH = {
+  emptyhouse: c => c.cat === 'full' || c.cat === 'four', crutch: c => c.cat === 'lstr',
   ember: c => hasKw(c, 'burn'), bloodcup: c => hasKw(c, 'vamp'), rampart: c => hasKw(c, 'guard'), keepbox: c => hasKw(c, 'keep'),
   magnet: c => SAME_CATS.includes(c.cat), weight: c => c.cat === 'choice',
 };
@@ -417,8 +419,8 @@ const ARCH_KW = { ember: 'burn', bloodcup: 'vamp', rampart: 'guard', keepbox: 'k
 export const MAGNET_N = 3;
 export const ROSARY_MAX = 8, LIBKEY_MIN = 20;
 // 덱 방향: 숫자 카드(에이스~식스) · 스트레이트
-export const NUM_RELICS = ['basic', 'ace', 'small', 'pairs', 'quad', 'reso'];
-export const STR_RELICS = ['straight', 'flow', 'combo'];
+export const NUM_RELICS = ['basic', 'small', 'pairs', 'quad', 'reso'];
+export const STR_RELICS = ['straight', 'flow', 'combo', 'crutch'];
 export function synergy(R) {
   return { num: NUM_RELICS.filter(id => hasRelic(R, id)).length + (R.cls === 'warrior' ? 1 : 0), str: STR_RELICS.filter(id => hasRelic(R, id)).length };
 }
@@ -1056,16 +1058,26 @@ export const dropPotion = act('dropPotion', (R, slot) => { R.potions.splice(slot
 // 기본 점수(요트 원룰) + 보너스 목록. 보너스는 모두 기본 점수에 대한 배율이라 더해서 쌓는다
 // (강화 +30% 와 장인 +50% 가 같이 있으면 +80%). 응시 · 약화 · 독은 마지막에 전체에 곱한다.
 // 공명의 종 (유물): 포 · 파이브 · 식스 카드에 맞는 주사위가 3개 이상이면 +100% (예전 '같은 눈 보너스'를 유물로 옮겼다)
-export const RESO_CATS = ['fours', 'fives', 'sixes'], RESO_N = 3, RESO_MUL = 1;
+export const RESO_CATS = ['fours', 'fives', 'sixes'], RESO_N = 3, RESO_MUL = 0.25;
 // 균형의 추: 1의 눈을 6으로 셀 수 있다 → 1을 6으로 바꾼 모든 경우 중 가장 좋은 점수
 function bestBase(R, cat, dice) {
-  const bs = set => (cat === 'twos' ? twoScore(R, set.filter(v => v === 2).length) : baseScore(cat, set));
+  const bs = set => (cat === 'twos' ? twoScore(R, set.filter(v => v === 2).length) : relaxBase(R, cat, set) ?? baseScore(cat, set));
   const one = (d) => Math.max(0, ...fiveSets(d).map(bs));
   if (!hasRelic(R, 'balance') || !dice.includes(1)) return one(dice);
   const ones = dice.map((v, i) => (v === 1 ? i : -1)).filter(i => i >= 0);
   let best = 0;
   for (let m = 0; m < 1 << ones.length; m++) best = Math.max(best, one(dice.map((v, i) => (ones.includes(i) && m & (1 << ones.indexOf(i)) ? 6 : v))));
   return best;
+}
+// 목발: 라지 스트레이트는 4개만 이어져도 30. 빈집: 풀하우스 · 포카인드는 같은 눈 3개만 있어도 5개 합
+// (조건을 못 채우면 null → 원래 규칙)
+function relaxBase(R, cat, set) {
+  if (cat === 'lstr' && hasRelic(R, 'crutch') && baseScore('sstr', set) > 0) return 30;
+  if ((cat === 'full' || cat === 'four') && hasRelic(R, 'emptyhouse')) {
+    const c = [0, 0, 0, 0, 0, 0, 0]; for (const v of set) c[v]++;
+    if (Math.max(...c) >= 3) return set.reduce((a, v) => a + v, 0);
+  }
+  return null;
 }
 // 숫자 카드에 맞는 주사위 수 (듀스는 점수가 2^n 이라 거꾸로 센다)
 function upN(R, cat, base) {
@@ -1084,12 +1096,11 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   // 주인공(에이스): 낼 때마다 자란 기본 점수. 1이 없어도 붙는다
   const hero = card.cat === 'ones' && card.grow && dice.length && !dice.includes(0) && !forbid ? card.grow : 0;
   const on = base > 0 || hero > 0;
-  // 유물이 기본 점수를 바꾼다 (에이스의 긍지 · 수집가의 상자 · 질풍). 배율은 바뀐 기본 점수에 붙는다
+  // 유물이 기본 점수를 바꾼다 (수집가의 상자 · 질풍). 배율은 바뀐 기본 점수에 붙는다
   let adj = base;
   if (on) {
     if (isUpper(card.cat)) {
       const n = upN(R, card.cat, base);
-      if (n && card.cat === 'ones' && hasRelic(R, 'ace')) { parts.push({ ko: '에이스의 긍지', amt: n * 8 - base }); adj = n * 8; }
       if (n && hasRelic(R, 'pairs')) { parts.push({ ko: '수집가의 상자', amt: n * 3 }); adj += n * 3; }
     } else if (card.cat === 'sstr' && !hasRelic(R, 'flow')) {
       adj = 20; parts.push({ ko: '스몰 스트레이트', amt: 5 });          // 원정에서는 15 → 20 (낮은 족보 살리기)
@@ -1107,8 +1118,8 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   // 합연산: 모든 +% 를 모아 바뀐 기본 점수에 한 번에 붙인다
   const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
   if (on) {
-    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add('작은 수의 힘', 1.5);
-    if (hasRelic(R, 'quad') && isUpper(card.cat) && upN(R, card.cat, base) >= 4) add('쌍둥이 별', 1);
+    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add('작은 수의 힘', 0.2);
+    if (hasRelic(R, 'quad') && isUpper(card.cat) && upN(R, card.cat, base) === 2) add('쌍둥이 별', 1);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add('기초 수련', 0.3);
     if (hasRelic(R, 'reso') && RESO_CATS.includes(card.cat) && upN(R, card.cat, base) >= RESO_N) add('공명의 종', RESO_MUL);
     if (hasRelic(R, 'choice') && card.cat === 'choice') add('선택의 달인', 0.3);
@@ -1545,7 +1556,6 @@ const KW_W = { guard: 14, vamp: 12, burn: 12, pierce: 10, quick: 12, lucky: 10, 
 function catWeights(R) {
   const w = { ...CAT_W }, sy = synergy(R);
   if (sy.num) for (const c of UPPER) w[c] *= 1 + sy.num * 1.5;
-  if (hasRelic(R, 'ace')) w.ones *= 4;
   if (hasRelic(R, 'small')) { w.ones *= 3; w.twos *= 3; w.threes *= 3; }
   if (sy.str) { w.sstr *= 1 + sy.str; w.lstr *= 1 + sy.str; }
   if (hasRelic(R, 'magnet')) for (const c of SAME_CATS) w[c] *= 2.5;
@@ -2018,7 +2028,7 @@ function prepHand(R, rollNo) {
     if (R.cls === 'rogue' && C.flipped) mul += CLASS_TUNE.rogueMul;
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
-    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 1.5;
+    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 0.2;
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) mul += 0.25;
     if (C.keepUp && !C.plays) mul += C.keepUp;
     // 새 유물 · 징조 (합연산)
@@ -2032,9 +2042,10 @@ function prepHand(R, rollNo) {
     if (C.weak > 0) mul *= 0.75;
     return {
       cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, grow: up === 'ones' && !(omen(R, 'forbid') && R.omenCat === up) ? card.grow || 0 : 0,
-      two: up === 'twos' ? (hasRelic(R, 'culture') ? 1 : 0) : null, tri: isTrinity(card), ace: up === 'ones' && hasRelic(R, 'ace'), pairs: hasRelic(R, 'pairs'),
+      two: up === 'twos' ? (hasRelic(R, 'culture') ? 1 : 0) : null, tri: isTrinity(card), pairs: hasRelic(R, 'pairs'),
       quad: hasRelic(R, 'quad') ? (C.weak > 0 ? 0.75 : 1) : 0, reso: hasRelic(R, 'reso') && RESO_CATS.includes(up), flow: hasRelic(R, 'flow') && (up === 'sstr' || up === 'lstr'),
-      combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), zero: C.gazed.includes(card.u) && !C.pure,
+      combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), crutch: up === 'lstr' && hasRelic(R, 'crutch'),
+      house: (up === 'full' || up === 'four') && hasRelic(R, 'emptyhouse'), zero: C.gazed.includes(card.u) && !C.pure,
       flat: (R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0) + (hasRelic(R, 'whet') ? 3 : 0),
       horn: hasRelic(R, 'horn') && isBossKind(C.e), poison: hexActive(R, 'poison'),
       pierce: hasKw(card, 'pierce') || (R.cls === 'rogue' && C.flipped),
@@ -2091,15 +2102,16 @@ function fastValue(R, info, s, ctx) {
 // 빠른 카드 점수 (유물의 기본 점수 변경 포함)
 function fastScore(info, dice) {
   const n2 = info.two != null ? Math.min(5, dice.filter(v => v === 2).length) : 0;
-  const raw = info.two != null ? (n2 ? 2 ** (n2 + info.two) : 0) : fastBase(info.cat, dice);
+  let raw = info.two != null ? (n2 ? 2 ** (n2 + info.two) : 0) : fastBase(info.cat, dice);
+  if (!raw && info.crutch && fastBase('sstr', dice)) raw = 30;
+  if (!raw && info.house) { const c = [0, 0, 0, 0, 0, 0, 0]; for (const v of dice) c[v]++; if (Math.max(...c) >= 3) raw = dice.reduce((a, v) => a + v, 0); }
   if (raw <= 0 && !info.grow) return 0;
   let adj = raw, mul = info.mul;
   if (info.face) {
     const n = info.two != null ? n2 : Math.round(raw / info.face);
-    if (info.ace && n) adj = n * 8;
     if (info.pairs) adj += n * 3;
     adj += info.grow;
-    if (n >= 4) mul += info.quad;
+    if (n === 2) mul += info.quad;
     if (info.reso && n >= RESO_N) mul += RESO_MUL;
     return Math.round(adj * mul);
   } else if (info.flow) adj = info.cat === 'sstr' ? 25 : 45;
@@ -2250,8 +2262,7 @@ export function botCardValue(R, c) {
   const sy = synergy(R);
   if (isUpper(c.cat)) {
     if (hasRelic(R, 'pairs')) v += (CARD_EV[c.cat] / (UPPER.indexOf(c.cat) + 1)) * 3;
-    if (c.cat === 'ones' && hasRelic(R, 'ace')) v *= 6;
-    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(c.cat)) v *= 2.5;
+    if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(c.cat)) v *= 1.2;
     if (hasRelic(R, 'quad')) v *= 1.3;
   }
   if ((c.cat === 'sstr' || c.cat === 'lstr') && sy.str) v *= 1 + (hasRelic(R, 'flow') ? 0.6 : 0) + (hasRelic(R, 'combo') ? 0.8 : 0);

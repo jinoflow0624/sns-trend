@@ -9,7 +9,7 @@ import { ico } from '../icons.js';
 
 const AV = `?v=${GAME.version}`;
 // 그림 파일이 생긴 유물 (예: ['ace', 'flow'])
-export const FILES = ['ace', 'balance', 'basic', 'beast', 'bloodcup', 'bloodpact', 'bloodsword', 'bone', 'camp', 'cape', 'chalice', 'choice', 'coin', 'combo', 'counter', 'crown', 'culture', 'discard', 'drum', 'dust', 'echodrum', 'ember', 'emptyhand', 'fang', 'flip', 'flow', 'fourk', 'full', 'glasscannon', 'goldframe', 'hammer', 'heart', 'horn', 'hourglass', 'insure', 'iron', 'kaleido', 'keepbox', 'libkey', 'lotus', 'loupe', 'lucky', 'madscale', 'magnet', 'medal', 'midas', 'miser', 'nudge', 'pairring', 'pairs', 'palette', 'parity', 'phoenix', 'pilgrim', 'prism', 'purse', 'quad', 'rampart', 'reroll', 'rosary', 'sandbank', 'scale', 'scholar', 'sealbag', 'sealknife', 'seven', 'sixth', 'small', 'straight', 'thorn', 'trinity', 'wax', 'weight', 'whet', 'yacht', 'ytower', 'zero'];   // 128px 도트 그림 (Codex · run_icons_98)
+export const FILES = ['balance', 'basic', 'beast', 'bloodcup', 'bloodpact', 'bloodsword', 'bone', 'camp', 'cape', 'chalice', 'choice', 'coin', 'combo', 'counter', 'crown', 'culture', 'discard', 'drum', 'dust', 'echodrum', 'ember', 'emptyhand', 'fang', 'flip', 'flow', 'fourk', 'full', 'glasscannon', 'goldframe', 'hammer', 'heart', 'horn', 'hourglass', 'insure', 'iron', 'kaleido', 'keepbox', 'libkey', 'lotus', 'loupe', 'lucky', 'madscale', 'magnet', 'medal', 'midas', 'miser', 'nudge', 'pairring', 'pairs', 'palette', 'parity', 'phoenix', 'pilgrim', 'prism', 'purse', 'quad', 'rampart', 'reroll', 'rosary', 'sandbank', 'scale', 'scholar', 'sealbag', 'sealknife', 'seven', 'sixth', 'small', 'straight', 'thorn', 'trinity', 'wax', 'weight', 'whet', 'yacht', 'ytower', 'zero'];   // 128px 도트 그림 (Codex · run_icons_98)
 const K = '#1A1030';
 export const RELIC_ART = {
   flip: { pal: {"a": "#F1DDAE", "m": "#3EE6B4", "w": "#FFFFFF"}, rows: [
@@ -478,24 +478,6 @@ export const RELIC_ART = {
     '.......g........',
     '.....kkkkkk.....',
     '.....kkkkkk.....',
-    '................',
-  ] },
-  ace: { pal: {"G": "#C8860E", "g": "#FFC83D", "r": "#E8435A", "w": "#FFFFFF"}, rows: [
-    '................',
-    '....k..k..k.....',
-    '....kgkgkgk.....',
-    '....kgggggk.....',
-    '.....kGGGk......',
-    '................',
-    '....kkkkkkkk....',
-    '....kwwwwwwk....',
-    '....kwwwwwwk....',
-    '....kwwwwwwk....',
-    '....kwwwrwwk....',
-    '....kwwwwwwk....',
-    '....kwwwwwwk....',
-    '....kkkkkkkk....',
-    '................',
     '................',
   ] },
   small: { pal: {"o": "#FF8A1A", "w": "#FFFFFF"}, rows: [

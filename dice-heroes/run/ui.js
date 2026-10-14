@@ -93,6 +93,7 @@ export async function resume() {
   const s = savedRun(X.store);
   if (!s) return open();
   R = s; R.fx = [];
+  R.relics = R.relics.filter(id => Run.relicInfo(id));   // 없앤 유물(에이스의 긍지 등)은 저장된 원정에서도 뺀다
   X.setScreen('run');
   await preloadRun();
   if (R === s) enterView(true);
