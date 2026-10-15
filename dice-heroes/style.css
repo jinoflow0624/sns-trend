@@ -1586,3 +1586,41 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 .speech.out { opacity: 0; transition: opacity .3s; }
 @keyframes speechIn { from { transform: translateY(8px) scale(.8); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .dial-hero { transition: none; } .spin-r .dial-track, .spin-l .dial-track { animation: none; } }
+
+/* ── 대전 탑 쌓기: 블록을 진짜 건물 재료처럼 (그림 파일 없이 CSS 무늬) ──
+   숫자 카드 = 벽돌 · 초이스 = 콘크리트 · 포카인드 · 풀하우스 = 돌덩이 · 스트레이트 = 나무 판자 · 요트 · 상단 보너스 = 금괴 · 레벨 = 패치워크 */
+.tb { --pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 .5H12M0 4.5H12M.5 1V4M6.5 5V8' stroke='rgba(0,0,0,.38)' fill='none'/%3E%3Cpath d='M1.5 1.5H5M7.5 5.5H11' stroke='rgba(255,255,255,.28)' fill='none'/%3E%3C/svg%3E");
+  background: var(--pat) 0 100% / 12px 8px, var(--bc); }
+.tb-choice { --pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cg fill='rgba(0,0,0,.22)'%3E%3Crect x='2' y='3' width='1' height='1'/%3E%3Crect x='9' y='1' width='1' height='1'/%3E%3Crect x='6' y='8' width='1' height='1'/%3E%3Crect x='12' y='11' width='1' height='1'/%3E%3Crect x='3' y='12' width='1' height='1'/%3E%3C/g%3E%3Cg fill='rgba(255,255,255,.3)'%3E%3Crect x='5' y='4' width='1' height='1'/%3E%3Crect x='11' y='7' width='1' height='1'/%3E%3Crect x='1' y='9' width='1' height='1'/%3E%3C/g%3E%3Cpath d='M0 13.5H14' stroke='rgba(0,0,0,.25)'/%3E%3C/svg%3E");
+  background: var(--pat) 0 100% / 14px 14px, linear-gradient(180deg, color-mix(in srgb, var(--bc) 70%, #B8B8C0), color-mix(in srgb, var(--bc) 55%, #8A8A96)); }
+.tb-four, .tb-full { --pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cpath d='M0 .5H20M0 6.5H20M.5 1V6M10.5 7V12' stroke='rgba(0,0,0,.42)' fill='none'/%3E%3Cpath d='M1.5 1.5H9M11.5 7.5H19' stroke='rgba(255,255,255,.3)' fill='none'/%3E%3Cpath d='M4 3h2v1H4zM14 9h1v1h-1z' fill='rgba(0,0,0,.2)'/%3E%3C/svg%3E");
+  background: var(--pat) 0 100% / 20px 12px, var(--bc); }
+.tb-sstr, .tb-lstr { --pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='6'%3E%3Cpath d='M0 .5H24' stroke='rgba(0,0,0,.4)'/%3E%3Cpath d='M2 3H9M13 4H21' stroke='rgba(0,0,0,.16)'/%3E%3Cpath d='M15.5 1V6' stroke='rgba(0,0,0,.3)'/%3E%3Ccircle cx='5' cy='3.5' r='.7' fill='rgba(0,0,0,.35)'/%3E%3C/svg%3E");
+  background: var(--pat) 0 100% / 24px 6px, linear-gradient(90deg, color-mix(in srgb, var(--bc) 80%, #8A5A2A), var(--bc) 40%, color-mix(in srgb, var(--bc) 80%, #8A5A2A)); }
+.tb-upper, .tb-yacht { --pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1.5 6.5L3 1.5H9L10.5 6.5Z' fill='rgba(255,255,255,.18)' stroke='rgba(120,70,0,.55)'/%3E%3Cpath d='M4 2.5H7' stroke='rgba(255,255,255,.75)'/%3E%3C/svg%3E");
+  background: var(--pat) 0 100% / 12px 7px, linear-gradient(90deg, #FFB31A, #FFF0A8 45%, #FFD24A); }
+.tb-lv { --pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='8' height='8' fill='rgba(255,255,255,.14)'/%3E%3Crect x='8' y='8' width='8' height='8' fill='rgba(255,255,255,.14)'/%3E%3Crect x='8' width='8' height='8' fill='rgba(255,120,200,.22)'/%3E%3Crect y='8' width='8' height='8' fill='rgba(120,220,255,.18)'/%3E%3Cpath d='M0 8H16M8 0V16' stroke='rgba(255,255,255,.55)' stroke-dasharray='1.5 1.5'/%3E%3C/svg%3E");
+  background: var(--pat) 0 100% / 16px 16px, repeating-linear-gradient(90deg, #8A5AD6 0 6px, #B36BFF 6px 12px); }
+/* 탑 꼭대기 블록에 지붕 그림자 · 바닥 받침 */
+.tower { border-bottom: 4px solid #3A2C1E; box-shadow: 0 2px 0 var(--ink); }
+.tb:last-child { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), inset 0 -2px 0 rgba(0, 0, 0, .35), 0 -2px 0 rgba(0, 0, 0, .25); }
+/* 협동 보스 분노: 체력바가 붉게 깜빡인다 */
+.boss-panel.rage .hp-row .hp { animation: hpRageCoop .7s ease-in-out infinite; }
+.boss-panel.rage .hp-row .hp i { background: repeating-linear-gradient(90deg, #FF3B4E 0 6px, #C2102E 6px 8px) !important; }
+@keyframes hpRageCoop { 0%, 100% { box-shadow: 0 0 0 2px var(--ink), 0 0 4px rgba(255,40,60,.4); filter: none; } 50% { box-shadow: 0 0 0 2px #FF3B4E, 0 0 14px rgba(255,40,60,.95); filter: brightness(1.35); } }
+@media (prefers-reduced-motion: reduce) { .boss-panel.rage .hp-row .hp { animation: none; } }
+/* 도박사 배팅 고르기: 초록 펠트 카지노 테이블 위에 트럼프 카드를 펼친 모양 */
+.modal.bet-pick { background: radial-gradient(120% 90% at 50% 30%, #1E7A4A, #0E4A2A 70%, #08321C); border: 3px solid var(--ink); box-shadow: inset 0 0 0 3px #C8A23A, inset 0 0 0 5px #3A2A10, 0 10px 30px rgba(0,0,0,.6); }
+.modal.bet-pick h2 { color: #FFE27A; }
+.modal.bet-pick .hint { color: #D8F0D8; }
+.bet-pick .bet-grid { gap: 8px; }
+.bet-pick .bet-cat { position: relative; padding: 10px 10px 10px 22px; color: #3A2412; background: linear-gradient(160deg, #FFFDF4, #F1E6CC); border: 2px solid var(--ink); border-radius: 8px;
+  box-shadow: inset 0 0 0 2px #FFFDF4, inset 0 0 0 3px #C9B48A, 0 3px 0 var(--ink); animation: betDeal .32s calc(var(--i) * 35ms) both cubic-bezier(.2,1.4,.4,1); cursor: pointer; }
+.bet-pick .bet-cat:active { transform: translateY(2px) rotate(-1deg); box-shadow: inset 0 0 0 2px #FFFDF4, inset 0 0 0 3px #C9B48A, 0 1px 0 var(--ink); }
+.bet-pick .bet-cat b { color: #3A2412; font-size: 14px; }
+.bet-pick .bet-cat small { color: #7A6040; }
+.bet-pick .bet-cat.red { --st: #C8102E; } .bet-pick .bet-cat.blk { --st: #1A1030; }
+.bet-pick .bc-pip { position: absolute; font-style: normal; font-size: 13px; line-height: 1; color: var(--st); }
+.bet-pick .bc-pip.tl { left: 6px; top: 6px; } .bet-pick .bc-pip.br { right: 6px; bottom: 5px; transform: rotate(180deg); }
+@keyframes betDeal { from { transform: translateY(-14px) rotate(-8deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bet-pick .bet-cat { animation: none; } }
