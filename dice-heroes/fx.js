@@ -142,6 +142,21 @@ class FxLayer {
     }, dur);
   }
 
+  // 반짝: 십자 모양 별빛이 커졌다가 사라진다 (주사위 궤적)
+  glint(x, y, { color = '#FFFFFF', size = 10, dur = 380 } = {}) {
+    return this.add((g, k) => {
+      const s = size * Math.sin(Math.PI * Math.min(1, k * 1.4)), w = Math.max(1, Math.round(s / 4));
+      if (s < 1) return;
+      g.fillStyle = color;
+      g.globalAlpha = 0.3 * (1 - k);
+      g.fillRect(Math.round(x - w * 2), Math.round(y - w * 2), w * 4, w * 4);
+      g.globalAlpha = 1 - k * 0.5;
+      g.fillRect(Math.round(x - s), Math.round(y - w / 2), Math.round(s * 2), w);
+      g.fillRect(Math.round(x - w / 2), Math.round(y - s), w, Math.round(s * 2));
+      g.globalAlpha = 1;
+    }, dur);
+  }
+
   flash(color = '#FFFFFF', dur = 260, alpha = 0.35) {
     return this.add((g, k) => {
       g.globalAlpha = alpha * (1 - k);

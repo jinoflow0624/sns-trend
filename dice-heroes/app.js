@@ -1307,8 +1307,9 @@ function render() {
   const absent = online && !cur.bot && !mine && !alive(cur.token);
   const last = S.log[S.log.length - 1];
 
+  // --ph: 계속 도는 움직임(보스 둥실 · 분노 · 내 차례 빛 등)을 시계 기준으로 이어 간다 — 주사위를 누를 때마다 화면을 새로 그려도 처음부터 다시 시작하지 않게
   app.innerHTML = `
-  <div class="screen game${mine ? ' my-turn' : ' other-turn'}${ui.sheet ? ' sheet-open' : ''}">
+  <div class="screen game${mine ? ' my-turn' : ' other-turn'}${ui.sheet ? ' sheet-open' : ''}" style="--ph:-${(performance.now() / 1000).toFixed(3)}s">
     <header class="hud">
       <button class="icon-btn" data-act="pause" aria-label="메뉴">☰</button>
       <div class="round-chip"><small>ROUND</small><b>${shownRound}<i>/${E.ROUNDS}</i></b></div>
@@ -1559,13 +1560,16 @@ function bossPanel() {
   // 보스 예고: 이번 라운드에 쓰는 스킬(now)과 다음 라운드에 쓸 스킬(next, 깜박이며 '다음')
   const planNow = new Set(E.bossPlan(S, ui.roundShow ?? S.round).map(k => k.id));
   const planNext = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, (ui.roundShow ?? S.round) + 1).map(k => k.id) : []);
+  // 보호막 배지는 수치가 바뀔 때만 튀어나온다 (다시 그릴 때마다 튀면 새로 생긴 것처럼 보였다)
+  const shieldPop = b.shield !== ui.shieldShown;
+  ui.shieldShown = b.shield;
   return `
   <section class="boss-panel${['demon', 'archdemon'].includes(b.id) ? ' big-boss' : ''}${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
     <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
       <div class="hp-row"><div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
-        <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
+        <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge${shieldPop ? ' pop' : ''}" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
       ${bossStatus(b)}
       <div class="boss-skills">
         ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip${k.id !== 'heads' && planNow.has(k.id) ? ' now' : ''}${k.id !== 'heads' && planNext.has(k.id) ? ' next' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${k.id !== 'heads' && planNext.has(k.id) ? '<i class="nx">다음</i>' : ''}</button>`).join('')}
@@ -3095,24 +3099,58 @@ function turnSkin(t) {
 
 // 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
 let heartT = 0;
-// 굴러가는 주사위 궤적: 스킨마다 아주 옅은 입자 (기본 주사위는 없음)
+// 굴러가는 주사위 궤적: 특별한 주사위만 (기본 · 미니멀 · 블랙 · 키캡은 없음). 입자 + 가끔 십자 반짝
+//   grav: 아래로 떨어지면 +, 떠오르면 −  ·  hearts: 하트도 가끔 톡
 const TRAIL = {
-  openheart: ['#FFE2B0', '#E8913A', '#B8641E'], gold: ['#FFFFFF', '#FFF0A8', '#FFD24A'], minimal: ['#FFFFFF', '#E8EEF6'],
-  cosmic: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF'], black: ['#6A6480', '#3A344F', '#B98CFF'], clear: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A'],
-  heart: ['#FFE0EE', '#FF7AB0', '#FF4A8A'], keycap: ['#FF5A6A', '#3EE6B4', '#4FB3FF', '#FFC83D'],
+  openheart: { pal: ['#FFFFFF', '#FFE2B0', '#FFC56A', '#E8913A', '#B8641E'], grav: 110, glint: '#FFE2B0' },      // 구리 불똥이 튀어 떨어진다
+  gold:      { pal: ['#FFFFFF', '#FFF6C8', '#FFF0A8', '#FFD24A', '#FF9A1F'], grav: 50, glint: '#FFF6C8' },       // 금가루 + 반짝
+  cosmic:    { pal: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF', '#FF9AE0'], grav: -8, glint: '#FFFFFF' },       // 별가루 + 별빛
+  clear:     { pal: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A', '#B98CFF', '#3EE6B4'], grav: -24, glint: '#FFFFFF' },  // 무지개 조각
+  heart:     { pal: ['#FFFFFF', '#FFE0EE', '#FF9AC8', '#FF7AB0', '#FF4A8A'], grav: -36, glint: '#FFD0E4', hearts: true },
 };
+let heartTrailT = 0;
 function diceTrail(t, p, sp) {
   if (prefs.fx === 'min' || document.hidden) return;
   const id = t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin;
-  const pal = TRAIL[diceSkin(id).id];
-  if (!pal) return;
-  FX().burst(p.x, p.y, { n: sp > 0.5 ? 2 : 1, pal, speed: [6, 34], size: [1, 2.5], life: [0.22, 0.45], grav: -14, drag: 3 });
+  const tr = TRAIL[diceSkin(id).id];
+  if (!tr) return;
+  const fx = FX(), fast = sp > 0.5;
+  fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
+  fx.burst(p.x, p.y, { n: fast ? 6 : 4, pal: tr.pal, speed: [14, 80], size: [2.5, 6], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
+  if (Math.random() < (fast ? 0.5 : 0.3)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: 9 + Math.random() * 8 });
+  const now = performance.now();
+  if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5) {
+    heartTrailT = now;
+    const h = document.createElement('span');
+    h.className = 'heart-pop';
+    h.textContent = '♥';
+    h.style.left = `${p.x + (Math.random() - 0.5) * 20}px`;
+    h.style.top = `${p.y - 6}px`;
+    h.style.setProperty('--dx', `${(Math.random() - 0.5) * 50}px`);
+    h.style.fontSize = `${10 + Math.random() * 8}px`;
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 900);
+  }
+}
+// 특별한 주사위가 세게 부딪힐 때: 그 주사위 빛깔 불꽃이 반짝 터진다 (주사위마다 0.12초에 한 번까지)
+const sparkT = [];
+function hitSpark(id, v, i, t) {
+  const tr = TRAIL[id];
+  if (!tr || v < 4 || !t || i == null || prefs.fx === 'min' || document.hidden) return;
+  const now = performance.now();
+  if (now - (sparkT[i] || 0) < 120) return;
+  sparkT[i] = now;
+  const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
+  fx.c.classList.toggle('over', t === skinPreview);
+  fx.burst(p.x, p.y, { n: 8 + Math.round(k * 8), pal: tr.pal, speed: [40, 130 + k * 60], size: [2, 5], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
+  fx.glint(p.x, p.y, { color: tr.glint, size: 12 + k * 8, dur: 320 });
 }
 function diceHit(v, i, t) {
   // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
   const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin);
   sfx.hit(skin.sound, v);
   if (v > 3.5) rumble(v);   // 던지는 동안·흔드는 동안 부딪힐 때마다 진동
+  hitSpark(skin.id, v, i, t);
   if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
   const now = performance.now();
   if (now - heartT < 90) return;
@@ -3136,6 +3174,7 @@ function diceHit(v, i, t) {
 let skinPreview = null;
 function closeSkinPreview() {
   skinTry = null;
+  document.querySelector('.fx-canvas.over')?.classList.remove('over');
   skinPreview?.destroy?.();
   skinPreview = null;
 }
