@@ -1622,7 +1622,28 @@ function showEvent(rolled = false) {
     </div>
     ${heroStrip()}
   </div>`;
-  if (R.pick?.why === 'face') showCarve();
+  if (R.pick?.why === 'face') { if (ui.carveIntro) showCarveResult(); else showCarve(); }
+}
+// 굴림이 끝나면: 몇 점이었는지 · 깎기 몇 면을 채웠는지 (사다리) → 「면 깎으러 가기」
+function showCarveResult() {
+  const y = R.event.yacht, done = y?.done;
+  if (!done) { ui.carveIntro = false; return showCarve(); }
+  const steps = [...Run.CARVE_STEPS.map(([max, n]) => ({ n, ko: `${max}점 이하` })), { n: 4, ko: '요트' }];
+  const yacht = done.cat === 'yacht';
+  X.layer.innerHTML = `<div class="overlay run-carveres" data-act="noop"><div class="carve-res${yacht ? ' yacht' : ''}">
+    <p class="cr-tag">${ico('axe', 'xs')} 굴림 끝!</p>
+    <div class="cr-dice">${y.dice.map((v, i) => `<i style="--i:${i}">${miniDie(v)}</i>`).join('')}</div>
+    <p class="cr-cat">${esc(Run.cardTitle(done.cat))}</p>
+    <p class="cr-score"><b id="cr-n">0</b><small>점</small></p>
+    <div class="cr-ladder">${steps.map(st => `<div class="cr-step${st.n === done.n ? ' hit' : st.n < done.n ? ' past' : ''}"><span class="cr-pips">${'◆'.repeat(st.n)}</span><b>${st.n}면</b><small>${st.ko}</small></div>`).join('')}</div>
+    <p class="cr-sum">깎기 <b>${done.n}</b> / 4 면${done.n === 4 ? ' — 최대!' : ''}</p>
+    <button class="pbtn gold" data-act="run-carvego">${ico('axe', 'xs')} 면 깎으러 가기</button>
+  </div></div>`;
+  sfx.select();
+  // 점수가 0 에서 올라가며 세어진다
+  const el = $('cr-n'), t0 = performance.now(), dur = Math.min(900, 300 + done.score * 12);
+  const tick = now => { const k = Math.min(1, (now - t0) / dur); if (el?.isConnected) { el.textContent = Math.round(done.score * k); if (k < 1) requestAnimationFrame(tick); else { sfx.coin?.(); if (yacht && X.prefs.fx !== 'min') { const r = el.getBoundingClientRect(); FX().burst(r.left + r.width / 2, r.top + r.height / 2, { n: 40, pal: PALETTES.rainbow, speed: [80, 260], life: [0.5, 1] }); } } } };
+  requestAnimationFrame(tick);
 }
 // 주사위 깎는 노인: 야추 한 턴 (주사위를 눌러 잡고, 3번까지 굴린다)
 function yachtView(y) {
@@ -2030,11 +2051,14 @@ export function onAct(act, t) {
     return wait(600).then(() => {
       clearInterval(spin); ui.yRoll = false;
       try { Run.eventRoll(R); } catch (e) { return X.toast(ico('warn'), '굴릴 수 없어요', e.message, 1400); }
-      Run.drainFx(R); sfx.clack?.(); save(); showEvent(true);
+      Run.drainFx(R); sfx.clack?.(); save();
+      if (R.pick?.why === 'face') ui.carveIntro = true;        // 마지막 굴림이었다 → 결과 창부터
+      showEvent(true);
     });
   }
   if (act === 'run-yhold') { try { Run.eventHold(R, Number(t.dataset.i)); } catch { return; } sfx.tap(); save(); return showEvent(true); }
-  if (act === 'run-ystop') { try { Run.eventStop(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); } Run.drainFx(R); sfx.select(); save(); return showEvent(true); }
+  if (act === 'run-ystop') { try { Run.eventStop(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); } Run.drainFx(R); sfx.select(); save(); ui.carveIntro = true; return showEvent(true); }
+  if (act === 'run-carvego') { sfx.tap(); ui.carveIntro = false; return showCarve(); }
   if (act === 'run-cface') { sfx.tap(); ui.carve = { i: Number(t.dataset.i), f: Number(t.dataset.f) }; return showCarve(); }
   if (act === 'run-cval') {
     const c = ui.carve;
