@@ -20,7 +20,7 @@ const FILES = [
   ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', 'corner_side', 'corner_top', ...(['demon', 'lava', 'starry'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
   ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
 ];
-const NET_WAIT = 4000;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로
+const NET_WAIT = 2500;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로 (첫 화면이 오래 검게 남지 않게)
 let slowUntil = 0;       // 방금 네트워크가 느렸으면 30초 동안은 캐시부터 (파일마다 4초씩 기다리지 않게)
 
 // 파일마다 따로 받아 둔다 (하나가 실패해도 나머지는 캐시에 남게 — addAll 은 하나만 실패해도 전부 버린다)
@@ -31,11 +31,23 @@ self.addEventListener('install', e => e.waitUntil(
     .then(() => self.skipWaiting()),
 ));
 
-// 예전 버전이 만든 캐시(dh-0.x.x)는 지운다
+// 예전 버전이 만든 캐시(dh-0.x.x)는 지운다. 원정 그림을 게임 버전(?v=0.38.x)으로 받아 쌓아 둔 것도 지운다 (이제 그림 버전 r1 …)
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => caches.open(CACHE)).then(c => c.keys().then(reqs => Promise.all(reqs
+      .filter(r => { const u = new URL(r.url); return u.pathname.includes('/assets/run/') && /^\d+\.\d+/.test(u.searchParams.get('v') || ''); })
+      .map(r => c.delete(r)))))
+    .catch(() => {})
     .then(() => self.clients.claim()),
 ));
+// 버전이 붙은 그림 · 곡을 새로 받으면, 같은 파일의 예전 버전은 캐시에서 지운다 (캐시가 끝없이 커지지 않게)
+async function putVersioned(req, res) {
+  const c = await caches.open(CACHE), u = new URL(req.url);
+  await c.put(req, res);
+  const old = (await c.keys()).filter(r => { const o = new URL(r.url); return o.pathname === u.pathname && o.search !== u.search; });
+  await Promise.all(old.map(r => c.delete(r)));
+}
+const refreshed = new Set();   // 버전 없는 그림은 이 서비스워커가 살아 있는 동안 한 번만 뒤에서 새로 받는다
 
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -44,15 +56,18 @@ self.addEventListener('fetch', e => {
   // 그림·음악(assets/)은 캐시에 있으면 바로 쓰고, 뒤에서 조용히 새로 받아 둔다 (스킨을 고르면 바로 보이게).
   // 주사위·트레이 그림은 주소에 그림 버전(?v=)이 붙는다 → 주소가 정확히 같을 때만 캐시를 쓴다 (그림 버전을 올리면 바로 새 그림).
   // 인터넷이 없으면 버전이 다른 예전 그림이라도 꺼내 쓴다
+  // 버전(?v=)이 붙은 그림 · 곡은 주소가 같으면 내용도 같다 → 캐시에 있으면 그대로 쓰고 다시 받지 않는다 (예전엔 볼 때마다 뒤에서 또 받아 데이터 · 배터리를 썼다)
   if (new URL(req.url).pathname.includes('/assets/')) {
+    const versioned = new URL(req.url).searchParams.has('v');
     e.respondWith((async () => {
       const hit = await caches.match(req);
-      const fresh = fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
-        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); }
+      if (hit && versioned) return hit;
+      const fresh = () => fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
+        if (res.ok) { const copy = res.clone(); (versioned ? putVersioned(req, copy) : caches.open(CACHE).then(c => c.put(req, copy))).catch(() => {}); }
         return res;
       });
-      if (hit) { e.waitUntil(fresh.catch(() => {})); return hit; }
-      return fresh.catch(async () => (await caches.match(req, { ignoreSearch: true })) || Response.error());
+      if (hit) { if (!refreshed.has(req.url)) { refreshed.add(req.url); e.waitUntil(fresh().catch(() => {})); } return hit; }
+      return fresh().catch(async () => (await caches.match(req, { ignoreSearch: true })) || Response.error());
     })());
     return;
   }
