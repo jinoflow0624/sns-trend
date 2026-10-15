@@ -764,7 +764,7 @@
 /* 덱 섞기: 카드 뒷면이 두 더미로 갈라졌다가 엇갈려 하나로, 뽑을 더미로 날아간다 */
 .shuffle-fx { position: fixed; z-index: 60; pointer-events: none; width: 0; height: 0; }
 .shuffle-fx .sb { position: absolute; left: -22px; top: -31px; width: 44px; height: 62px; border: 2px solid var(--ink); border-radius: 4px;
-  background: repeating-linear-gradient(45deg, #2A2270 0 4px, #3A2F92 4px 8px); box-shadow: inset 0 0 0 2px #FFC83D, 0 2px 0 var(--ink);
+  background: #C8102E center / 100% 100% no-repeat; image-rendering: pixelated; box-shadow: 0 2px 0 var(--ink);
   animation: sbRiffle 1s cubic-bezier(.4, 0, .2, 1) calc(var(--k) * 30ms) both; }
 @keyframes sbRiffle {
   0% { opacity: 0; transform: translate(0, 40px) scale(.7); }
@@ -942,7 +942,7 @@
 .rs-name .rs-won { position: static; font-style: normal; font-size: 12px; color: var(--gold); }
 .rs-pile { position: relative; width: 120px; height: 124px; margin: 0 auto; cursor: pointer; -webkit-touch-callout: none; user-select: none; }
 .rs-back { position: absolute; left: 50%; top: 4px; width: 80px; height: 112px; translate: calc(-50% + (var(--n) - 4) * 2.5px) calc(var(--n) * -0.5px); rotate: calc((var(--n) - 4) * 1.6deg);
-  background: repeating-linear-gradient(45deg, #3A2C8A 0 6px, #2A2070 6px 12px); border: 3px solid var(--ink); box-shadow: inset 0 0 0 3px #FFC83D, 0 2px 0 rgba(0,0,0,.4); }
+  background: #C8102E center / 100% 100% no-repeat; image-rendering: pixelated; border: 3px solid var(--ink); border-radius: 4px; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
 .rs-front { position: absolute; left: 50%; top: 8px; translate: -50% 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
 .rs-count { position: absolute; right: -6px; bottom: 0; display: inline-flex; align-items: center; gap: 2px; padding: 0 5px; font-size: 12px; font-weight: 700; background: #140F36; border: 2px solid var(--ink); }
 .rs-go { display: grid; grid-template-columns: 2fr 3fr; gap: 8px; align-items: stretch; margin-top: auto; }
@@ -1172,14 +1172,12 @@ body:has(.run-sb) .popover { z-index: 310; }
 .rh-relics::-webkit-scrollbar { display: none; }
 .rh-relics .relic { flex: none; width: 30px; height: 30px; }
 .rh-relics .relic .ico { width: 22px; height: 22px; }
-/* 물약 주머니: 가죽 주머니 + 졸라맨 끈, 칸은 둥근 유리병 (1.5배) */
-.potions.pouch { position: relative; gap: 2px; padding: 6px 6px 4px; background: radial-gradient(120% 90% at 50% 0%, #9A6232, #6A3E1A 60%, #4A2A10);
-  border: 2px solid var(--ink); border-radius: 8px 8px 16px 16px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.3), inset 0 2px 0 rgba(255,220,160,.25); }
-.pouch-tie { position: absolute; left: 50%; top: -5px; width: 26px; height: 7px; transform: translateX(-50%); background: #C9A27A; border: 2px solid var(--ink); border-radius: 4px; }
-.pouch-tie::after { content: ''; position: absolute; right: -8px; top: 1px; width: 7px; height: 9px; border: 2px solid #C9A27A; border-left: 0; border-radius: 0 6px 6px 0; }
-.potions.pouch .pot { width: 38px; height: 38px; border-radius: 50% 50% 45% 45%; border-width: 2px; background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(14,10,44,.85) 60%); }
+/* 물약 주머니: 가죽 주머니 그림(120×48 도트를 1.25배) 위 세 구멍에 물약 병 */
+.potions.pouch { position: relative; display: block; flex: none; width: 150px; height: 60px; padding: 0; background: center / 100% 100% no-repeat; image-rendering: pixelated; }
+.potions.pouch .pot { position: absolute; top: 13px; width: 38px; height: 38px; border-radius: 50%; border-width: 2px; background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(14,10,44,.85) 60%); }
+.potions.pouch .pot:nth-of-type(1) { left: 9px; } .potions.pouch .pot:nth-of-type(2) { left: 54px; } .potions.pouch .pot:nth-of-type(3) { left: 99px; }
 .potions.pouch .pot .ico { width: 26px; height: 26px; }
-.potions.pouch .pot.empty { background: rgba(0,0,0,.25); border-color: #C9A27A; }
+.potions.pouch .pot.empty { background: transparent; border-color: transparent; box-shadow: none; }
 .rhud { grid-template-columns: 40px auto 1fr auto auto; min-height: 50px; }
 /* 보스 분노: 체력바가 붉게 깜빡인다 */
 .foe-hp.rage { animation: hpRage .7s ease-in-out infinite; }
