@@ -400,12 +400,11 @@ function showMap(again = false) {
   const H = MAP_PAD * 2 + Run.ROWS * ROW + 40;
   const pos = n => ({ x: 12 + n.col * 25.3, y: n.row > Run.ROWS ? MAP_PAD - 6 : H - MAP_PAD - (n.row - 1) * ROW });
   const visited = new Set(R.path);
-  const lines = nodes.flatMap(n => n.next.map(j => {
-    const a = pos(n), b = pos(nodes[j]);
+  const edges = nodes.flatMap(n => n.next.map(j => {
     const walked = visited.has(n.id) && visited.has(j);
     const open = R.pos === n.id && next.has(j);
-    return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${walked ? 'walked' : open ? 'open' : ''}"/>`;
-  })).join('');
+    return { a: pos(n), b: pos(nodes[j]), cls: walked ? 'walked' : open ? 'open' : '' };
+  }));
   // 보스는 들어가기 전까지 ? (막마다 후보 중 하나가 정해져 있지만 보여 주지 않는다). 마지막 막(마왕)은 실루엣만
   const lastAct = R.act >= Run.ACTS;
   X.layer.innerHTML = '';
@@ -414,7 +413,7 @@ function showMap(again = false) {
     ${hud()}
     <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b>${R.omen ? omenChip() : ''}<small>보스 ???</small></div>
     <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
-      <svg class="map-lines" viewBox="0 0 100 ${H}" preserveAspectRatio="none">${lines}</svg>
+      <svg class="map-lines" aria-hidden="true"></svg>
       ${nodes.map(n => {
         const p = pos(n);
         const st = n.id === R.pos ? 'here' : next.has(n.id) ? 'can' : visited.has(n.id) ? 'done' : 'far';
@@ -430,6 +429,8 @@ function showMap(again = false) {
   </div>`;
   // 지금 갈 수 있는 층이 보이게
   const sc = $('map-scroll');
+  mapSteps = () => drawSteps(X.app.querySelector('.map-lines'), edges, H);
+  mapSteps();
   if (sc && !again) {
     const fit = Math.max(52, Math.min(96, Math.floor((sc.clientHeight - 6 - MAP_PAD * 2 - 40) / Run.ROWS)));
     if (fit !== ROW) { ui.mapRow = fit; return showMap(true); }
@@ -438,6 +439,29 @@ function showMap(again = false) {
   if (sc && tgt) sc.scrollTop = Math.max(0, tgt.offsetTop - sc.clientHeight * 0.6);
   if (R.omenOpts) showOmens();
 }
+// 지도 길: 칸과 칸 사이를 발자국으로 잇는다. 가로는 % 라 지도 폭을 재서 px 로 바꿔 그린다 (늘이면 발자국이 찌그러짐)
+const STEP = 12, NODE_GAP = 24;
+const FOOT = '<symbol id="foot" viewBox="-4 -7 8 14" overflow="visible"><path d="M0-6.6C2.4-6.6 3.2-4.4 3-2.2 2.8.2 1.6 1.4 0 1.4S-2.6.4-2.8-1.8C-3-4.4-2.2-6.6 0-6.6Z"/><ellipse cx="0" cy="4.6" rx="2.1" ry="2"/></symbol>';
+let mapSteps = null;
+function drawSteps(svg, edges, H) {
+  if (!svg?.isConnected) return;
+  const W = svg.clientWidth || 300;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `<defs>${FOOT}</defs>` + edges.map(({ a, b, cls }) => {
+    const ax = a.x / 100 * W, bx = b.x / 100 * W, dx = bx - ax, dy = b.y - a.y, len = Math.hypot(dx, dy);
+    const ux = dx / len, uy = dy / len, deg = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+    const n = Math.max(1, Math.floor((len - NODE_GAP * 2) / STEP)), pad = (len - (n - 1) * STEP) / 2;
+    let feet = '';
+    for (let k = 0; k < n; k++) {
+      const side = k % 2 ? 1 : -1, d = pad + k * STEP;   // 왼발 · 오른발을 번갈아, 길 양옆으로 조금씩
+      const x = ax + ux * d - uy * side * 3.5, y = a.y + uy * d + ux * side * 3.5;
+      feet += `<use href="#foot" width="8" height="14" x="-4" y="-7" style="--k:${k}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(deg + side * 8).toFixed(1)})"/>`;
+    }
+    return `<g class="steps ${cls}">${feet}</g>`;
+  }).join('');
+}
+addEventListener('resize', () => mapSteps?.());
+
 // 막 징조: 이번 막 내내 깔리는 효과 (2장 중 1장)
 const omenChip = () => { const o = Run.omenInfo(R.omen); return `<button class="omen-chip" data-act="run-omeninfo" aria-label="${o.ko}">${omenIco(o, 'xs')}<span>${o.ko}</span></button>`; };
 function omenText(o) { return o.id === 'forbid' && R.omen === 'forbid' && R.omenCat ? `${o.desc} — 금지: ${Run.cardTitle(R.omenCat)}` : o.desc; }
