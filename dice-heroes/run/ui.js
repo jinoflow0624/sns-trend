@@ -602,6 +602,7 @@ function playTip(c) {
   if (!R.C.rolled) return '';
   const hi = R.C.hand.findIndex(x => x.u === c.u);
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
+  if (Run.hasRelic(R, 'madscale') && !(Run.isTrinity(c) && !Run.prismOn(R, c))) return `<p>${ico('scale', 'xs')} 공격 · 방어 ??? (광기의 저울: 낼 때 무작위)</p>`;
   return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p>`;
 }
 
@@ -667,7 +668,9 @@ function openSplit(u) {
     else if (Run.incomingAfter(R) > 0) { const c = Run.coverAtk(R, hi); sp.atk = c.atk; sp.gold = c.gold; }
     else { sp.atk = Math.ceil(S / 3); sp.gold = Math.round(S / 3); }      // 막을 공격이 없으면 셋으로 나눈다
   }
-  hand.select(u, fixed ? trinityHTML(u) : splitHTML(u, prism), { wide: true });
+  // 광기의 저울: 나누기가 무작위라 막대 없이 ??? 만 (삼위일체는 원래 나누지 않으니 그대로)
+  ui.split.mad = Run.hasRelic(R, 'madscale') && !fixed;
+  hand.select(u, fixed ? trinityHTML(u) : ui.split.mad ? madHTML(u) : splitHTML(u, prism), { wide: true });
   hand.el(u)?.classList.add('splitting');
   bindSplit();
   paintSplit();
@@ -685,6 +688,13 @@ function syncSplit() {
   const S = Run.splitPool(R, c, Run.scoreCard(R, c).total);
   if (S !== sp.S) { sp.atk = sp.S ? Math.round(sp.atk / sp.S * S) : S; sp.gold = sp.S ? Math.min(S - sp.atk, Math.round(sp.gold / sp.S * S)) : 0; sp.S = S; }
   paintSplit();
+}
+function madHTML(u) {
+  return `<div class="split mad" id="split">
+    <div class="sp-mad">${ico('scale', 'xs')}<b>???</b><small>공격 · 방어는 낼 때 무작위로 나뉜다 (광기의 저울)</small></div>
+    <p class="sp-info" id="sp-info"></p>
+    <div class="sp-row one"><span class="sp-note">${ico('sword', 'xs')}? · ${ico('shield', 'xs')}?</span><button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button></div>
+  </div>`;
 }
 function trinityHTML(u) {
   return `<div class="split tri" id="split">
@@ -761,6 +771,7 @@ function paintSplit() {
   const hi = sp ? C.hand.findIndex(c => c.u === sp.u) : -1;
   if (hi < 0 || !$('split')) return;
   const p = Run.preview(R, hi, sp.atk, null, sp.gold), card = C.hand[hi];
+  if (sp.mad) { $('sp-info').innerHTML = card.seal ? `${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}` : '&nbsp;'; return; }
   const k = p.pool ? p.atk / p.pool : 1;
   $('sp-dmg').textContent = p.dmg;
   $('sp-blk').textContent = p.block;

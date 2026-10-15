@@ -1110,3 +1110,7 @@ body:has(.run-sb) .popover { z-index: 310; }
 .it.atk.boosted { box-shadow: 0 0 0 2px #FF4A5A, 0 0 8px rgba(255,74,90,.7); }
 .it.atk.boosted b { color: #E0102E; }
 .it-mul { font-style: normal; font-size: 9px; font-weight: 700; color: #fff; background: #C2263D; padding: 0 3px; margin-left: 2px; border-radius: 2px; }
+/* 광기의 저울: 나누기 막대 대신 ??? */
+.sp-mad { display: grid; justify-items: center; gap: 2px; padding: 6px 4px; background: rgba(0,0,0,.28); border-top: 1px dashed #4A4290; border-bottom: 1px dashed #4A4290; }
+.sp-mad b { font-size: 26px; letter-spacing: .1em; color: #C9A2FF; text-shadow: 2px 2px 0 var(--ink); animation: blink 1.2s steps(2, jump-none) infinite; }
+.sp-mad small { font-size: 10px; color: #A9A2D8; }
