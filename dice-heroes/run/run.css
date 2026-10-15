@@ -1114,3 +1114,26 @@ body:has(.run-sb) .popover { z-index: 310; }
 .sp-mad { display: grid; justify-items: center; gap: 2px; padding: 6px 4px; background: rgba(0,0,0,.28); border-top: 1px dashed #4A4290; border-bottom: 1px dashed #4A4290; }
 .sp-mad b { font-size: 26px; letter-spacing: .1em; color: #C9A2FF; text-shadow: 2px 2px 0 var(--ink); animation: blink 1.2s steps(2, jump-none) infinite; }
 .sp-mad small { font-size: 10px; color: #A9A2D8; }
+/* 주사위 깎는 노인: 굴림 결과 창 (점수 · 깎기 사다리) */
+.carve-res { width: min(100%, 340px); display: grid; justify-items: center; gap: 8px; padding: 16px 14px 14px; text-align: center;
+  background: linear-gradient(180deg, #3A2414, #1E1209); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #C8860E, inset 0 0 0 4px #1A0E06, 0 10px 30px rgba(0,0,0,.6);
+  animation: zoom .25s cubic-bezier(.2,1.6,.4,1); }
+.carve-res.yacht { box-shadow: inset 0 0 0 2px #FFE27A, inset 0 0 0 4px #1A0E06, 0 0 24px rgba(255,226,122,.6), 0 10px 30px rgba(0,0,0,.6); }
+.cr-tag { margin: 0; padding: 2px 10px; font-size: 12px; color: #5A2E10; background: #F1DDAE; border: 2px solid var(--ink); }
+.cr-dice { display: flex; gap: 6px; }
+.cr-dice i { animation: crDrop .35s calc(var(--i) * 70ms) both cubic-bezier(.2,1.6,.4,1); }
+.cr-dice .md { width: 30px; height: 30px; }
+@keyframes crDrop { from { transform: translateY(-16px) rotate(-20deg); opacity: 0; } }
+.cr-cat { margin: 2px 0 0; font-size: 14px; color: #FFE9C2; }
+.cr-score { margin: -4px 0 0; display: flex; align-items: baseline; gap: 2px; }
+.cr-score b { font-size: 46px; line-height: 1; color: var(--gold); text-shadow: 3px 3px 0 var(--ink); }
+.cr-score small { font-size: 16px; color: #FFE9C2; }
+.cr-ladder { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.cr-step { display: grid; justify-items: center; gap: 1px; padding: 5px 2px; background: #24160C; border: 2px solid #4A3420; opacity: .5; }
+.cr-step b { font-size: 14px; color: #FFE9C2; } .cr-step small { font-size: 9px; color: #C9A27A; }
+.cr-pips { font-size: 8px; letter-spacing: 1px; color: #8A6A40; }
+.cr-step.past { opacity: .8; }
+.cr-step.hit { opacity: 1; background: #5A3A10; border-color: var(--gold); box-shadow: 0 0 10px rgba(255,200,61,.6); animation: crHit .5s .5s both; }
+.cr-step.hit .cr-pips { color: var(--gold); } .cr-step.hit b { color: var(--gold); }
+@keyframes crHit { 0% { transform: scale(1); } 50% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.cr-sum { margin: 0; font-size: 13px; color: #FFE9C2; } .cr-sum b { font-size: 18px; color: var(--gold); }
