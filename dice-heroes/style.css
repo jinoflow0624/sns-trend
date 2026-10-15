@@ -251,7 +251,7 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 .table { position: relative; }
 .tray {
   position: relative; height: clamp(210px, 58vw, 300px); overflow: hidden;
-  background: #0A2A22; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #3A2A10, 0 5px 0 var(--ink);
+  background: transparent;   /* 초록 직사각형 판 없이 주사위 트레이만 화면 배경 위에 (3D 트레이 바깥은 투명) */
 }
 .tray canvas { display: block; touch-action: manipulation; }
 .turn-tag {
@@ -463,7 +463,7 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 .tool.on { animation: toolOn .8s ease-in-out infinite; }
 @keyframes toolOn { 50% { filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 12px var(--mint)); transform: translateY(-2px); } }
 .tool-txt { color: var(--mint); }
-.tray.tooling { box-shadow: inset 0 0 0 2px var(--mint), 0 5px 0 var(--ink), 0 0 16px rgba(62,230,180,.5); }
+.tray.tooling { box-shadow: inset 0 0 0 2px var(--mint), 0 0 16px rgba(62,230,180,.5); border-radius: 6px; }
 .dice-ovl { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .dice-ovl > * { pointer-events: auto; position: absolute; }
 .flip-tag {

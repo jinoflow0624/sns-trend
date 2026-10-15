@@ -1174,8 +1174,9 @@ body:has(.run-sb) .popover { z-index: 310; }
 .rh-relics .relic .ico { width: 22px; height: 22px; }
 /* 물약 주머니: 가죽 주머니 그림(120×48 도트를 1.25배) 위 세 구멍에 물약 병 */
 .potions.pouch { position: relative; display: block; flex: none; width: 150px; height: 60px; padding: 0; background: center / 100% 100% no-repeat; image-rendering: pixelated; }
-.potions.pouch .pot { position: absolute; top: 13px; width: 38px; height: 38px; border-radius: 50%; border-width: 2px; background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(14,10,44,.85) 60%); }
-.potions.pouch .pot:nth-of-type(1) { left: 9px; } .potions.pouch .pot:nth-of-type(2) { left: 54px; } .potions.pouch .pot:nth-of-type(3) { left: 99px; }
+.potions.pouch .pot { position: absolute; top: 14.4px; width: 40px; height: 40px; box-sizing: border-box; border-radius: 50%; border-width: 2px; background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(14,10,44,.85) 60%); }
+/* 구멍 안쪽(그림 240×96 에서 지름 64px, 가운데 x 46 · 120 · 193, y 55)을 0.625배 한 자리에 딱 맞춘다 */
+.potions.pouch .pot:nth-of-type(1) { left: 8.75px; } .potions.pouch .pot:nth-of-type(2) { left: 55px; } .potions.pouch .pot:nth-of-type(3) { left: 100.6px; }
 .potions.pouch .pot .ico { width: 26px; height: 26px; }
 .potions.pouch .pot.empty { background: transparent; border-color: transparent; box-shadow: none; }
 .rhud { grid-template-columns: 40px auto 1fr auto auto; min-height: 50px; }
