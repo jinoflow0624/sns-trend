@@ -325,6 +325,9 @@ const UI = {
   hex: ['burn', 'drums', 'freeze', 'gaze', 'haki', 'poison', 'reverse', 'seal', 'twist'],
   feat: ['act1', 'clear', 'flawless', 'ace30', 'lstr60', 'yacht', 'wall', 'rich', 'hoard', 'asc5', 'asc10', 'five'],                                   // 종류 없이 이름 그대로인 그림 (assets/run/ui/<id>.webp)
 };
+// 징조 창문 그림 (타로 카드풍 도트, assets/run/omen/<id>.webp — 디자인 세션이 만들면 id 를 적는다). 없으면 하늘색 + 아이콘
+export const OMEN_WIN = [];
+export const omenWinURL = id => (OMEN_WIN.includes(id) ? `assets/run/omen/${id}.webp${AV}` : null);
 export function runIco(kind, id, fallback, cls = '') {
   if (!UI[kind]?.includes(id)) return ico(fallback, cls);
   return `<img class="ico run-ico${cls ? ' ' + cls : ''}" src="assets/run/ui/${kind === 'ui' ? id : `${kind}_${id}`}.webp${AV}" alt="">`;

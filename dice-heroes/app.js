@@ -10,6 +10,7 @@ import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioS
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
+import { setAmbientSource, ambientSurge } from './ambient.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
@@ -1249,6 +1250,7 @@ async function makeTray() {
   try {
     const { DiceTray } = await Promise.race([preload3d(), timeout(tray3dWait(), '3D 불러오기 시간 초과')]);
     tray = new DiceTray(trayHost(), trayOpts());
+    tray.onTrail = (i, p, sp) => diceTrail(tray, p, sp);
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -2404,6 +2406,7 @@ function castBanner(f) {
 
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 async function skillFx(f) {
+  ambientSurge(1);                          // 보스가 스킬을 쓰면 배경 불씨가 확 밝아진다
   const fx = FX();
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
   const t = await trayReady();
@@ -3092,6 +3095,19 @@ function turnSkin(t) {
 
 // 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
 let heartT = 0;
+// 굴러가는 주사위 궤적: 스킨마다 아주 옅은 입자 (기본 주사위는 없음)
+const TRAIL = {
+  openheart: ['#FFE2B0', '#E8913A', '#B8641E'], gold: ['#FFFFFF', '#FFF0A8', '#FFD24A'], minimal: ['#FFFFFF', '#E8EEF6'],
+  cosmic: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF'], black: ['#6A6480', '#3A344F', '#B98CFF'], clear: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A'],
+  heart: ['#FFE0EE', '#FF7AB0', '#FF4A8A'], keycap: ['#FF5A6A', '#3EE6B4', '#4FB3FF', '#FFC83D'],
+};
+function diceTrail(t, p, sp) {
+  if (prefs.fx === 'min' || document.hidden) return;
+  const id = t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin;
+  const pal = TRAIL[diceSkin(id).id];
+  if (!pal) return;
+  FX().burst(p.x, p.y, { n: sp > 0.5 ? 2 : 1, pal, speed: [6, 34], size: [1, 2.5], life: [0.22, 0.45], grav: -14, drag: 3 });
+}
 function diceHit(v, i, t) {
   // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
   const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin);
@@ -3180,6 +3196,7 @@ async function showSkins(tab = 'dice') {
     const { DiceTray } = await import('./dice3d.js');
     if (!host.isConnected) return;
     skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
+    skinPreview.onTrail = (i, p, sp) => diceTrail(skinPreview, p, sp);
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }
@@ -4146,6 +4163,17 @@ addEventListener('resize', () => { updateCoach(); closePopover(); });
 addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: true });
 
 // 설치형 앱(PWA)으로 쓸 때 오프라인 캐시
+// 배경 분위기 입자 (ambient.js): 대전 = 별빛 · 협동 보스전 = 불씨(분노면 더 뜨겁게) · 원정 = 막마다 (run/ui.js ambient)
+setAmbientSource(() => {
+  if (prefs.fx === 'min') return null;
+  if (screen === 'game' && S) {
+    if (!S.boss) return { mode: 'stars' };
+    const b = S.boss;
+    return { mode: 'embers', color: E.bossInfo(b.id)?.color, hot: b.diff === 2 && b.hp * 2 < b.maxHp && b.hp > 0 };
+  }
+  if (screen === 'run') return runMod?.ambient?.() || null;
+  return null;
+});
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai')) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
   // 새 서비스 워커로 바뀌어도(새 버전 배포 뒤 첫 실행 · 처음 방문) 새로고침하지 않는다.
