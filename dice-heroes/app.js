@@ -1903,8 +1903,7 @@ async function rageScene() {
     <div class="rs-text"><b>분노!</b><small>${esc(b.ko)} — ${esc(rageSkill?.desc(2) || '')}</small></div>`;
   layer.appendChild(el);
   const fx = FX(), C = { x: innerWidth / 2, y: innerHeight * 0.42 };
-  const keepSong = S.boss.id === 'archdemon';   // 마신: 각성 장면에서도 곡을 끊지 않는다
-  if (!keepSong) stopBgm?.();
+  // 분노 장면에서도 배경음악은 끊지 않고 이어서 흐른다 (예전엔 멈췄다가 처음부터 다시 나왔다)
   sfx.boom(3); buzz(200);
   fx.flash('#000000', 400, 0.5);
   const flames = setInterval(() => fx.burst(C.x + (Math.random() - 0.5) * 220, C.y + 110, { n: 10, pal, speed: [60, 220], dir: -Math.PI / 2, spread: 0.9, grav: -60, life: [0.5, 1], size: [3, 7] }), 70);
@@ -1924,7 +1923,7 @@ async function rageScene() {
   el.classList.add('out');
   await wait(300);
   el.remove();
-  if (!keepSong) playBgm(bossSong(S.boss.id));
+  playBgm(bossSong(S.boss.id));            // 같은 곡이 흐르는 중이면 아무것도 하지 않는다 (혹시 멈춰 있었을 때만 다시 튼다)
   render();
 }
 
