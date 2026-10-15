@@ -1137,3 +1137,49 @@ body:has(.run-sb) .popover { z-index: 310; }
 .cr-step.hit .cr-pips { color: var(--gold); } .cr-step.hit b { color: var(--gold); }
 @keyframes crHit { 0% { transform: scale(1); } 50% { transform: scale(1.18); } 100% { transform: scale(1); } }
 .cr-sum { margin: 0; font-size: 13px; color: #FFE9C2; } .cr-sum b { font-size: 18px; color: var(--gold); }
+/* 직업 이름: 왼쪽부터 한 글자씩 촤라락 */
+.rs-name .rs-ch { display: inline-block; font-style: normal; animation: rsCh .32s calc(var(--i) * 70ms) both cubic-bezier(.2,1.5,.4,1); }
+@keyframes rsCh { from { opacity: 0; transform: translateX(-10px) scale(.6); filter: blur(2px); } 60% { opacity: 1; } }
+/* 도박사 배팅: 트럼프 카드 (크림색 카드 · 모서리 숫자 · 가운데 큰 무늬 · 칩 버튼) */
+.bet-ask.playing { position: relative; min-width: 170px; padding: 12px 14px 10px; gap: 8px; background: linear-gradient(160deg, #FFFDF4, #F1E6CC); border: 3px solid var(--ink); border-radius: 10px;
+  box-shadow: inset 0 0 0 3px #FFFDF4, inset 0 0 0 4px #C9B48A, 0 6px 0 var(--ink), 0 12px 24px rgba(0,0,0,.45); transform-origin: 50% 100%; animation: betFlip .35s cubic-bezier(.2,1.4,.4,1); }
+@keyframes betFlip { from { transform: rotateY(90deg) translateY(10px); opacity: 0; } }
+.bet-ask.playing.red { --st: #C8102E; } .bet-ask.playing.blk { --st: #1A1030; }
+.bc-corner { position: absolute; display: grid; justify-items: center; line-height: .95; color: var(--st); font-weight: 700; }
+.bc-corner b { font-size: 13px; } .bc-corner i { font-style: normal; font-size: 11px; }
+.bc-corner.tl { left: 6px; top: 5px; } .bc-corner.br { right: 6px; bottom: 5px; transform: rotate(180deg); }
+.bc-mid { display: grid; justify-items: center; gap: 0; }
+.bc-suit { font-style: normal; font-size: 30px; line-height: 1; color: var(--st); text-shadow: 0 2px 0 rgba(0,0,0,.15); }
+.bc-mid b { font-size: 12px; color: #3A2412; }
+.bc-mid em { font-style: normal; font-size: 20px; font-weight: 700; color: var(--st); }
+.bet-ask.playing .bet-btns { justify-content: center; gap: 8px; }
+.bet-ask.playing .hb { border-radius: 999px; min-width: 64px; }
+.bet-ask.playing .bc-no { color: #3A2412; background: #E3D6B6; }
+.bet-ask.playing .bc-go { box-shadow: 0 0 0 3px #FFFDF4, 0 0 0 5px var(--st), 0 3px 0 5px var(--ink); }
+
+/* ── 영웅 칸 (하단): 체력바를 줄이고 유물을 1.5배로, 골드는 여기 ── */
+.rhero { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; }
+.rh-main { grid-column: 2; grid-row: 1; }
+.rh-side { grid-column: 3; grid-row: 1; display: flex; gap: 4px; align-items: center; }
+.rh-blk { grid-column: auto; grid-row: auto; }
+.rh-gold { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; height: 22px; font-size: 13px; color: var(--gold); background: #2A1E08; border: 2px solid #8A6A1E; }
+.rh-gold b { color: var(--gold); text-shadow: 1px 1px 0 var(--ink); }
+.rh-hp { width: 100%; }
+.rh-relics { grid-column: 2 / 4; grid-row: 2; justify-content: flex-start; flex-wrap: nowrap; max-width: none; max-height: none; overflow-x: auto; overflow-y: hidden; gap: 3px; padding-bottom: 1px; scrollbar-width: none; }
+.rh-relics::-webkit-scrollbar { display: none; }
+.rh-relics .relic { flex: none; width: 30px; height: 30px; }
+.rh-relics .relic .ico { width: 22px; height: 22px; }
+/* 물약 주머니: 가죽 주머니 + 졸라맨 끈, 칸은 둥근 유리병 (1.5배) */
+.potions.pouch { position: relative; gap: 2px; padding: 6px 6px 4px; background: radial-gradient(120% 90% at 50% 0%, #9A6232, #6A3E1A 60%, #4A2A10);
+  border: 2px solid var(--ink); border-radius: 8px 8px 16px 16px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.3), inset 0 2px 0 rgba(255,220,160,.25); }
+.pouch-tie { position: absolute; left: 50%; top: -5px; width: 26px; height: 7px; transform: translateX(-50%); background: #C9A27A; border: 2px solid var(--ink); border-radius: 4px; }
+.pouch-tie::after { content: ''; position: absolute; right: -8px; top: 1px; width: 7px; height: 9px; border: 2px solid #C9A27A; border-left: 0; border-radius: 0 6px 6px 0; }
+.potions.pouch .pot { width: 38px; height: 38px; border-radius: 50% 50% 45% 45%; border-width: 2px; background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(14,10,44,.85) 60%); }
+.potions.pouch .pot .ico { width: 26px; height: 26px; }
+.potions.pouch .pot.empty { background: rgba(0,0,0,.25); border-color: #C9A27A; }
+.rhud { grid-template-columns: 40px auto 1fr auto auto; min-height: 50px; }
+/* 보스 분노: 체력바가 붉게 깜빡인다 */
+.foe-hp.rage { animation: hpRage .7s ease-in-out infinite; }
+.foe-hp.rage i { background: repeating-linear-gradient(90deg, #FF3B4E 0 6px, #C2102E 6px 8px) !important; }
+@keyframes hpRage { 0%, 100% { box-shadow: 0 0 0 2px var(--ink), 0 0 4px rgba(255,40,60,.4); filter: none; } 50% { box-shadow: 0 0 0 2px #FF3B4E, 0 0 14px rgba(255,40,60,.95); filter: brightness(1.35); } }
+@media (prefers-reduced-motion: reduce) { .foe-hp.rage { animation: none; } }

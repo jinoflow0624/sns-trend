@@ -2240,7 +2240,7 @@ function showBetPicker() {
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame bet-pick" data-act="noop">
     <h2>${ico('coins')} 배팅</h2>
     <p class="hint">${ico('coins', 'xs')} 맞히면 <b>×${E.CLASS_TUNE.betMul}</b> · 빗나가면 <b>0</b></p>
-    <div class="bet-grid">${open.map(c => `<button class="pbtn bet-cat" data-act="bet" data-cat="${c.id}"><b>${c.ko}</b><small>${CAT_HELP[c.id].rule}</small></button>`).join('')}</div>
+    <div class="bet-grid">${open.map((c, k) => { const [su, tone] = [['♠', 'blk'], ['♥', 'red'], ['♦', 'red'], ['♣', 'blk']][k % 4]; return `<button class="bet-cat ${tone}" data-act="bet" data-cat="${c.id}" style="--i:${k}"><i class="bc-pip tl">${su}</i><b>${c.ko}</b><small>${CAT_HELP[c.id].rule}</small><i class="bc-pip br">${su}</i></button>`; }).join('')}</div>
     <button class="pbtn small" data-act="close">닫기</button>
   </div></div>`;
 }
