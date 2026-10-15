@@ -1190,6 +1190,15 @@ export class DiceTray {
           this.dice[i].mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(sp.axis, Math.PI * 2 * sp.turns * w));
         }
       });
+      // 굴러가는 궤적 (스킨마다 아주 옅은 이펙트 — app.js 가 onTrail 을 붙인다). 두 프레임마다, 움직이는 주사위만
+      if (this.onTrail && f !== a.trailF && f % 2 === 0) {
+        a.trailF = f;
+        a.bodies.forEach(({ i }, k) => {
+          const s0 = a.frames[Math.max(0, f - 2)][k], s1 = a.frames[f][k];
+          const sp = Math.hypot(s1[0] - s0[0], s1[1] - s0[1], s1[2] - s0[2]);
+          if (sp > 0.06) this.onTrail(i, this.screenPos(i), sp);
+        });
+      }
       for (const sw of a.swaps) if (!sw.done && (f >= sw.f || f >= a.frames.length - 1)) { sw.done = true; this.setFaces(this.dice[sw.i], sw.faces); }
       while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
       if (f >= a.frames.length - 1) {

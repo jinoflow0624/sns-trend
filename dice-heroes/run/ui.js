@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -441,12 +441,19 @@ function showMap(again = false) {
 // 막 징조: 이번 막 내내 깔리는 효과 (2장 중 1장)
 const omenChip = () => { const o = Run.omenInfo(R.omen); return `<button class="omen-chip" data-act="run-omeninfo" aria-label="${o.ko}">${omenIco(o, 'xs')}<span>${o.ko}</span></button>`; };
 function omenText(o) { return o.id === 'forbid' && R.omen === 'forbid' && R.omenCat ? `${o.desc} — 금지: ${Run.cardTitle(R.omenCat)}` : o.desc; }
+// 징조 창문 밖 하늘 (오늘의 날씨처럼) — [위, 아래]
+const OMEN_SKY = {
+  feast: ['#5A0A1E', '#E8435A'], bounty: ['#FFD27A', '#7ED957'], fog: ['#8A90A8', '#C8CCD8'], forbid: ['#1A0E3A', '#6A3A8A'], rush: ['#3A8AFF', '#BDEBFF'],
+  merchant: ['#FFB35A', '#FFE9A8'], war: ['#3A1E1E', '#C2402E'], rift: ['#2A1E5A', '#B98CFF'], sealrain: ['#1E2A5A', '#7CB8FF'], drought: ['#C86A1E', '#FFD27A'],
+  glass: ['#8FE3F0', '#E8FBFF'], regular: ['#4FB3FF', '#FFE9A8'], wish: ['#0E0A2C', '#4A3A9A'],
+};
 function showOmens() {
   sfx.legend?.();
   X.layer.innerHTML = `<div class="overlay run-omens" data-act="noop"><div class="pick-box">
     <h2>${R.act}막의 징조</h2>
-    <div class="omen-picks">${R.omenOpts.map((id, k) => { const o = Run.omenInfo(id); return `<button class="omen-card t${o.tier}" data-act="run-omen" data-k="${k}" style="--i:${k}">
-      <span class="om-ico">${omenIco(o, 'lg')}</span><b>${o.ko}</b><small>${o.desc}</small></button>`; }).join('')}</div>
+    <div class="omen-picks">${R.omenOpts.map((id, k) => { const o = Run.omenInfo(id), art = omenWinURL(id), sky = OMEN_SKY[id] || OMEN_SKY.regular; return `<button class="omen-card window t${o.tier}" data-act="run-omen" data-k="${k}" style="--i:${k};--s1:${sky[0]};--s2:${sky[1]}">
+      <span class="ow-win"><span class="ow-sky${art ? ' art' : ''}"${art ? ` style="background-image:url(${art})"` : ''}>${art ? '' : `<span class="om-ico">${omenIco(o, 'lg')}</span>`}</span><i class="ow-bars" aria-hidden="true"></i></span>
+      <i class="ow-sill" aria-hidden="true"></i><b>${o.ko}</b><small>${o.desc}</small></button>`; }).join('')}</div>
   </div></div>`;
 }
 
@@ -2249,6 +2256,11 @@ export function dieInfo(i) {
   document.body.appendChild(a);
   X.popover(a, `<b>주사위 ${miniDie(v)} ${v}</b><p>뒤집으면 ${7 - v} · 조정하면 ${[v - 1, v + 1].filter(x => x >= 1 && x <= 6).join(' 또는 ')}</p>`, { afterRelease: true });
   a.remove();
+}
+// 배경 분위기 (ambient.js): 막마다 — 1막 반딧불 · 2막 눈송이 · 3막 보라 불꽃 (지도 · 전투에서)
+export function ambient() {
+  if (!R || !['combat', 'map'].includes(R.phase)) return null;
+  return { mode: ['forest', 'frost', 'castle'][R.act - 1] || 'forest', hot: R.phase === 'combat' && !!R.C?.e?.raged };
 }
 export function render() { if (R?.phase === 'combat') paint(); }
 

@@ -1183,3 +1183,17 @@ body:has(.run-sb) .popover { z-index: 310; }
 .foe-hp.rage i { background: repeating-linear-gradient(90deg, #FF3B4E 0 6px, #C2102E 6px 8px) !important; }
 @keyframes hpRage { 0%, 100% { box-shadow: 0 0 0 2px var(--ink), 0 0 4px rgba(255,40,60,.4); filter: none; } 50% { box-shadow: 0 0 0 2px #FF3B4E, 0 0 14px rgba(255,40,60,.95); filter: brightness(1.35); } }
 @media (prefers-reduced-motion: reduce) { .foe-hp.rage { animation: none; } }
+/* 징조: 창문 (아치형 나무 창틀 · 가운데 십자 창살로 반반 나뉜 창 · 창밖은 그 징조의 하늘). 디자인 세션 그림이 오면 창 안을 채운다 */
+.omen-card.window { gap: 4px; padding: 10px 8px 12px; background: linear-gradient(180deg, #2A1A10, #1A0E06); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #7A4E28, 0 4px 0 var(--ink); }
+.omen-card.window.t1 { box-shadow: inset 0 0 0 2px #3EE6B4, 0 4px 0 var(--ink); } .omen-card.window.t2 { box-shadow: inset 0 0 0 2px #FFC83D, 0 4px 0 var(--ink); } .omen-card.window.t3 { box-shadow: inset 0 0 0 2px #E8435A, 0 4px 0 var(--ink); }
+.ow-win { position: relative; width: 100%; max-width: 132px; aspect-ratio: 3 / 4; padding: 6px; background: linear-gradient(180deg, #9A6232, #6A3E1A); border: 3px solid var(--ink); border-radius: 50% 50% 4px 4px / 34% 34% 4px 4px; box-shadow: inset 0 2px 0 rgba(255,220,160,.35); }
+.ow-sky { position: relative; display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; background: linear-gradient(180deg, var(--s1), var(--s2)); border: 2px solid var(--ink); border-radius: 50% 50% 2px 2px / 32% 32% 2px 2px; box-shadow: inset 0 0 14px rgba(0,0,0,.35); }
+.ow-sky.art { background-size: cover; background-position: center; image-rendering: pixelated; }
+.ow-sky .om-ico { width: 60px; height: 60px; filter: drop-shadow(0 0 10px rgba(255,255,255,.55)); }
+.ow-sky .om-ico .ico { width: 52px; height: 52px; }
+/* 십자 창살: 세로 한 줄(반반) + 가로 한 줄 */
+.ow-bars { position: absolute; inset: 6px; pointer-events: none; border-radius: 50% 50% 2px 2px / 32% 32% 2px 2px;
+  background: linear-gradient(90deg, transparent calc(50% - 3px), #6A3E1A calc(50% - 3px), #9A6232 50%, #6A3E1A calc(50% + 3px), transparent calc(50% + 3px)),
+              linear-gradient(180deg, transparent calc(44% - 3px), #6A3E1A calc(44% - 3px), #9A6232 44%, #6A3E1A calc(44% + 3px), transparent calc(44% + 3px)); }
+.ow-sill { display: block; width: 86%; max-width: 150px; height: 7px; margin-top: -6px; background: linear-gradient(180deg, #C9A27A, #7A4E28); border: 2px solid var(--ink); }
+.omen-card.window b { margin-top: 2px; }
