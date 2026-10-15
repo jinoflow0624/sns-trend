@@ -9,7 +9,7 @@ import { ico } from '../icons.js';
 
 const AV = `?v=${GAME.version}`;
 // 그림 파일이 생긴 유물 (예: ['ace', 'flow'])
-export const FILES = [];
+export const FILES = ['balance', 'basic', 'beast', 'bloodcup', 'bloodpact', 'bloodsword', 'bone', 'camp', 'cape', 'chalice', 'choice', 'coin', 'combo', 'counter', 'crown', 'culture', 'discard', 'drum', 'dust', 'echodrum', 'ember', 'emptyhand', 'fang', 'flip', 'flow', 'fourk', 'full', 'glasscannon', 'goldframe', 'hammer', 'heart', 'horn', 'hourglass', 'insure', 'iron', 'kaleido', 'keepbox', 'libkey', 'lotus', 'loupe', 'lucky', 'madscale', 'magnet', 'medal', 'midas', 'miser', 'nudge', 'pairring', 'pairs', 'palette', 'parity', 'phoenix', 'pilgrim', 'prism', 'purse', 'quad', 'rampart', 'reroll', 'rosary', 'sandbank', 'scale', 'scholar', 'sealbag', 'sealknife', 'seven', 'sixth', 'small', 'straight', 'thorn', 'trinity', 'wax', 'weight', 'whet', 'yacht', 'ytower', 'zero'];   // 128px 도트 그림 (Codex · run_icons_98)
 const K = '#1A1030';
 export const RELIC_ART = {
   flip: { pal: {"a": "#F1DDAE", "m": "#3EE6B4", "w": "#FFFFFF"}, rows: [
@@ -480,24 +480,6 @@ export const RELIC_ART = {
     '.....kkkkkk.....',
     '................',
   ] },
-  ace: { pal: {"G": "#C8860E", "g": "#FFC83D", "r": "#E8435A", "w": "#FFFFFF"}, rows: [
-    '................',
-    '....k..k..k.....',
-    '....kgkgkgk.....',
-    '....kgggggk.....',
-    '.....kGGGk......',
-    '................',
-    '....kkkkkkkk....',
-    '....kwwwwwwk....',
-    '....kwwwwwwk....',
-    '....kwwwwwwk....',
-    '....kwwwrwwk....',
-    '....kwwwwwwk....',
-    '....kwwwwwwk....',
-    '....kkkkkkkk....',
-    '................',
-    '................',
-  ] },
   small: { pal: {"o": "#FF8A1A", "w": "#FFFFFF"}, rows: [
     '................',
     '................',
@@ -680,9 +662,13 @@ export const RELIC_ART = {
   ] },
 };
 
+// 인장 4종 (sun · moon · star · cloud) · 막 징조 12종 — 같은 16×16 형식. 비어 있으면 공용 아이콘을 쓴다 (run/RELICS2-ART.md)
+export const SEAL_ART = {};
+export const OMEN_ART = {};
+
 const cache = new Map();
-function draw(id) {
-  const m = RELIC_ART[id];
+function draw(id, map = RELIC_ART) {
+  const m = map[id];
   const S = 4, c = document.createElement('canvas');
   c.width = c.height = 16 * S;
   const g = c.getContext('2d');
@@ -703,6 +689,14 @@ export function relicIco(r, cls = '') {
     return `<img class="${c}" src="${cache.get(r.id)}" alt="">`;
   }
   return ico(r.icon, cls);
+}
+// 인장 · 징조 아이콘: 도트 그림이 있으면 그것, 없으면 fallback (공용 아이콘 HTML)
+export function dotIco(kind, id, fallback, cls = '') {
+  const map = kind === 'seal' ? SEAL_ART : OMEN_ART;
+  if (!map[id]) return fallback;
+  const key = `${kind}:${id}`;
+  if (!cache.has(key)) cache.set(key, draw(id, map));
+  return `<img class="ico relic-art${cls ? ' ' + cls : ''}" src="${cache.get(key)}" alt="">`;
 }
 // 로딩 화면에서 미리 받을 유물 그림 파일 주소
 export const relicURLs = () => FILES.map(id => `assets/run/relic/${id}.webp${AV}`);

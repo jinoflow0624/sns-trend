@@ -6,14 +6,16 @@
 //         · 원정 끝: 앱은 행동 기록만 보낸다. 서버가 같은 규칙(run/rules.js)으로 판을 처음부터 다시 돌려
 //           승패 · 층 · 도전과제 · 별조각을 직접 계산한다 → 기기 저장값이나 메모리를 고쳐도(치트 엔진 등) 소용없다
 //         · 인터넷이 없을 때 시작한 원정은 별조각 · 기록 없이 즐기기만 한다
-// 테스트판: 서버 함수가 없으니 이 기기(localStorage)에 둔다. 규칙은 같은 함수(recordRun · buyProgress · equipProgress).
+// 테스트판: 서버 함수가 없으니 이 기기(localStorage)에 둔다. 규칙은 같은 함수(recordRun · buyProgress).
 import { PROD, callServer } from '../fire.js';
 import * as Run from './rules.js';
+import { syncRunAch } from '../wallet.js';
 
 const LOCAL = 'diceheroes.runBest';
 let store = null;
 let P = null;                      // 지금 기록 (서버 사본 또는 기기 저장)
-export function initProgress(s) { store = s; }
+export const syncAch = () => syncRunAch(progress());
+export function initProgress(s) { store = s; syncRunAch(progress()); }   // 예전 원정 기록도 도전과제에 옮긴다
 
 // 예전 기기 저장 모양 { runs, wins, top, cls, asc, feats, meta: { stars, lv, dice, equip } } → 지금 모양
 function migrate(o) {
@@ -51,7 +53,8 @@ export async function startRun(cls, asc) {
 
 // 원정 끝: { stars, won, opened, fresh } — 배포판은 서버가 행동 기록을 다시 돌려 계산한다
 export async function finishRun(R) {
-  if (!PROD) { const out = Run.recordRun(progress(), R); saveLocal(); return out; }
+  if (R.trial) return { stars: 0, won: !!R.won, opened: false, fresh: [], trial: true };   // 시험 원정은 기록 · 별조각에 넣지 않는다
+  if (!PROD) { const out = Run.recordRun(progress(), R); saveLocal(); syncRunAch(progress()); return out; }
   if (!R.xid) return { stars: 0, won: !!R.won, opened: false, fresh: [], offline: true };
   try {
     const r = await callServer('xFinish', { id: R.xid, acts: R.acts || [] });
@@ -63,14 +66,9 @@ export async function finishRun(R) {
   }
 }
 
-// 원정 준비: 사기 · 주사위 넣기. 실패하면 이유 문자열을 던진다
+// 원정 준비: 강화 사기. 실패하면 이유 문자열을 던진다
 export async function buy(kind, id) {
   if (!PROD) { const why = Run.buyProgress(progress(), kind, id); if (why) throw new Error(why); saveLocal(); return progress(); }
   P = Run.fixProgress((await callServer('xBuy', { kind, id })).run);
-  return P;
-}
-export async function equip(list) {
-  if (!PROD) { const why = Run.equipProgress(progress(), list); if (why) throw new Error(why); saveLocal(); return progress(); }
-  P = Run.fixProgress((await callServer('xEquip', { equip: list })).run);
   return P;
 }

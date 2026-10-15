@@ -91,8 +91,38 @@ add('versus', 'cl250', 3, '클래식 250', '클래식 야추에서 250점 이상
 [[10, 1], [100, 2], [500, 3]].forEach(([g, t], k) =>
   add('play', `games_${k + 1}`, t, `모험가 ${STEP_KO[k]}`, `${g}판 끝까지 하기 (보석을 받은 판)`, g, sum('games'), { series: 'games' }));
 
+// ── 원정 (로그라이크) — 원정 기록(run/rules.js 의 progress.best)에서 syncRunAch 로 ach.m['r:…'] 에 옮긴다.
+//    배포판은 서버가 원정 끝(xFinish)에 행동 기록을 다시 돌려 계산한 기록으로만 옮긴다. 원정이 없는 곳에서는 숨긴다 (secret 'run')
+const RUN = { secret: 'run' };
+add('run', 'run_act1', 1, '숲을 지나', '원정 1막 돌파', 9, best('r:top'), { ...RUN, nobar: true, series: 'run_act' });
+add('run', 'run_act2', 2, '폐허를 지나', '원정 2막 돌파', 17, best('r:top'), { ...RUN, nobar: true, series: 'run_act' });
+[[1, 2], [10, 3], [30, 4]].forEach(([g, t], k) =>
+  add('run', `run_win_${k + 1}`, t, `마왕 토벌 원정 ${STEP_KO[k]}`, `원정을 ${g}번 클리어`, g, best('r:wins'), { ...RUN, series: 'run_win' }));
+[[10, 1], [50, 2], [150, 3]].forEach(([g, t], k) =>
+  add('run', `run_runs_${k + 1}`, t, `원정대 ${STEP_KO[k]}`, `원정을 ${g}번 떠나기`, g, best('r:runs'), { ...RUN, series: 'run_runs' }));
+[[3, 2], [6, 3], [9, 4]].forEach(([g, t], k) =>
+  add('run', `run_cls_${k + 1}`, t, `만능 원정가 ${STEP_KO[k]}`, `서로 다른 직업 ${g}개로 원정 클리어`, g, best('r:cls'), { ...RUN, series: 'run_cls' }));
+[[1, 2], [5, 3], [10, 4]].forEach(([g, t], k) =>
+  add('run', `run_asc_${k + 1}`, t, `하드모드 정복자 ${STEP_KO[k]}`, `하드모드 ${g} 이상으로 원정 클리어`, g, best('r:asc'), { ...RUN, nobar: g === 1, series: 'run_asc' }));
+[[6, 2], [12, 3]].forEach(([g, t], k) =>
+  add('run', `run_feat_${k + 1}`, t, `원정 개척자 ${STEP_KO[k]}`, `원정 도전과제(원정 화면의 업적) ${g}개 달성`, g, best('r:feats'), { ...RUN, series: 'run_feat' }));
+// 원정 기록 → 도전과제 진행도 (늘기만 한다)
+export function syncRunAch(ach, p) {
+  const b = p?.best;
+  if (!ach || !b) return ach;
+  ach.n ||= {}; ach.m ||= {}; ach.got ||= {};
+  const v = {
+    'r:top': b.top || 0, 'r:wins': b.wins || 0, 'r:runs': b.runs || 0,
+    'r:cls': Object.values(b.cls || {}).filter(c => c.wins > 0).length,
+    'r:asc': Math.max(0, ...Object.values(b.asc || {})),
+    'r:feats': (b.feats || []).length,
+  };
+  for (const [k, x] of Object.entries(v)) ach.m[k] = Math.max(ach.m[k] || 0, Math.floor(Number(x) || 0));
+  return ach;
+}
+
 export const ACHIEVEMENTS = A;
-export const ACH_CATS = [['combo', '족보'], ['quest', '성장'], ['boss', '보스'], ['versus', '대전'], ['play', '꾸준함']];
+export const ACH_CATS = [['combo', '족보'], ['quest', '성장'], ['boss', '보스'], ['versus', '대전'], ['play', '꾸준함'], ['run', '원정']];
 export const achInfo = id => A.find(a => a.id === id);
 export const achGems = a => TIER[a.tier].gems;
 export const achProgress = (a, ach) => Math.min(a.goal, a.prog(ach));

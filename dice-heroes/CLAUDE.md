@@ -23,10 +23,19 @@
     원정 그림을 새로 넣으면 `run/art.js` 의 `runAssetURLs()` · `run/relic-art.js` 의 `relicURLs()` 목록에 들어가는지 확인한다.
   - 그 밖: 곡은 `preloadBgm()`, 주사위 · 트레이 스킨은 `preloadDice()` · `preloadTray()`, 3D 는 `preload3d()`.
 - 확인 방법: 브라우저 시험에서 버튼을 누른 뒤에 새 그림 · 곡 요청이 생기지 않는지 본다.
+- **곡 주소의 버전은 게임 버전이 아니라 `audio.js` 의 `BGM_VER`** 다 (업데이트마다 곡을 다시 받지 않게).
+  곡 파일(`assets/bgm/*.ogg`)을 바꾸거나 더하면 `audio.js` 와 `sw.js` 의 `BGM_VER` 를 함께 올린다 (안 올리면 캐시의 예전 곡이 나온다).
+- **주사위 · 트레이 그림 주소의 버전은 `skins.js` 의 `ART_VER`** 다 (게임 버전 아님). 그림 파일을 바꾸거나 더하면 `skins.js` 와 `sw.js` 의 `ART_VER` 를 함께 올린다.
+- **싸움 화면(대전 · 협동 · 원정 전투)은 `stageReady()` 가 끝난 뒤에 연다**: 3D 트레이를 만들고, 쓰일 주사위 · 트레이 그림을 다 받아 둔다 (최대 8초).
+  싸움 화면으로 가는 새 길을 만들면 그 앞에서 `stageReady()` (원정은 `X.stageReady()`) 를 기다린다.
+- 첫 화면은 메뉴 곡(`title`)을 다 받을 때까지 불러오기 막대(글자 없음)를 보여 주고, 다 받으면 「화면을 터치하세요」 (`app.js` `bootGate()`, 8초가 넘으면 그냥 연다).
 
 ## 원정 밸런스
-- 수치는 `run/rules.js` 의 `TUNE` · `RUN_CLASSES` · `CLASS_TUNE`. `node sim/run.mjs 300` 으로 직업별 클리어율을 잰다.
-- 목표: 무료 직업(도박사 · 수도승) 약 25%, 보석 직업 30~35%, 평균 약 31%.
+- 수치는 `run/rules.js` 의 `TUNE` (적 체력 · 공격, 막 · 종류별) · `RUN_CLASSES` (직업 체력) · `CLASS_TUNE` (직업 능력) · `RELIC_TUNE` (유물 수치).
+- 봇은 원정에서 늘 최선을 고른다고 보고 잰다: 다시 굴리기는 요트 DP(`rollPlan` — 주사위 조합마다 '멈추기 · 남기고 다시 굴리기' 기댓값을 끝까지 계산), 도구 · 배팅 · 유물 고르기도 기댓값으로.
+- **목표 (초회차 = 원정 성장 없음): 직업마다 1막 클리어 50% · 2막 25% · 3막 5%. 죽음은 대부분 보스전** (보스는 거의 모든 공격에 방해가 붙는다).
+  `node sim/acts.mjs 300` 으로 잰다 (덮어쓰기 시험은 파일 머리말).
+- 유물 희귀도는 클리어율 기여로 나눈다: 보스 +16%p 이상 · 희귀 +8 ~ 16%p · 일반 그 아래. `node sim/relics.mjs` 로 재고 `RELIC_POWER` 도 같이 고친다.
 
 ## 원정 기록 · 별조각 (조작 방지)
 - 저장은 `run/progress.js` 한 곳. 배포판은 서버 지갑 `wallets/<uid>/run` (앱은 읽기만), 테스트판은 이 기기(localStorage).
@@ -34,4 +43,4 @@
   `xFinish` 가 같은 `run/rules.js` 로 `replay()` 해서 승패 · 층 · 도전과제 · 별조각을 서버에서 계산한다.
 - 그래서 **판의 상태를 바꾸는 행동은 반드시 `act('이름', fn)` 으로 감싼 함수로만** 한다 (화면에서 `R` 을 직접 고치면 서버 다시 돌리기와 어긋난다).
   `node test/run.test.mjs` 의 다시 돌리기 테스트가 지켜 본다. 배포판 빌드는 `run/rules.js` 를 `functions/shared/run/` 에 복사한다.
-- 서버 함수(xProgress · xStart · xFinish · xBuy · xEquip)는 원정을 배포판에 넣을 때 함께 배포한다.
+- 서버 함수(xProgress · xStart · xFinish · xBuy)는 원정을 배포판에 넣을 때 함께 배포한다.
