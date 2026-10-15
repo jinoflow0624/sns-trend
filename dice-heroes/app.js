@@ -3108,6 +3108,10 @@ const TRAIL = {
   heart:     { pal: ['#FFFFFF', '#FFE0EE', '#FF9AC8', '#FF7AB0', '#FF4A8A'], grav: -36, glint: '#FFD0E4', hearts: true },
 };
 let heartTrailT = 0;
+// 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
+const DICE_FX = 0.7;
+const fxN = n => { const x = n * DICE_FX; return Math.floor(x) + (Math.random() < x % 1 ? 1 : 0); };   // 개수 (소수점은 확률로)
+const fxS = v => v * (0.5 + DICE_FX * 0.5);   // 크기 · 빠르기 (70% 면 85%)
 function diceTrail(t, p, sp) {
   if (prefs.fx === 'min' || document.hidden) return;
   const id = t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin;
@@ -3115,10 +3119,10 @@ function diceTrail(t, p, sp) {
   if (!tr) return;
   const fx = FX(), fast = sp > 0.5;
   fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
-  fx.burst(p.x, p.y, { n: fast ? 6 : 4, pal: tr.pal, speed: [14, 80], size: [2.5, 6], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
-  if (Math.random() < (fast ? 0.5 : 0.3)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: 9 + Math.random() * 8 });
+  fx.burst(p.x, p.y, { n: fxN(fast ? 6 : 4), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
+  if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
   const now = performance.now();
-  if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5) {
+  if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5 * DICE_FX) {
     heartTrailT = now;
     const h = document.createElement('span');
     h.className = 'heart-pop';
@@ -3126,7 +3130,7 @@ function diceTrail(t, p, sp) {
     h.style.left = `${p.x + (Math.random() - 0.5) * 20}px`;
     h.style.top = `${p.y - 6}px`;
     h.style.setProperty('--dx', `${(Math.random() - 0.5) * 50}px`);
-    h.style.fontSize = `${10 + Math.random() * 8}px`;
+    h.style.fontSize = `${fxS(10 + Math.random() * 8)}px`;
     document.body.appendChild(h);
     setTimeout(() => h.remove(), 900);
   }
@@ -3141,8 +3145,8 @@ function hitSpark(id, v, i, t) {
   sparkT[i] = now;
   const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
   fx.c.classList.toggle('over', t === skinPreview);
-  fx.burst(p.x, p.y, { n: 8 + Math.round(k * 8), pal: tr.pal, speed: [40, 130 + k * 60], size: [2, 5], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
-  fx.glint(p.x, p.y, { color: tr.glint, size: 12 + k * 8, dur: 320 });
+  fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
+  fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
 }
 function diceHit(v, i, t) {
   // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
@@ -3155,14 +3159,14 @@ function diceHit(v, i, t) {
   if (now - heartT < 90) return;
   heartT = now;
   const p = t.screenPos(i);
-  for (let k = 0; k < 2 + (v > 8 ? 1 : 0); k++) {
+  for (let k = 0, n = fxN(2 + (v > 8 ? 1 : 0)); k < Math.max(1, n); k++) {
     const h = document.createElement('span');
     h.className = 'heart-pop';
     h.textContent = '♥';
     h.style.left = `${p.x + (Math.random() - 0.5) * 30}px`;
     h.style.top = `${p.y - 10}px`;
     h.style.setProperty('--dx', `${(Math.random() - 0.5) * 60}px`);
-    h.style.fontSize = `${14 + Math.random() * 12}px`;
+    h.style.fontSize = `${fxS(14 + Math.random() * 12)}px`;
     document.body.appendChild(h);
     setTimeout(() => h.remove(), 900);
   }
