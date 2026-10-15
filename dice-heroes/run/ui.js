@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -223,7 +223,7 @@ function paintSelect() {
     </div>
     <b class="rs-name" style="--c:${info.color}">${[...info.ko].map((ch, i) => `<i class="rs-ch" style="--i:${i}">${ch}</i>`).join('')}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${X.owns(sel) ? '' : ` ${ico('lock', 'xs')}`}</b>
     <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
-      ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n};background-image:url(${uiArtURL('card_back')})"></i>`).join('')}
+      ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n};background-image:url(${cardBackURL(sel)})"></i>`).join('')}
       <div class="rc rc-static rs-front">${cardFace(sig)}</div>
       <span class="rs-count">${runIco('ui', 'deck', 'card', 'xs')}${deck.length}</span>
     </div>
@@ -1067,7 +1067,7 @@ export async function shuffleFx() {   // (디버그에서도 부른다)
   const r = pile?.getBoundingClientRect();
   const el = document.createElement('div');
   el.className = 'shuffle-fx';
-  const back = `url(${uiArtURL(R?.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'card_back_blue' : 'card_back')})`;   // 보스전은 파랑 뒷면
+  const back = `url(${cardBackURL(R?.cls)})`;   // 직업 색 뒷면
   el.style.left = `${innerWidth / 2}px`; el.style.top = `${innerHeight * 0.62}px`;
   el.innerHTML = Array.from({ length: 8 }, (_, k) => `<i class="sb" style="--k:${k};--s:${k % 2 ? 1 : -1};background-image:${back}"></i>`).join('');
   if (r) { el.style.setProperty('--tx', `${r.left + r.width / 2 - innerWidth / 2}px`); el.style.setProperty('--ty', `${r.top + r.height / 2 - innerHeight * 0.62}px`); }
