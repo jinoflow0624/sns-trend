@@ -6,7 +6,7 @@ import { ico } from '../icons.js';
 
 // 원정 그림 주소의 버전 — 게임 버전이 아니다 (게임 버전으로 하면 업데이트마다 원정 그림 전부를 다시 받아 느려지고 검게 빈다).
 // assets/run/ 의 그림 파일을 바꾸거나 더하면 이것을 올린다 (CLAUDE.md)
-export const RUN_ART_VER = 'r2';
+export const RUN_ART_VER = 'r3';
 const AV = `?v=${RUN_ART_VER}`;
 // 그림 파일이 생긴 적 (예: ['slime', 'goblin'])
 const FILES = ['slime', 'goblin', 'bat', 'wolf', 'shaman', 'mimic', 'skeleton', 'ghost', 'wisp', 'knight', 'golem', 'imp', 'hound', 'gargoyle', 'shade', 'champion'];
@@ -319,7 +319,8 @@ const UI = {
   meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'seal', 'reshop', 'repick'],
   spec: ['ones', 'twos', 'threes'],      // 특별 카드 휘장 (에이스 주인공 · 듀스 두배 · 트레이 삼위일체)
   asc: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],   // 승천 단계 문장 (asc_<n>.webp)
-  ui: ['star', 'asc', 'smith', 'shield', 'split_knob', 'deck', 'card_back', 'card_back_blue', 'pouch'],
+  ui: ['star', 'asc', 'smith', 'shield', 'split_knob', 'deck', 'card_back', 'pouch',
+    ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `card_back_${k}`)],   // 직업 색 카드 뒷면
   seal: ['cloud', 'moon', 'star', 'sun'],
   omen: ['bounty', 'drought', 'feast', 'fog', 'forbid', 'glass', 'merchant', 'rift', 'rush', 'sealrain', 'war', 'regular', 'wish'],
   hex: ['burn', 'drums', 'freeze', 'gaze', 'haki', 'poison', 'reverse', 'seal', 'twist'],
@@ -334,6 +335,8 @@ export function runIco(kind, id, fallback, cls = '') {
 }
 // 아이콘이 아닌 원정 UI 그림 주소 (카드 뒷면 · 물약 주머니 — CSS background 로 쓴다)
 export const uiArtURL = id => `assets/run/ui/${id}.webp${AV}`;
+// 카드 뒷면: 직업 고유 색 (무희 분홍 · 도적 초록 …), 없는 직업이면 기본 빨강
+export const cardBackURL = cls => uiArtURL(UI.ui.includes(`card_back_${cls}`) ? `card_back_${cls}` : 'card_back');
 // 별조각 아이콘 (원정 밖 성장 화폐)
 export const starIco = (cls = 'xs') => runIco('ui', 'star', 'star', cls);
 // 상점 · 휴식 · 보물 · 이벤트 장면 그림 (assets/run/scene/<id>.webp, 512px)
