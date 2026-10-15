@@ -91,9 +91,20 @@ export const canVibrate = () => typeof navigator.vibrate === 'function';
 let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
 const waves = {};
 
-// 브라우저는 사용자 조작 전 소리를 막는다 — 첫 터치 때 연다
+// 브라우저는 사용자 조작 전 소리를 막는다 — 오디오는 첫 터치(손을 뗄 때 · 클릭 · 키) 순간에 만든다.
+// 예전엔 시작 화면이 뜨자마자 만들어 두고 터치 때 깨웠는데, 일부 폰(설치한 앱)에서 미리 만든 오디오가
+// '멈춤'에 갇혀 터치해도 깨지 않아 음악 · 효과음이 안 나오다가 앱을 몇 번 다시 켜야 나왔다.
+// 터치 순간에 만든 오디오는 처음부터 켜진 채로 시작한다. 그 전에는 곡을 받아 풀어만 둔다 (decoder)
+let activated = false;
+const hasGesture = () => activated || !!navigator.userActivation?.hasBeenActive;
+let offline = null;
+const decoder = () => ctx || (offline ||= (() => {
+  const O = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  try { return O ? new O(2, 1, 48000) : null; } catch { return null; }
+})());
 export function unlock() {
   if (!ctx) {
+    if (!hasGesture()) return null;
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
     master = ctx.createGain();
     master.gain.value = 0.9;
@@ -117,8 +128,13 @@ export function unlock() {
 
 // 브라우저는 첫 터치 전엔 소리를 막는다(오디오가 '멈춤' 상태로 시작). 메뉴 음악은 시작 화면이 뜨자마자 걸어 두고,
 // 허락되는 첫 순간(아무 곳이나 터치·클릭·키) 바로 들리게 한다. 전화·다른 앱 때문에 멈췄을 때도 다음 터치로 다시 켠다
-const wake = () => { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); };
-['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
+let pendingBgm = null;    // 터치 전에 튼 곡 — 첫 터치 때 바로 튼다
+const wake = e => {
+  if (e?.isTrusted && e.type !== 'pointerdown') activated = true;   // 터치는 손을 뗄 때(touchend · pointerup) 허락된다
+  if (!ctx && pendingBgm && hasGesture()) { const n = pendingBgm; pendingBgm = null; playBgm(n); return; }
+  if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+};
+['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
 
 // 효과음이 울리는 동안 배경음악을 살짝 내렸다가 끝나면 부드럽게 되돌린다
 let duckUntil = 0;
@@ -441,7 +457,7 @@ function fetchBytes(url) {
 const loadBuffer = url => {
   keepBuffer(url);
   return (buffers[url] ||= (bytes[url] ||= fetchBytes(url).catch(err => { delete bytes[url]; throw err; }))
-    .then(b => ctx.decodeAudioData(b.slice(0)))      // 푸는 동안 원본이 비워지므로 사본을 넘긴다
+    .then(b => decoder().decodeAudioData(b.slice(0)))      // 푸는 동안 원본이 비워지므로 사본을 넘긴다 (터치 전이면 오프라인 오디오로 푼다)
     .then(buf => { progress[url] = 1; done.add(url); return buf; })
     .catch(err => { delete buffers[url]; done.add(url); throw err; }));   // 못 받아도 "끝남" — 시작 화면이 계속 기다리지 않게
 };
@@ -456,7 +472,7 @@ export function bgmState(name) {
 // 예전엔 판이 시작되는 순간에 받기 시작해서 폰에서는 라운드가 시작된 뒤에야 음악이 나왔다)
 export function preloadBgm(name) {
   const url = BGM_FILES[name];
-  if (url && !badFiles.has(url) && unlock()) return loadBuffer(url).then(() => {}, () => {});
+  if (url && !badFiles.has(url) && (unlock() || decoder())) return loadBuffer(url).then(() => {}, () => {});
   return Promise.resolve();
 }
 
@@ -479,7 +495,8 @@ export function playBgm(name) {
   // 앞 곡은 다음 곡이 준비될 때까지 그대로 둔다 (예전엔 바로 끊겨서 받는 · 푸는 동안 조용했다). 칩튠 곡만 바로 멈춘다
   if (playing?.timer) clearInterval(playing.timer);
   playing = null;
-  if (!unlock()) return Promise.resolve();
+  if (!unlock()) { pendingBgm = name; preloadBgm(name); return Promise.resolve(); }
+  pendingBgm = null;
   const url = BGM_FILES[name];
   if (url && !badFiles.has(url)) {
     const state = { name, url };
@@ -532,6 +549,7 @@ export function playBgm(name) {
 }
 
 export function stopBgm() {
+  pendingBgm = null;
   if (playing?.timer) clearInterval(playing.timer);
   fadeOutAudible(0.08);
   playing = null;

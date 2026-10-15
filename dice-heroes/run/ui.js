@@ -411,7 +411,7 @@ function showMap(again = false) {
   X.app.innerHTML = `
   <div class="screen run-map">
     ${hud()}
-    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b>${R.omen ? omenChip() : ''}<small>보스 ???</small></div>
+    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b>${R.omen ? omenChip() : ''}</div>
     <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
       <svg class="map-lines" aria-hidden="true"></svg>
       ${nodes.map(n => {
@@ -509,7 +509,7 @@ function showCombat(fresh) {
     onLong: u => { const c = R.C.hand.find(x => x.u === u); if (c) X.popover(hand.el(u), cardTip(c) + playTip(c)); },
     targets: () => ({ enemy: $('foe'), self: $('r-hero') }),
     canPlay: () => canAct() && R.C.rolled,
-    bet: u => R.C.bet === u, gazed: u => R.C.gazed.includes(u) && !R.C.pure,
+    bet: u => R.C.bet === u, gazed: u => R.C.gazed.includes(u) && !R.C.pure && !ui.hideGaze,
     swappable: u => ui.tool === 'swap' && R.C.swaps > 0 && R.C.bet !== u && canAct(),
     sound: (k, n) => ({ draw: () => sfx.card(), touch: () => sfx.tap(), lift: () => sfx.select(), aim: () => sfx.hold(), nope: () => sfx.back(), slam: () => sfx.whoosh?.(),
       live: () => sfx.tick?.(Math.min(1, 0.35 + n / 50)), dead: () => {} }[k]?.()),
@@ -524,7 +524,8 @@ function showCombat(fresh) {
     t.show(ui.dice || C.dice, C.rolled ? C.held : []);
     paintTray();
   });
-  if (fresh && C.turn === 1 && !C.rolled) introFoe();
+  if (fresh && C.turn === 1 && !C.rolled) introFoe().then(openingHex);
+  else if (ui.openFx) { ui.openFx = null; ui.hideGaze = false; }
   if (ui.stamps.length) stampHand();
 }
 const canAct = () => R?.phase === 'combat' && R.C?.phase === 'roll' && !ui.busy;
@@ -1381,6 +1382,7 @@ async function playOne(f) {
         sfx.haki?.(); buzz(80);
         await FX().eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, center($('hand')), 1200);
       } else sfx.select();
+      ui.hideGaze = false;
       hand.refresh();
       return;
     }
@@ -1495,6 +1497,20 @@ async function introFoe() {
     floatAt(p.x, p.y - 60, '엘리트!', 'dmg big');
     sfx.haki?.();
   }
+}
+
+// 전투 첫 턴의 방해 연출: 적 등장 · 카드 돌리기가 끝난 뒤 (응시면 눈이 먼저 뜨고, 그다음 카드에 응시가 걸린다)
+async function openingHex() {
+  const list = ui.openFx;
+  ui.openFx = null;
+  if (!list || X.screen() !== 'run' || R?.phase !== 'combat') { ui.hideGaze = false; return; }
+  ui.busy = true;
+  await wait(650);
+  if (X.screen() === 'run' && R?.phase === 'combat') await playFx(list, snap());
+  ui.busy = false;
+  ui.hideGaze = false;
+  hand?.refresh();
+  paint();
 }
 
 // ── 보상 ─────────────────────────────────────────────────────────────────────
@@ -1773,7 +1789,7 @@ function showDeck() {
   const C = R.phase === 'combat' ? R.C : null;
   const sec = (title, cards) => `<h3>${title} <small>${cards.length}장</small></h3><div class="deck-grid">${cards.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('') || '<p class="dim">없음</p>'}</div>`;
   X.layer.innerHTML = `<div class="overlay run-deckview" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <h2>${ico('card')} 내 덱 ${R.deck.length}장</h2>
+    <h2>${runIco('ui', 'deck', 'card')} 내 덱 ${R.deck.length}장</h2>
     ${C ? sec('뽑을 카드', C.draw.slice().sort((a, b) => a.cat.localeCompare(b.cat))) + sec('버린 카드', C.discard) : sec('전체', Run.deckCards(R))}
     ${Object.keys(R.dfaces || {}).length ? `<h3>깎은 주사위</h3><div class="carve-dice">${Object.keys(R.dfaces).map(i => `<div class="carve-row"><b>${Number(i) + 1}</b>${Run.facesOf(R, Number(i)).map(v => `<span class="cface">${miniDie(v)}</span>`).join('')}</div>`).join('')}</div>` : ''}
     <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
@@ -2033,7 +2049,9 @@ export function onAct(act, t) {
     }
     sfx.start();
     try { Run.enterNode(R, id); } catch (e) { return X.toast(ico('warn'), '갈 수 없어요', e.message, 1400); }
-    drain();
+    // 첫 턴 방해(응시 등)는 전투 화면이 뜨고 적이 등장한 뒤에 연출한다 (예전엔 여기서 버려져 손패에 응시만 덩그러니 걸려 있었다)
+    const opening = drain().filter(f => f.type === 'hex' || f.type === 'gaze');
+    if (R.phase === 'combat' && opening.length) { ui.openFx = opening; ui.hideGaze = true; }
     save();
     t.classList.add('go');
     // 전투 칸: 그 곡이 준비될 때까지 (최대 3초) 기다렸다가 들어간다
