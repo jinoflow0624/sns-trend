@@ -398,7 +398,9 @@ function showMap(again = false) {
   // 층 간격: 지도 칸 높이에 맞춰 한 화면에 다 보이게 (너무 좁으면 스크롤)
   const ROW = ui.mapRow || MAP_ROW;
   const H = MAP_PAD * 2 + Run.ROWS * ROW + 40;
-  const pos = n => ({ x: 12 + n.col * 25.3, y: n.row > Run.ROWS ? MAP_PAD - 6 : H - MAP_PAD - (n.row - 1) * ROW });
+  // 칸마다 아주 살짝 상하좌우로 흩뜨린다 (반듯한 바둑판이면 지루해서). 원정 · 막 · 칸이 같으면 늘 같은 자리. 보스는 가운데 그대로
+  const jit = n => { if (n.row > Run.ROWS) return [0, 0]; const h = mapHash(R.seed, R.act, n.id); return [((h & 1023) / 1023 - 0.5) * 5.4, (((h >>> 10) & 1023) / 1023 - 0.5) * ROW * 0.26]; };
+  const pos = n => { const [jx, jy] = jit(n); return { x: 12 + n.col * 25.3 + jx, y: (n.row > Run.ROWS ? MAP_PAD - 6 : H - MAP_PAD - (n.row - 1) * ROW) + jy }; };
   const visited = new Set(R.path);
   const edges = nodes.flatMap(n => n.next.map(j => {
     const walked = visited.has(n.id) && visited.has(j);
@@ -438,6 +440,12 @@ function showMap(again = false) {
   const tgt = X.app.querySelector('.mnode.can') || X.app.querySelector('.mnode.here');
   if (sc && tgt) sc.scrollTop = Math.max(0, tgt.offsetTop - sc.clientHeight * 0.6);
   if (R.omenOpts) showOmens();
+}
+// 칸 흩뜨리기용 고정 난수 (같은 원정 · 막 · 칸이면 같은 값)
+function mapHash(seed, act, id) {
+  let h = (seed ^ Math.imul(act + 1, 0x9E3779B1) ^ Math.imul(id + 1, 0x85EBCA77)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x7FEB352D); h = Math.imul(h ^ (h >>> 15), 0x846CA68B);
+  return (h ^ (h >>> 16)) >>> 0;
 }
 // 지도 길: 칸과 칸 사이를 발자국으로 잇는다. 가로는 % 라 지도 폭을 재서 px 로 바꿔 그린다 (늘이면 발자국이 찌그러짐)
 const STEP = 12, NODE_GAP = 24;
