@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -107,7 +107,7 @@ const keepImgs = [];                      // 받은 그림을 붙잡아 둔다 (
 // 그림 한 장 받기 (같은 주소는 한 번만). 받고 풀어 둔 뒤에 끝난다
 const imgJobs = new Map();
 const loadImg = url => imgJobs.get(url) || (imgJobs.set(url, new Promise(res => { const i = new Image(); keepImgs.push(i); i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(res); i.onerror = res; i.src = url; })), imgJobs.get(url));
-const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_${k + 1}.webp?v=${X.version}`);
+const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_${k + 1}.webp?v=${RUN_ART_VER}`);
 // 미리 받기 (규칙: 그림 · 음악은 사람이 누르기 전에 이미 받아져 있어야 한다 — CLAUDE.md)
 // 시작 화면에 원정 버튼이 보이면 app.js 가 부른다. 화면에 바로 쓰일 것(승천 문장 등)부터, 나머지는 천천히 뒤에서
 let warming = null;

@@ -407,7 +407,10 @@ const FILE_VOL = 0.9;
 const buffers = {};
 const badFiles = new Set();   // 못 받았거나 못 푼 파일(구형 iOS 의 OGG 등)은 칩튠 곡으로 대신한다
 // 풀어 둔 곡은 최근 것 몇 개만 메모리에 둔다 (3분짜리 곡 하나를 풀면 수십 MB). 지금 나오는 곡은 지우지 않는다
-const BUF_KEEP = 4;
+const BUF_KEEP = 3;
+// 받은 곡 파일(압축된 그대로, 곡당 1MB 안팎)은 모두 둔다 → 풀어 둔 곡을 지웠다가 다시 틀 때 내려받지 않고 바로 다시 푼다
+const bytes = {};
+let audible = null;       // 지금 소리가 나는 음원 { src, g } — 다음 곡이 준비될 때까지 끊지 않고 이어 틀다가 겹쳐 바꾼다
 const recent = [];
 function keepBuffer(url) {
   const i = recent.indexOf(url);
@@ -437,8 +440,8 @@ function fetchBytes(url) {
 }
 const loadBuffer = url => {
   keepBuffer(url);
-  return (buffers[url] ||= fetchBytes(url)
-    .then(b => ctx.decodeAudioData(b))
+  return (buffers[url] ||= (bytes[url] ||= fetchBytes(url).catch(err => { delete bytes[url]; throw err; }))
+    .then(b => ctx.decodeAudioData(b.slice(0)))      // 푸는 동안 원본이 비워지므로 사본을 넘긴다
     .then(buf => { progress[url] = 1; done.add(url); return buf; })
     .catch(err => { delete buffers[url]; done.add(url); throw err; }));   // 못 받아도 "끝남" — 시작 화면이 계속 기다리지 않게
 };
@@ -458,9 +461,24 @@ export function preloadBgm(name) {
 }
 
 // 곡을 튼다. 돌려주는 약속은 실제로 소리가 나기 시작할 때 끝난다 (파일을 받는 중이면 받은 뒤)
+// 지금 나는 음원을 dur 초 동안 줄이며 끈다
+function fadeOutAudible(dur = 0.3) {
+  const a = audible;
+  audible = null;
+  if (!a || !ctx) return;
+  try {
+    const now = ctx.currentTime;
+    a.g.gain.cancelScheduledValues(now);
+    a.g.gain.setValueAtTime(a.g.gain.value, now);
+    a.g.gain.linearRampToValueAtTime(0, now + dur);
+    a.src.stop(now + dur + 0.05);
+  } catch { /* 이미 멈춤 */ }
+}
 export function playBgm(name) {
   if (playing?.name === name) return playing.ready || Promise.resolve();
-  stopBgm();
+  // 앞 곡은 다음 곡이 준비될 때까지 그대로 둔다 (예전엔 바로 끊겨서 받는 · 푸는 동안 조용했다). 칩튠 곡만 바로 멈춘다
+  if (playing?.timer) clearInterval(playing.timer);
+  playing = null;
   if (!unlock()) return Promise.resolve();
   const url = BGM_FILES[name];
   if (url && !badFiles.has(url)) {
@@ -468,18 +486,23 @@ export function playBgm(name) {
     playing = state;
     state.ready = loadBuffer(url).then(buf => {
       if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
+      const fade = !!audible;
+      fadeOutAudible(0.35);
       const src = ctx.createBufferSource(), g = ctx.createGain();
-      src.buffer = buf; src.loop = true; g.gain.value = FILE_VOL;
+      src.buffer = buf; src.loop = true;
+      if (fade) { const now = ctx.currentTime; g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(FILE_VOL, now + 0.3); } else g.gain.value = FILE_VOL;
       if (BGM_LOOP[name] < buf.duration) { src.loopStart = BGM_LOOP[name]; src.loopEnd = buf.duration; }
       src.connect(g).connect(bgmGain);
       src.start();
       state.src = src;
+      audible = { src, g };
     }).catch(() => {
       badFiles.add(url);
-      if (playing === state) { playing = null; if (SONGS[name]) playBgm(name); }
+      if (playing === state) { playing = null; fadeOutAudible(0.1); if (SONGS[name]) playBgm(name); }
     });
     return state.ready;
   }
+  fadeOutAudible(0.2);
   const song = SONGS[name];
   const tracks = {
     lead: tokenize(song.lead), harm: tokenize(song.harm),
@@ -510,7 +533,7 @@ export function playBgm(name) {
 
 export function stopBgm() {
   if (playing?.timer) clearInterval(playing.timer);
-  if (playing?.src) try { playing.src.stop(); } catch { /* 이미 멈춤 */ }
+  fadeOutAudible(0.08);
   playing = null;
 }
 

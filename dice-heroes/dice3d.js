@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, loadImage, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
 
 // 원정 특수 주사위가 눈을 바꿀 때의 빛 색
 const MORPH_COLOR = { gold: 0xFFC83D, twin: 0xFF9AD0, stair: 0x3EE6B4, heavy: 0x9AA4B8 };
@@ -329,13 +329,21 @@ export class DiceTray {
 
   // 디자인 렌더로 만든 면 그림 (불러오면 다시 그린다)
   // 받아 둔 그림의 텍스처는 버리지 않고 다시 쓴다 (스킨을 다시 고를 때 GPU에 또 올리느라 늦게 뜨지 않게)
-  imageTex(url) {
+  // 아직 못 받은 그림은 검게 비지 않게 대신 그림(fallback 캔버스 — 없으면 어두운 나무색)을 먼저 입히고,
+  // 받으면 같은 텍스처에 바꿔 끼운다 (복제한 난간 텍스처도 같은 원본을 써서 함께 바뀐다)
+  imageTex(url, fallback = null) {
     this.texCache ||= new Map();
     if (this.texCache.has(url)) return this.texCache.get(url);
     const img = READY.get(url);
     let t;
-    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; t.userData.cached = true; this.texCache.set(url, t); }
-    else t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
+    if (img) t = new THREE.Texture(img);
+    else {
+      let ph = fallback?.();
+      if (!ph) { ph = document.createElement('canvas'); ph.width = ph.height = 4; const g = ph.getContext('2d'); g.fillStyle = '#5A4636'; g.fillRect(0, 0, 4, 4); }
+      t = new THREE.Texture(ph);
+      loadImage(url).then(im => { t.image = im; t.needsUpdate = true; this.dirty = true; }, () => {});
+    }
+    t.needsUpdate = true; t.userData.cached = true; this.texCache.set(url, t);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
@@ -375,7 +383,8 @@ export class DiceTray {
       for (let v = 1; v <= 6; v++) {
         const old = this.faceMats[v];
         const url = dieImage(diceId, v);
-        const face = mode => (url && !mode ? this.imageTex(url) : this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, mode)));
+        const draw = mode => drawDieFace(document.createElement('canvas'), v, diceId, mode);
+        const face = mode => (url && !mode ? this.imageTex(url, () => draw(mode)) : this.canvasTex(draw(mode)));
         let m;
         if (p.toon) {
           m = new THREE.MeshToonMaterial({ map: face(''), gradientMap: this.toonRamp() });
@@ -410,8 +419,8 @@ export class DiceTray {
       const fm = this.floorMesh.material;
       this.drop(fm.map); this.drop(fm.emissiveMap);
       // 그림 트레이는 파일(바닥·발광 지도), 나머지는 캔버스로 그린 바닥
-      const img = kind => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind));
-      fm.map = img('floor') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
+      const img = (kind, fb) => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind), fb);
+      fm.map = img('floor', () => drawTrayFloor(document.createElement('canvas'), trayId)) || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
       if (trayGlows(trayId)) {
         fm.emissive = new THREE.Color(0xFFFFFF);
         fm.emissiveMap = img('glow') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
@@ -426,7 +435,7 @@ export class DiceTray {
       this.trimMat.needsUpdate = true;
       const bm = this.boxFloor.material;
       this.drop(bm.map);
-      bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
+      bm.map = img('box', () => drawBoxFloor(document.createElement('canvas'), trayId)) || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
       // 그림 난간이 있는 스킨: 단색 나무 테두리 대신 울퉁불퉁한 그림 난간 · 모서리 기둥 · 보석 장식 (기본 트레이는 그대로)
       const frame = st.rails ? (this.fancyFrames ||= {})[trayId] ||= this.buildFancyFrame(trayId, st) : null;

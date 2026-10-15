@@ -1,11 +1,13 @@
 // 원정 그림. 적 · 엘리트는 512px 도트 그림(assets/run/<id>.webp), 보스는 협동 보스 그림(assets/boss)을 그대로 쓴다.
 // 아래 MON 은 처음 쓰던 16×16 임시본 (그림 파일이 없는 적만 이것으로 그린다).
 // 지도 · 키워드 · 물약 아이콘, 카드 틀, 장면, 막 배경도 여기서 주소를 만든다 (tools/make_run_art.py 로 변환).
-import { GAME } from '../config.js';
 import { spriteURL } from '../pixel.js';
 import { ico } from '../icons.js';
 
-const AV = `?v=${GAME.version}`;
+// 원정 그림 주소의 버전 — 게임 버전이 아니다 (게임 버전으로 하면 업데이트마다 원정 그림 전부를 다시 받아 느려지고 검게 빈다).
+// assets/run/ 의 그림 파일을 바꾸거나 더하면 이것을 올린다 (CLAUDE.md)
+export const RUN_ART_VER = 'r1';
+const AV = `?v=${RUN_ART_VER}`;
 // 그림 파일이 생긴 적 (예: ['slime', 'goblin'])
 const FILES = ['slime', 'goblin', 'bat', 'wolf', 'shaman', 'mimic', 'skeleton', 'ghost', 'wisp', 'knight', 'golem', 'imp', 'hound', 'gargoyle', 'shade', 'champion'];
 const K = '#1A1030';

@@ -4,10 +4,10 @@
 // 형식 (적 그림 run/art.js 의 MON 과 같다):
 //   <유물 id>: { pal: { 글자: '#RRGGBB', ... }, rows: [16글자 × 16줄] }
 //   '.' = 투명, 'k' = 외곽선 (#1A1030, pal 에 안 적어도 된다). 나머지 글자는 pal 에 적은 색.
-import { GAME } from '../config.js';
+import { RUN_ART_VER } from './art.js';
 import { ico } from '../icons.js';
 
-const AV = `?v=${GAME.version}`;
+const AV = `?v=${RUN_ART_VER}`;
 // 그림 파일이 생긴 유물 (예: ['ace', 'flow'])
 export const FILES = ['balance', 'basic', 'beast', 'bloodcup', 'bloodpact', 'bloodsword', 'bone', 'camp', 'cape', 'chalice', 'choice', 'coin', 'combo', 'counter', 'crown', 'culture', 'discard', 'drum', 'dust', 'echodrum', 'ember', 'emptyhand', 'fang', 'flip', 'flow', 'fourk', 'full', 'glasscannon', 'goldframe', 'hammer', 'heart', 'horn', 'hourglass', 'insure', 'iron', 'kaleido', 'keepbox', 'libkey', 'lotus', 'loupe', 'lucky', 'madscale', 'magnet', 'medal', 'midas', 'miser', 'nudge', 'pairring', 'pairs', 'palette', 'parity', 'phoenix', 'pilgrim', 'prism', 'purse', 'quad', 'rampart', 'reroll', 'rosary', 'sandbank', 'scale', 'scholar', 'sealbag', 'sealknife', 'seven', 'sixth', 'small', 'straight', 'thorn', 'trinity', 'wax', 'weight', 'whet', 'yacht', 'ytower', 'zero'];   // 128px 도트 그림 (Codex · run_icons_98)
 const K = '#1A1030';
