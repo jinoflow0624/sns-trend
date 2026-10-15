@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -223,9 +223,9 @@ function paintSelect() {
     </div>
     <b class="rs-name" style="--c:${info.color}">${[...info.ko].map((ch, i) => `<i class="rs-ch" style="--i:${i}">${ch}</i>`).join('')}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${X.owns(sel) ? '' : ` ${ico('lock', 'xs')}`}</b>
     <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
-      ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n}"></i>`).join('')}
+      ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n};background-image:url(${uiArtURL('card_back')})"></i>`).join('')}
       <div class="rc rc-static rs-front">${cardFace(sig)}</div>
-      <span class="rs-count">${ico('card', 'xs')}${deck.length}</span>
+      <span class="rs-count">${runIco('ui', 'deck', 'card', 'xs')}${deck.length}</span>
     </div>
     <div class="rs-go">
       <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 출정 채비 <b>${starIco()}${b.meta.stars}</b></span></button>
@@ -329,8 +329,8 @@ function hud() {
       <span class="res" ${X.tipAttr('조정', '주사위 눈 ±1')}>${ico('nudge', 'xs')}<b>${R.nudge}</b></span>`}
       ${R.cls === 'dancer' ? `<span class="res" ${X.tipAttr('춤사위', Run.RUN_CLASSES.dancer.desc)}>${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
     </div>
-    <div class="potions pouch" aria-label="물약 주머니"><i class="pouch-tie" aria-hidden="true"></i>${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : '빈 칸'}">${p ? runIco('potion', p.id, p.icon) : ''}</button>`; }).join('')}</div>
-    <button class="pile" data-act="run-deck" aria-label="덱 보기">${ico('card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
+    <div class="potions pouch" aria-label="물약 주머니" style="background-image:url(${uiArtURL('pouch')})">${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : '빈 칸'}">${p ? runIco('potion', p.id, p.icon) : ''}</button>`; }).join('')}</div>
+    <button class="pile" data-act="run-deck" aria-label="덱 보기">${runIco('ui', 'deck', 'card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
   </header>`;
 }
 function heroStrip() {
@@ -1066,8 +1066,9 @@ export async function shuffleFx() {   // (디버그에서도 부른다)
   const r = pile?.getBoundingClientRect();
   const el = document.createElement('div');
   el.className = 'shuffle-fx';
+  const back = `url(${uiArtURL(R?.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'card_back_blue' : 'card_back')})`;   // 보스전은 파랑 뒷면
   el.style.left = `${innerWidth / 2}px`; el.style.top = `${innerHeight * 0.62}px`;
-  el.innerHTML = Array.from({ length: 8 }, (_, k) => `<i class="sb" style="--k:${k};--s:${k % 2 ? 1 : -1}"></i>`).join('');
+  el.innerHTML = Array.from({ length: 8 }, (_, k) => `<i class="sb" style="--k:${k};--s:${k % 2 ? 1 : -1};background-image:${back}"></i>`).join('');
   if (r) { el.style.setProperty('--tx', `${r.left + r.width / 2 - innerWidth / 2}px`); el.style.setProperty('--ty', `${r.top + r.height / 2 - innerHeight * 0.62}px`); }
   document.body.appendChild(el);
   for (let k = 0; k < 6; k++) setTimeout(() => sfx.card?.(), 260 + k * 70);
