@@ -735,6 +735,13 @@ function openSplit(u) {
   paintSplit();
   $('rtip').innerHTML = tipText(false);
 }
+// 카드를 고른 채(공격 · 방어 나누기 · 배팅 묻기) 카드와 그 위 창 바깥 아무 데나 누르면 고르기를 취소한다
+document.addEventListener('pointerdown', e => {
+  if (!X || X.screen() !== 'run' || R?.phase !== 'combat' || ui.sel == null || ui.busy) return;
+  if (e.target.closest?.('.hand-btns, .rc, #layer .overlay, .popover, .run-tour')) return;
+  sfx.back?.();
+  closeSplit();
+}, true);
 function closeSplit() {
   ui.sel = null; ui.split = null;
   hand.select(null);
@@ -1327,7 +1334,7 @@ async function playOne(f) {
     }
     case 'hit': {
       const e = foeAt();
-      if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.dmg}`, 'dmg'); sfx.fire?.(); }
+      if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.dmg}${f.blocked ? ` <small>${ico('shield', 'xs')}${f.blocked} 막힘</small>` : ''}`, 'dmg'); sfx.fire?.(); }
       else if (f.why === 'potion') { if (fxOn) FX().impact(e.x, e.y, PALETTES.fire, 1.8); floatAt(e.x, e.y - 10, `${f.dmg}`, 'dmg big'); sfx.boom?.(1); }
       const sr = ui.show.eblk > 0 && f.blocked && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
       setShow({ ehp: ui.show.ehp - f.dmg, eblk: Math.max(0, ui.show.eblk - f.blocked) });

@@ -3417,6 +3417,7 @@ function showSettings(inGame = false) {
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
+    ${PROD || inGame ? '' : '<div class="set-links test-only"><b>테스트판</b><button class="linkish" data-act="relock" data-kinds="cls">직업 잠금 되돌리기</button><button class="linkish" data-act="relock" data-kinds="dice,tray">주사위 · 트레이 잠금 되돌리기</button></div>'}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>1분 안에 돌아오면 이어서' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
@@ -4076,6 +4077,18 @@ function onAct(act, t) {
       toast(ico('up'), '구글 계정을 연결했어요', '', 1600);
       paintAccount();
     }, err => { t.disabled = false; if (err?.code !== 'auth/popup-closed-by-user') toast(ico('warn'), '연결하지 못했어요', String(err?.message || err).slice(0, 80), 2400); });
+  }
+  if (act === 'relock') {          // 테스트판: 산 직업(또는 스킨)을 다시 잠그고 보석을 돌려준다
+    const kinds = t.dataset.kinds.split(',');
+    const r = Wal.relockLocal(kinds);
+    if (!r.ok) { sfx.back(); return toast(ico('warn'), '할 수 없어요', r.why, 1600); }
+    if (kinds.includes('cls')) setup.forEach(p => { if (!p.bot && !Wal.owns('cls', p.cls)) p.cls = firstOwnedClass(); });
+    if (kinds.includes('dice') && !Wal.owns('dice', prefs.diceSkin)) prefs.diceSkin = 'classic';
+    if (kinds.includes('tray') && !Wal.owns('tray', prefs.traySkin)) prefs.traySkin = 'classic';
+    store.set(KEYS.setup, setup); store.set(KEYS.prefs, prefs);
+    tray?.setSkin?.(diceSkin(prefs.diceSkin).id, traySkin(prefs.traySkin).id); if (tray) tray.skinKey = '';
+    sfx.select();
+    return toast(ico('lock'), `${kinds.includes('cls') ? '직업' : '주사위 · 트레이'} ${r.out.n}개를 다시 잠갔어요`, `보석 ${r.out.back.toLocaleString()} 돌려받음`, 2000);
   }
   if (act === 'wipe') {
     sfx.select();

@@ -1162,7 +1162,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .buy-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; margin: 4px 0; background: #0E2A4A; border: 2px solid var(--ink); font-size: 12px; color: #C8F4FF; }
 .buy-bar .ico { width: 14px; height: 14px; }
 .cls.locked { opacity: .75; }
-.cls.locked img { filter: grayscale(.8) brightness(.8); }
+.cls.locked img { filter: brightness(0) drop-shadow(0 0 1px rgba(201,162,255,.9)) drop-shadow(0 0 4px rgba(122,75,255,.6)); }
 .cls.locked span { display: inline-flex; align-items: center; gap: 2px; color: #C8F4FF; font-size: 10px; }
 .cls.locked span .ico { width: 10px; height: 10px; }
 .buy-cls h2 { display: flex; align-items: center; gap: 8px; }
@@ -1575,7 +1575,7 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 .dial-hero.d1 { z-index: 2; transform: translate(calc(-50% + 78px), -42%) scale(1); opacity: .6; filter: saturate(.5); }
 .dial-hero.d-2 { z-index: 1; transform: translate(calc(-50% - 132px), -34%) scale(.72); opacity: .28; filter: saturate(.3); }
 .dial-hero.d2 { z-index: 1; transform: translate(calc(-50% + 132px), -34%) scale(.72); opacity: .28; filter: saturate(.3); }
-.dial-hero.locked img { filter: grayscale(1) brightness(.7); }
+.dial-hero.locked img, .dial-hero.locked canvas { filter: brightness(0) drop-shadow(0 0 1px rgba(201,162,255,.9)) drop-shadow(0 0 4px rgba(122,75,255,.6)); }   /* 사지 않은 직업: 어두운 실루엣 */
 .dial-price { position: absolute; left: 50%; bottom: -8px; translate: -50% 0; display: inline-flex; align-items: center; gap: 1px; padding: 0 3px; font-size: 9px; font-weight: 700;
   color: #fff; background: #3A1E6A; border: 1px solid var(--ink); white-space: nowrap; }
 .spin-r .dial-track { animation: dialSpinR .26s ease-out; }
@@ -1647,3 +1647,5 @@ body.slowmo::after { opacity: 1; }
 body.bighit::after { animation: bigHitVig .8s ease-out; }
 @keyframes bigHitVig { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { body.bighit::after { animation: none; } }
+.set-links.test-only { flex-wrap: wrap; gap: 4px 10px; font-size: 11px; }
+.set-links.test-only b { color: var(--gold); font-size: 11px; }
