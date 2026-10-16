@@ -911,6 +911,9 @@ function showLobby() {
   const humans = room.seats.filter(s => !s.bot).length;
   const need = needReady(room), readyN = need.filter(s => s.ready).length;
   const allReady = readyN === need.length;
+  // 화면에 보이는 준비 숫자: 방에 들어온 사람 전체(방장 포함) 중 준비된 사람. 방장은 늘 준비된 것으로 센다
+  const people = room.seats.filter(s => !s.bot), isOn = s => s.token === room.host || s.ready;
+  const shownN = people.filter(isOn).length;
   const mine = room.seats.find(s => s.token === online.token);
   const tooFew = room.seats.length < 2 && humans < 2 && room.opts.mode === 'versus';
   app.innerHTML = `
@@ -928,7 +931,7 @@ function showLobby() {
         <button class="pbtn gold" data-act="copy-link">초대 링크 복사</button>
       </section>
       ${optsSummary(room.opts, host ? 'lobby-opts' : '')}
-      ${need.length ? `<div class="ready-bar"><b>준비 ${readyN} / ${need.length}</b>${need.map(s => `<span class="rb${s.ready ? ' on' : ''}">${s.ready ? '✔' : '…'} ${esc(s.name)}</span>`).join('')}</div>` : ''}
+      <div class="ready-bar"><b>준비 ${shownN} / ${people.length}</b>${people.map(s => `<span class="rb${isOn(s) ? ' on' : ''}">${s.token === room.host ? ico('crown', 'xs') : isOn(s) ? '✔' : '…'} ${esc(s.name)}${s.token === online.token ? ' (나)' : ''}</span>`).join('')}</div>
       ${room.seats.map((s, i) => {
         const me = s.token === online.token;
         const who = s.token === room.host ? `${ico('crown', 'xs')} 방장` : s.bot ? '봇' : s.ready ? '<span class="rdy on">준비 완료</span>' : '<span class="rdy">준비 중</span>';
@@ -937,7 +940,7 @@ function showLobby() {
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>＋ 봇 추가</button>` : ''}
       ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>게임 시작</button>
-                ${!allReady ? `<p class="waiting">준비 ${readyN} / ${need.length}</p>` : ''}`
+                ${!allReady ? `<p class="waiting">준비 ${shownN} / ${people.length}</p>` : ''}`
              : `<button class="pbtn big ${mine?.ready ? '' : 'gold'}" data-act="lobby-ready">${mine?.ready ? '준비 취소' : '준비 완료!'}</button>
                 <p class="waiting">${mine?.ready ? (allReady ? '방장이 시작하기를 기다리는 중…' : '다른 사람이 준비하기를 기다리는 중…') : '캐릭터를 고르고 준비 버튼을 눌러 주세요'}</p>`}
     </div>
