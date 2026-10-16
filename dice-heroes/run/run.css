@@ -1208,3 +1208,21 @@ body:has(.run-sb) .popover { z-index: 310; }
 .ow-sill { display: block; width: 86%; max-width: 150px; height: 7px; margin-top: -6px; background: linear-gradient(180deg, #C9A27A, #7A4E28); border: 2px solid var(--ink); }
 .omen-card.window b { margin-top: 2px; }
 .mad-tip { color: #C9A2FF; font-weight: 700; }
+
+/* 원정 안내 (run/tour.js): 비춘 곳 둘레를 어둡게, 요정 루루의 말풍선 */
+.run-tour { position: fixed; inset: 0; z-index: 90; cursor: pointer; }
+.run-tour .rt-spot { position: fixed; border: 3px dashed var(--gold); border-radius: 6px; pointer-events: none;
+  box-shadow: 0 0 0 200vmax rgba(6, 4, 26, .72), 0 0 18px 4px rgba(255, 210, 74, .45); animation: spot 1s ease-in-out infinite; transition: left .25s, top .25s, width .25s, height .25s; }
+.run-tour:has(.rt-spot[style*="display: none"]) { background: rgba(6, 4, 26, .72); }
+.run-tour .rt-box { position: fixed; left: 12px; right: 12px; max-width: 420px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 12px; background: #1B1442; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px var(--sky), 0 4px 0 var(--ink); cursor: default; }
+.run-tour .rt-box.top { top: calc(12px + env(safe-area-inset-top, 0px)); }
+.run-tour .rt-box.bottom { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.run-tour .rt-box.center { top: 50%; transform: translateY(-50%); }
+.run-tour .rt-fairy { width: 56px; height: 56px; flex: none; image-rendering: pixelated; animation: bob 1s ease-in-out infinite; }
+.run-tour .rt-text { flex: 1; min-width: 0; }
+.run-tour .rt-text b { color: var(--sky); font-size: 12px; }
+.run-tour .rt-text p { margin: 2px 0 8px; font-size: 12.5px; line-height: 1.6; color: #fff; }
+.run-tour .rt-row { display: flex; align-items: center; gap: 8px; }
+.run-tour .rt-step { margin-left: auto; font-size: 10px; color: var(--muted); }
+.run-tour .rt-skip { background: none; border: 0; color: var(--muted); font-size: 11px; padding: 4px 2px; text-decoration: underline; }
