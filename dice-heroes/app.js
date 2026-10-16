@@ -759,7 +759,7 @@ async function createRoom() {
   const room = {
     v: 1, host: token, started: false,
     opts: { ...opts },
-    seats: [{ token, name: myName, cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false, skin: mySkin() }],
+    seats: [{ token, name: netName(), cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false, skin: mySkin() }],
     game: null, fxLog: [], fxId: 0,
     seen: { [token]: Date.now() },
   };
@@ -796,7 +796,7 @@ async function joinRoom(code) {
     if (room.started) return fail('이미 시작한 방입니다.');
     if (room.seats.length >= 4) return fail('방이 가득 찼습니다 (최대 4명).');
     const used = new Set(room.seats.map(s => s.cls));
-    room.seats.push({ token, name: myName, cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false, skin: mySkin() });
+    room.seats.push({ token, name: netName(), cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false, skin: mySkin() });
     return room;
   });
   if (!res.ok) return showOnlineMenu(res.failure);
@@ -849,13 +849,16 @@ function leaveRoom(goHome = true) {
     const { backend, code, token, room } = online;
     // 진행 중인 게임에서 나가면 1분 안에 돌아올 수 있게 방 코드를 기억한다
     if (room?.started && room.game && !room.game.ended) store.set(KEYS.lastRoom, { code, t: Date.now() });
-    // 시작 전이면 자리에서 빠진다
+    // 시작 전이면 자리에서 빠진다. 사람이 아무도 안 남으면 방을 없앤다
+    // (예전엔 방장 자리만 지운 빈 방이 남아서, 나중에 들어온 사람이 방장 없는 방에서 하염없이 기다렸다)
     if (room && !room.started) {
+      let empty = false;
       backend.txn(code, r => {
         r.seats = r.seats.filter(s => s.token !== token);
+        empty = !r.seats.some(s => !s.bot);
         if (r.host === token) r.host = r.seats.find(s => !s.bot)?.token || r.host;
         return r;
-      });
+      }).then(() => { if (empty) backend.remove?.(code).catch(() => {}); });
     }
   }
   online = null;
@@ -867,8 +870,33 @@ function leaveRoom(goHome = true) {
 }
 
 const isHost = () => online && online.room?.host === online.token;
+// 방에 쓰는 내 이름: 혼자 하기 기본 이름 '나' 는 친구 화면에서 친구 자신처럼 보여 '안 들어왔다'고 헷갈렸다 → 모험가
+const netName = () => (myName && myName !== '나' ? myName : '모험가');
 // 나는 늘 접속 중 (내 접속 신호는 내 화면으로 되돌아오지 않을 수 있다)
 const alive = token => token === online?.token || (!!online?.room?.seen?.[token] && Date.now() - online.room.seen[token] < Net.ABSENT_MS);
+
+// 방장이 1분 넘게 소식이 없다 (초대 링크를 보내러 잠깐 다른 앱에 가 있는 정도로는 넘기지 않는다)
+const hostGone = token => token !== online?.token && Date.now() - (online?.room?.seen?.[token] || 0) > Net.DROP_MS;
+// 대기실 방장 넘기기: 방장이 자리에 없거나(나갔다) 연결이 끊겼으면, 접속 중인 첫 사람이 방장이 된다.
+// 그 사람 기기만 바꾼다 (여럿이 동시에 바꾸려다 엇갈리지 않게)
+function fixHost(room) {
+  if (!online || room.started) return;
+  const humans = room.seats.filter(s => !s.bot);
+  const host = humans.find(s => s.token === room.host);
+  if (host && !hostGone(host.token)) return;
+  const next = humans.find(s => alive(s.token));
+  if (next?.token !== online.token) return;
+  online.backend.txn(online.code, r => {
+    if (r.started || r.host === online.token) return;
+    const h = r.seats.find(s => s.token === r.host && !s.bot);
+    if (h && !hostGone(h.token)) return;
+    const me = r.seats.find(s => s.token === online.token);
+    if (!me) return;
+    r.host = me.token;
+    me.ready = false;
+    return r;
+  }).then(res => { if (res.ok && isHost()) toast(ico('crown'), '방장이 되었어요', '이제 게임을 시작할 수 있어요', 1800); });
+}
 
 // 준비(레디): 방장을 뺀 사람 참가자가 모두 준비해야 시작할 수 있다
 const needReady = room => room.seats.filter(s => !s.bot && s.token !== room.host);
@@ -985,7 +1013,7 @@ function onNameInput(i, value) {
     onNameInput.t = setTimeout(() => {
       myName = value.trim().slice(0, 10) || myName;
       store.set(KEYS.name, myName);
-      lobbyTxn(r => { const s = r.seats[i]; if (s?.token === online.token) s.name = myName; });
+      lobbyTxn(r => { const s = r.seats[i]; if (s?.token === online.token) s.name = netName(); });
     }, 500);
     return;
   }
@@ -1009,6 +1037,7 @@ async function onRoom(room) {
       toast(ico('door'), '방에서 나왔습니다', '');
       leaveRoom(); return showTitle();
     }
+    fixHost(room);
     if (screen === 'setup' && pick.for === 'room') return;          // 방장이 모드·보스를 바꾸는 중
     if (screen !== 'lobby' || !document.activeElement?.matches?.('input')) showLobby();
     return;
