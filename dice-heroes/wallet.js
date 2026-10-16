@@ -118,6 +118,18 @@ export async function claimDaily() {
   return r.ok ? { ok: true, ...r.out } : r;
 }
 
+// 테스트판 전용: 산 것을 다시 잠근다 (kind: 'cls' 직업 · 'dice' · 'tray'). 쓴 보석은 돌려준다
+export function relockLocal(kinds = ['cls']) {
+  if (PROD) return { ok: false, why: '테스트판에서만 할 수 있어요.' };
+  return changeLocal(w => {
+    let back = 0, n = 0;
+    for (const kind of kinds) for (const id of Object.keys(w.owned[kind] || {})) { back += R.priceOf(kind, id) || 0; n++; }
+    for (const kind of kinds) delete w.owned[kind];
+    w.gems += back;
+    return { n, back };
+  });
+}
+
 // 내 데이터 지우기: 서버의 지갑도 지운다
 export async function deleteWallet() {
   try { localStorage.removeItem(LOCAL); } catch { /* 무시 */ }

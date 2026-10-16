@@ -67,7 +67,7 @@
 .rs-cls b { font-size: 12px; }
 .rs-cls small { display: inline-flex; gap: 2px; align-items: center; font-size: 10px; color: var(--muted); }
 .rs-cls.on { box-shadow: inset 0 0 0 2px var(--c), 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); background: color-mix(in srgb, var(--c) 22%, #140F36); }
-.rs-cls.locked img { filter: grayscale(.6) brightness(.8); }
+.rs-cls.locked img { filter: brightness(0) drop-shadow(0 0 1px rgba(201,162,255,.9)) drop-shadow(0 0 4px rgba(122,75,255,.6)); }
 .rs-won { position: absolute; top: 2px; right: 3px; font-style: normal; font-size: 10px; color: var(--gold); display: inline-flex; gap: 1px; }
 .rs-info { display: grid; gap: 6px; }
 .rs-top { display: flex; gap: 8px; align-items: center; }

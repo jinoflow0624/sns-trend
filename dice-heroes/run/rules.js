@@ -136,7 +136,7 @@ export const isUpper = cat => UPPER.includes(cat);
 export const KEYWORDS = {
   guard:  { ko: '수호',   icon: 'shield',  color: '#4FB3FF', desc: `방어로 돌린 점수의 보호막 +${GUARD_MUL * 100}%` },
   vamp:   { ko: '흡혈',   icon: 'heart',   color: '#FF5A6A', desc: '공격한 점수의 1/3만큼 체력을 회복한다' },
-  burn:   { ko: '화염',   icon: 'fire',    color: '#FF8A1A', desc: `적에게 화상: ${BURN_TURNS}턴 동안 적의 턴이 끝날 때마다 공격한 점수의 1/4 피해` },
+  burn:   { ko: '화염',   icon: 'fire',    color: '#FF8A1A', desc: `적에게 화상: ${BURN_TURNS}턴 동안 적의 턴이 끝날 때마다 공격한 점수의 1/4 피해 (보호막부터 깎는다)` },
   pierce: { ko: '관통',   icon: 'dagger',  color: '#B98CFF', desc: '공격이 적의 보호막을 무시하고 체력에 바로 들어간다' },
   quick:  { ko: '속공',   icon: 'bolt',    color: '#FFC83D', desc: '첫 굴림 그대로(다시 굴리지 않고) 내면 점수 ×1.5' },
   lucky:  { ko: '행운',   icon: 'clover',  color: '#3EE6B4', desc: '내면 뒤집기 +1' },
@@ -1510,7 +1510,7 @@ function enemyTurn(R) {
   if (e.hp <= 0) return winCombat(R);     // 가시 갑옷으로 쓰러짐
   // 화상
   if (e.burnT > 0 && e.burn > 0) {
-    hitEnemy(R, e.burn, { pierce: true, why: 'burn' });
+    hitEnemy(R, e.burn, { why: 'burn' });   // 화상도 보호막부터 깎는다 (적이 이번 턴에 친 보호막 → 체력 순)
     e.burnT--;
     if (!e.burnT) e.burn = 0;
     if (e.hp <= 0) return winCombat(R);
