@@ -67,7 +67,7 @@ class FxLayer {
   }
 
   tick(t) {
-    const dt = Math.min(0.05, (t - this.last) / 1000);
+    const dt = t < (this.holdUntil || 0) ? 0 : Math.min(0.05, (t - this.last) / 1000);   // 히트스톱: 잠깐 모든 입자가 멈춘다
     this.last = t;
     const g = this.g;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -111,6 +111,9 @@ class FxLayer {
     if (this.parts.length || this.items.length || this.emitters.size) requestAnimationFrame(this.tick);
     else { this.running = false; g.clearRect(0, 0, innerWidth, innerHeight); }
   }
+
+  // 히트스톱 (큰 한 방): ms 동안 입자 · 연출이 멈춘 채로 보인다
+  hold(ms) { this.holdUntil = performance.now() + ms; }
 
   spawn(p) {
     this.parts.push({ vx: 0, vy: 0, grav: 0, drag: 0, size: 3, alpha: 1, glow: true, shrink: true, ...p, max: p.life });

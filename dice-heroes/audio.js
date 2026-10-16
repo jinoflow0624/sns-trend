@@ -694,6 +694,14 @@ export const sfx = {
     }, { kick: [0, 3, 7], snare: [3, 6, 6.5], crash: 7 });
   },
   card() { seq(['G6', 'D7'], 0.04, { type: 'p12', vol: 0.1 }); },
+  // 심장 소리 (쿵-쿵): 마지막 주사위 슬로모션 동안 되풀이한다
+  heartbeat() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 70, slide: 42, t, dur: 0.12, vol: 0.5 });
+    voice(sfxGain, { type: 'tri', f: 62, slide: 38, t: t + 0.17, dur: 0.14, vol: 0.4 });
+    buzz(20);
+  },
   legend() { seq(['C6', 'E6', 'G6', 'B6', 'D7', 'G7'], 0.05, { type: 'p12', vol: 0.12 }); },
   round() { seq(['G4', null, 'G4', 'C5'], 0.09, { type: 'p50', vol: 0.14 }); },
   turn() { seq(['E5', 'A5'], 0.09, { type: 'p25', vol: 0.12 }); },

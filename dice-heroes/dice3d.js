@@ -842,6 +842,7 @@ export class DiceTray {
 
   // values: 엔진이 정한 굴림 결과, rolling: 이번에 굴리는 주사위 여부
   roll(values, rolling, speed = 1) {
+    const baseSpeed = speed;
     speed *= 1.2;                  // 굴러가는 모습 1.2배속
     const n = values.length;
     this.ensure(n);
@@ -899,7 +900,7 @@ export class DiceTray {
         }
         b.addEventListener('collide', e => {
           const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-          if (v > 2.2) hits.push({ f: frames.length, v, i });
+          if (v > 2.2) hits.push({ f: frames.length, v, i, floor: e.body.material?.name === 'floor' });
         });
         world.addBody(b);
         bodies.push({ i, b });
@@ -919,7 +920,7 @@ export class DiceTray {
       b.angularVelocity.set((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 30, 35 + Math.random() * 30);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-        if (v > 2.2) hits.push({ f: frames.length, v, i });
+        if (v > 2.2) hits.push({ f: frames.length, v, i, floor: e.body.material?.name === 'floor' });
       });
       world.addBody(b);
       bodies.push({ i, b });
@@ -996,15 +997,47 @@ export class DiceTray {
       return { i, from: null, to: fix.multiply(level) };
     });
 
+    // 마지막 주사위 슬로모션: 나머지가 다 멈췄는데 마지막 하나가 아직 구르고, 그 하나로 요트 · 스트레이트가 될 수 있으면
+    // 그 주사위가 멈출 때까지 느리게 보여 준다 (빨리 감기 중이면 하지 않는다)
+    const slow = this.slowmo === false || baseSpeed > 1 ? null : this.slowPlan(frames, bodies, values);
+
     return new Promise(resolve => {
       const now = performance.now();
       const hopLeft = Math.max(0, ...this.dice.map(d => (d.hop && d.boxed ? d.hop.t0 + d.hop.ms - now : 0)));
       const wait = boxing ? HOP_MS + 40 : hopLeft ? hopLeft + 40 : 0;
       this.live = null;
       if (boxing || hopLeft) setTimeout(() => this.onBox(), Math.max(0, wait - 80));
-      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, swaps, pre, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
+      this.anim = { frames, bodies, hits, settle, spins, speed, slow, t0: performance.now() + wait, hitIdx: 0, swaps, pre, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
       if (!wait) this.throwNow();
     });
+  }
+
+  // 슬로모션 계획: 가장 늦게 멈추는 주사위 하나만 남은 순간부터 그 주사위가 멈출 때까지 느리게.
+  // 다른 네 주사위(고정한 것 포함)가 같은 눈 4개거나 스트레이트 4칸이면 — 마지막 하나에 요트 · 라지 스트레이트가 걸려 있다
+  slowPlan(frames, bodies, values) {
+    if (!bodies.length || values.length !== 5) return null;
+    const stopF = bodies.map((_, k) => {
+      for (let f = frames.length - 1; f > 0; f--) {
+        const a = frames[f - 1][k], b = frames[f][k];
+        if (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) > 0.004) return f;
+      }
+      return 0;
+    });
+    const order = stopF.map((f, k) => [f, k]).sort((x, y) => y[0] - x[0]);
+    const [lastF, k0] = order[0];
+    const from = order.length > 1 ? order[1][0] : Math.floor(lastF * 0.35);
+    if (lastF - from < 14) return null;                       // 혼자 남아 구르는 시간이 너무 짧다
+    const i = bodies[k0].i;
+    const rest = values.filter((_, j) => j !== i);
+    const cnt = [0, 0, 0, 0, 0, 0, 0];
+    rest.forEach(v => cnt[v]++);
+    const set = new Set(rest);
+    const four = cnt.some(c => c >= 4);
+    const run = [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]].some(r => r.every(v => set.has(v)));
+    if (!four && !run) return null;
+    // 느린 구간은 길어도 약 1.6초
+    const k = Math.max(0.3, (lastF - from) / (FPS * 1.2 * 1.6));
+    return { from, to: lastF, k, k0 };
   }
 
   // 던지는 순간: 굴리는 주사위에 결과 눈을 입히고 던지는 소리
@@ -1037,7 +1070,7 @@ export class DiceTray {
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
         const t = performance.now();
-        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); }
+        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); if (e.body.material?.name === 'floor') this.onLand?.(v, i, this.traySkin); }
         // 벽에 부딪히면 모서리로 넘어가며 데굴데굴 (미끄러지기만 하지 않게)
         // 주사위끼리 부딪히면 옆으로 튕겨 나간다
         if (v > 1.5 && e.body.mass > 0) { b.velocity.x += (Math.random() - 0.5) * v * 1.6; b.velocity.z += (Math.random() - 0.5) * v * 1.6; b.velocity.y = Math.max(b.velocity.y, Math.min(5, v * 0.5)); }
@@ -1179,7 +1212,18 @@ export class DiceTray {
     const a = this.anim;
     if (a && a.phase === 'wait' && t >= a.t0) { a.phase = 'fly'; this.throwNow(); }
     if (a && a.phase === 'fly') {
-      const f = Math.min(a.frames.length - 1, Math.floor(((t - a.t0) / 1000) * FPS * a.speed));
+      let e = ((t - a.t0) / 1000) * FPS * a.speed;
+      const sl = a.slow;
+      if (sl && e > sl.from) {
+        const span = (sl.to - sl.from) / sl.k;                 // 느린 구간을 보여 주는 데 드는 (원래 속도 기준) 프레임 수
+        const inSlow = e - sl.from < span;
+        e = inSlow ? sl.from + (e - sl.from) * sl.k : sl.to + (e - sl.from - span);
+        if (inSlow && !sl.on) { sl.on = true; this.onSlow?.(a.bodies[sl.k0].i, true); }
+        if (!inSlow && sl.on && !sl.off) { sl.off = true; this.onSlow?.(a.bodies[sl.k0].i, false); }
+      }
+      const zoomTo = sl?.on && !sl.off ? 1.07 : 1;
+      if (Math.abs(this.camera.zoom - zoomTo) > 0.001) { this.camera.zoom += (zoomTo - this.camera.zoom) * 0.12; this.camera.updateProjectionMatrix(); }
+      const f = Math.min(a.frames.length - 1, Math.floor(e));
       a.bodies.forEach(({ i }, k) => {
         const s = a.frames[f][k];
         this.dice[i].mesh.position.set(s[0], s[1], s[2]);
@@ -1200,7 +1244,7 @@ export class DiceTray {
         });
       }
       for (const sw of a.swaps) if (!sw.done && (f >= sw.f || f >= a.frames.length - 1)) { sw.done = true; this.setFaces(this.dice[sw.i], sw.faces); }
-      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
+      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (h.floor) this.onLand?.(h.v, h.i, this.traySkin); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
         a.t1 = t + 50;
@@ -1210,6 +1254,8 @@ export class DiceTray {
         });
       }
     } else if (a && a.phase === 'settle') {
+      if (a.slow?.on && !a.slow.off) { a.slow.off = true; this.onSlow?.(a.bodies[a.slow.k0].i, false); }
+      if (this.camera.zoom !== 1) { this.camera.zoom = Math.abs(this.camera.zoom - 1) < 0.004 ? 1 : this.camera.zoom + (1 - this.camera.zoom) * 0.2; this.camera.updateProjectionMatrix(); }
       const k = easeOut(Math.min(1, Math.max(0, (t - a.t1) / 260)));
       const n = this.dice.length;
       a.settle.forEach(s => {
