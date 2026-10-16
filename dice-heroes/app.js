@@ -250,7 +250,7 @@ function healCode(err) {
   try { if (sessionStorage.getItem('dh.healed')) return false; sessionStorage.setItem('dh.healed', '1'); } catch { return false; }
   (async () => {
     const names = (await caches.keys()).filter(k => k.startsWith('dh-'));
-    const urls = new Set(['run/ui.js', 'run/rules.js', 'run/art.js', 'run/relic-art.js', 'run/hand.js', 'run/progress.js', 'run/run.css'].map(u => new URL(u, location.href).href));
+    const urls = new Set(['run/ui.js', 'run/rules.js', 'run/art.js', 'run/relic-art.js', 'run/hand.js', 'run/progress.js', 'run/tour.js', 'run/run.css'].map(u => new URL(u, location.href).href));
     for (const n of names) for (const r of await (await caches.open(n)).keys()) if (/\.(js|css|html)$/.test(new URL(r.url).pathname)) urls.add(r.url.split('?')[0]);
     await Promise.allSettled([...urls].map(async u => {
       // 주소 끝에 시간을 붙여 어느 캐시(기기 · 서버 앞단)도 건너뛰고 받는다

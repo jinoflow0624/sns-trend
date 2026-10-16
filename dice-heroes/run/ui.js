@@ -11,6 +11,7 @@ import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, 
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
+import { initTour, tour, replayTours, tourForced, tourRunEnded } from './tour.js';
 
 const SAVE = 'diceheroes.run';
 let X = null;            // app.js 도구
@@ -39,6 +40,8 @@ export function init(ctx) {
   if (typeof Run.replay !== 'function' || typeof Run.fixProgress !== 'function' || typeof Prog.progress !== 'function') throw new TypeError('원정 파일 버전이 섞였어요');
   X = ctx;
   Prog.initProgress(X.store);
+  // 원정 안내: 원정을 한 번도 끝내지 않았을 때(또는 「안내 다시 보기」) · 시험 원정은 빼고
+  initTour(X.store, () => X.screen() === 'run' && !R?.trial && ((Prog.progress().best?.runs || 0) === 0 || tourForced()));
   return (cssReady ||= new Promise(resolve => {
     let l = document.getElementById('run-css');
     if (l?.sheet) return resolve();
@@ -195,6 +198,7 @@ function classInfoHTML(id, b) {
       <p class="rs-sig"><b>${ico(Run.SPECIAL[ci.sp].icon, 'xs')} ${Run.cardTitle(ci.sp)} &lt;${Run.SPECIAL[ci.sp].ko}&gt;</b> ${Run.SPECIAL[ci.sp].desc}</p>`;
 }
 function paintSelect() {
+  tour('select');
   const sel = ui.cls || X.store.get('diceheroes.runCls') || 'gambler';
   ui.cls = sel;
   const bb = best();
@@ -391,6 +395,7 @@ const MAP_ROW = 74, MAP_PAD = 46;
 // 지도 · 이벤트 · 상점 · 휴식 · 전투 보상은 모두 지도 곡(run_map) — 같은 곡이면 playBgm 이 다시 틀지 않아 화면을 오가도 끊기지 않는다
 function showMap(again = false) {
   playBgm('run_map');
+  tour('map', 600);
   preloadBgm(bossSong(R.boss));          // 이번 막 보스 곡 · 전투 곡을 미리 받아 둔다 (전투에 들어가자마자 나오게)
   preloadBgm('run_battle');
   const nodes = R.map.nodes;
@@ -481,6 +486,7 @@ const OMEN_SKY = {
 };
 function showOmens() {
   sfx.legend?.();
+  tour('omens');
   X.layer.innerHTML = `<div class="overlay run-omens" data-act="noop"><div class="pick-box">
     <h2>${R.act}막의 징조</h2>
     <div class="omen-picks">${R.omenOpts.map((id, k) => { const o = Run.omenInfo(id), art = omenWinURL(id), sky = OMEN_SKY[id] || OMEN_SKY.regular; return `<button class="omen-card window t${o.tier}" data-act="run-omen" data-k="${k}" style="--i:${k};--s1:${sky[0]};--s2:${sky[1]}">
@@ -532,7 +538,7 @@ function showCombat(fresh) {
     t.show(ui.dice || C.dice, C.rolled ? C.held : []);
     paintTray();
   });
-  if (fresh && C.turn === 1 && !C.rolled) introFoe().then(openingHex);
+  if (fresh && C.turn === 1 && !C.rolled) introFoe().then(openingHex).then(() => tour('combat', 200));
   else if (ui.openFx) { ui.openFx = null; ui.hideGaze = false; }
   if (ui.stamps.length) stampHand();
 }
@@ -930,6 +936,7 @@ async function doRoll() {
   ui.busy = false;
   save();
   paint();
+  if (R.phase === 'combat' && C.rolled) tour('play', 250);
 }
 
 async function doPlay(u, target, gold = 0) {
@@ -1524,6 +1531,7 @@ async function openingHex() {
 // ── 보상 ─────────────────────────────────────────────────────────────────────
 function showReward() {
   const rw = R.reward;
+  if (rw) tour('reward', 900);
   if (!rw) { R.phase = 'map'; return showMap(); }
   playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'run_map');
   const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : '승리!';
@@ -1617,6 +1625,7 @@ function relicPick(k) {
 // ── 상점 ─────────────────────────────────────────────────────────────────────
 function showShop() {
   playBgm('run_map');
+  tour('shop');
   const sh = R.shop;
   const price = (p, sold) => `<em class="price${!sold && R.gold < p ? ' poor' : ''}">${sold ? '판매됨' : `${ico('coins', 'xs')}${p}`}</em>`;
   // 진열대: 아이콘과 가격표만. 누르면 산다, 길게 누르면 설명
@@ -1651,6 +1660,7 @@ function showShop() {
 // ── 휴식 ─────────────────────────────────────────────────────────────────────
 function showRest() {
   playBgm('run_map');
+  tour('rest');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-rest">
@@ -1669,6 +1679,7 @@ function showRest() {
 // ── 이벤트 ───────────────────────────────────────────────────────────────────
 function showEvent(rolled = false) {
   playBgm('run_map');
+  tour('event');
   const ev = Run.eventDef(R.event.id);
   const res = R.event.result;
   X.layer.innerHTML = '';
@@ -1916,6 +1927,7 @@ function sbAct(act, t) {
 // ── 결과 ─────────────────────────────────────────────────────────────────────
 function showEnd() {
   hand?.destroy(); hand = null;
+  if (!R.trial) tourRunEnded();
   const won = R.won;
   const fresh = !ui.recorded;
   if (!ui.recorded) {
@@ -1969,6 +1981,7 @@ function showMenu() {
       <button class="pbtn gold" data-act="close">계속하기</button>
       <button class="pbtn" data-act="run-deck">덱 보기</button>${R.trial ? '\n      <button class="pbtn" data-act="run-sb">샌드박스</button>' : ''}
       <button class="pbtn" data-act="settings">설정</button>
+      <button class="pbtn" data-act="run-tourre">안내 다시 보기</button>
       <button class="pbtn" data-act="run-home">메인 메뉴로</button>
       <button class="pbtn danger" data-act="run-giveup">원정 포기</button>
     </div>
@@ -2034,6 +2047,7 @@ export function onAct(act, t) {
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
   if (act.startsWith('run-sb')) return R.trial ? sbAct(act, t) : undefined;
+  if (act === 'run-tourre') { sfx.select(); replayTours(); X.layer.innerHTML = ''; X.toast?.(ico('scroll'), '안내를 다시 보여 줄게요', '화면마다 처음 볼 때 한 번씩', 1800); return enterView(); }
   if (act === 'run-giveup') {
     if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = '한 번 더 누르면 포기해요'; sfx.select(); return; }
     try { Run.giveUp(R); } catch { /* 이미 끝남 */ }
