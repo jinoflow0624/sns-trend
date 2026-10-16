@@ -1114,9 +1114,9 @@ body:has(.run-sb) .popover { z-index: 310; }
 .it.atk.boosted b { color: #E0102E; }
 .it-mul { font-style: normal; font-size: 9px; font-weight: 700; color: #fff; background: #C2263D; padding: 0 3px; margin-left: 2px; border-radius: 2px; }
 /* 광기의 저울: 나누기 막대 대신 ??? */
-.sp-mad { display: grid; justify-items: center; gap: 2px; padding: 6px 4px; background: rgba(0,0,0,.28); border-top: 1px dashed #4A4290; border-bottom: 1px dashed #4A4290; }
-.sp-mad b { font-size: 26px; letter-spacing: .1em; color: #C9A2FF; text-shadow: 2px 2px 0 var(--ink); animation: blink 1.2s steps(2, jump-none) infinite; }
-.sp-mad small { font-size: 10px; color: #A9A2D8; }
+.split.locked .sp-bar { filter: saturate(.75); cursor: default; }
+.split.locked .sp-knob { box-shadow: 0 0 0 2px #C9A2FF, 0 0 10px rgba(185,140,255,.7); }
+.split.locked .sp-end { pointer-events: none; }
 /* 주사위 깎는 노인: 굴림 결과 창 (점수 · 깎기 사다리) */
 .carve-res { width: min(100%, 340px); display: grid; justify-items: center; gap: 8px; padding: 16px 14px 14px; text-align: center;
   background: linear-gradient(180deg, #3A2414, #1E1209); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #C8860E, inset 0 0 0 4px #1A0E06, 0 10px 30px rgba(0,0,0,.6);
@@ -1207,3 +1207,4 @@ body:has(.run-sb) .popover { z-index: 310; }
               linear-gradient(180deg, transparent calc(44% - 3px), #6A3E1A calc(44% - 3px), #9A6232 44%, #6A3E1A calc(44% + 3px), transparent calc(44% + 3px)); }
 .ow-sill { display: block; width: 86%; max-width: 150px; height: 7px; margin-top: -6px; background: linear-gradient(180deg, #C9A27A, #7A4E28); border: 2px solid var(--ink); }
 .omen-card.window b { margin-top: 2px; }
+.mad-tip { color: #C9A2FF; font-weight: 700; }
