@@ -19,7 +19,10 @@ const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const SEEN_MS = 8000;       // 살아 있다고 알리는 주기
 export const ABSENT_MS = 20000;    // 이만큼 소식이 없으면 '연결 끊김'으로 보인다
 export const DROP_MS = 60000;      // 이만큼 돌아오지 않으면 봇으로 바뀐다 (1대1 대전은 기권패)
-const STALE_MS = 6 * 3600 * 1000;  // 배포판: 이만큼 쓰지 않은 방은 지운다
+export const IDLE_MS = 5 * 60 * 1000;   // 방장을 포함해 아무도 접속하지 않은 채 이만큼 지나면 방을 없앤다
+const STALE_MS = IDLE_MS;          // 배포판: 이만큼 쓰지 않은 방은 정리할 때 지운다
+// 방의 마지막 활동 시각 (마지막 접속 신호 · 마지막 행동 중 늦은 것)
+const lastSign = (lastActive, seen) => Math.max(lastActive || 0, ...Object.values(seen || {}).map(Number).filter(Number.isFinite));
 
 export function makeCode(len = 5) {
   const buf = new Uint32Array(len);
@@ -60,10 +63,20 @@ class LocalBackend {
   key(code) { return `dh.room.${code}`; }
   read(code) { try { return JSON.parse(localStorage.getItem(this.key(code))); } catch { return null; } }
   emit(code) { const cb = this.watchers.get(code); if (cb) cb(this.read(code)); }
-  async exists(code) { return !!this.read(code); }
+  async exists(code) {
+    const room = this.read(code);
+    if (room && Date.now() - lastSign(room.lastActive, room.seen) > IDLE_MS) { await this.remove(code); return false; }   // 5분 넘게 아무도 없던 방
+    return !!room;
+  }
   write(code, room) {
+    room.lastActive = Date.now();
     localStorage.setItem(this.key(code), JSON.stringify(room));
     this.ch.postMessage({ code, room });
+  }
+  async remove(code) {
+    localStorage.removeItem(this.key(code));
+    this.ch.postMessage({ code, room: null });
+    this.emit(code);
   }
   async create(code, room) { this.write(code, room); this.emit(code); }
   async txn(code, mutate) {
@@ -102,7 +115,18 @@ class LocalBackend {
 class FirebaseBackend {
   constructor(fb, db) { this.kind = 'firebase'; this.fb = fb; this.db = db; this.started = {}; }
   ref(code, sub = '') { return this.fb.ref(this.db, `rooms/${PREFIX}${code}${sub}`); }
-  async exists(code) { return (await this.fb.get(this.ref(code, '/state'))).exists(); }
+  async exists(code) {
+    if (!(await this.fb.get(this.ref(code, '/state'))).exists()) return false;
+    // 5분 넘게 방장을 포함해 아무도 접속하지 않았던 방은 없앤다 (들어가도 아무도 없다)
+    const [la, seen] = await Promise.all([this.fb.get(this.ref(code, '/lastActive')), this.fb.get(this.ref(code, '/seen'))]);
+    if (Date.now() - lastSign(la.val(), seen.val()) > IDLE_MS) { await this.remove(code).catch(() => {}); return false; }
+    return true;
+  }
+  // 방 없애기: 대기실에서 마지막 사람이 나갈 때 · 오래 아무도 없던 방
+  async remove(code) {
+    await this.fb.remove(this.ref(code));
+    if (PROD) this.fb.remove(this.fb.ref(this.db, `roomIndex/${PREFIX}${code}`)).catch(() => {});
+  }
   async create(code, room) {
     const { seen, ...rest } = room;
     const now = Date.now();
@@ -125,7 +149,7 @@ class FirebaseBackend {
       return { ok: false, failure: explain(err).text };
     }
   }
-  // 오래 쓰지 않은 방(6시간)을 정리한다 — 방을 만들 때마다 몇 개씩. 무료 요금제 저장 용량을 아끼려는 것
+  // 오래 쓰지 않은 방(5분)을 정리한다 — 방을 만들 때마다 몇 개씩. 무료 요금제 저장 용량을 아끼려는 것
   async sweep() {
     const { fb, db } = this;
     const cut = Date.now() - STALE_MS;
@@ -189,8 +213,10 @@ class FirebaseBackend {
     }
     this.fb.update(this.fb.ref(this.db), up).catch(() => {});
   }
+  // 접속 신호: 내 seen 과 방의 마지막 활동 시각을 함께 (아무도 접속하지 않은 방을 5분 뒤 없애는 기준)
   async touch(code, token) {
-    await this.fb.set(this.ref(code, `/seen/${token}`), Date.now()).catch(() => {});
+    const now = Date.now();
+    await this.fb.update(this.fb.ref(this.db), { [`rooms/${PREFIX}${code}/seen/${token}`]: now, [`rooms/${PREFIX}${code}/lastActive`]: now }).catch(() => {});
   }
   watch(code, cb) {
     let state = null, seen = {}, emote = {};

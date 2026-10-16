@@ -1164,6 +1164,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .cls.locked span { display: inline-flex; align-items: center; gap: 2px; color: #C8F4FF; font-size: 10px; }
 .cls.locked span .ico { width: 10px; height: 10px; }
 .buy-cls h2 { display: flex; align-items: center; gap: 8px; }
+.buy-cls h2 img.mini { width: 40px; height: 40px; flex: none; }   /* 크기를 안 정하면 그림 원래 크기로 화면을 덮었다 */
 .buy-cls .modal-actions .ico { width: 14px; height: 14px; }
 .gem-res { display: grid; gap: 3px; justify-items: center; text-align: center; margin: 6px 0; }
 .gem-res .gem-total { font-size: 20px; color: #C8F4FF; display: inline-flex; align-items: center; gap: 6px; }
