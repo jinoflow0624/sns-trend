@@ -1091,6 +1091,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .ready-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; background: #140F36; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #2A2270; font-size: 12px; }
 .ready-bar b { color: var(--gold); margin-right: 4px; }
 .ready-bar .rb { padding: 2px 8px; border: 2px solid var(--ink); background: #221B57; color: var(--muted); }
+.ready-bar .rb .ico { width: 12px; height: 12px; vertical-align: -1px; }
 .ready-bar .rb.on { background: var(--mint); color: var(--ink); font-weight: 700; }
 .rdy { color: var(--muted); }
 .rdy.on { color: var(--mint); font-weight: 700; }
