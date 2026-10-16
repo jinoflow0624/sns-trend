@@ -574,8 +574,9 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
 /* 보스 예고: 이번 라운드 스킬은 금테, 다음 라운드 스킬은 붉게 깜박이며 '다음' */
 .skill-chip { position: relative; }
 .skill-chip.now { border-color: var(--gold); box-shadow: 0 0 6px rgba(255,200,61,.6); }
-.skill-chip.next { border-color: var(--ruby); background: #3A0A1C; animation: warnPulse 1s ease-in-out infinite; }
-.skill-chip .nx { position: absolute; top: -9px; right: -6px; font-style: normal; font-size: 9px; font-weight: 700; line-height: 1; padding: 1px 3px; color: #fff; background: var(--ruby); border: 2px solid var(--ink); }
+.skill-chip.now { border-color: var(--ruby); background: #3A0A1C; color: #fff; animation: warnPulse 1s ease-in-out infinite; }
+.skill-chip.now.pop { animation: zoom .3s cubic-bezier(.2,1.6,.4,1), warnPulse 1s ease-in-out infinite .3s; }
+.skill-chip .sk-tag { margin-left: 3px; font-style: normal; font-size: 10px; font-weight: 700; color: #FFE27A; }
 @keyframes warnPulse { 50% { box-shadow: 0 0 10px rgba(232,67,90,.9); } }
 .boss-status .head.next { outline: 2px dashed var(--ruby); outline-offset: 1px; }
 .warn-next { display: grid; justify-items: center; gap: 2px; margin-top: 6px; padding: 6px 12px; color: #fff; background: rgba(90,10,28,.92);
@@ -1635,6 +1636,14 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 /* 싸움 화면은 주사위를 누를 때마다 새로 그린다. 계속 도는 움직임은 시계 기준 위상(--ph, render 가 넣는다)으로 이어 가서
    보스가 위아래로 둥실거리다 처음 자리로 튀거나, 빛 · 깜빡임이 처음부터 다시 시작하지 않게 한다 (한 번만 도는 맞기 · 시전 연출은 빼고) */
 .game .boss-art:not(.hit):not(.hitstop):not(.casting):not(.dying) img.boss, .game .boss-art:not(.dying) .aura,
-.game .boss-panel.rage, .game .boss-panel.rage .hp-row .hp, .game .skill-chip.next, .game .rage-tag,
+.game .boss-panel.rage, .game .boss-panel.rage .hp-row .hp, .game .skill-chip.now:not(.pop), .game .rage-tag,
 .game .member.turn:not(.hurt):not(.power), .game .m-por .crown,
 .game.my-turn .roll:not(:disabled), .game .pbtn.roll.next, .game .pbtn.roll.bet-go, .game .tool.on, .game .sheet-btn.ready, .game .encore-btn { animation-delay: var(--ph, 0s); }
+
+/* 마지막 주사위 슬로모션: 가장자리가 어두워진다 */
+body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 29; opacity: 0; transition: opacity .25s;
+  background: radial-gradient(ellipse at 50% 55%, transparent 38%, rgba(4, 2, 16, .78) 100%); }
+body.slowmo::after { opacity: 1; }
+body.bighit::after { animation: bigHitVig .8s ease-out; }
+@keyframes bigHitVig { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { body.bighit::after { animation: none; } }

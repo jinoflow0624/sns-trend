@@ -1223,6 +1223,7 @@ async function playOne(f) {
         const power = f.score >= 40 ? 3 : f.score >= 28 ? 2.2 : f.score >= 18 ? 1.6 : 1.1;
         if (f.dmg > 0 || f.blocked > 0) {
           if (fxOn) FX().impact(e.x, e.y, pal, power);
+          if (power >= 3 || f.cat === 'yacht') X.bigHit?.(3);        // 큰 한 방: 히트스톱 · 화면 당김 · 가장자리 어둡게
           sfx.strike?.(power);
           if (power >= 2) sfx.boom?.(power / 2); else sfx.slash?.();
           rumble(Math.min(10, 3 + power * 2));

@@ -225,7 +225,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, stageReady, turnSkin, speak, toast, nopeDie, tipAttr, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, speak, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
     });
@@ -1283,6 +1283,8 @@ async function makeTray() {
     const { DiceTray } = await Promise.race([preload3d(), timeout(tray3dWait(), '3D 불러오기 시간 초과')]);
     tray = new DiceTray(trayHost(), trayOpts());
     tray.onTrail = (i, p, sp) => diceTrail(tray, p, sp);
+    tray.onSlow = (i, on) => slowFx(on);
+    tray.onLand = (v, i, skin) => trayLand(tray, v, i, skin);
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -1590,8 +1592,12 @@ function bossPanel() {
   // 분노는 살아 있을 때만 (체력 0에서 분노 흔들림이 계속돼 발작처럼 보였다)
   const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0 && ui.rageSeed === S.seed;
   // 보스 예고: 이번 라운드에 쓰는 스킬(now)과 다음 라운드에 쓸 스킬(next, 깜박이며 '다음')
-  const planNow = new Set(E.bossPlan(S, ui.roundShow ?? S.round).map(k => k.id));
-  const planNext = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, (ui.roundShow ?? S.round) + 1).map(k => k.id) : []);
+  // 보스 스킬: 이번 라운드에 쓰는 것만 칩에 수치와 함께 띄운다 (다음 라운드 예고는 하지 않는다)
+  const shownR = ui.roundShow ?? S.round;
+  const planNow = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, shownR).map(k => k.id) : []);
+  const nowKey = `${S.seed}|${shownR}|${[...planNow].join()}`;
+  const chipPop = nowKey !== ui.skillNowKey;
+  ui.skillNowKey = nowKey;
   // 보호막 배지는 수치가 바뀔 때만 튀어나온다 (다시 그릴 때마다 튀면 새로 생긴 것처럼 보였다)
   const shieldPop = b.shield !== ui.shieldShown;
   ui.shieldShown = b.shield;
@@ -1604,11 +1610,21 @@ function bossPanel() {
         <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge${shieldPop ? ' pop' : ''}" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
       ${bossStatus(b)}
       <div class="boss-skills">
-        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip${k.id !== 'heads' && planNow.has(k.id) ? ' now' : ''}${k.id !== 'heads' && planNext.has(k.id) ? ' next' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${k.id !== 'heads' && planNext.has(k.id) ? '<i class="nx">다음</i>' : ''}</button>`).join('')}
+        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => { const on = planNow.has(k.id), tag = on ? skillTag(k.id, shownR) : ''; return `<button class="skill-chip${on ? ' now' : ''}${on && chipPop ? ' pop' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${tag ? `<em class="sk-tag">${tag}</em>` : ''}</button>`; }).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
       </div>
     </div>
   </section>`;
+}
+
+// 이번 라운드 보스 스킬의 수치 (칩 옆 작은 표시)
+function skillTag(id, round) {
+  const rage = E.enraged?.(S) ?? bossRaging();
+  if (id === 'heads') return { fire: '1개→1', ice: '2개 얼음', poison: '15점↓ 피해½' }[E.HEADS[(round - 1) % 3]] || '';
+  return {
+    breath: '1개→1', drums: '굴림 −1', twist: `${rage ? 2 : 1}개 뒤집힘`, rock: '빈칸 1 막힘', reverse: '최다 눈 뒤집힘',
+    seal: `${rage ? 2 : 1}개 봉인`, haki: '도구 금지', eternal: '1개 봉인', midnight: '도구 금지',
+  }[id] || '';
 }
 
 // 강화 보스 상태 한 줄: 세머리 용 머리 · 키클롭스 응시 칸 · 오버로드 해골병
@@ -1799,9 +1815,8 @@ async function toast(icon, title, text, ms = 1900, img = '') {
 let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
-  // 보스 예고: 다음 라운드에 보스가 때가 되어 쓰는 공격이 있으면 이번 라운드 배너에서 미리 경고한다
-  const next = S?.boss ? E.bossPlan(S, round + 1) : [];
-  const warn = next.length ? `<div class="warn-next">${ico('warn', 'xs')}<b>다음 라운드</b>${next.map(k => `<span>${skillIco(k.id, 'xs')}${k.ko}</span>`).join('')}<small>${next.map(k => k.what).join(' · ')}</small></div>` : '';
+  // 보스 스킬은 다음 라운드를 미리 알리지 않는다 — 라운드가 시작되면 보스 칸의 스킬 칩에 수치와 함께 뜬다
+  const warn = '';
   // 마왕의 패기 라운드: 라운드 표시만 하고, 패기는 그다음 따로 발동한다 (hakiFx)
   layer.innerHTML = evId === 'haki' || evId === 'midnight' || S?.classic
     ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div>${warn}</div></div>`
@@ -2174,7 +2189,7 @@ async function attackFx(f) {
     const r = el?.getBoundingClientRect();
     return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 80 };
   };
-  const onImpact = () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); };
+  const onImpact = () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (style.power >= 2.4) bigHit(style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); };
   const cls = S.players[f.player]?.cls;
   if (S.boss && cls && bigActor()) {
     // 1) 영웅 등장 + 주사위가 기운으로 뭉친다 → 2) 기운이 영웅에게 스며든다(기운 받기) → 3) 직업 기술로 보스를 친다(공격)
@@ -2304,6 +2319,7 @@ async function duelFx(f) {
     tray.restore();
     await fx.flyOrb(o, towerTop(me), { pal: style.pal, power: style.power, ms: 280, shrink: 0.5 });
     bumpPts(me, scoreGain(f));              // 에너지가 내 탑에 닿는 순간 블록이 쿵 얹히고 점수가 오른다
+    if (style.power >= 2.4) bigHit(style.power);
     await powerFx(me, style.pal, style.power);
     if (f.cat === 'yacht') { fx.flash('#FFFFFF', 320, 0.5); shake(app.querySelector('.party'), 1.5); }
   }
@@ -3180,6 +3196,55 @@ function hitSpark(id, v, i, t) {
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
   fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
 }
+// 주사위가 트레이 바닥에 떨어질 때: 트레이마다 다른 것이 튄다 (펠트 먼지 · 물방울 · 꽃잎 · 불티 · 별빛 …)
+//   grav: 아래로 + / 떠오르면 − · ring: 바닥에 퍼지는 물결 · glint: 반짝
+const LAND = {
+  classic: { pal: ['#9FD8A8', '#6FAF7C', '#C8E6C0'], n: 6, speed: [20, 70], grav: 120, size: [2, 3], life: [0.25, 0.45] },
+  marble:  { pal: ['#FFFFFF', '#F4ECD8', '#FFE27A'], n: 8, speed: [40, 110], grav: 220, size: [2, 3], life: [0.3, 0.5], glint: '#FFF6C8' },
+  royal:   { pal: ['#FFF0A8', '#FFD24A', '#FF9A1F'], n: 9, speed: [40, 120], grav: 200, size: [2, 3], life: [0.3, 0.55], glint: '#FFF6C8' },
+  deepsea: { pal: ['#FFFFFF', '#C8F4FF', '#7CE0FF', '#3AA8FF'], n: 10, speed: [60, 150], grav: 420, size: [2, 4], life: [0.35, 0.6], ring: '#9AE6FF' },
+  demon:   { pal: ['#E0CCFF', '#B98CFF', '#7A4BFF', '#C21E56'], n: 9, speed: [30, 90], grav: -90, size: [2, 4], life: [0.4, 0.75] },
+  sakura:  { pal: ['#FFFFFF', '#FF8AB8', '#FF6FA8', '#E8457E'], n: 7, speed: [30, 90], grav: 40, size: [3, 5], life: [0.6, 1.1], drag: 3.5 },
+  lava:    { pal: ['#FFF6C8', '#FFD24A', '#FF8A1A', '#FF4A1A'], n: 10, speed: [50, 140], grav: -60, size: [2, 4], life: [0.35, 0.7] },
+  starry:  { pal: ['#FFFFFF', '#C8B8FF', '#7CE0FF', '#FFE27A'], n: 7, speed: [30, 90], grav: -20, size: [2, 3], life: [0.4, 0.7], glint: '#FFFFFF' },
+};
+const landT = [];
+function trayLand(t, v, i, skin) {
+  const L = LAND[skin];
+  if (!L || v < 3 || prefs.fx === 'min' || document.hidden) return;
+  const now = performance.now();
+  if (now - (landT[i] || 0) < 110) return;                  // 주사위마다 0.11초에 한 번까지
+  landT[i] = now;
+  const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 3) / 9);
+  fx.c.classList.toggle('over', t === skinPreview);
+  const y = p.y + 8, r = 20;                                // 주사위 둘레 (바닥에 닿은 곳) — 주사위를 가리지 않게 가장자리에서 튄다
+  const n = Math.round(L.n * (1 + k) * 1.4), parts = 4;
+  for (let j = 0; j < parts; j++) {
+    const a = (j / parts) * Math.PI * 2 + Math.random() * 0.8, x = p.x + Math.cos(a) * r, yy = y + Math.sin(a) * r * 0.45;
+    fx.burst(x, yy, { n: Math.ceil(n / parts), pal: L.pal, speed: L.speed.map(q => q * (0.8 + k * 0.7)), size: L.size.map(q => q + 1), life: L.life, grav: L.grav, drag: L.drag ?? 2.4, dir: Math.atan2(Math.sin(a) * 0.45 - 0.9, Math.cos(a)), spread: 1.3 });
+  }
+  if (L.ring && v > 5) fx.ring(p.x, y, { color: L.ring, r0: 6, r1: 26 + k * 20, dur: 380, width: 2 });
+  if (L.glint && v > 5) fx.glint(p.x + (Math.random() - 0.5) * 20, y - 4, { color: L.glint, size: 8 + k * 6 });
+}
+// 큰 한 방 (요트 · 30점 이상): 0.1초 멈칫(히트스톱) → 화면이 확 당겨졌다 튕겨 나오고, 가장자리가 어두워졌다 밝아진다
+function bigHit(power = 3) {
+  if (prefs.fx === 'min') return;
+  FX().hold(power >= 3 ? 120 : 80);
+  document.body.classList.remove('bighit'); void document.body.offsetWidth; document.body.classList.add('bighit');
+  const k = power >= 3 ? 0.05 : 0.03;
+  app.animate([{ transform: 'scale(1)' }, { transform: `scale(${1 + k})`, offset: 0.2 }, { transform: `scale(${1 - k * 0.35})`, offset: 0.55 }, { transform: 'scale(1)' }], { duration: 560, easing: 'ease-out' });
+  clearTimeout(bigHit.t);
+  bigHit.t = setTimeout(() => document.body.classList.remove('bighit'), 800);
+}
+// 마지막 주사위 슬로모션 동안: 화면 가장자리가 어두워지고 심장이 뛴다
+function slowFx(on) {
+  clearInterval(slowFx.t);
+  document.body.classList.toggle('slowmo', on);
+  if (!on) return;
+  sfx.heartbeat?.();
+  slowFx.t = setInterval(() => sfx.heartbeat?.(), 620);
+  setTimeout(() => { clearInterval(slowFx.t); document.body.classList.remove('slowmo'); }, 3000);   // 혹시 끝 신호를 못 받아도
+}
 function diceHit(v, i, t) {
   // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
   const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin);
@@ -3271,6 +3336,7 @@ async function showSkins(tab = 'dice') {
     if (!host.isConnected) return;
     skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
     skinPreview.onTrail = (i, p, sp) => diceTrail(skinPreview, p, sp);
+    skinPreview.onLand = (v, i, skin) => trayLand(skinPreview, v, i, skin);
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }
