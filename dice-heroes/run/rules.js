@@ -299,17 +299,17 @@ export const BASE_DECK = ['fours', 'sixes', 'fives', 'full', 'four', 'sstr', 'ls
 export const RUN_CLASSES = {
   gambler: { hp: 104, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}${CLASS_TUNE.gamblerGold ? `. 전투에서 얻는 골드 +${Math.round(CLASS_TUNE.gamblerGold * 100)}%` : ''}`; } },
-  monk:    { hp: 62, sp: 'ones', flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
-    get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1 · 보호막 +${CLASS_TUNE.monkBlock}`; } },
+  monk:    { hp: 60, sp: 'ones', flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
+    get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1${CLASS_TUNE.monkNudge < 9 ? ` (최대 ${CLASS_TUNE.monkNudge})` : ''}${CLASS_TUNE.monkBlock ? ` · 보호막 +${CLASS_TUNE.monkBlock}` : ''}`; } },
   rogue:   { hp: 104, sp: 'ones', flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
     get desc() { return `전투를 시작할 때마다 뒤집기 +${CLASS_TUNE.rogueFlip}. 뒤집기를 쓴 턴에 내는 카드는 점수 +${Math.round(CLASS_TUNE.rogueMul * 100)}%, 적 보호막을 무시한다`; } },
   warrior: { hp: 100, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
     get desc() { return `숫자 카드(에이스~식스) 점수 +${Math.round(CLASS_TUNE.warriorMul * 100)}%. 숫자 카드로 공격하면 공격한 점수의 절반만큼 보호막도 얻는다`; } },
   bard:    { hp: 95, sp: 'ones', flip: 1, nudge: 2, sig: { cat: 'choice', kw: 'guard' }, skill: '응원가',
     get desc() { return `매 턴 시작에 보호막 +${CLASS_TUNE.bardBlock}. 전투에서 이기면 체력 ${CLASS_TUNE.bardHeal} 회복`; } },
-  mage:    { hp: 68, sp: 'twos', flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
+  mage:    { hp: 62, sp: 'twos', flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'echo' }, skill: '비전 지식',
     get desc() { return `손패 5장. 카드로 공격할 때 손에 남은 카드 1장당 피해 +${CLASS_TUNE.mageBonus} (나눠 내면 공격 비율만큼). 카드 보상을 한 장 더 보고 고른다`; } },
-  dancer:  { hp: 62, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
+  dancer:  { hp: 68, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'choice', kw: 'burn' }, skill: '춤사위',
     get desc() { return `${DANCE_NEED}점 이상 카드를 내면 춤사위 +1 (최대 ${DANCE_CAP}, 원정 내내 유지). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로), 그 턴 카드 점수 +${Math.round(CLASS_TUNE.danceMul * 100)}% (턴당 1번)`; } },
   outlaw:  { hp: 120, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'full', kw: 'quick' }, skill: '속전속결',
     get desc() { return `첫 굴림 그대로(다시 굴리지 않고) 카드를 내면 점수 ×${CLASS_TUNE.rushAny}, 포카인드 · 풀하우스 · 스트레이트 · 요트면 ×${CLASS_TUNE.rushMul}. 남은 굴림 1회당 보호막 +${CLASS_TUNE.rushBlock}`; } },
@@ -317,8 +317,8 @@ export const RUN_CLASSES = {
     get desc() { return `굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다. 턴마다 ${CLASS_TUNE.dealsTurn}번, 전투마다 ${CLASS_TUNE.deals}번까지`; } },
 };
 // 직업 수치 (sim/run.mjs 로 맞춘다)
-export const CLASS_TUNE = { mageBonus: 1, betMul: 1.65, monkBlock: 1, rogueFlip: 2, rogueMul: 0.8, warriorMul: 0.3, bardBlock: 5, bardHeal: 4,
-  rushAny: 1.5, rushMul: 1.3, rushBlock: 6, deals: 8, dealsTurn: 2, danceMul: 0.2, gamblerGold: 0 };
+export const CLASS_TUNE = { mageBonus: 0.5, betMul: 1.65, monkBlock: 0, monkNudge: 1, rogueFlip: 2, rogueMul: 0.8, warriorMul: 0.3, bardBlock: 5, bardHeal: 4,
+  rushAny: 1.5, rushMul: 1.3, rushBlock: 6, deals: 8, dealsTurn: 2, danceMul: 0.12, gamblerGold: 0 };
 
 // ── 유물 (판 내내 켜져 있는 패시브) — 대부분 원래 특성 카드에서 옮겨 왔다 ──
 // r: 1 일반 · 2 희귀 · 3 보스 — 봇 시뮬레이션의 클리어율 기여로 나눴다 (보스 +16%p 이상 · 희귀 +8 ~ 16%p · 일반 그 아래)
@@ -384,7 +384,7 @@ export const RELICS = [
   { id: 'goldframe', ko: '황금 인장틀',     icon: 'crown',     r: 1, desc: '인장 효과가 두 번 터진다' },
   { id: 'wax',       ko: '밀랍 봉인',       icon: 'lotus',     r: 1, desc: '인장이 붙은 카드를 내지 않고 턴을 넘기면, 넘길 때마다 그 카드 +10% (쌓인다)' },
   { id: 'sealknife', ko: '인장공의 칼',     icon: 'dagger',    r: 1, desc: '상점의 인장이 반값, 상점마다 인장 하나는 공짜' },
-  { id: 'madscale',  ko: '광기의 저울',     icon: 'scale',     r: 3, desc: '공격 · 방어 나누기가 무작위가 되는 대신 모든 카드 +100%' },
+  { id: 'madscale',  ko: '광기의 저울',     icon: 'scale',     r: 3, get desc() { return `턴마다 저울이 기운다: 그 턴의 카드는 미리 보이는 비율(공격 0 · 25 · 50 · 75 · 100%)로 나뉘는 대신 모든 카드 +${Math.round(RT.madMul * 100)}%`; } },
   { id: 'coin',      ko: '동전 던지기',     icon: 'coins',     r: 2, desc: '카드를 낼 때마다 50% 확률로 +100%, 50% 확률로 −25%' },
   { id: 'bloodpact', ko: '피의 계약',       icon: 'heart',     r: 3, desc: '얻을 때 최대 체력 −30%. 모든 카드 +50%' },
   { id: 'glasscannon', ko: '유리 대포',     icon: 'bolt',      r: 3, desc: '모든 카드 +60%. 대신 받는 피해 ×1.4' },
@@ -411,12 +411,12 @@ export const RELICS = [
 // 특별 카드 전용 유물 ↔ 그 카드
 export const SPECIAL_RELIC = { cape: 'ones', culture: 'twos', prism: 'threes' };
 // 유물 수치 (sim: 유물 하나를 들고 출발한 봇의 클리어율 차이로 맞춘다 — 희귀도에 맞게)
-export const RELIC_TUNE = { hammerEvery: 3, hammerCap: 6, comboMul: 1.3, weight: 3, pairs: 2, miser: 0.03, choice: 0.2, bone: 10, nudge: 1,
+export const RELIC_TUNE = { madMul: 1, hammerEvery: 3, hammerCap: 6, comboMul: 1.3, weight: 3, pairs: 2, miser: 0.03, choice: 0.2, bone: 10, nudge: 1,
   beast: 0.05, kaleido: 2, flowL: 40, fang: 0.1, paletteN: 8, coinLow: -0.25 };
 const RT = RELIC_TUNE;
 export const hammerBonus = (R, cat) => Math.min(RT.hammerCap, Math.floor((R.hammer?.[cat] || 0) / RT.hammerEvery));
 // 유물 하나를 들고 출발했을 때 늘어난 클리어율 (%p, 1 · 2 · 3막 평균 · 봇 9직업 × 40판) — 희귀도를 나누고 봇이 유물을 고를 때 쓴다
-export const RELIC_POWER = { midas: 34.8, bloodpact: 31.7, madscale: 28.8, sixth: 28.4, reroll: 21.5, flow: 19.2, pairs: 19.1, horn: 18.1, phoenix: 16.7, emptyhand: 16.3, scale: 16.2, glasscannon: 16.0, beast: 15.6, quad: 15.6, kaleido: 15.4, thorn: 15.2, bloodsword: 15.2, crown: 15.1, weight: 14.7, straight: 14.6, coin: 14.0, chalice: 13.4, balance: 13.1, basic: 12.9, combo: 12.9, nudge: 12.6, palette: 12.2, iron: 12.1, flip: 12.1, crutch: 11.8, yacht: 11.6, drum: 11.3, pairring: 11.1, hammer: 10.7, emptyhouse: 10.4, seven: 10.1, insure: 9.9, choice: 9.8, bone: 9.4, ember: 9.3, whet: 9.3, echodrum: 9.1, fang: 9.1, lucky: 8.2, heart: 8.1, sandbank: 7.9, miser: 7.7, prism: 7.4, reso: 6.9, discard: 6.6, hourglass: 6.5, pilgrim: 6.4, full: 5.9, parity: 5.9, lotus: 5.7, rampart: 5.6, scholar: 5.5, fourk: 4.7, keepbox: 4.6, magnet: 4.1, counter: 3.9, sealbag: 3.8, cape: 3.3, dust: 3.0, loupe: 2.8, culture: 2.8, bloodcup: 2.6, camp: 2.3, ytower: 2.1, zero: 1.6, goldframe: 1.0, libkey: 0.7, purse: 0.6, trinity: 0.5, wax: 0.3, rosary: 0.2, sealknife: -0.6, small: -1.9, medal: -2.9 };
+export const RELIC_POWER = { midas: 34.8, bloodpact: 31.7, madscale: 21.1, sixth: 28.4, reroll: 21.5, flow: 19.2, pairs: 19.1, horn: 18.1, phoenix: 16.7, emptyhand: 16.3, scale: 16.2, glasscannon: 16.0, beast: 15.6, quad: 15.6, kaleido: 15.4, thorn: 15.2, bloodsword: 15.2, crown: 15.1, weight: 14.7, straight: 14.6, coin: 14.0, chalice: 13.4, balance: 13.1, basic: 12.9, combo: 12.9, nudge: 12.6, palette: 12.2, iron: 12.1, flip: 12.1, crutch: 11.8, yacht: 11.6, drum: 11.3, pairring: 11.1, hammer: 10.7, emptyhouse: 10.4, seven: 10.1, insure: 9.9, choice: 9.8, bone: 9.4, ember: 9.3, whet: 9.3, echodrum: 9.1, fang: 9.1, lucky: 8.2, heart: 8.1, sandbank: 7.9, miser: 7.7, prism: 7.4, reso: 6.9, discard: 6.6, hourglass: 6.5, pilgrim: 6.4, full: 5.9, parity: 5.9, lotus: 5.7, rampart: 5.6, scholar: 5.5, fourk: 4.7, keepbox: 4.6, magnet: 4.1, counter: 3.9, sealbag: 3.8, cape: 3.3, dust: 3.0, loupe: 2.8, culture: 2.8, bloodcup: 2.6, camp: 2.3, ytower: 2.1, zero: 1.6, goldframe: 1.0, libkey: 0.7, purse: 0.6, trinity: 0.5, wax: 0.3, rosary: 0.2, sealknife: -0.6, small: -1.9, medal: -2.9 };
 export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
 export const relicChoices = R => 3 + (hasRelic(R, 'loupe') ? 1 : 0);
 // 덱 빌딩 유물 ↔ 그 계열 카드
@@ -534,8 +534,10 @@ export const ACT_INFO = {
 };
 // 밸런스 조절용 배율 [1막, 2막, 3막] — 적 종류별 (sim/run.mjs 가 바꿔 가며 잰다)
 export const TUNE = {
-  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.88, 1.0, 1.3] },
-  atk: { normal: [2.06, 1.94, 1.85], elite: [1.87, 1.81, 1.55], boss: [2.0, 1.85, 2.45] },
+  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.9, 1.08, 2.3] },
+  atk: { normal: [2.1, 2.17, 2.4], elite: [1.92, 2.03, 2.0], boss: [2.04, 2.07, 3.2] },
+  cap: 0.45,       // 적 한 턴 공격 상한 (영웅 최대 체력 대비) — atkOf
+  capRef: 72,      // 상한을 잴 때 최대 체력은 적어도 이만큼으로 본다 (체력이 낮을수록 보스 공격이 더 깎여 오히려 유리해지지 않게)
 };
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
@@ -799,7 +801,7 @@ export function intentParts(R) {
   if (!m) return [];
   const out = [];
   if (m.hex) out.push({ k: 'hex', t: m.hex.t, n: m.hex.n });
-  if (m.atk) out.push({ k: 'atk', n: atkOf(R, m.atk), hits: m.hits || 1 });
+  if (m.atk) out.push({ k: 'atk', n: atkOf(R, m.atk, m.hits || 1), hits: m.hits || 1 });
   if (m.block) out.push({ k: 'block', n: m.block });
   if (m.str) out.push({ k: 'str', n: m.str });
   if (m.heal) out.push({ k: 'heal', n: m.heal });
@@ -810,18 +812,24 @@ export function intentParts(R) {
 // 적 한 대의 실제 공격력 (힘 · 막 배율 · 약화 반영)
 // 받는 피해 배율 (유리 대포 ×1.4 · 피의 축제 ×1.5). 적 공격 수치(의도 · 딱 막기 · 받을 피해)에 처음부터 넣는다
 export const hurtMul = R => (hasRelic(R, 'glasscannon') ? 1.4 : 1) * (omen(R, 'feast') ? 1.5 : 1);
-export function atkOf(R, base) {
+// 돌연사 막기: 적 한 턴 공격(연타 합계)은 영웅 최대 체력의 TUNE.cap 까지 (보호막 빼기 전 · 유리 대포 · 피의 축제 배율 전).
+// 연타 공격은 쌓인 힘(분노 · 격앙 · 힘 올리기)을 한 대에 절반만 더한다 — 힘이 쌓인 연타가 한 번에 체력을 다 지우던 것
+export function atkOf(R, base, hits = 1) {
   const e = R.C.e;
   const kind = ENEMIES[e.id].kind;
   const am = (kind === 'normal' && asc(R, 2) ? 1.1 : 1) * (kind === 'elite' && asc(R, 8) ? 1.15 : 1) * (kind === 'boss' && asc(R, 9) ? 1.1 : 1);
-  const v = Math.round((base + e.str) * TUNE.atk[kind][R.act - 1] * am * hurtMul(R));
+  const raw = (base + (hits > 1 ? e.str / 2 : e.str)) * TUNE.atk[kind][R.act - 1] * am;
+  const v = Math.round(Math.min(raw, (Math.max(R.maxHp, TUNE.capRef) * TUNE.cap) / hits) * hurtMul(R));
   return e.weak > 0 ? Math.floor(v / 2) : v;
 }
-export const incoming = R => { const m = R.C?.e?.intent; return m?.atk ? atkOf(R, m.atk) * (m.hits || 1) : 0; };
+export const incoming = R => { const m = R.C?.e?.intent; return m?.atk ? atkOf(R, m.atk, m.hits || 1) * (m.hits || 1) : 0; };
 
+// 광기의 저울: 이번 턴 공격 몫 (턴이 시작될 때 정해져 화면에 보인다)
+export const madTilt = R => R.C?.tilt ?? 0.5;
 function startTurn(R) {
   const C = R.C;
   C.turn++;
+  if (hasRelic(R, 'madscale')) C.tilt = [0, 0.25, 0.5, 0.75, 1][Math.floor(rand(R) * 5)];
   R.stats.turns++;
   C.phase = 'roll';
   C.block = 0;
@@ -1145,7 +1153,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) add('수도승의 묵주', 0.25);
     // 새 유물
     if (hasRelic(R, 'palette') && R.palette?.done) add('무지개 팔레트', 0.5);
-    if (hasRelic(R, 'madscale')) add('광기의 저울', 1);
+    if (hasRelic(R, 'madscale')) add('광기의 저울', RT.madMul);
     if (opts.coin === 1) add('동전 앞면', 1);
     if (opts.coin === -1) add('동전 뒷면', RT.coinLow);
     if (hasRelic(R, 'bloodpact')) add('피의 계약', 0.5);
@@ -1266,7 +1274,7 @@ function splitOut(R, card, sc, want, gwant = 0) {
 export function incomingAfter(R, weak = false) {
   const e = R.C?.e, m = e?.intent;
   if (!m?.atk) return 0;
-  let per = atkOf(R, m.atk);
+  let per = atkOf(R, m.atk, m.hits || 1);
   if (weak && !(e.weak > 0)) per = Math.floor(per / 2);
   return per * (m.hits || 1);
 }
@@ -1300,7 +1308,7 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   // 나눠 낸 카드: 동전이 바꾼 비율만큼 공격 몫도 같이 (공격 · 방어가 같은 % 로 늘고 준다)
   gold = Math.max(0, Math.round(Number(gold) || 0));
   if (coin && typeof target === 'number') { const t0 = scoreCard(R, card, C.dice, {}).total; if (t0 > 0) { target = Math.round(target * sc.total / t0); gold = Math.round(gold * sc.total / t0); } }
-  if (hasRelic(R, 'madscale')) target = Math.round(splitPool(R, card, sc.total) * rand(R));
+  if (hasRelic(R, 'madscale') && !(isTrinity(card) && !prismOn(R, card))) { target = Math.round(splitPool(R, card, sc.total) * madTilt(R)); gold = 0; }
   const p = preview(R, hi, target, sc, gold);
   C.hand.splice(hi, 1);
   R.stats.cards++;
@@ -1340,7 +1348,7 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   if (p.weak) { C.e.weak = 1; ev.weak = true; }
   if (hasKw(card, 'lucky')) ev.flip = addTool(R, 'flip', 1);
   if (p.score === 0 && hasRelic(R, 'insure')) addTool(R, 'flip', 1);
-  if (R.cls === 'monk' && C.rollsLeft > 0) ev.nudge = addTool(R, 'nudge', C.rollsLeft);
+  if (R.cls === 'monk' && C.rollsLeft > 0) ev.nudge = addTool(R, 'nudge', Math.min(C.rollsLeft, CLASS_TUNE.monkNudge));
   if (R.cls === 'dancer' && p.score >= DANCE_NEED && R.dance < DANCE_CAP) { R.dance++; ev.dance = true; }
   afterPlay(R, card, p, ev);
   // 카드는 버린 더미로 (메아리는 다음 턴 손패로). 달빛 복사본은 한 번 쓰면 사라진다
@@ -1473,7 +1481,7 @@ function enemyTurn(R) {
   const act = { type: 'enemy', ko: m?.ko || '', hits: [], block: 0, str: 0, heal: 0, steal: 0, weak: 0, behead: !m };
   if (m) {
     if (m.atk) {
-      const per = atkOf(R, m.atk);
+      const per = atkOf(R, m.atk, m.hits || 1);
       for (let k = 0; k < (m.hits || 1); k++) {
         const r = hurtHero(R, per, 'atk');
         act.hits.push(r);
@@ -2014,7 +2022,7 @@ function botCtx(R) {
   const C = R.C, e = C.e;
   const raw = incoming(R), have = C.block;
   const moves = movesOf(R);
-  const eAvg = moves.reduce((a, m) => a + (m.atk ? atkOf(R, m.atk) * (m.hits || 1) : 0), 0) / moves.length;
+  const eAvg = moves.reduce((a, m) => a + (m.atk ? atkOf(R, m.atk, m.hits || 1) * (m.hits || 1) : 0), 0) / moves.length;
   const hAvg = R.stats.atkN > 2 ? R.stats.atkSum / R.stats.atkN : 20;
   const k = Math.min(1.6, Math.max(0.3, eAvg / Math.max(8, hAvg)));
   const frac = R.hp / R.maxHp;
@@ -2045,7 +2053,7 @@ function prepHand(R, rollNo) {
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) mul += 0.25;
     if (C.keepUp && !C.plays) mul += C.keepUp;
     // 새 유물 · 징조 (합연산)
-    mul += (hasRelic(R, 'madscale') ? 1 : 0) + (hasRelic(R, 'bloodpact') ? 0.5 : 0) + (hasRelic(R, 'glasscannon') ? 0.6 : 0) + (hasRelic(R, 'emptyhand') ? 0.6 : 0)
+    mul += (hasRelic(R, 'madscale') ? RT.madMul : 0) + (hasRelic(R, 'bloodpact') ? 0.5 : 0) + (hasRelic(R, 'glasscannon') ? 0.6 : 0) + (hasRelic(R, 'emptyhand') ? 0.6 : 0)
       + (R.palette?.done && hasRelic(R, 'palette') ? 0.5 : 0) + (omen(R, 'feast') ? 0.5 : 0) + (omen(R, 'forbid') ? 0.2 : 0) + (omen(R, 'glass') ? 0.3 : 0)
       + (hasRelic(R, 'echodrum') && C.lastCat === up ? 0.25 * (C.chainN || 0) : 0) + (hasRelic(R, 'pairring') && C.hand.filter(c => c.cat === up).length >= 2 ? 0.5 : 0)
       + (card.zeroUp || 0) + (card.waxUp || 0);

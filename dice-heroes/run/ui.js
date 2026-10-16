@@ -576,6 +576,8 @@ function tipText(needBet) {
   if (ui.busy) return '';
   // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 도박사 배팅만 남긴다 (배팅해야 굴릴 수 있다)
   if (needBet) return `${ico('coins', 'xs')} 배팅 ×${Run.CLASS_TUNE.betMul}`;
+  // 광기의 저울: 이번 턴 저울이 기운 쪽을 늘 보여 준다 (카드를 고르기 전에 계획할 수 있게)
+  if (Run.hasRelic(R, 'madscale') && C) { const t = Math.round(Run.madTilt(R) * 100); return `<b class="mad-tip">${ico('scale', 'xs')} 저울 ${ico('sword', 'xs')}${t}% · ${ico('shield', 'xs')}${100 - t}%</b>`; }
   return '';
 }
 
@@ -644,7 +646,10 @@ function playTip(c) {
   if (!R.C.rolled) return '';
   const hi = R.C.hand.findIndex(x => x.u === c.u);
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
-  if (Run.hasRelic(R, 'madscale') && !(Run.isTrinity(c) && !Run.prismOn(R, c))) return `<p>${ico('scale', 'xs')} 공격 · 방어 ??? (광기의 저울: 낼 때 무작위)</p>`;
+  if (Run.hasRelic(R, 'madscale') && !(Run.isTrinity(c) && !Run.prismOn(R, c))) {
+    const t = Run.madTilt(R), m = Run.preview(R, hi, Math.round(Run.splitPool(R, c, Run.scoreCard(R, c).total) * t));
+    return `<p>${ico('scale', 'xs')} 광기의 저울 · 공격 ${Math.round(t * 100)}% → 피해 ${m.dmg} · 보호막 ${m.block}</p>`;
+  }
   return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p>`;
 }
 
@@ -714,9 +719,11 @@ function openSplit(u) {
     else if (Run.incomingAfter(R) > 0) { const c = Run.coverAtk(R, hi); sp.atk = c.atk; sp.gold = c.gold; }
     else { sp.atk = Math.ceil(S / 3); sp.gold = Math.round(S / 3); }      // 막을 공격이 없으면 셋으로 나눈다
   }
-  // 광기의 저울: 나누기가 무작위라 막대 없이 ??? 만 (삼위일체는 원래 나누지 않으니 그대로)
-  ui.split.mad = Run.hasRelic(R, 'madscale') && !fixed;
-  hand.select(u, fixed ? trinityHTML(u) : ui.split.mad ? madHTML(u) : splitHTML(u, prism), { wide: true });
+  // 광기의 저울: 이번 턴 저울이 기운 비율로 막대가 고정된다 (턴이 시작될 때 정해져 미리 보인다 · 삼위일체는 원래 나누지 않으니 그대로)
+  ui.split.lock = Run.hasRelic(R, 'madscale') && !fixed;
+  if (ui.split.lock) { ui.split.atk = Math.round(S * Run.madTilt(R)); ui.split.gold = 0; }
+  hand.select(u, fixed ? trinityHTML(u) : splitHTML(u, prism && !ui.split.lock), { wide: true });
+  if (ui.split.lock) $('split')?.classList.add('locked');
   hand.el(u)?.classList.add('splitting');
   bindSplit();
   paintSplit();
@@ -734,13 +741,6 @@ function syncSplit() {
   const S = Run.splitPool(R, c, Run.scoreCard(R, c).total);
   if (S !== sp.S) { sp.atk = sp.S ? Math.round(sp.atk / sp.S * S) : S; sp.gold = sp.S ? Math.min(S - sp.atk, Math.round(sp.gold / sp.S * S)) : 0; sp.S = S; }
   paintSplit();
-}
-function madHTML(u) {
-  return `<div class="split mad" id="split">
-    <div class="sp-mad">${ico('scale', 'xs')}<b>???</b><small>공격 · 방어는 낼 때 무작위로 나뉜다 (광기의 저울)</small></div>
-    <p class="sp-info" id="sp-info"></p>
-    <div class="sp-row one"><span class="sp-note">${ico('sword', 'xs')}? · ${ico('shield', 'xs')}?</span><button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button></div>
-  </div>`;
 }
 function trinityHTML(u) {
   return `<div class="split tri" id="split">
@@ -803,7 +803,7 @@ function setGold(g) {
 }
 function setSplit(a, gold = null) {
   const sp = ui.split;
-  if (!sp || sp.fixed) return;
+  if (!sp || sp.fixed || sp.lock) return;
   a = Math.max(0, Math.min(sp.S, Math.round(a)));
   const g = sp.prism ? Math.max(0, Math.min(sp.S - a, gold ?? sp.gold)) : 0;
   if (a === sp.atk && g === sp.gold) return;
@@ -817,7 +817,6 @@ function paintSplit() {
   const hi = sp ? C.hand.findIndex(c => c.u === sp.u) : -1;
   if (hi < 0 || !$('split')) return;
   const p = Run.preview(R, hi, sp.atk, null, sp.gold), card = C.hand[hi];
-  if (sp.mad) { $('sp-info').innerHTML = card.seal ? `${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}` : '&nbsp;'; return; }
   const k = p.pool ? p.atk / p.pool : 1;
   $('sp-dmg').textContent = p.dmg;
   $('sp-blk').textContent = p.block;
@@ -855,7 +854,7 @@ function paintSplit() {
     if (p.gold - p.tri > 0) info.push(`${ico('coins', 'xs')}+${p.gold - p.tri}`);
     if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
   }
-  if (Run.hasRelic(R, 'madscale')) info.unshift(`${ico('scale', 'xs')}나눔은 무작위`);
+  if (sp.lock) info.unshift(`${ico('scale', 'xs')}저울 고정 · 공격 ${Math.round(Run.madTilt(R) * 100)}%`);
   if (card.seal) info.unshift(`${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}`);
   if (Run.hasKw(card, 'weak')) info.push(p.weak ? `${ico('snow', 'xs')}약화` : '<s>약화</s>');
   if (p.def > 0 && p.defMul > 1) info.push(`${ico('shield', 'xs')}방어 +${Math.round((p.defMul - 1) * 100)}%`);
