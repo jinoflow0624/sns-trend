@@ -227,7 +227,8 @@ function loadRun() {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
       app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, speak, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
-      owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
+      owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(), runPrice: id => Wal.priceOf('run', id),
+      name: () => myName, sealSigil: SEAL_SIGIL,
     });
     runMod = m;
     return m;
@@ -521,11 +522,11 @@ function bossPicker(o) {
   <section class="frame mode-box">
     <div class="bosses">
       ${E.BOSSES.map(b => b.final && !demonOpen()
-        ? `<button class="boss-pick sealed-boss final" style="--c:${b.color}" data-act="boss-locked">
-          ${portrait(b.id, 'bp')}<b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
+        ? `<button class="boss-pick sealed-boss final hidden-boss" data-act="boss-locked">
+          <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
         : !upgradeOpen(b.id)
-        ? `<button class="boss-pick sealed-boss${b.final ? ' final' : ''}" style="--c:${b.color}" data-act="boss-locked" data-base="${b.base}">
-          ${portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
+        ? `<button class="boss-pick sealed-boss${b.final ? ' final hidden-boss' : ''}" ${b.final ? '' : `style="--c:${b.color}"`} data-act="boss-locked" data-base="${b.base}">
+          ${b.final ? `<span class="bp-seal">${ico('lock')}</span>` : portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
         : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
@@ -3091,7 +3092,7 @@ function showDashboard() {
         <h3 class="dash-h">보스 토벌 <small>최고 등급</small></h3>
         <div class="dash-boss">
           <span></span>${E.DIFFS.map(d => `<small style="color:${d.color}">${d.ko}</small>`).join('')}
-          ${E.BOSSES.map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
+          ${E.BOSSES.map(b => `${b.final && !(b.base ? upgradeOpen(b.id) : demonOpen()) ? `<span class="bp-seal mini">${ico('lock', 'xs')}</span>` : portrait(b.id, 'mini')}${E.DIFFS.map(d => {
             if (!E.bossDiffs(b.id).includes(d.id)) return '<span class="db-none"></span>';   // 강화 보스 · 마신은 쉬움이 없다
             const r = prof.bosses[`${b.id}:${d.id}`];
             return `<span class="db-cell${r?.grade ? ` g${r.grade}` : ''}">${r ? `<b>${r.grade}</b><small>${r.wins}/${r.tries}</small>` : '-'}</span>`;
@@ -3149,7 +3150,7 @@ let heartT = 0;
 // 굴러가는 주사위 궤적: 특별한 주사위만 (기본 · 미니멀 · 블랙 · 키캡은 없음). 입자 + 가끔 십자 반짝
 //   grav: 아래로 떨어지면 +, 떠오르면 −  ·  hearts: 하트도 가끔 톡
 const TRAIL = {
-  openheart: { pal: ['#FFFFFF', '#FFE2B0', '#FFC56A', '#E8913A', '#B8641E'], grav: 110, glint: '#FFE2B0' },      // 구리 불똥이 튀어 떨어진다
+  openheart: { pal: ['#FFE2B0', '#FFC56A', '#E8913A', '#B8641E'], grav: 110, glint: '#FFE2B0', glintP: 0.2, few: 0.6, ring: '#E8B070' },   // 구리 불똥 조금 + 톱니가 도는 듯한 잔잔한 원형 파동
   gold:      { pal: ['#FFFFFF', '#FFF6C8', '#FFF0A8', '#FFD24A', '#FF9A1F'], grav: 50, glint: '#FFF6C8' },       // 금가루 + 반짝
   cosmic:    { pal: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF', '#FF9AE0'], grav: -8, glint: '#FFFFFF' },       // 별가루 + 별빛
   clear:     { pal: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A', '#B98CFF', '#3EE6B4'], grav: -24, glint: '#FFFFFF' },  // 무지개 조각
@@ -3167,8 +3168,9 @@ function diceTrail(t, p, sp) {
   if (!tr) return;
   const fx = FX(), fast = sp > 0.5;
   fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
-  fx.burst(p.x, p.y, { n: fxN(fast ? 6 : 4), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
-  if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
+  if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
+  fx.burst(p.x, p.y, { n: fxN((fast ? 6 : 4) * (tr.few ?? 1)), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
+  if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
   const now = performance.now();
   if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5 * DICE_FX) {
     heartTrailT = now;
@@ -3194,12 +3196,12 @@ function hitSpark(id, v, i, t) {
   const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
   fx.c.classList.toggle('over', t === skinPreview);
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
-  fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
+  if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
+  else fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
 }
 // 주사위가 트레이 바닥에 떨어질 때: 트레이마다 다른 것이 튄다 (펠트 먼지 · 물방울 · 꽃잎 · 불티 · 별빛 …)
 //   grav: 아래로 + / 떠오르면 − · ring: 바닥에 퍼지는 물결 · glint: 반짝
 const LAND = {
-  classic: { pal: ['#9FD8A8', '#6FAF7C', '#C8E6C0'], n: 6, speed: [20, 70], grav: 120, size: [2, 3], life: [0.25, 0.45] },
   marble:  { pal: ['#FFFFFF', '#F4ECD8', '#FFE27A'], n: 8, speed: [40, 110], grav: 220, size: [2, 3], life: [0.3, 0.5], glint: '#FFF6C8' },
   royal:   { pal: ['#FFF0A8', '#FFD24A', '#FF9A1F'], n: 9, speed: [40, 120], grav: 200, size: [2, 3], life: [0.3, 0.55], glint: '#FFF6C8' },
   deepsea: { pal: ['#FFFFFF', '#C8F4FF', '#7CE0FF', '#3AA8FF'], n: 10, speed: [60, 150], grav: 420, size: [2, 4], life: [0.35, 0.6], ring: '#9AE6FF' },
@@ -3279,7 +3281,8 @@ function closeSkinPreview() {
   skinPreview = null;
 }
 async function showSkins(tab = 'dice') {
-  const list = tab === 'dice' ? DICE_SKINS : TRAY_SKINS;
+  // 가격 싼 순 (무료 기본이 맨 앞)
+  const list = [...(tab === 'dice' ? DICE_SKINS : TRAY_SKINS)].sort((a, b) => Wal.priceOf(tab, a.id) - Wal.priceOf(tab, b.id));
   const cur = tab === 'dice' ? diceSkin(prefs.diceSkin).id : traySkin(prefs.traySkin).id;
   const thumb = tab === 'dice' ? diceThumb : trayThumb;
   const reuse = skinPreview && layer.querySelector('.skin-preview');
@@ -3383,9 +3386,10 @@ async function buyItem(kind, id, btn) {
   if (btn) btn.disabled = false;
   if (!r.ok) { sfx.back(); return toast(ico('warn'), '살 수 없어요', r.why, 2000); }
   sfx.coin();
-  const name = kind === 'cls' ? E.classInfo(id).ko : (kind === 'dice' ? diceSkin : traySkin)(id).name;
-  toast(ico('gem'), `${name} 획득!`, `남은 보석 ${Wal.gems().toLocaleString()}`, 1600);
+  const name = kind === 'cls' || kind === 'run' ? E.classInfo(id).ko : (kind === 'dice' ? diceSkin : traySkin)(id).name;
+  toast(ico('gem'), `${kind === 'run' ? '원정 ' : ''}${name} 획득!`, `남은 보석 ${Wal.gems().toLocaleString()}`, 1600);
   if (kind === 'cls') { layer.innerHTML = ''; return afterClassBuy?.(id); }
+  if (kind === 'run') { layer.innerHTML = ''; return runMod?.refreshSelect?.(); }
   return pickSkin(kind, id);
 }
 
@@ -3417,7 +3421,7 @@ function showSettings(inGame = false) {
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
-    ${PROD || inGame ? '' : '<div class="set-links test-only"><b>테스트판</b><button class="linkish" data-act="relock" data-kinds="cls">직업 잠금 되돌리기</button><button class="linkish" data-act="relock" data-kinds="dice,tray">주사위 · 트레이 잠금 되돌리기</button></div>'}
+    ${PROD || inGame ? '' : '<div class="set-links test-only"><b>테스트판</b><button class="linkish" data-act="relock" data-kinds="cls,run">직업 잠금 되돌리기</button><button class="linkish" data-act="relock" data-kinds="dice,tray">주사위 · 트레이 잠금 되돌리기</button></div>'}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>1분 안에 돌아오면 이어서' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
@@ -4083,6 +4087,11 @@ function onAct(act, t) {
     const r = Wal.relockLocal(kinds);
     if (!r.ok) { sfx.back(); return toast(ico('warn'), '할 수 없어요', r.why, 1600); }
     if (kinds.includes('cls')) setup.forEach(p => { if (!p.bot && !Wal.owns('cls', p.cls)) p.cls = firstOwnedClass(); });
+    if (kinds.includes('run')) {          // 원정: 도전과제로 연 직업(음유시인 · 수도승)도 다시 잠근다
+      const rb = store.get('diceheroes.runBest');
+      if (rb?.best?.feats) { rb.best.feats = rb.best.feats.filter(f => !['bulwark', 'ascetic'].includes(f)); store.set('diceheroes.runBest', rb); }
+      runMod?.reloadProgress?.();
+    }
     if (kinds.includes('dice') && !Wal.owns('dice', prefs.diceSkin)) prefs.diceSkin = 'classic';
     if (kinds.includes('tray') && !Wal.owns('tray', prefs.traySkin)) prefs.traySkin = 'classic';
     store.set(KEYS.setup, setup); store.set(KEYS.prefs, prefs);

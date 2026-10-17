@@ -1226,3 +1226,7 @@ body:has(.run-sb) .popover { z-index: 310; }
 .run-tour .rt-row { display: flex; align-items: center; gap: 8px; }
 .run-tour .rt-step { margin-left: auto; font-size: 10px; color: var(--muted); }
 .run-tour .rt-skip { background: none; border: 0; color: var(--muted); font-size: 11px; padding: 4px 2px; text-decoration: underline; }
+.rs-lockhow { margin: 0; padding: 10px 12px; font-size: 12px; line-height: 1.5; text-align: center; color: #E0CCFF; background: rgba(20, 14, 50, .85); border: 2px dashed #7A4BFF; }
+.run-shop.ascetic .shop-stall { filter: grayscale(.7) brightness(.7); pointer-events: none; }
+.run-shop.ascetic [data-act=run-reshop] { display: none; }
+.ascetic-note { margin: 4px 10px; padding: 6px 10px; font-size: 12px; text-align: center; color: #E0CCFF; background: rgba(40, 20, 80, .85); border: 2px solid #7A4BFF; }

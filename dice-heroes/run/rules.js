@@ -279,7 +279,13 @@ export const FEATS = [
   { id: 'asc5',     ko: '하드모드 정복자',        icon: 'up',      desc: '하드모드 5 이상으로 원정을 끝낸다' },
   { id: 'asc10',    ko: '정점',          icon: 'trophy',  desc: '하드모드 10으로 원정을 끝낸다' },
   { id: 'five',     ko: '다섯 영웅',     icon: 'party',   desc: '서로 다른 직업 5종으로 원정을 끝낸다' },
+  { id: 'bulwark',  ko: '방패의 노래',   icon: 'shield',  desc: '한 턴에 보호막 50 이상을 쌓는다 · 음유시인 해금' },
+  { id: 'ascetic',  ko: '빈손의 순례',   icon: 'lotus',   desc: '상점에서 아무것도 사지 않고 3막까지 원정을 끝낸다 · 수도승 해금' },
 ];
+// 원정 직업 해금: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석(wallet-rules RUN_CLASS_PRICE)
+// RUN_ORDER: 직업 고르기 다이얼 순서 (기본 → 도전과제 → 보석 싼 순)
+export const RUN_UNLOCK = { warrior: { free: true }, rogue: { free: true }, mage: { free: true }, bard: { feat: 'bulwark' }, monk: { feat: 'ascetic' } };
+export const RUN_ORDER = ['warrior', 'rogue', 'mage', 'bard', 'monk', 'gambler', 'outlaw', 'sharper', 'dancer'];
 function feat(R, id) {
   const f = (R.feats ||= []);
   if (f.includes(id)) return;
@@ -299,8 +305,8 @@ export const BASE_DECK = ['fours', 'sixes', 'fives', 'full', 'four', 'sstr', 'ls
 export const RUN_CLASSES = {
   gambler: { hp: 104, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'full', kw: 'gold' }, skill: '배팅',
     get desc() { return `굴리기 전에 손패 1장에 배팅한다. 배팅한 카드를 내면 점수 ×${CLASS_TUNE.betMul}${CLASS_TUNE.gamblerGold ? `. 전투에서 얻는 골드 +${Math.round(CLASS_TUNE.gamblerGold * 100)}%` : ''}`; } },
-  monk:    { hp: 60, sp: 'ones', flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
-    get desc() { return `카드를 낼 때 남은 굴림 1회당 조정 +1${CLASS_TUNE.monkNudge < 9 ? ` (최대 ${CLASS_TUNE.monkNudge})` : ''}${CLASS_TUNE.monkBlock ? ` · 보호막 +${CLASS_TUNE.monkBlock}` : ''}`; } },
+  monk:    { hp: 66, sp: 'ones', flip: 0, nudge: 2, sig: { cat: 'choice', kw: 'quick' }, skill: '명상',
+    get desc() { return `명상: 카드를 낼 때 남은 굴림 1회당 조정 +1 · 뒤집기 +1 (명상으로는 각각 ${CLASS_TUNE.monkCap}개까지 채운다)${CLASS_TUNE.monkBlock ? ` · 보호막 +${CLASS_TUNE.monkBlock}` : ''}. 금욕: 상점을 쓸 수 없다 (이벤트는 된다)`; } },
   rogue:   { hp: 104, sp: 'ones', flip: 2, nudge: 0, sig: { cat: 'four', kw: 'pierce' }, skill: '그림자 손',
     get desc() { return `전투를 시작할 때마다 뒤집기 +${CLASS_TUNE.rogueFlip}. 뒤집기를 쓴 턴에 내는 카드는 점수 +${Math.round(CLASS_TUNE.rogueMul * 100)}%, 적 보호막을 무시한다`; } },
   warrior: { hp: 100, sp: 'threes', flip: 1, nudge: 1, sig: { cat: 'sixes', kw: 'guard' }, skill: '불굴',
@@ -317,7 +323,7 @@ export const RUN_CLASSES = {
     get desc() { return `굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다. 턴마다 ${CLASS_TUNE.dealsTurn}번, 전투마다 ${CLASS_TUNE.deals}번까지`; } },
 };
 // 직업 수치 (sim/run.mjs 로 맞춘다)
-export const CLASS_TUNE = { mageBonus: 0.5, betMul: 1.65, monkBlock: 0, monkNudge: 1, rogueFlip: 2, rogueMul: 0.8, warriorMul: 0.3, bardBlock: 5, bardHeal: 4,
+export const CLASS_TUNE = { mageBonus: 0.5, betMul: 1.65, monkBlock: 0, monkNudge: 1, monkFlipFrom: 1, monkOnce: 0, monkCap: 1, rogueFlip: 2, rogueMul: 0.8, warriorMul: 0.3, bardBlock: 5, bardHeal: 4,
   rushAny: 1.5, rushMul: 1.3, rushBlock: 6, deals: 8, dealsTurn: 2, danceMul: 0.12, gamblerGold: 0 };
 
 // ── 유물 (판 내내 켜져 있는 패시브) — 대부분 원래 특성 카드에서 옮겨 왔다 ──
@@ -840,7 +846,7 @@ function startTurn(R) {
   C.danced = false;
   C.sealed = []; C.frozen = []; C.gazed = [];
   C.pure = false; C.power = false; C.extraRolls = 0;
-  C.plays = 0; C.magnet = false; C.swapUsed = 0;
+  C.plays = 0; C.magnet = false; C.swapUsed = 0; C.monked = false;
   // 보존 상자: 손패에 남아 있던 보존 카드 수 (그 턴 첫 카드)
   C.keepUp = hasRelic(R, 'keepbox') ? C.hand.filter(c => hasKw(c, 'keep')).length * 0.15 : 0;
   C.swaps = 1 + (hasRelic(R, 'medal') ? 1 : 0);
@@ -1335,6 +1341,7 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   if (p.atk > 0 && card.cat === 'lstr' && p.dmg >= 60) feat(R, 'lstr60');
   if (p.atk > 0 && card.cat === 'yacht' && p.score > 0) feat(R, 'yacht');
   if (C.block >= 60 && incoming(R) > 0) feat(R, 'wall');
+  if (C.block >= 50) feat(R, 'bulwark');
   if (p.heal) {
     ev.heal = healHero(R, p.heal, 'card', true);
     // 피의 성배: 넘친 회복은 보호막
@@ -1348,7 +1355,10 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   if (p.weak) { C.e.weak = 1; ev.weak = true; }
   if (hasKw(card, 'lucky')) ev.flip = addTool(R, 'flip', 1);
   if (p.score === 0 && hasRelic(R, 'insure')) addTool(R, 'flip', 1);
-  if (R.cls === 'monk' && C.rollsLeft > 0) ev.nudge = addTool(R, 'nudge', Math.min(C.rollsLeft, CLASS_TUNE.monkNudge));
+  if (R.cls === 'monk' && C.rollsLeft > 0 && !(CLASS_TUNE.monkOnce && C.monked)) { const n = Math.min(C.rollsLeft, CLASS_TUNE.monkNudge), cap = CLASS_TUNE.monkCap;   // 명상으로는 cap 개까지만 채운다
+    const nn = Math.min(n, Math.max(0, cap - R.nudge)); if (nn) ev.nudge = addTool(R, 'nudge', nn);
+    const fl = Math.min(Math.max(0, C.rollsLeft - CLASS_TUNE.monkFlipFrom + 1), CLASS_TUNE.monkNudge, Math.max(0, cap - R.flip)); if (fl) ev.flip = addTool(R, 'flip', fl);
+    C.monked = true; }
   if (R.cls === 'dancer' && p.score >= DANCE_NEED && R.dance < DANCE_CAP) { R.dance++; ev.dance = true; }
   afterPlay(R, card, p, ev);
   // 카드는 버린 더미로 (메아리는 다음 턴 손패로). 달빛 복사본은 한 번 쓰면 사라진다
@@ -1554,7 +1564,7 @@ function winCombat(R) {
     R.stats.bosses++;
     if (R.act === 1) feat(R, 'act1');
     if (!C.taken) feat(R, 'flawless');
-    if (R.act >= ACTS) { feat(R, 'clear'); if (asc(R, 5)) feat(R, 'asc5'); if (asc(R, 10)) feat(R, 'asc10'); }
+    if (R.act >= ACTS) { feat(R, 'clear'); if (!R.stats.shop) feat(R, 'ascetic'); if (asc(R, 5)) feat(R, 'asc5'); if (asc(R, 10)) feat(R, 'asc10'); }
   }
   checkFeats(R);
   if (hasRelic(R, 'bloodsword')) R.kills = (R.kills || 0) + 1;
@@ -1652,6 +1662,7 @@ export const rrOf = R => ({ shop: R.rr?.shop || 0, pick: R.rr?.pick || 0 });
 // 상점 새로고침: 팔던 물건(카드 · 인장 · 유물 · 물약)을 새로 깐다. 도구 · 대장장이 · 카드 제거는 그대로
 export const rerollShop = act('rerollShop', function rerollShop(R) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
+  if (R.cls === 'monk') fail('금욕: 수도승은 상점을 쓸 수 없어요.');
   if (R.pick) fail('먼저 카드 고르기를 끝내 주세요.');
   if (rrOf(R).shop <= 0) fail('상점 새로고침이 남지 않았어요.');
   const old = R.shop, nu = genShop(R);
@@ -1753,12 +1764,14 @@ function shopRelics(R) {
 export const smithPrice = R => Math.round((70 + (R.smiths || 0) * 25) * (asc(R, 7) ? 1.25 : 1));
 export const startSmith = act('startSmith', function startSmith(R) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
+  if (R.cls === 'monk') fail('금욕: 수도승은 상점을 쓸 수 없어요.');
   if (R.shop.smithed) fail('이 상점에서는 이미 강화했어요.');
   startUpgrade(R, 'shop', smithPrice(R));
 });
 export const removePrice = R => Math.round((PRICE.remove + R.removes * PRICE.removeStep) * (asc(R, 7) ? 1.25 : 1));
 export const buy = act('buy', function buy(R, kind, idx) {
   if (R.phase !== 'shop' || !R.shop) fail('상점이 아니에요.');
+  if (R.cls === 'monk') fail('금욕: 수도승은 상점을 쓸 수 없어요.');
   const list = { card: R.shop.cards, relic: R.shop.relics, potion: R.shop.potions, tool: R.shop.tools, seal: R.shop.seals || [] }[kind];
   const it = list?.[idx];
   if (!it || it.sold) fail('이미 팔린 물건이에요.');
@@ -1768,6 +1781,7 @@ export const buy = act('buy', function buy(R, kind, idx) {
   // 인장: 붙일 카드를 고른 뒤에 값을 낸다
   if (kind === 'seal') { if (!R.deck.some(c => !c.seal)) fail('인장을 붙일 카드가 없어요.'); R.pick = { why: 'seal', seal: it.id, cost: it.price, idx, from: 'shop' }; return; }
   R.gold -= it.price;
+  R.stats.shop = (R.stats.shop || 0) + 1;    // 상점에서 산 횟수 (빈손의 순례)
   it.sold = true;
   if (kind === 'card') { R.deck.push({ ...it.c }); fx(R, { type: 'gainCard', u: it.c.u }); }
   if (kind === 'relic') gainRelic(R, it.id);
@@ -1776,6 +1790,7 @@ export const buy = act('buy', function buy(R, kind, idx) {
   fx(R, { type: 'buy', kind });
 });
 export const startRemove = act('startRemove', function startRemove(R) {
+  if (R.cls === 'monk') fail('금욕: 수도승은 상점을 쓸 수 없어요.');
   if (R.phase !== 'shop' || R.shop.removed) fail('카드 제거는 상점마다 한 번이에요.');
   if (R.gold < removePrice(R)) fail('골드가 모자라요.');
   if (R.deck.length <= 5) fail('덱이 너무 작아요 (최소 5장).');
@@ -1816,7 +1831,7 @@ export const chooseUpgrade = act('chooseUpgrade', function chooseUpgrade(R, k) {
   if (!c || !o) fail('없는 선택이에요.');
   if (o === 'up') c.up = 1;
   else { c.kws = [...kwsOf(c), o]; delete c.kw; }
-  if (pk.cost) { R.gold -= pk.cost; R.smiths = (R.smiths || 0) + 1; if (R.shop) R.shop.smithed = true; }
+  if (pk.cost) { R.gold -= pk.cost; R.smiths = (R.smiths || 0) + 1; if (R.shop) R.shop.smithed = true; if (pk.from === 'shop') R.stats.shop = (R.stats.shop || 0) + 1; }
   fx(R, { type: 'upgrade', u: c.u, opt: o });
   R.pick = null;
   if (pk.from === 'rest') R.phase = 'map';
@@ -1837,7 +1852,7 @@ export const pickDeck = act('pickDeck', function pickDeck(R, u) {
   if (pk.why === 'remove') {
     if (R.deck.length <= 5) fail('덱이 너무 작아요 (최소 5장).');
     R.deck = R.deck.filter(x => x.u !== u);
-    if (pk.cost) { R.gold -= pk.cost; R.removes++; R.shop.removed = true; }
+    if (pk.cost) { R.gold -= pk.cost; R.removes++; R.shop.removed = true; R.stats.shop = (R.stats.shop || 0) + 1; }
     if (pk.hp) { hurtHero(R, pk.hp, 'event'); if (R.hp <= 0 && !revive(R)) { R.pick = null; return loseRun(R); } }
     fx(R, { type: 'remove', u });
   }
@@ -1845,6 +1860,7 @@ export const pickDeck = act('pickDeck', function pickDeck(R, u) {
     if (c.seal) fail('이미 인장이 붙은 카드예요.');
     if (R.gold < (pk.cost || 0)) fail('골드가 모자라요.');
     R.gold -= pk.cost || 0;
+    if (pk.from === 'shop' && pk.cost) R.stats.shop = (R.stats.shop || 0) + 1;
     c.seal = pk.seal;
     if (pk.from === 'shop' && R.shop?.seals?.[pk.idx]) R.shop.seals[pk.idx].sold = true;
     fx(R, { type: 'sealOn', u, seal: pk.seal });
@@ -2534,6 +2550,7 @@ export function botRunStep(R, rng = Math.random) {
   }
   if (R.phase === 'shop') {
     const sh = R.shop;
+    if (R.cls === 'monk') return leaveShop(R);
     if (!sh.removed && R.gold >= removePrice(R) && R.deck.length > 7 && R.deck.some(c => botCardValue(R, c) < 7)) return startRemove(R);
     let relic = -1;
     sh.relics.forEach((x, i) => { if (!x.sold && x.price <= R.gold && (RELIC_POWER[x.id] ?? 5) > 2 && (relic < 0 || (RELIC_POWER[x.id] ?? 5) > (RELIC_POWER[sh.relics[relic].id] ?? 5))) relic = i; });
