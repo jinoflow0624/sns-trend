@@ -10,7 +10,7 @@ import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioS
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
-import { setAmbientSource, ambientSurge } from './ambient.js';
+import { setAmbientSource, ambientSurge, setTrayAura } from './ambient.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
@@ -1287,7 +1287,6 @@ async function makeTray() {
     tray = new DiceTray(trayHost(), trayOpts());
     tray.onTrail = (i, p, sp) => diceTrail(tray, p, sp);
     tray.onSlow = (i, on) => slowFx(on);
-    tray.onLand = (v, i, skin) => trayLand(tray, v, i, skin);
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -3166,8 +3165,9 @@ const fxS = v => v * (0.5 + DICE_FX * 0.5);   // 크기 · 빠르기 (70% 면 85
 function diceTrail(t, p, sp) {
   if (prefs.fx === 'min' || document.hidden) return;
   const id = t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin;
-  const tr = TRAIL[diceSkin(id).id];
-  if (!tr) return;
+  const tr0 = TRAIL[diceSkin(id).id];
+  if (!tr0) return;                       // 기본 · 미니멀 · 블랙 · 키캡: 효과 없음
+  const tr = { ...tr0, ...tintOf(t, tr0) };
   const fx = FX(), fast = sp > 0.5;
   fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
   if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
@@ -3190,7 +3190,8 @@ function diceTrail(t, p, sp) {
 // 특별한 주사위가 세게 부딪힐 때: 그 주사위 빛깔 불꽃이 반짝 터진다 (주사위마다 0.12초에 한 번까지)
 const sparkT = [];
 function hitSpark(id, v, i, t) {
-  const tr = TRAIL[id];
+  const tr0 = TRAIL[id];
+  const tr = tr0 && { ...tr0, ...tintOf(t, tr0) };
   if (!tr || v < 4 || !t || i == null || prefs.fx === 'min' || document.hidden) return;
   const now = performance.now();
   if (now - (sparkT[i] || 0) < 120) return;
@@ -3201,34 +3202,15 @@ function hitSpark(id, v, i, t) {
   if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
   else fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
 }
-// 주사위가 트레이 바닥에 떨어질 때: 트레이마다 다른 것이 튄다 (펠트 먼지 · 물방울 · 꽃잎 · 불티 · 별빛 …)
-//   grav: 아래로 + / 떠오르면 − · ring: 바닥에 퍼지는 물결 · glint: 반짝
-const LAND = {
-  marble:  { pal: ['#FFFFFF', '#F4ECD8', '#FFE27A'], n: 8, speed: [40, 110], grav: 220, size: [2, 3], life: [0.3, 0.5], glint: '#FFF6C8' },
-  royal:   { pal: ['#FFF0A8', '#FFD24A', '#FF9A1F'], n: 9, speed: [40, 120], grav: 200, size: [2, 3], life: [0.3, 0.55], glint: '#FFF6C8' },
-  deepsea: { pal: ['#FFFFFF', '#C8F4FF', '#7CE0FF', '#3AA8FF'], n: 10, speed: [60, 150], grav: 420, size: [2, 4], life: [0.35, 0.6], ring: '#9AE6FF' },
-  demon:   { pal: ['#E0CCFF', '#B98CFF', '#7A4BFF', '#C21E56'], n: 9, speed: [30, 90], grav: -90, size: [2, 4], life: [0.4, 0.75] },
-  sakura:  { pal: ['#FFFFFF', '#FF8AB8', '#FF6FA8', '#E8457E'], n: 7, speed: [30, 90], grav: 40, size: [3, 5], life: [0.6, 1.1], drag: 3.5 },
-  lava:    { pal: ['#FFF6C8', '#FFD24A', '#FF8A1A', '#FF4A1A'], n: 10, speed: [50, 140], grav: -60, size: [2, 4], life: [0.35, 0.7] },
-  starry:  { pal: ['#FFFFFF', '#C8B8FF', '#7CE0FF', '#FFE27A'], n: 7, speed: [30, 90], grav: -20, size: [2, 3], life: [0.4, 0.7], glint: '#FFFFFF' },
+// 트레이 색: 특별한 주사위의 궤적 · 부딪힘 불꽃에 그 트레이 테마 색을 섞는다 (트레이만의 착지 효과는 따로 없다 — 트레이는 ambient.js 의 은은한 입자)
+const TRAY_TINT = {
+  marble: ['#FFF6C8', '#F4ECD8', '#FFE27A'], royal: ['#FFD24A', '#FF9A1F', '#E8435A'], deepsea: ['#C8F4FF', '#7CE0FF', '#3AA8FF'],
+  demon: ['#B98CFF', '#7A4BFF', '#C21E56'], sakura: ['#FFB8D8', '#FF8AB8', '#FF6FA8'], lava: ['#FFD24A', '#FF8A1A', '#FF4A1A'], starry: ['#C8B8FF', '#7CE0FF', '#FFE27A'],
 };
-const landT = [];
-function trayLand(t, v, i, skin) {
-  const L = LAND[skin];
-  if (!L || v < 3 || prefs.fx === 'min' || document.hidden) return;
-  const now = performance.now();
-  if (now - (landT[i] || 0) < 110) return;                  // 주사위마다 0.11초에 한 번까지
-  landT[i] = now;
-  const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 3) / 9);
-  fx.c.classList.toggle('over', t === skinPreview);
-  const y = p.y + 8, r = 20;                                // 주사위 둘레 (바닥에 닿은 곳) — 주사위를 가리지 않게 가장자리에서 튄다
-  const n = Math.round(L.n * (1 + k) * 1.4), parts = 4;
-  for (let j = 0; j < parts; j++) {
-    const a = (j / parts) * Math.PI * 2 + Math.random() * 0.8, x = p.x + Math.cos(a) * r, yy = y + Math.sin(a) * r * 0.45;
-    fx.burst(x, yy, { n: Math.ceil(n / parts), pal: L.pal, speed: L.speed.map(q => q * (0.8 + k * 0.7)), size: L.size.map(q => q + 1), life: L.life, grav: L.grav, drag: L.drag ?? 2.4, dir: Math.atan2(Math.sin(a) * 0.45 - 0.9, Math.cos(a)), spread: 1.3 });
-  }
-  if (L.ring && v > 5) fx.ring(p.x, y, { color: L.ring, r0: 6, r1: 26 + k * 20, dur: 380, width: 2 });
-  if (L.glint && v > 5) fx.glint(p.x + (Math.random() - 0.5) * 20, y - 4, { color: L.glint, size: 8 + k * 6 });
+// 주사위 팔레트 앞 둘(밝은 색)은 남기고 나머지를 트레이 색으로
+function tintOf(t, tr) {
+  const tint = TRAY_TINT[t?.traySkin];
+  return tint ? { pal: [...tr.pal.slice(0, 2), ...tint], ring: tr.ring ? tint[1] : null } : {};
 }
 // 큰 한 방 (요트 · 30점 이상): 0.1초 멈칫(히트스톱) → 화면이 확 당겨졌다 튕겨 나오고, 가장자리가 어두워졌다 밝아진다
 function bigHit(power = 3) {
@@ -3341,7 +3323,6 @@ async function showSkins(tab = 'dice') {
     if (!host.isConnected) return;
     skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
     skinPreview.onTrail = (i, p, sp) => diceTrail(skinPreview, p, sp);
-    skinPreview.onLand = (v, i, skin) => trayLand(skinPreview, v, i, skin);
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }
@@ -4328,6 +4309,14 @@ addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: 
 
 // 설치형 앱(PWA)으로 쓸 때 오프라인 캐시
 // 배경 분위기 입자 (ambient.js): 대전 = 별빛 · 협동 보스전 = 불씨(분노면 더 뜨겁게) · 원정 = 막마다 (run/ui.js ambient)
+// 트레이 위에 테마 입자가 은은하게 떠다닌다 (트레이 스킨마다 · 기본 트레이는 없음). 꾸미기 미리보기도
+setTrayAura(() => {
+  if (prefs.fx === 'min') return null;
+  const pv = skinPreview && layer.querySelector('.skin-preview');
+  if (pv) return { skin: skinPreview.traySkin, el: pv, over: true };
+  const el = (screen === 'game' || screen === 'run') && document.getElementById('tray');
+  return el && tray?.traySkin ? { skin: tray.traySkin, el } : null;
+});
 setAmbientSource(() => {
   if (prefs.fx === 'min') return null;
   if (screen === 'game' && S) {

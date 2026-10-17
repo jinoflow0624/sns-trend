@@ -1631,6 +1631,7 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 @media (prefers-reduced-motion: reduce) { .bet-pick .bet-cat { animation: none; } }
 /* 배경 분위기 입자 (ambient.js): 화면 위에 옅게 (트레이 · 손패 자리는 비운다), 대화창 · 연출(fx 30)보다 아래. 반 해상도 캔버스를 키워 도트 느낌 */
 .ambient-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; image-rendering: pixelated; opacity: .85; }
+.ambient-canvas.over { z-index: 56; opacity: 1; }   /* 꾸미기 미리보기의 트레이 오라: 창 위에 */
 @media (prefers-reduced-motion: reduce) { .ambient-canvas { display: none; } }
 
 /* 싸움 화면은 주사위를 누를 때마다 새로 그린다. 계속 도는 움직임은 시계 기준 위상(--ph, render 가 넣는다)으로 이어 가서
