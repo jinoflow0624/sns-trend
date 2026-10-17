@@ -66,7 +66,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 // 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
 // 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
 // (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
-export const ART_VER = 'a2';
+export const ART_VER = 'a3';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 

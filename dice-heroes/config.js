@@ -3,6 +3,6 @@ export const GAME = {
   name: '요트 히어로즈',
   en: 'YACHT HEROES',
   studio: 'HAHAHOHO COMPANY',
-  version: '0.38.99',
+  version: '0.39.0',
   year: 2026,
 };
