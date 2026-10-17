@@ -445,8 +445,8 @@ export class DiceTray {
   }
 
   // 그림 난간 (assets/trays/<스킨>/rail_top · rail_side · corner_side · corner_top · rail_glow).
-  // 윗면을 스킨 모양대로 출렁이게(물결 · 톱니 · 바위) 하고, 네 모서리 기둥과 난간 가운데에 그 스킨의 보석을 얹는다.
-  // 물리 벽은 따로 있어서(평면) 겉모양만 바뀐다
+  // 테마 무늬 그림은 그대로 입히되 장식은 줄인다 (트레이가 너무 화려하다는 의견): 윗면 · 윤곽은 곧게, 보석은 없이, 모서리 기둥은 난간 높이로.
+  // 예전처럼 출렁이는 윤곽 · 보석을 쓰려면 스킨 rails 에 fancy: true. 물리 벽은 따로 있어서(평면) 겉모양만 바뀐다
   buildFancyFrame(id, st) {
     const S = st.rails, T = RAIL_T, H = 0.7;
     const grp = new THREE.Group();
@@ -466,6 +466,7 @@ export class DiceTray {
     // 윗면 높이 모양: x(난간 방향 거리)에 따라
     const seed = id.length * 7.3;
     const bump = x => {
+      if (!S.fancy) return 0;
       const a = S.amp, f = S.freq;
       if (S.shape === 'scallop') return a * Math.abs(Math.sin(x * f));
       if (S.shape === 'jag') { const q = (x * f / Math.PI) % 1; return a * (q < 0.5 ? q * 2 : (1 - q) * 2) + a * 0.3 * Math.sin(x * 7.1 + seed); }
@@ -493,22 +494,26 @@ export class DiceTray {
       if (rot) m.position.x = off; else m.position.z = off;
       m.castShadow = m.receiveShadow = true;
       grp.add(m);
-      // 난간 가운데 보석 (조금 떠서 솟은 모양)
-      const gem = this.frameGem(S, 0.17);
-      gem.position.set(rot ? off : 0, H + bump(off * 3.1) + 0.16, rot ? 0 : off);
-      grp.add(gem);
+      // 난간 가운데 보석 (조금 떠서 솟은 모양) — fancy 일 때만
+      if (S.fancy) {
+        const gem = this.frameGem(S, 0.17);
+        gem.position.set(rot ? off : 0, H + bump(off * 3.1) + 0.16, rot ? 0 : off);
+        grp.add(gem);
+      }
     }
     // 네 모서리 기둥 + 꼭대기 보석
-    const PW = 0.72, PH = H + 0.32;
+    const PW = S.fancy ? 0.72 : T, PH = S.fancy ? H + 0.32 : H + 0.02;
     const sideM = mat('corner_side', 1, false), topM = mat('corner_top', 1, false);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, PW), [sideM, sideM, topM, topM, sideM, sideM]);
       post.position.set(sx * (TRAY_W / 2 + T / 2), PH / 2, sz * (TRAY_D / 2 + T / 2));
       post.castShadow = post.receiveShadow = true;
       grp.add(post);
-      const gem = this.frameGem(S, 0.24);
-      gem.position.set(post.position.x, PH + 0.24, post.position.z);
-      grp.add(gem);
+      if (S.fancy) {
+        const gem = this.frameGem(S, 0.24);
+        gem.position.set(post.position.x, PH + 0.24, post.position.z);
+        grp.add(gem);
+      }
     }
     // 주사위 함 벽도 같은 그림 난간으로
     for (const [w, d, x, z] of [[TRAY_W + 2 * T + 2 * BOX_T, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2], [BOX_T, BOX_D, -(TRAY_W / 2 + T + BOX_T / 2), BOX_Z], [BOX_T, BOX_D, TRAY_W / 2 + T + BOX_T / 2, BOX_Z]]) {
