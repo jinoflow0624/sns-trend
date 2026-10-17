@@ -26,6 +26,13 @@ const BOX_D = 1.9;                           // 함 안쪽 깊이
 const BOX_Z = TRAY_D / 2 + RAIL_T + BOX_D / 2; // 함 안 주사위 줄 위치
 const BOX_T = 0.35, BOX_H = 0.42;            // 함 벽 두께·높이
 const SCENE_Z0 = -(TRAY_D / 2 + RAIL_T), SCENE_Z1 = BOX_Z + BOX_D / 2 + BOX_T;   // 화면에 담을 앞뒤 범위
+// 주사위 함 벽 [폭, 깊이, x, z]: 함 바깥 끝을 트레이 난간 바깥 끝에 맞춘다 (예전엔 벽 두께만큼 옆으로 삐져나와 계단이 졌다)
+const BOX_OUT = TRAY_W / 2 + RAIL_T;
+const BOX_WALLS = [
+  [2 * BOX_OUT, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2],
+  [BOX_T, BOX_D, -(BOX_OUT - BOX_T / 2), BOX_Z],
+  [BOX_T, BOX_D, BOX_OUT - BOX_T / 2, BOX_Z],
+];
 const FPS = 60;
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -186,19 +193,14 @@ export class DiceTray {
 
     // 주사위 함 (트레이 앞 난간에 붙은 낮은 나무 상자)
     const boxFloor = this.boxFloor = new THREE.Mesh(
-      new THREE.PlaneGeometry(TRAY_W + 2 * T, BOX_D),
+      new THREE.PlaneGeometry(2 * (BOX_OUT - BOX_T), BOX_D),
       new THREE.MeshStandardMaterial({ roughness: 0.8 }),
     );
     boxFloor.rotation.x = -Math.PI / 2;
     boxFloor.position.set(0, 0.001, BOX_Z);
     boxFloor.receiveShadow = true;
     scene.add(boxFloor);
-    const boxWalls = [
-      [TRAY_W + 2 * T + 2 * BOX_T, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2],
-      [BOX_T, BOX_D, -(TRAY_W / 2 + T + BOX_T / 2), BOX_Z],
-      [BOX_T, BOX_D, TRAY_W / 2 + T + BOX_T / 2, BOX_Z],
-    ];
-    for (const [w, d, x, z] of boxWalls) {
+    for (const [w, d, x, z] of BOX_WALLS) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, BOX_H, d), wood);
       m.position.set(x, BOX_H / 2, z);
       m.castShadow = true; m.receiveShadow = true;
@@ -516,7 +518,7 @@ export class DiceTray {
       }
     }
     // 주사위 함 벽도 같은 그림 난간으로
-    for (const [w, d, x, z] of [[TRAY_W + 2 * T + 2 * BOX_T, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2], [BOX_T, BOX_D, -(TRAY_W / 2 + T + BOX_T / 2), BOX_Z], [BOX_T, BOX_D, TRAY_W / 2 + T + BOX_T / 2, BOX_Z]]) {
+    for (const [w, d, x, z] of BOX_WALLS) {
       const along = w >= d, len = along ? w : d, thick = along ? d : w;
       const m = rail(len, thick, BOX_H, x * 2.3 + z, along ? 1 : Math.sign(x));
       m.position.set(x, BOX_H / 2, z);
@@ -583,9 +585,9 @@ export class DiceTray {
       this.camera.updateMatrixWorld();
     };
     place();
-    // 앞쪽 주사위 함은 트레이보다 넓고 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝 장식(보석)이 잘렸다.
-    // 함 바닥 양 끝 장식 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 벽까지 다 넣으면 주사위가 너무 작아진다)
-    const XE = TRAY_W / 2 + RAIL_T - 0.15, XR = TRAY_W / 2 + RAIL_T;
+    // 앞쪽 주사위 함은 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝이 잘렸다.
+    // 함 바닥 양 끝 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 끝은 이제 난간 바깥 끝과 같은 선)
+    const XE = BOX_OUT - 0.15, XR = BOX_OUT;
     const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
     const v = new THREE.Vector3();
     for (let k = 0; k < 40; k++) {
