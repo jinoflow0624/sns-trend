@@ -516,12 +516,14 @@ function clampDiff(o) {
   if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss);
 }
 
+// 마왕 · 마신: 해금하기 전에는 자리(잠금 칸)도 보이지 않는다 (스포일러 방지)
+const finalShown = b => !b.final || (demonOpen() && (!b.base || upgradeOpen(b.id)));
 function bossPicker(o) {
   clampDiff(o);
   return `
   <section class="frame mode-box">
     <div class="bosses">
-      ${E.BOSSES.map(b => b.final && !demonOpen()
+      ${E.BOSSES.filter(finalShown).map(b => b.final && !demonOpen()
         ? `<button class="boss-pick sealed-boss final hidden-boss" data-act="boss-locked">
           <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
         : !upgradeOpen(b.id)
@@ -3092,7 +3094,7 @@ function showDashboard() {
         <h3 class="dash-h">보스 토벌 <small>최고 등급</small></h3>
         <div class="dash-boss">
           <span></span>${E.DIFFS.map(d => `<small style="color:${d.color}">${d.ko}</small>`).join('')}
-          ${E.BOSSES.map(b => `${b.final && !(b.base ? upgradeOpen(b.id) : demonOpen()) ? `<span class="bp-seal mini">${ico('lock', 'xs')}</span>` : portrait(b.id, 'mini')}${E.DIFFS.map(d => {
+          ${E.BOSSES.filter(finalShown).map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
             if (!E.bossDiffs(b.id).includes(d.id)) return '<span class="db-none"></span>';   // 강화 보스 · 마신은 쉬움이 없다
             const r = prof.bosses[`${b.id}:${d.id}`];
             return `<span class="db-cell${r?.grade ? ` g${r.grade}` : ''}">${r ? `<b>${r.grade}</b><small>${r.wins}/${r.tries}</small>` : '-'}</span>`;
