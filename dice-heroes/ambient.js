@@ -15,6 +15,19 @@ const MODES = {
 };
 let cv = null, g = null, want = null, cur = null, parts = [], raf = 0, last = 0, src = null, poll = 0;
 let surgeAmt = 0;            // 0~1: 보스 스킬 직후 불씨가 밝고 커진다
+// 트레이 오라: 트레이 위에만 그 트레이 테마 입자가 은은하게 떠다닌다 (setTrayAura(fn) — fn() → { skin, el, over } 또는 null)
+//   n: 동시에 떠 있는 수 · col: 'r,g,b' 색들 · v: [vx, vy] (반 해상도 px/초) · sway: 좌우로 흔들림 · tw: 반짝임 · life: [최소, 최대] 초 · s: 크기
+const AURA = {
+  marble:  { n: 13,  col: ['255,246,200', '255,226,122'], v: [0, -3], sway: 2, tw: 1, life: [3, 6], s: [2, 3] },          // 금빛 티끌
+  royal:   { n: 16, col: ['255,210,74', '255,240,168', '232,67,90'], v: [0, -4], sway: 3, tw: 1, life: [3, 6], s: [2, 3] },   // 금가루 반짝
+  deepsea: { n: 14,  col: ['200,244,255', '124,224,255'], v: [0, -7], sway: 4, life: [3, 5], s: [2, 3], bubble: 1 },       // 물방울이 떠오른다
+  demon:   { n: 16, col: ['185,140,255', '122,75,255', '194,30,86'], v: [0, -6], sway: 3, life: [2, 4], s: [2, 3] },       // 보라 불꽃
+  sakura:  { n: 11,  col: ['255,184,216', '255,138,184', '255,255,255'], v: [5, 6], sway: 6, life: [4, 7], s: [2, 3] },     // 꽃잎이 흩날린다
+  lava:    { n: 19, col: ['255,138,26', '255,210,74', '255,74,26'], v: [0, -9], sway: 3, life: [2, 4], s: [2, 3] },       // 불티가 솟는다
+  starry:  { n: 19, col: ['255,255,255', '200,184,255', '124,224,255'], v: [0, 0], sway: 0, tw: 1, life: [3, 7], s: [2, 3] },  // 별이 깜박인다
+};
+let trayFn = null, aura = null, auraRect = null, auraParts = [];
+export function setTrayAura(fn) { trayFn = fn; }
 // 화면 위에 아주 옅게 깔리되, 트레이 · 손패 위에는 그리지 않는다 (주사위 · 카드가 가려지지 않게). 0.5초마다 위치를 다시 잰다
 const AVOID = '#tray, .tray, .hand, .modal, .deck-box, .split';
 let holes = [];
@@ -57,15 +70,17 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 
 function frame(now) {
   raf = 0;
-  if (!cur || document.hidden) return;
+  if ((!cur && !aura) || document.hidden) return;
   if (now - last < 33) { raf = requestAnimationFrame(frame); return; }     // 초당 30번까지만
   const dt = Math.min(0.1, (now - last) / 1000 || 0.033);
   last = now;
+  g.clearRect(0, 0, cv.width, cv.height);
+  drawAura(dt);
+  if (!cur) { raf = requestAnimationFrame(frame); return; }
   const mode = cur.mode, m = MODES[mode], w = W() / 2, h = H() / 2;
   const hot = Math.min(1, (cur.hot ? 0.5 : 0) + surgeAmt);
   surgeAmt = Math.max(0, surgeAmt - dt * 0.6);
   while (parts.length < m.n * (1 + hot)) parts.push(make(mode, false));
-  g.clearRect(0, 0, cv.width, cv.height);
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
     p.life += dt; p.t += dt;
@@ -89,12 +104,38 @@ function frame(now) {
   raf = requestAnimationFrame(frame);
 }
 
+// 트레이 오라 한 장면 (반 해상도 좌표). 트레이 칸 안에서만 태어나고 칸을 벗어나면 사라진다
+function drawAura(dt) {
+  if (!aura || !auraRect) return;
+  const A = AURA[aura.skin], r = auraRect;
+  const l = r.left / 2, t = r.top / 2, w = r.width / 2, h = r.height / 2;
+  while (auraParts.length < A.n) auraParts.push({ x: l + rnd(0, w), y: t + rnd(0, h), t: rnd(0, 6.28), life: 0, max: rnd(...A.life), c: A.col[Math.floor(Math.random() * A.col.length)], s: Math.round(rnd(...A.s)) });
+  for (let i = auraParts.length - 1; i >= 0; i--) {
+    const p = auraParts[i];
+    p.life += dt; p.t += dt;
+    p.x += (A.v[0] + Math.sin(p.t * 1.1) * A.sway) * dt;
+    p.y += A.v[1] * dt;
+    let a = Math.min(1, p.life * 1.5) * Math.max(0, 1 - p.life / p.max);
+    if (A.tw) a *= 0.35 + 0.65 * Math.max(0, Math.sin(p.t * 2.2));
+    a *= 0.85;
+    if (a > 0.02) {
+      g.fillStyle = `rgba(${p.c},${(a * 0.22).toFixed(3)})`;               // 둘레가 은은하게 번진다
+      g.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, p.s + 2, p.s + 2);
+      g.fillStyle = `rgba(${p.c},${a.toFixed(3)})`;
+      g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+      if (A.bubble && p.s > 1) { g.fillStyle = `rgba(${p.c},${(a * 0.35).toFixed(3)})`; g.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, p.s + 2, p.s + 2); }
+      else if (A.tw && a > 0.5) { g.fillStyle = `rgba(${p.c},${(a * 0.3).toFixed(3)})`; g.fillRect(Math.round(p.x) - 1, Math.round(p.y), p.s + 2, p.s); g.fillRect(Math.round(p.x), Math.round(p.y) - 1, p.s, p.s + 2); }
+    }
+    if (p.life > p.max || p.x < l - 4 || p.x > l + w + 4 || p.y < t - 4 || p.y > t + h + 4) auraParts.splice(i, 1);
+  }
+}
+
 function apply(next) {
   const key = next ? `${next.mode}|${next.color || ''}|${next.hot ? 1 : 0}` : '';
   if (key === (cur ? `${cur.mode}|${cur.color || ''}|${cur.hot ? 1 : 0}` : '')) return;
   const modeChanged = (next?.mode || null) !== (cur?.mode || null);
   cur = next;
-  if (!cur) { parts = []; if (cv) { g.clearRect(0, 0, cv.width, cv.height); cv.style.display = 'none'; } return; }
+  if (!cur) { parts = []; if (cv && !aura) { g.clearRect(0, 0, cv.width, cv.height); cv.style.display = 'none'; } return; }
   ensure();
   cv.style.display = '';
   if (modeChanged) { parts = []; for (let i = 0; i < MODES[cur.mode].n; i++) parts.push(make(cur.mode, true)); }
@@ -107,11 +148,30 @@ export function setAmbientSource(fn) {
   clearInterval(poll);
   const check = () => {
     let v = null; try { v = src?.() || null; } catch { v = null; } if (v && !MODES[v.mode]) v = null;
+    checkAura();
     apply(v);
     if (cur) holes = [...document.querySelectorAll(AVOID)].map(e => e.getBoundingClientRect()).filter(r => r.width && r.height).map(r => ({ l: r.left, r: r.right, t: r.top, b: r.bottom }));
   };
   check();
   poll = setInterval(check, 500);
+}
+// 트레이 오라 켜고 끄기 · 트레이 자리 재기 (0.5초마다)
+function checkAura() {
+  let a = null; try { a = trayFn?.() || null; } catch { a = null; }
+  if (a && !AURA[a.skin]) a = null;
+  if ((a?.skin || null) !== (aura?.skin || null)) auraParts = [];
+  aura = a;
+  const r = a?.el?.getBoundingClientRect();
+  auraRect = r && r.width && r.height ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+  if (aura) {
+    ensure();
+    cv.style.display = '';
+    cv.classList.toggle('over', !!aura.over);
+    if (!raf) raf = requestAnimationFrame(frame);
+  } else if (cv) {
+    cv.classList.remove('over');
+    if (!cur) { g.clearRect(0, 0, cv.width, cv.height); cv.style.display = 'none'; }
+  }
 }
 // 보스가 스킬을 쓸 때: 불씨가 잠깐 더 밝고 크게 (power 0~1)
 export function ambientSurge(power = 1) {
