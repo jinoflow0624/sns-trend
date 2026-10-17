@@ -55,7 +55,22 @@ export function init(ctx) {
     setTimeout(resolve, 3000);
   }));
 }
-export const syncAch = () => Prog.syncAch();   // 원정 기록 → 도전과제 (테스트판)
+export const syncAch = () => Prog.syncAch();
+export const reloadProgress = () => { Prog.reload(); if (ui.view === 'select' && !R) paintSelect(); };
+export const refreshSelect = () => { if (ui.view === 'select' && !R) paintSelect(); };
+// 원정 직업이 열렸나: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석으로 산 직업
+function runOpen(id, b = best()) {
+  const u = Run.RUN_UNLOCK[id];
+  if (u?.free) return true;
+  if (u?.feat) return b.feats.includes(u.feat);
+  return X.ownsRun(id);
+}
+// 잠긴 직업을 여는 방법 (한 줄)
+function unlockHow(id) {
+  const u = Run.RUN_UNLOCK[id];
+  if (u?.feat) { const f = Run.FEATS.find(x => x.id === u.feat); return `${ico('trophy', 'xs')} 도전과제 「${f.ko}」: ${f.desc.replace(/ · .*$/, '')}`; }
+  return `${ico('gem', 'xs')} 보석 ${X.runPrice(id).toLocaleString()}으로 해금`;
+}   // 원정 기록 → 도전과제 (테스트판)
 export const savedRun = store => { const s = store.get(SAVE); return s && s.v === 1 && !s.ended ? s : null; };
 function save() {
   if (!R) return;
@@ -199,17 +214,17 @@ function classInfoHTML(id, b) {
 }
 function paintSelect() {
   tour('select');
-  const sel = ui.cls || X.store.get('diceheroes.runCls') || 'gambler';
+  const sel = ui.cls || X.store.get('diceheroes.runCls') || 'warrior';
   ui.cls = sel;
   const bb = best();
   ui.asc = Math.min(ascOpen(bb, sel), (X.store.get('diceheroes.runAsc') || {})[sel] ?? ascOpen(bb, sel));
   const info = classInfo(sel);
   const b = best();
-  const ids = Object.keys(Run.RUN_CLASSES), k = ids.indexOf(sel);
+  const ids = Run.RUN_ORDER, k = Math.max(0, ids.indexOf(sel));
   const at = d => ids[(k + d + ids.length * 2) % ids.length];
   const deck = startDeck(sel), sig = deck[deck.length - 1];
   const spin = ui.spin && Date.now() - ui.spin.t < 400 ? (ui.spin.d > 0 ? ' spin-r' : ' spin-l') : '';
-  const slot = d => { const id = at(d), c = classInfo(id), owned = X.owns(id);
+  const slot = d => { const id = at(d), c = classInfo(id), owned = runOpen(id, bb);
     return `<button class="dial-hero d${d}${owned ? '' : ' locked'}" style="--c:${c.color}" data-act="${d ? 'run-cls' : 'run-talk'}" data-id="${id}" data-d="${d}" ${d ? '' : `data-rcls="${id}"`} aria-label="${c.ko}">${hero(id)}</button>`; };
   X.layer.innerHTML = '';
   X.app.innerHTML = `
@@ -225,7 +240,7 @@ function paintSelect() {
       <div class="dial-track">${[-2, -1, 0, 1, 2].map(slot).join('')}</div>
       <button class="dial-arrow" data-act="run-cls" data-id="${at(1)}" data-d="1" aria-label="다음 직업">▶</button>
     </div>
-    <b class="rs-name" style="--c:${info.color}">${[...info.ko].map((ch, i) => `<i class="rs-ch" style="--i:${i}">${ch}</i>`).join('')}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${X.owns(sel) ? '' : ` ${ico('lock', 'xs')}`}</b>
+    <b class="rs-name" style="--c:${info.color}">${[...info.ko].map((ch, i) => `<i class="rs-ch" style="--i:${i}">${ch}</i>`).join('')}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${runOpen(sel, bb) ? '' : ` ${ico('lock', 'xs')}`}</b>
     <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
       ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n};background-image:url(${cardBackURL(sel)})"></i>`).join('')}
       <div class="rc rc-static rs-front">${cardFace(sig)}</div>
@@ -233,7 +248,9 @@ function paintSelect() {
     </div>
     <div class="rs-go">
       <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 출정 채비 <b>${starIco()}${b.meta.stars}</b></span></button>
-      <button class="pbtn gold big" data-act="run-go">원정 떠나기</button>
+      ${runOpen(sel, bb) ? '<button class="pbtn gold big" data-act="run-go">원정 떠나기</button>'
+        : Run.RUN_UNLOCK[sel]?.feat ? `<p class="rs-lockhow">${unlockHow(sel)}</p>`
+        : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${ico('gem', 'xs')} ${X.runPrice(sel).toLocaleString()}에 해금</button>`}
       <button class="pbtn small trial-btn" data-act="run-trial">시험 원정 · 특별 카드</button>
     </div>
   </div>`;
@@ -734,6 +751,7 @@ function openSplit(u) {
   bindSplit();
   paintSplit();
   $('rtip').innerHTML = tipText(false);
+  if (!fixed && !ui.split.lock) tour('split', 250);
 }
 // 카드를 고른 채(공격 · 방어 나누기 · 배팅 묻기) 카드와 그 위 창 바깥 아무 데나 누르면 고르기를 취소한다
 document.addEventListener('pointerdown', e => {
@@ -1271,6 +1289,7 @@ async function playOne(f) {
       if (f.flip) floatAt(h.x, h.y - 70, `${ico('flip', 'xs')}+1`, 'mint');
       if (f.dance) floatAt(h.x, h.y - 70, `${ico('sparkle', 'xs')}춤사위 +1`, 'gold');
       if (f.nudge) floatAt(h.x + 30, h.y - 70, `${ico('nudge', 'xs')}+${f.nudge}`, 'mint');
+      if (f.flip) floatAt(h.x - 30, h.y - 70, `${ico('flip', 'xs')}+${f.flip}`, 'mint');
       if (f.sealUsed) sealBurst(f.sealUsed, f.target === 'enemy' ? e : h);
       if (f.moon) floatAt(h.x, h.y - 100, `달빛 복사본 +${f.moon}`, 'sky');
       if (f.grow) floatAt(h.x - 30, h.y - 90, `${ico('crown', 'xs')}주인공 기본 점수 +${f.grow}`, 'gold');
@@ -1649,9 +1668,10 @@ function showShop() {
   const shelf = (list, cls = '') => (list.length ? `<div class="shelf${cls}"><div class="shelf-row">${list.join('')}</div><i class="shelf-plank" aria-hidden="true"></i></div>` : '');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
-  <div class="screen run-shop">
+  <div class="screen run-shop${R.cls === 'monk' ? ' ascetic' : ''}">
     ${hud()}
     <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div>${rerollBtn('run-reshop', Run.rrOf(R).shop)}</div>
+    ${R.cls === 'monk' ? `<p class="ascetic-note">${ico('lotus', 'xs')} 금욕: 수도승은 상점을 쓸 수 없어요. 구경만 하고 지나가요</p>` : ''}
     <div class="shop-scroll shop-stall">
       ${shelf(cards, ' cards')}
       ${shelf([...seals, ...relics])}
@@ -2012,7 +2032,20 @@ export function onAct(act, t) {
   }
   if (act === 'run-talk') return X.speak(t, runLine(t.dataset.id));
   // 원정 떠나기: 하드모드가 열렸으면 단계를 고르는 창, 아니면 바로 출발
-  if (act === 'run-go') { if (!ascOpen(best(), ui.cls)) return onAct('run-start', t); sfx.select(); return showAsc(); }
+  if (act === 'run-unlock') {          // 보석으로 원정 직업 사기 (app.js 의 buy 가 받는다)
+    const id = t.dataset.id, price = X.runPrice(id), c = classInfo(id);
+    sfx.select();
+    X.layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame buy-cls" data-act="noop" style="--c:${c.color}">
+      <h2>원정 ${c.ko} 해금</h2>
+      <p>${esc(Run.RUN_CLASSES[id].desc)}</p>
+      <p class="hint">보유 ${ico('gem', 'xs')}${X.gems().toLocaleString()} · 원정에서만 쓰는 직업이에요 (대전 직업과 따로)</p>
+      <div class="modal-actions"><button class="pbtn" data-act="close">취소</button>
+        <button class="pbtn gold" data-act="buy" data-kind="run" data-id="${id}" ${X.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()}에 해금</button></div>
+    </div></div>`;
+    return;
+  }
+  if (act === 'run-go') {
+    if (!runOpen(ui.cls)) return; if (!ascOpen(best(), ui.cls)) return onAct('run-start', t); sfx.select(); return showAsc(); }
   if (act === 'run-ascopen') { sfx.select(); return showAsc(); }
   if (act === 'run-asc' || act === 'run-ascset') {
     const b = best(), want = act === 'run-asc' ? (ui.asc || 0) + Number(t.dataset.d) : Number(t.dataset.v);

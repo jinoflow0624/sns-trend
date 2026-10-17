@@ -15,6 +15,8 @@ const LOCAL = 'diceheroes.runBest';
 let store = null;
 let P = null;                      // 지금 기록 (서버 사본 또는 기기 저장)
 export const syncAch = () => syncRunAch(progress());
+// 기기 저장을 다시 읽는다 (테스트판 잠금 되돌리기 뒤)
+export function reload() { if (!PROD) P = null; }
 export function initProgress(s) { store = s; syncRunAch(progress()); }   // 예전 원정 기록도 도전과제에 옮긴다
 
 // 예전 기기 저장 모양 { runs, wins, top, cls, asc, feats, meta: { stars, lv, dice, equip } } → 지금 모양

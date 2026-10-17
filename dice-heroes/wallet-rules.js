@@ -6,7 +6,9 @@ export const STARTER_GEMS = 30000;           // 지금은 모든 사용자에게
 export const CLASS_PRICE = { rogue: 600, warrior: 900, bard: 1000, mage: 1500, dancer: 1500, outlaw: 1800, sharper: 1800 };
 export const DICE_PRICE = { openheart: 1500, cosmic: 1500, gold: 1200, clear: 1000, heart: 1000, keycap: 1000, black: 900, minimal: 800 };
 export const TRAY_PRICE = { demon: 1000, lava: 1000, starry: 1000, royal: 800, deepsea: 800, marble: 800, sakura: 700 };
-export const PRICE = { cls: CLASS_PRICE, dice: DICE_PRICE, tray: TRAY_PRICE };
+// 원정 직업 (대전 직업과 따로 산다). 전사 · 도적 · 마법사는 기본, 음유시인 · 수도승은 원정 도전과제로 연다 (run/rules.js RUN_UNLOCK)
+export const RUN_CLASS_PRICE = { gambler: 800, outlaw: 1200, sharper: 1200, dancer: 1500 };
+export const PRICE = { cls: CLASS_PRICE, dice: DICE_PRICE, tray: TRAY_PRICE, run: RUN_CLASS_PRICE };
 export const priceOf = (kind, id) => PRICE[kind]?.[id] || 0;
 
 export const VS_WIN = 100, VS_WIN_BOT = 30, VS_DAILY = 3;

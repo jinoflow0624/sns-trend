@@ -474,7 +474,7 @@ test('전투에서 이기면 보상: 골드 · 카드 고르기, 받고 나서 �
   assert.equal(R.phase, 'map');
 });
 test('상점: 골드로 사고, 카드 제거는 한 번', () => {
-  const R = run('monk');
+  const R = run('warrior');
   R.gold = 999;
   R.phase = 'shop';
   R.shop = (() => { R.phase = 'map'; const id = Run.nextNodes(R)[0]; R.map.nodes[id].type = 'shop'; Run.enterNode(R, id); return R.shop; })();
@@ -670,8 +670,24 @@ test('인장: 해 ×1.5 점수 · 구름 보호막 20 · 별 골드 15 · 달은
   Run.playCard(M, M.C.hand.indexOf(copy), 'enemy');
   assert.ok(![...M.C.draw, ...M.C.discard, ...M.C.hand].some(c => c.u === copy.u));   // 쓰고 나면 사라진다
 });
+test('수도승 금욕: 상점에서 사거나 빼거나 강화할 수 없다 · 상점에서 산 횟수를 센다', () => {
+  const M = mk({ cls: 'monk', seed: 3 }); M.phase = 'shop'; M.gold = 999; M.shop = { cards: [{ c: { u: 9001, cat: 'ones', up: 0 }, price: 10, sold: false }], relics: [], potions: [], tools: [], seals: [], removed: false, smithed: false };
+  assert.throws(() => Run.buy(M, 'card', 0), /금욕/);
+  assert.throws(() => Run.startRemove(M), /금욕/);
+  assert.throws(() => Run.startSmith(M), /금욕/);
+  const W = mk({ cls: 'warrior', seed: 3 }); W.phase = 'shop'; W.gold = 999; W.shop = { cards: [{ c: { u: 9002, cat: 'ones', up: 0 }, price: 10, sold: false }], relics: [], potions: [], tools: [], seals: [], removed: false, smithed: false };
+  Run.buy(W, 'card', 0);
+  assert.equal(W.stats.shop, 1);
+});
+test('원정 직업 해금 표: 기본 3 · 도전과제 2 · 나머지는 보석', () => {
+  assert.deepEqual(Run.RUN_ORDER.slice(0, 3), ['warrior', 'rogue', 'mage']);
+  assert.equal(Run.RUN_ORDER.length, Object.keys(Run.RUN_CLASSES).length);
+  assert.equal(Run.RUN_UNLOCK.bard.feat, 'bulwark');
+  assert.equal(Run.RUN_UNLOCK.monk.feat, 'ascetic');
+  assert.ok(Run.FEATS.some(f => f.id === 'bulwark') && Run.FEATS.some(f => f.id === 'ascetic'));
+});
 test('상점 인장: 사면 붙일 카드를 고르고, 이미 붙은 카드엔 못 붙인다', () => {
-  const R = mk({ cls: 'monk', seed: 2 }); R.phase = 'shop'; R.gold = 200; R.shop = { cards: [], relics: [], potions: [], tools: [], seals: [{ id: 'star', price: 30, sold: false }], removed: false, smithed: false };
+  const R = mk({ cls: 'warrior', seed: 2 }); R.phase = 'shop'; R.gold = 200; R.shop = { cards: [], relics: [], potions: [], tools: [], seals: [{ id: 'star', price: 30, sold: false }], removed: false, smithed: false };
   Run.buy(R, 'seal', 0);
   assert.equal(R.pick.why, 'seal');
   Run.pickDeck(R, R.deck[0].u);

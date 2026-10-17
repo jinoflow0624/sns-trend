@@ -1649,3 +1649,8 @@ body.bighit::after { animation: bigHitVig .8s ease-out; }
 @media (prefers-reduced-motion: reduce) { body.bighit::after { animation: none; } }
 .set-links.test-only { flex-wrap: wrap; gap: 4px 10px; font-size: 11px; }
 .set-links.test-only b { color: var(--gold); font-size: 11px; }
+/* 마왕 · 마신: 해금 전에는 실루엣도 보이지 않는다 (스포일러 방지) */
+.boss-pick.hidden-boss { --c: #4A4290; }
+.boss-pick .bp-seal { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto; background: repeating-linear-gradient(45deg, #120D30 0 6px, #1B1442 6px 12px); border: 2px dashed #4A4290; }
+.boss-pick .bp-seal .ico { width: 24px; height: 24px; opacity: .7; }
+.bp-seal.mini { display: grid; place-items: center; width: 32px; height: 32px; background: repeating-linear-gradient(45deg, #120D30 0 4px, #1B1442 4px 8px); border: 1px dashed #4A4290; }
