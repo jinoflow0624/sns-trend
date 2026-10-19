@@ -42,6 +42,7 @@ let pendingRun = null;
 export function loadWallet() {
   ready ||= (async () => {
     W = readLocal();                            // 먼저 기기 사본으로 화면을 그린다
+    if (W && !PROD) W.gems = TEST_GEMS;
     emit();
     const app = await fireApp();
     fb = app.fb;
@@ -61,7 +62,10 @@ export function loadWallet() {
   })().catch(err => { ready = null; console.warn('[wallet]', err); W ||= readLocal(); throw err; });
   return ready;
 }
+// 테스트판은 보석 무제한: 언제나 이만큼 채워 둔다 (사도 줄지 않는다). 배포판은 서버 지갑 그대로
+const TEST_GEMS = 99999999;
 function fix(w) {
+  if (!PROD) w.gems = TEST_GEMS;
   w.owned ||= {};
   w.clears ||= {};
   w.vs ||= { day: 0, n: 0 };
