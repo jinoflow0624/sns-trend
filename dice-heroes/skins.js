@@ -20,13 +20,13 @@ export const DICE_SKINS = [
 
 export const TRAY_SKINS = [
   { id: 'classic', name: '기본', desc: '초록 펠트 · 나무 테두리', tier: 'free' },
-  { id: 'marble', name: '클래식', desc: '상아빛 대리석 · 빛나는 황금 나침반', tier: 'special' },
-  { id: 'royal', name: '왕실', desc: '진홍 벨벳에 황금 왕관', tier: 'special' },
-  { id: 'deepsea', name: '심해', desc: '일렁이는 물빛 · 산호와 별 나침반', tier: 'special' },
-  { id: 'demon', name: '마왕성', desc: '검은 돌바닥에 보랏빛으로 타오르는 삼지창 문장', tier: 'special' },
-  { id: 'sakura', name: '벚꽃', desc: '연분홍 바닥에 피어난 벚꽃 문양', tier: 'special' },
+  { id: 'marble', name: '클래식', desc: '상아빛 대리석 · 얇은 금선', tier: 'special' },
+  { id: 'royal', name: '왕실', desc: '진홍 벨벳 · 얇은 금선', tier: 'special' },
+  { id: 'deepsea', name: '심해', desc: '일렁이는 깊은 물빛', tier: 'special' },
+  { id: 'demon', name: '마왕성', desc: '검은 돌바닥 · 보랏빛 틈', tier: 'special' },
+  { id: 'sakura', name: '벚꽃', desc: '연분홍 화지에 흩날린 꽃잎', tier: 'special' },
   { id: 'lava', name: '용암', desc: '갈라진 현무암 사이로 끓는 용암', tier: 'special' },
-  { id: 'starry', name: '은하', desc: '밤하늘 초승달 · 반짝이는 별자리', tier: 'special' },
+  { id: 'starry', name: '은하', desc: '별 가루 반짝이는 밤하늘', tier: 'special' },
 ];
 
 export const diceSkin = id => DICE_SKINS.find(s => s.id === id) || DICE_SKINS[0];

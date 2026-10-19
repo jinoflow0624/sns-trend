@@ -3284,10 +3284,11 @@ async function showSkins(tab = 'dice') {
       <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
       ${open ? (k.tier === 'special' ? '<span class="skin-tag">보유</span>' : '') : `<span class="skin-tag price">${ico('gem', 'xs')}${Wal.priceOf(tab, k.id).toLocaleString()}</span>`}
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
+      ${trying ? `<span class="skin-buy" role="button" tabindex="0" data-act="buy" data-kind="${tab}" data-id="${k.id}">${ico('gem', 'xs')} ${Wal.priceOf(tab, k.id).toLocaleString()} 사기</span>` : ''}
     </button>`;
   }).join('');
-  const buyBar = () => skinTry ? `<div class="buy-bar"><span>${esc((skinTry.kind === 'dice' ? diceSkin : traySkin)(skinTry.id).name)} 미리 보는 중</span>
-      <button class="pbtn gold small" data-act="buy" data-kind="${skinTry.kind}" data-id="${skinTry.id}">${ico('gem', 'xs')} ${Wal.priceOf(skinTry.kind, skinTry.id).toLocaleString()}에 사기</button></div>` : '';
+  // 구매 버튼은 미리 보는 그 카드 안에 (예전엔 미리보기 아래 띠에 따로 떴다)
+  const buyBar = () => '';
   if (reuse) {
     const grid = layer.querySelector('.skin-grid');
     // 같은 탭이면 카드를 새로 그리지 않고 표시만 바꾼다 (썸네일이 다시 뜨느라 깜박이지 않게)
@@ -3370,9 +3371,9 @@ function classBuyDialog(id, then) {
 
 // 보석으로 사기 (스킨 · 직업 공용)
 async function buyItem(kind, id, btn) {
-  if (btn) btn.disabled = true;
+  if (btn) btn.toggleAttribute('disabled', true);   // 카드 안 사기 버튼(span)도 두 번 눌리지 않게
   const r = await Wal.buy(kind, id).catch(err => ({ ok: false, why: navigator.onLine ? (err?.message || '서버 오류') : '인터넷 연결이 필요해요.' }));
-  if (btn) btn.disabled = false;
+  if (btn) btn.toggleAttribute('disabled', false);
   if (!r.ok) { sfx.back(); return toast(ico('warn'), '살 수 없어요', r.why, 2000); }
   sfx.coin();
   const name = kind === 'cls' || kind === 'run' ? E.classInfo(id).ko : (kind === 'dice' ? diceSkin : traySkin)(id).name;
