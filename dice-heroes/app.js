@@ -3156,8 +3156,8 @@ const TRAIL = {
   cosmic:    { pal: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF', '#FF9AE0'], grav: -8, glint: '#FFFFFF' },       // 별가루 + 별빛
   clear:     { pal: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A', '#B98CFF', '#3EE6B4'], grav: -24, glint: '#FFFFFF' },  // 무지개 조각
   heart:     { pal: ['#FFFFFF', '#FFE0EE', '#FF9AC8', '#FF7AB0', '#FF4A8A'], grav: -36, glint: '#FFD0E4', hearts: true },
-  dragon:    { pal: ['#FFF2A8', '#FFC83D', '#FF9A1F', '#E8435A'], grav: -30, glint: '#FFE2B0', glintP: 0.3, few: 0.4, scales: true },   // 화염 비늘이 나풀나풀 흩날린다
-  lava:      { pal: ['#FFF2A8', '#FFC83D', '#FF8A1A', '#FF4A1A'], grav: -60, glint: '#FFD24A', glintP: 0, few: 0.25, flames: true },    // 궤적을 따라 부드러운 불꽃
+  dragon:    { pal: ['#FFF2A8', '#FFC83D', '#FF9A1F', '#E8435A'], grav: -30, glint: '#FFE2B0', glintP: 0, noGlint: true, few: 0.4, scales: true },   // 화염 비늘이 나풀나풀 흩날린다
+  lava:      { pal: ['#FFF2A8', '#FFC83D', '#FF8A1A', '#FF4A1A'], grav: -60, glint: '#FFD24A', glintP: 0, noGlint: true, few: 0.25, flames: true },    // 궤적을 따라 부드러운 불꽃
 };
 let heartTrailT = 0;
 // 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
@@ -3206,7 +3206,7 @@ function hitSpark(id, v, i, t) {
   if (tr.scales) fx.scales(p.x, p.y, { n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
   if (tr.flames) fx.flames(p.x, p.y, { n: fxN(3 + k * 3), size: [fxS(9), fxS(16)] });
   if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
-  else fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
+  else if (!tr.noGlint) fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });   // 드래곤 · 용암: 십자 반짝 없이
 }
 // 트레이 색: 특별한 주사위의 궤적 · 부딪힘 불꽃에 그 트레이 테마 색을 섞는다 (트레이만의 착지 효과는 따로 없다 — 트레이는 ambient.js 의 은은한 입자)
 const TRAY_TINT = {
