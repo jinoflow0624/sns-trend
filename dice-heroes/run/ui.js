@@ -1003,22 +1003,27 @@ function sealBurst(id, p) {
   sfx.quest?.();
   floatAt(p.x, p.y - 60, `${sealIco(id)}${sl.ko}${id === 'sun' ? ' · 점수 ×1.5' : ''}`, id === 'cloud' ? 'sky' : 'gold');
 }
-// 동전 던지기 유물: 영웅 위로 동전이 빙글빙글 올라갔다 떨어져 앞면(금 · 왕관) / 뒷면(은 · 해골)이 보인다
+// 동전 던지기 유물: 화면을 어둡게 하고 가운데에 큰 동전을 높이 튕겨 올려 빙글빙글 — 떨어져 앞면(금 · 왕관) / 뒷면(은 · 해골)
 async function coinToss(side, h) {
-  if (!h) return;
-  const head = side > 0;
+  const head = side > 0, min = X.prefs.fx === 'min';
+  const low = Math.round(Math.abs(Run.RELIC_TUNE.coinLow) * 100);
   const el = document.createElement('div');
-  el.className = `coin-toss ${head ? 'head' : 'tail'}`;
-  el.style.left = `${Math.max(40, Math.min(innerWidth - 40, h.x))}px`; el.style.top = `${h.y - 40}px`;
-  el.innerHTML = `<i class="ct-coin">${ico(head ? 'crown' : 'skull')}</i>`;
+  el.className = `coin-toss ${head ? 'head' : 'tail'}${min ? ' min' : ''}`;
+  el.innerHTML = `<i class="ct-dim"></i><i class="ct-shadow"></i><i class="ct-coin"><b class="ct-face">${ico(head ? 'crown' : 'skull')}</b></i><p class="ct-text"></p>`;
   document.body.appendChild(el);
   sfx.whoosh?.();
-  await wait(X.prefs.fx === 'min' ? 150 : 820);
+  await wait(min ? 150 : 1150);
   sfx.coin();
   el.classList.add('landed');
-  floatAt(Math.max(70, Math.min(innerWidth - 70, h.x)), h.y - 120, head ? `${ico('coins', 'xs')}앞면! 점수 +100%` : `${ico('coins', 'xs')}뒷면… 점수 −50%`, head ? 'gold big' : 'dim big');
-  await wait(X.prefs.fx === 'min' ? 200 : 520);
+  el.querySelector('.ct-text').innerHTML = head ? `앞면! 점수 +100%` : `뒷면… 점수 −${low}%`;
+  if (!min) {
+    const r = el.querySelector('.ct-coin').getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    FX().ring(x, y, { color: head ? '#FFC83D' : '#C9D3E8', r0: 20, r1: 120, dur: 420, width: 6 });
+    if (head) FX().burst(x, y, { n: 30, pal: ['#FFC83D', '#FFF4C2', '#FFFFFF'], speed: [90, 280] });
+  }
+  await wait(min ? 300 : 750);
   el.classList.add('out');
+  await wait(min ? 0 : 220);
   setTimeout(() => el.remove(), 300);
 }
 // 달빛 복사본이 사라진다: 초승달이 천천히 가라앉으며 빛이 꺼진다
@@ -1270,7 +1275,7 @@ async function playOne(f) {
     case 'play': {
       const e = foeAt(), h = heroAt();
       const tgt = f.target === 'enemy' ? e : h;
-      if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −50% (공격 · 방어 모두)
+      if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −25% (공격 · 방어 모두)
       await hand.launch(f.u, tgt, f.target);           // 카드가 날아가 꽂힌다
       if (f.target === 'enemy') {
         const pal = f.score >= 40 ? PALETTES.rainbow : f.score >= 28 ? PALETTES.arcane : f.score >= 18 ? PALETTES.gold : PALETTES.fire;
@@ -1444,7 +1449,9 @@ async function playOne(f) {
     case 'gaze': {                                // 응시: 거대한 눈이 떠지고 붉은 시선이 손패로
       if (fxOn) {
         sfx.haki?.(); buzz(80);
-        await FX().eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, center($('hand')), 1200);
+        // 시선은 응시가 걸린 카드마다 (카드가 움직이면 따라간다). 카드를 못 찾으면 손패 가운데
+        const aim = () => { const ps = (f.us || []).map(u => hand.el(u)).filter(Boolean).map(el => center(el)); return ps.length ? ps : center($('hand')); };
+        await FX().eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, aim, 1200);
       } else sfx.select();
       ui.hideGaze = false;
       hand.refresh();
@@ -2424,20 +2431,27 @@ function potionMenu(k, t) {
   const id = R.potions[k];
   if (!id) return;
   const p = Run.potionInfo(id);
-  const can = canAct();
+  const can = canAct() || (id === 'heal' && Run.canDrinkOut(R) && !ui.busy);
   sfx.tap();
-  X.popover(t, `<b style="color:${p.color}">${ico(p.icon, 'xs')} ${p.ko}</b><p>${p.desc}</p><div class="pot-acts">${can ? `<button class="pbtn small gold" data-act="run-potuse" data-k="${k}">마시기</button>` : ''}<button class="pbtn small" data-act="run-potdrop" data-k="${k}">버리기</button></div>`);
+  X.popover(t, `<b style="color:${p.color}">${ico(p.icon, 'xs')} ${p.ko}</b><p>${p.desc}</p><div class="pot-acts">${can ? `<button class="pbtn small gold" data-act="run-potuse" data-k="${k}">마시기</button>` : ''}<button class="pbtn small pot-drop" data-act="run-potdrop" data-k="${k}">버리기</button></div>`);
 }
 async function usePotion(k) {
   X.closePopover();
-  if (!canAct()) return;
+  const out = R?.potions[k] === 'heal' && Run.canDrinkOut(R);
+  if (!out && !canAct()) return;
+  if (out && ui.busy) return;
   const r = await act(() => Run.usePotion(R, k));
   if (!r) return;
   ui.busy = true;
   await playFx(r.list, r.before);
   ui.busy = false;
   save();
-  afterAction();
+  if (!out) return afterAction();
+  // 전투 밖: 화면은 그대로 두고 물약 주머니 · 체력 막대만 고친다
+  const bar = document.querySelector('.rh-hp');
+  if (bar) { bar.classList.toggle('low', R.hp / R.maxHp < 0.3); bar.querySelector('i').style.width = `${(R.hp / R.maxHp) * 100}%`; bar.querySelector('em').textContent = `${R.hp} / ${R.maxHp}`; }
+  const pouch = document.querySelector('.rhud .potions');
+  if (pouch) pouch.outerHTML = hud().match(/<div class="potions[\s\S]*?<\/div>/)[0];
 }
 async function actBanner(f) {
   X.layer.innerHTML = `<div class="overlay solid act-banner" data-act="run-skip"><div class="banner"><span>막 돌파!</span><b class="rn">${R.act}막</b><b>${esc(Run.ACT_INFO[R.act].ko)}</b>${f?.heal ? `<span>${ico('heart', 'xs')} 체력 ${f.heal} 회복</span>` : ''}</div></div>`;

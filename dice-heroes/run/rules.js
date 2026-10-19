@@ -1067,10 +1067,19 @@ export const useDeal = act('useDeal', function useDeal(R, i, v) {
   fx(R, { type: 'deal', i, from, v });
 });
 
+// 회복 물약은 전투 밖(지도 · 보상 · 상점 · 휴식 · 이벤트)에서도 마실 수 있다. 다른 물약은 전투 중에만
+export const canDrinkOut = R => !R.ended && R.phase !== 'combat' && R.phase !== 'won' && R.phase !== 'lost';
 export const usePotion = act('usePotion', function usePotion(R, slot) {
-  const C = inCombat(R);
   const id = R.potions[slot];
   if (!id) fail('빈 칸이에요.');
+  if (id === 'heal' && canDrinkOut(R)) {
+    if (R.hp >= R.maxHp) fail('체력이 가득 차 있어요.');
+    R.potions.splice(slot, 1);
+    fx(R, { type: 'potion', id });
+    healHero(R, 28, 'potion');
+    return;
+  }
+  const C = inCombat(R);
   R.potions.splice(slot, 1);
   fx(R, { type: 'potion', id });
   if (id === 'heal') healHero(R, 28, 'potion');

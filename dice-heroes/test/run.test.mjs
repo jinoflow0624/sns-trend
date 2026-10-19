@@ -22,6 +22,17 @@ function intoFight(R) {
 function mulberry(a) { return () => { let t = (a = (a + 0x6D2B79F5) >>> 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 console.log('\n원정 시작 · 지도');
+test('회복 물약은 전투 밖에서도 마실 수 있다 (다른 물약은 전투 중에만)', () => {
+  const R = mk({ cls: 'warrior', seed: 4 });
+  R.phase = 'map'; R.hp = 20; R.potions = ['heal', 'fire'];
+  Run.usePotion(R, 0);
+  assert.equal(R.hp, 48); assert.deepEqual(R.potions, ['fire']);
+  assert.throws(() => Run.usePotion(R, 0));
+  R.potions = ['heal']; R.hp = R.maxHp;
+  assert.throws(() => Run.usePotion(R, 0), /가득/);
+  assert.deepEqual(R.potions, ['heal']);
+});
+
 test('직업마다 시작 덱 9장 · 체력 · 도구', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {
     const R = run(cls);

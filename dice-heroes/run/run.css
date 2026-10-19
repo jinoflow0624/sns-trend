@@ -504,6 +504,7 @@
 .run-intro .banner span { color: #FF9AA8; font-size: 14px; letter-spacing: .1em; }
 .run-intro .banner small { color: var(--muted); }
 .pot-acts { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.pot-acts .pot-drop { font-size: 11px; padding: 3px 8px; min-height: 0; opacity: .85; margin-left: auto; }
 
 @media (max-height: 640px) {
   .foe { min-height: 84px; padding: 4px 6px; }
@@ -882,19 +883,34 @@
 /* 보상 칸이 나타나는 연출은 처음 한 번만 (받을 때마다 다시 그려도 다시 날아오지 않게) */
 .run-reward.again .rw { animation: none; }
 .run-reward.again .rw.card-row:not(.done), .run-reward.again .rw.boss-relic:not(.done) { animation: legend 1.4s ease-in-out infinite; }
-/* 동전 던지기: 빙글빙글 올라갔다 내려와 앞면(금) · 뒷면(은) */
-.coin-toss { position: fixed; z-index: 75; pointer-events: none; width: 0; height: 0; }
-.coin-toss .ct-coin { position: absolute; left: -18px; top: -18px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--ink);
-  background: radial-gradient(circle at 35% 30%, #FFF4C2, #FFC83D 50%, #C8860E); box-shadow: 0 0 12px rgba(255,200,61,.8);
-  animation: coinUp .82s cubic-bezier(.3,.7,.5,1) both; }
-.coin-toss.tail .ct-coin { background: radial-gradient(circle at 35% 30%, #FFFFFF, #C9D3E8 50%, #7A86A8); box-shadow: 0 0 10px rgba(201,211,232,.7); }
-.coin-toss .ct-coin .ico { width: 20px; height: 20px; }
-@keyframes coinUp { 0% { transform: translateY(0) scaleX(1); } 12% { transform: translateY(-50px) scaleX(-1); } 25% { transform: translateY(-90px) scaleX(1); } 37% { transform: translateY(-112px) scaleX(-1); }
-  50% { transform: translateY(-118px) scaleX(1); } 62% { transform: translateY(-104px) scaleX(-1); } 75% { transform: translateY(-70px) scaleX(1); } 88% { transform: translateY(-20px) scaleX(-1); } 100% { transform: translateY(0) scaleX(1); } }
-.coin-toss.landed .ct-coin { animation: coinLand .3s ease-out; }
-@keyframes coinLand { 40% { transform: scale(1.35); filter: brightness(1.6); } }
-.coin-toss.out { opacity: 0; transition: opacity .28s; }
-@media (prefers-reduced-motion: reduce) { .coin-toss .ct-coin { animation: none; } }
+/* 동전 던지기: 화면을 어둡게 하고 가운데에서 큰 동전을 튕겨 올려 빙글빙글 → 쾅 떨어져 앞면(금) · 뒷면(은) */
+.coin-toss { position: fixed; inset: 0; z-index: 75; pointer-events: none; }
+.coin-toss .ct-dim { position: absolute; inset: 0; background: radial-gradient(circle at 50% 52%, rgba(10,8,20,.55), rgba(5,4,12,.86) 70%); animation: ctDim .25s ease-out both; }
+.coin-toss .ct-coin { position: absolute; left: 50%; top: 52%; width: 96px; height: 96px; margin: -48px 0 0 -48px; display: grid; place-items: center; border-radius: 50%;
+  border: 5px solid var(--ink); background: radial-gradient(circle at 35% 30%, #FFF4C2, #FFC83D 50%, #C8860E); box-shadow: 0 0 30px rgba(255,200,61,.85), inset 0 -6px 0 rgba(0,0,0,.18);
+  animation: coinUp 1.15s cubic-bezier(.3,.7,.5,1) both; }
+.coin-toss.tail .ct-coin { background: radial-gradient(circle at 35% 30%, #FFFFFF, #C9D3E8 50%, #7A86A8); box-shadow: 0 0 24px rgba(201,211,232,.75), inset 0 -6px 0 rgba(0,0,0,.18); }
+.coin-toss .ct-face { display: grid; place-items: center; animation: ctFace 1.15s steps(1) both; }
+.coin-toss .ct-coin .ico { width: 52px; height: 52px; }
+.coin-toss .ct-shadow { position: absolute; left: 50%; top: calc(52% + 62px); width: 90px; height: 16px; margin-left: -45px; border-radius: 50%; background: rgba(0,0,0,.55); animation: ctShadow 1.15s cubic-bezier(.3,.7,.5,1) both; }
+.coin-toss .ct-text { position: absolute; left: 0; right: 0; top: calc(52% + 92px); margin: 0; text-align: center; font-size: 26px; font-weight: 900; color: #FFE27A;
+  text-shadow: 0 3px 0 var(--ink), 0 0 14px rgba(255,200,61,.6); opacity: 0; }
+.coin-toss.tail .ct-text { color: #DDE4F2; text-shadow: 0 3px 0 var(--ink); }
+.coin-toss.landed .ct-text { animation: ctText .3s ease-out both; }
+@keyframes ctDim { from { opacity: 0; } }
+@keyframes coinUp { 0% { transform: translateY(40px) scale(.5) scaleY(1); } 10% { transform: translateY(-60px) scale(.8) scaleY(-1); } 20% { transform: translateY(-140px) scale(1) scaleY(1); }
+  30% { transform: translateY(-190px) scale(1.1) scaleY(-1); } 40% { transform: translateY(-215px) scale(1.15) scaleY(1); } 50% { transform: translateY(-220px) scale(1.15) scaleY(-1); }
+  60% { transform: translateY(-200px) scale(1.1) scaleY(1); } 70% { transform: translateY(-150px) scale(1.05) scaleY(-1); } 80% { transform: translateY(-80px) scale(1) scaleY(1); }
+  90% { transform: translateY(-20px) scale(1) scaleY(-1); } 100% { transform: translateY(0) scale(1) scaleY(1); } }
+@keyframes ctFace { 0%, 85% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes ctShadow { 0% { transform: scale(.6); opacity: .8; } 50% { transform: scale(.35); opacity: .3; } 100% { transform: scale(1); opacity: .8; } }
+.coin-toss.landed .ct-coin { animation: coinLand .35s ease-out; }
+.coin-toss.landed .ct-face { animation: none; }
+@keyframes coinLand { 35% { transform: scale(1.3); filter: brightness(1.6); } }
+@keyframes ctText { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+.coin-toss.out { opacity: 0; transition: opacity .25s; }
+.coin-toss.min .ct-coin, .coin-toss.min .ct-face, .coin-toss.min .ct-shadow, .coin-toss.min .ct-dim { animation: none; }
+@media (prefers-reduced-motion: reduce) { .coin-toss .ct-coin, .coin-toss .ct-face, .coin-toss .ct-shadow { animation: none; } }
 /* 방해 표시 2배 (운명 역전 · 봉인 등 트레이 왼쪽 위) */
 .hex-badge { left: 8px; top: 8px; gap: 6px; font-size: 22px; padding: 3px 12px; border-width: 3px; box-shadow: 0 0 14px rgba(232,67,90,.7); }
 .hex-badge .ico { width: 24px; height: 24px; }
