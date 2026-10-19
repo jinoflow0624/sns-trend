@@ -1009,7 +1009,10 @@ async function coinToss(side, h) {
   const low = Math.round(Math.abs(Run.RELIC_TUNE.coinLow) * 100);
   const el = document.createElement('div');
   el.className = `coin-toss ${head ? 'head' : 'tail'}${min ? ' min' : ''}`;
-  el.innerHTML = `<i class="ct-dim"></i><i class="ct-shadow"></i><i class="ct-coin"><b class="ct-face">${ico(head ? 'crown' : 'skull')}</b></i><p class="ct-text"></p>`;
+  // 동전은 앞면(금 · 왕관) · 뒷면(은 · 해골) 두 면. 빙글빙글 돌며 두 면이 번갈아 보이다가 떨어진 면에서 멈춘다 (미리 알 수 없게)
+  el.style.setProperty('--end', head ? '1800deg' : '1980deg');
+  el.innerHTML = `<i class="ct-dim"></i><i class="ct-shadow"></i><div class="ct-coin"><div class="ct-spin">
+      <i class="ct-side front"><b>${ico('crown')}</b></i><i class="ct-side back"><b>${ico('skull')}</b></i></div></div><p class="ct-text"></p>`;
   document.body.appendChild(el);
   sfx.whoosh?.();
   await wait(min ? 150 : 1150);
