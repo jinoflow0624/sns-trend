@@ -387,6 +387,8 @@
 .rfloat.dmg { color: #FF5A6A; font-size: 26px; }
 .rfloat.big { font-size: 34px; }
 .rfloat.huge { font-size: 44px; color: #FFE27A; }
+.rfloat.note { font-size: 15px; max-width: 92vw; white-space: nowrap; padding: 3px 10px; background: rgba(6, 4, 26, .62); border-radius: 4px; z-index: 60; }   /* 효과 이름: 화면 가운데, 작게 */
+.rfloat.note .ico { width: 14px; height: 14px; }
 .rfloat.sky { color: #8FD0FF; } .rfloat.mint { color: var(--mint); } .rfloat.gold { color: var(--gold); } .rfloat.dim { color: var(--muted); font-size: 16px; }
 @keyframes rFloat { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.5); } 14% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); } 28% { transform: translate(-50%, -55%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -130%); } }
 
