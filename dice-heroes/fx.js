@@ -973,9 +973,14 @@ class FxLayer {
 
   // 외눈 응시: 눈꺼풀이 열리고 → 눈동자가 두리번거리다 → 목표 쪽을 똑바로 보며 눈을 가늘게 뜬다 → 깜빡 닫힘.
   // 무섭지 않게: 어둡게 덮는 막은 옅게, 핏빛 광선 대신 시선이 점선으로 흘러가 목표에 조준 표시가 맺힌다
+  // target: 점 하나 · 점 여러 개 · 또는 그때그때 점(들)을 돌려주는 함수 (움직이는 카드를 따라 본다)
   async eye(c, target, ms = 1100) {
-    const ang = target ? Math.atan2(target.y - c.y, target.x - c.x) : Math.PI / 2;
+    const pts = () => { const t = typeof target === 'function' ? target() : target; return (Array.isArray(t) ? t : t ? [t] : []).filter(Boolean); };
+    let last = pts();
     await this.add((g, k) => {
+      const now = pts(); if (now.length) last = now;
+      const tg = last, mid = tg.length ? { x: tg.reduce((a, p) => a + p.x, 0) / tg.length, y: tg.reduce((a, p) => a + p.y, 0) / tg.length } : null;
+      const ang = mid ? Math.atan2(mid.y - c.y, mid.x - c.x) : Math.PI / 2;
       const W = Math.min(innerWidth * 0.28, 113);            // 예전의 3분의 2
       const open = k < 0.18 ? ease(k / 0.18) : k > 0.86 ? 1 - ease((k - 0.86) / 0.14) : 1;
       const lock = k < 0.42 ? 0 : Math.min(1, (k - 0.42) / 0.12);   // 목표를 보는 정도
@@ -1003,9 +1008,9 @@ class FxLayer {
         g.restore();
       }
       g.restore();
-      if (target && lock > 0 && k < 0.88) {                  // 시선: 눈에서 목표로 흘러가는 점선 + 조준 표시
+      if (lock > 0 && k < 0.88) for (const target of tg) {   // 시선: 눈에서 목표(카드마다)로 흘러가는 점선 + 조준 표시
         const L = Math.hypot(target.x - c.x, target.y - c.y), step = 16, shift = (k * 260) % step;
-        g.save(); g.translate(c.x, c.y); g.rotate(ang);
+        g.save(); g.translate(c.x, c.y); g.rotate(Math.atan2(target.y - c.y, target.x - c.x));
         for (let d = W * 0.6 + shift; d < L - 18; d += step) {
           g.globalAlpha = lock * (0.45 + 0.55 * (d / L)); g.fillStyle = '#FF7A8A'; g.fillRect(Math.round(d) - 3, -3, 6, 6);
           g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(d) - 1, -1, 2, 2);
@@ -1019,7 +1024,7 @@ class FxLayer {
         g.restore(); g.globalAlpha = 1;
       }
     }, ms);
-    if (target) this.ring(target.x, target.y, { color: '#FF7A8A', r0: 8, r1: 56, dur: 380, width: 5 });
+    for (const t of last) this.ring(t.x, t.y, { color: '#FF7A8A', r0: 8, r1: 56, dur: 380, width: 5 });
   }
 
   // 바위 투척: 하늘에서 거대한 바위가 굴러떨어져 쾅 — 먼지 · 파편 · 금
