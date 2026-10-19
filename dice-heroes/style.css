@@ -1057,7 +1057,7 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .skin-card img.die-th { width: 48px; height: 48px; border-radius: 19%; }   /* 주사위 그림 꼭지점을 기본 주사위처럼 둥글게 (그림 파일은 네모로 잘려 있다) */
 .skin-card b { font-size: 12px; }
 .skin-card small { display: none; font-size: 10px; color: var(--muted); line-height: 1.3; }
-.skin-card.on small, .skin-card.trying small { display: block; }   /* 설명은 고른 카드에만 */
+/* 설명 · 사기 버튼은 고르면 아래에서 올라오는 작은 창(.skin-pop)에 */
 .skin-card.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255, 200, 61, .5), 0 4px 0 var(--ink); }
 .skin-card.locked img { filter: grayscale(1) brightness(.6); }
 .skin-tag { position: absolute; left: 4px; top: 4px; font-size: 9px; padding: 1px 4px; background: linear-gradient(90deg, #B36BFF, #FF5AC8); color: #fff; }
@@ -1166,6 +1166,16 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .skin-buy .ico { width: 13px; height: 13px; }
 .skin-buy[disabled] { opacity: .6; pointer-events: none; }
 @keyframes buyIn { from { transform: scale(.6); opacity: 0; } }
+.skin-pop-wrap { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; padding: 0 10px calc(14px + env(safe-area-inset-bottom)); background: rgba(6, 4, 26, .35); }
+.skin-pop { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 8px 12px; align-items: center; width: 100%; max-width: 420px; padding: 12px;
+  background: #1C1648; animation: popUp .22s cubic-bezier(.2, 1.3, .4, 1); }
+.skin-pop img { grid-row: 1; width: 72px; height: 56px; object-fit: contain; }
+.skin-pop img.die-th { width: 56px; height: 56px; border-radius: 19%; justify-self: center; }
+.skin-pop .sp-txt b { display: block; font-size: 16px; color: var(--gold); }
+.skin-pop .sp-txt p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #E8E0C8; }
+.skin-pop .sp-buy, .skin-pop .sp-own { grid-column: 1 / -1; margin: 0; width: 100%; }
+.skin-pop .sp-own { display: block; padding: 8px; text-align: center; font-size: 13px; font-weight: 700; color: #3B2300; background: var(--gold); border: 2px solid var(--ink); }
+@keyframes popUp { from { transform: translateY(40px); opacity: 0; } }
 .buy-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; margin: 4px 0; background: #0E2A4A; border: 2px solid var(--ink); font-size: 12px; color: #C8F4FF; }
 .buy-bar .ico { width: 14px; height: 14px; }
 .cls.locked { opacity: .75; }
