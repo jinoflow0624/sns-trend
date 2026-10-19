@@ -712,14 +712,26 @@ test('균형의 추: 1을 6으로 셀 수 있다', () => {
   const R = duel(['balance'], R => { R.C.dice = [6, 6, 6, 6, 1]; });
   assert.equal(Run.scoreCard(R, { u: 1, cat: 'yacht', up: 0, kws: [] }).base, 50);
 });
-test('엘리트는 유물 3개 중 고르기, 감정사의 돋보기면 4개', () => {
-  for (const [rel, n] of [[[], 3], [['loupe'], 4]]) {
-    const R = mk({ cls: 'monk', seed: 9 }); rel.forEach(id => Run.gainRelic(R, id));
+test('엘리트 유물 고르기: 기본 2개 · 감정 안목 3개 · 감정사의 돋보기 +1', () => {
+  for (const [rel, n, ap] of [[[], 2, 0], [[], 3, 1], [['loupe'], 3, 0]]) {
+    const R = mk({ cls: 'monk', seed: 9, meta: ap ? { lv: { appraise: 1 } } : null }); rel.forEach(id => Run.gainRelic(R, id));
     Run.startCombat(R, Run.ACT_INFO[1].elite[0]); R.C.e.hp = 1; R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6]; R.C.hand[0] = { u: 9901, cat: 'choice', up: 0, kws: [] };
     Run.playCard(R, 0, 'enemy');
     const it = R.reward.items.find(x => x.t === 'relicPick');
     assert.equal(it.opts.length, n);
   }
+});
+test('보물 상자: 유물 고르기(2개) · 새로고침하면 후보가 바뀐다', () => {
+  const R = mk({ cls: 'warrior', seed: 21, meta: { lv: { repick: 1 } } });
+  R.phase = 'map';
+  const id = Run.nextNodes(R)[0]; R.map.nodes[id].type = 'treasure'; Run.enterNode(R, id);
+  const k = R.reward.items.findIndex(x => x.t === 'relicPick');
+  assert.ok(k >= 0 && R.reward.items[k].kind === 'treasure' && R.reward.items[k].opts.length === 2);
+  const before = R.reward.items[k].opts.join();
+  Run.rerollPick(R, k);
+  assert.notEqual(R.reward.items[k].opts.join(), before);
+  Run.takeReward(R, k, 0);
+  assert.equal(R.relics.length, 1);
 });
 test('초이스는 실버 등급 · 일반 카드 보상에서는 나오지 않는다', () => {
   assert.equal(Run.cardRarity({ cat: 'choice', up: 0, kws: [] }), 2);

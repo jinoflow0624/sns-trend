@@ -172,7 +172,7 @@ async function preloadRun() {
 
 // R.phase 에 맞는 화면을 연다
 function enterView(fresh = false) {
-  ui.tool = null; ui.sel = null; ui.dealDie = null;
+  ui.tool = null; ui.sel = null; ui.dealDie = null; ui.peek = false;
   if (R.phase === 'combat') return showCombat(fresh);
   X.tray()?.setMarks?.(null);
   if (R.phase === 'won' || R.phase === 'lost') return showEnd();
@@ -433,8 +433,9 @@ function showMap(again = false) {
   const lastAct = R.act >= Run.ACTS;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
-  <div class="screen run-map">
+  <div class="screen run-map${ui.peek ? ' peek' : ''}">
     ${hud()}
+    ${ui.peek ? `<button class="pbtn gold peek-back" data-act="run-peekback">${ico('scroll', 'xs')} 이벤트로 돌아가기</button>` : ''}
     <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b>${R.omen ? omenChip() : ''}</div>
     <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
       <svg class="map-lines" aria-hidden="true"></svg>
@@ -1723,6 +1724,7 @@ function showEvent(rolled = false) {
         : res != null ? `<p class="ev-result">${esc(res)}</p><button class="pbtn gold" data-act="run-evleave">계속</button>`
         : `<div class="ev-opts">${ev.opts.map((o, k) => { const ok = o.can(R); const d = typeof o.desc === 'function' ? o.desc(R) : o.desc; return `<button class="pbtn ev-opt" data-act="run-evopt" data-k="${k}" ${ok ? '' : 'disabled'}><span>${esc(o.ko)}</span><small>${esc(d)}</small></button>`; }).join('')}</div>`}
     </div>
+    ${ui.evRoll ? '' : `<button class="peek-btn" data-act="run-peekmap">${ico('scroll', 'xs')} 지도 잠깐 보기</button>`}
     ${heroStrip()}
   </div>`;
   if (R.pick?.why === 'face') { if (ui.carveIntro) showCarveResult(); else showCarve(); }
@@ -2101,7 +2103,11 @@ export function onAct(act, t) {
   if (act === 'run-potuse') return usePotion(Number(t.dataset.k));
   if (act === 'run-potdrop') { X.closePopover(); Run.dropPotion(R, Number(t.dataset.k)); save(); sfx.back(); return R.phase === 'combat' ? paint() : enterView(); }
   // 지도
+  // 이벤트 중 지도 잠깐 보기 (보기만 — 칸은 누를 수 없다)
+  if (act === 'run-peekmap') { if (R.phase !== 'event') return; sfx.select(); ui.peek = true; return showMap(); }
+  if (act === 'run-peekback') { sfx.back(); ui.peek = false; return R.phase === 'event' ? showEvent() : enterView(); }
   if (act === 'run-node') {
+    if (ui.peek) return;
     if (R.phase !== 'map') return;
     const id = Number(t.dataset.id);
     if (!Run.nextNodes(R).includes(id)) {         // 못 가는 칸: 무슨 칸인지만 알려 준다
