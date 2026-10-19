@@ -1118,7 +1118,18 @@ export async function shuffleFx() {   // (디버그에서도 부른다)
   el.remove();
   pile?.classList.remove('bump');
 }
+// 떠오르는 글자. 숫자(피해 · 보호막 · 회복 +N)는 그 자리에서, 효과 이름 같은 글(약화 · 순례 · 보호막 파괴! …)은
+// 화면 정가운데에 작게 차례로 쌓아 띄운다 (영웅 · 적 옆에 띄우면 화면 밖으로 잘렸다)
+let noteN = 0, noteT = 0;
 function floatAt(x, y, text, cls = '') {
+  const words = /[가-힣]/.test(String(text).replace(/<[^>]*>/g, '')) && !/\bdmg\b/.test(cls);
+  if (words) {
+    const now = performance.now();
+    if (now - noteT > 900) noteN = 0;
+    noteT = now;
+    x = innerWidth / 2; y = innerHeight * 0.42 + (noteN++ % 4) * 30;
+    cls = `${cls.replace(/\b(big|huge)\b/g, '')} note`;
+  }
   const el = document.createElement('div');
   el.className = `float rfloat ${cls}`;
   el.innerHTML = text;
