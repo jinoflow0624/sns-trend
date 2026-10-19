@@ -3303,7 +3303,6 @@ async function showSkins(tab = 'dice') {
       <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
       ${open ? (k.tier === 'special' ? '<span class="skin-tag">보유</span>' : '') : `<span class="skin-tag price">${ico('gem', 'xs')}${Wal.priceOf(tab, k.id).toLocaleString()}</span>`}
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
-      ${trying ? `<span class="skin-buy" role="button" tabindex="0" data-act="buy" data-kind="${tab}" data-id="${k.id}" aria-label="보석 ${Wal.priceOf(tab, k.id).toLocaleString()}에 사기">${ico('gem', 'xs')} 사기</span>` : ''}
     </button>`;
   }).join('');
   // 구매 버튼은 미리 보는 그 카드 안에 (예전엔 미리보기 아래 띠에 따로 떴다)
@@ -3360,7 +3359,8 @@ function pickSkin(kind, id) {
     skinTry = { kind, id };
     const d = kind === 'dice' ? id : diceSkin(prefs.diceSkin).id, t = kind === 'tray' ? id : traySkin(prefs.traySkin).id;
     skinPreview?.setSkin(d, t);
-    return showSkins(kind);
+    showSkins(kind);
+    return skinPop(kind, id);
   }
   skinTry = null;
   sfx.select();
@@ -3371,6 +3371,24 @@ function pickSkin(kind, id) {
   tray?.setSkin?.(d, t);
   if (tray) tray.skinKey = '';
   showSkins(kind);
+  skinPop(kind, id);
+}
+// 스킨을 고르면 아래에서 작은 창이 올라온다: 그림 · 이름 · 설명 · (안 샀으면) 가격과 사기 버튼. 위쪽 3D 미리보기는 가리지 않는다
+function skinPop(kind, id) {
+  layer.querySelector('.skin-pop-wrap')?.remove();
+  const box = layer.querySelector('.modal.skins');
+  if (!box) return;
+  const k = (kind === 'dice' ? diceSkin : traySkin)(id), own = Wal.owns(kind, id), price = Wal.priceOf(kind, id);
+  const el = document.createElement('div');
+  el.className = 'skin-pop-wrap';
+  el.dataset.act = 'skin-pop-close';
+  el.innerHTML = `<div class="skin-pop frame" data-act="noop" role="dialog" aria-label="${esc(k.name)}">
+    <img${kind === 'dice' ? ' class="die-th"' : ''} src="${(kind === 'dice' ? diceThumb : trayThumb)(id)}" alt="">
+    <div class="sp-txt"><b>${esc(k.name)}</b><p>${esc(k.desc)}</p></div>
+    ${own ? '<span class="sp-own">사용 중</span>'
+      : `<button class="pbtn gold sp-buy" data-act="buy" data-kind="${kind}" data-id="${id}" ${Wal.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()} 사기</button>`}
+  </div>`;
+  box.appendChild(el);
 }
 // 잠긴 직업을 누르면: 설명과 가격을 보여 주고 살지 묻는다
 let afterClassBuy = null;
@@ -4078,6 +4096,7 @@ function onAct(act, t) {
   if (act === 'ach-claim') return claimAchUI(t.dataset.id, t);
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
+  if (act === 'skin-pop-close') { sfx.back?.(); return layer.querySelector('.skin-pop-wrap')?.remove(); }
   if (act === 'skin-roll') return rollPreview();
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
