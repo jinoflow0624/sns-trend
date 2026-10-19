@@ -3158,6 +3158,21 @@ const TRAIL = {
   heart:     { pal: ['#FFFFFF', '#FFE0EE', '#FF9AC8', '#FF7AB0', '#FF4A8A'], grav: -36, glint: '#FFD0E4', hearts: true },
   dragon:    { pal: ['#FFF2A8', '#FFC83D', '#FF9A1F', '#E8435A'], grav: -30, glint: '#FFE2B0', glintP: 0, noGlint: true, few: 0.4, scales: true },   // 화염 비늘이 나풀나풀 흩날린다
   lava:      { pal: ['#FFF2A8', '#FFC83D', '#FF8A1A', '#FF4A1A'], grav: -60, glint: '#FFD24A', glintP: 0, noGlint: true, few: 0.25, flames: true },    // 궤적을 따라 부드러운 불꽃
+  // v0.39.10 새 주사위 10종 — scales/flames 에 객체를 주면 그 색 · 움직임으로 (꽃잎 · 도깨비불 · 젤리 방울)
+  pixel:     { pal: ['#FFFFFF', '#F4E6C5', '#D62647', '#1A1030'], grav: 160, glint: '#FFFFFF', glintP: 0.15, few: 0.8 },                 // 도트 조각이 톡톡 떨어진다
+  bone:      { pal: ['#FFF6DE', '#F1DDAE', '#C9B48A'], grav: 140, glint: '#FFF6DE', noGlint: true, glintP: 0, few: 0.55 },            // 뼛가루
+  slime:     { pal: ['#E8FFB0', '#B8F04A', '#7AC81E'], grav: 0, glint: '#E8FFB0', noGlint: true, glintP: 0, few: 0.2,
+               flames: { pal: ['rgba(184,240,74,A)', 'rgba(122,200,30,A)', 'rgba(210,255,120,A)'], core: 'rgba(240,255,200,A)', grav: 260, size: [5, 9] } },   // 젤리 방울이 똑똑
+  chip:      { pal: ['#FFFFFF', '#FFE27A', '#FFC83D', '#E8435A'], grav: 150, glint: '#FFE27A', glintP: 0.35, few: 0.7 },               // 금박 · 종이 조각
+  chest:     { pal: ['#FFF6C8', '#FFE27A', '#FFC83D', '#C8861E'], grav: 120, glint: '#FFF0A8', glintP: 0.6, few: 0.5 },               // 금화 반짝
+  porcelain: { pal: ['#FFFFFF', '#FFE0EE'], grav: 20, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0.2,
+               scales: { pal: ['#FFB8D8', '#FF9AC8', '#FFD0E4'], tip: '#FFFFFF', edge: '#E8679A', grav: 22 } },                   // 꽃잎이 나풀나풀
+  frost:     { pal: ['#FFFFFF', '#E0F8FF', '#9FE8FF', '#5AC8FF'], grav: 40, glint: '#E0F8FF', glintP: 0.5, few: 0.8 },               // 서리 조각 · 차가운 반짝
+  rune:      { pal: ['#E0FAFF', '#9FE8FF', '#3EC8FF'], grav: -24, glint: '#9FE8FF', noGlint: true, glintP: 0, few: 0.35,
+               flames: { pal: ['rgba(62,200,255,A)', 'rgba(90,170,255,A)', 'rgba(140,230,255,A)'], core: 'rgba(224,250,255,A)', grav: -50, size: [5, 9] } },  // 푸른 룬빛이 떠오른다
+  brass:     { pal: ['#FFFFFF', '#FFF2C8', '#FFD27A', '#C8861E'], grav: 30, glint: '#FFF6C8', glintP: 0.8, few: 0.4 },               // 별빛 반짝
+  wisp:      { pal: ['#E0FFF8', '#5AF0E0', '#B98CFF'], grav: -30, glint: '#5AF0E0', noGlint: true, glintP: 0, few: 0.2,
+               flames: { pal: ['rgba(90,240,224,A)', 'rgba(185,140,255,A)', 'rgba(62,200,200,A)'], core: 'rgba(230,255,250,A)', grav: -60, size: [7, 12] } },  // 도깨비불
 };
 let heartTrailT = 0;
 // 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
@@ -3174,8 +3189,9 @@ function diceTrail(t, p, sp) {
   fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
   if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
   fx.burst(p.x, p.y, { n: fxN((fast ? 6 : 4) * (tr.few ?? 1)), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
-  if (tr.scales) fx.scales(p.x, p.y, { n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
-  if (tr.flames) fx.flames(p.x, p.y, { n: fxN(fast ? 2.6 : 1.8), size: [fxS(7), fxS(12)] });
+  const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
+  if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
+  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN(fast ? 2.6 : 1.8), size: (fo.size || [7, 12]).map(fxS) });
   if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
   const now = performance.now();
   if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5 * DICE_FX) {
@@ -3203,8 +3219,9 @@ function hitSpark(id, v, i, t) {
   const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
   fx.c.classList.toggle('over', t === skinPreview);
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
-  if (tr.scales) fx.scales(p.x, p.y, { n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
-  if (tr.flames) fx.flames(p.x, p.y, { n: fxN(3 + k * 3), size: [fxS(9), fxS(16)] });
+  const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
+  if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
+  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN(3 + k * 3), size: (fo.size || [9, 16]).map(v => fxS(v * 1.3)) });
   if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
   else if (!tr.noGlint) fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });   // 드래곤 · 용암: 십자 반짝 없이
 }
@@ -3212,6 +3229,8 @@ function hitSpark(id, v, i, t) {
 const TRAY_TINT = {
   marble: ['#FFF6C8', '#F4ECD8', '#FFE27A'], royal: ['#FFD24A', '#FF9A1F', '#E8435A'], deepsea: ['#C8F4FF', '#7CE0FF', '#3AA8FF'],
   demon: ['#B98CFF', '#7A4BFF', '#C21E56'], sakura: ['#FFB8D8', '#FF8AB8', '#FF6FA8'], lava: ['#FFD24A', '#FF8A1A', '#FF4A1A'], starry: ['#C8B8FF', '#7CE0FF', '#FFE27A'],
+  pixel8: ['#B98CFF', '#FFC83D', '#3EE6B4'], deck: ['#F1DDAE', '#C9A27A', '#9A6232'], casino: ['#FFE27A', '#C8D8FF', '#A78B4D'], alchemy: ['#FFD27A', '#9AE85A', '#C8861E'],
+  ruins: ['#9FE8FF', '#3EC8FF', '#A8C0B8'], glacier: ['#FFFFFF', '#C8F4FF', '#7CC8E8'], dragonnest: ['#FFC83D', '#FF6A1A', '#E8435A'],
 };
 // 주사위 팔레트 앞 둘(밝은 색)은 남기고 나머지를 트레이 색으로
 function tintOf(t, tr) {
@@ -3284,7 +3303,7 @@ async function showSkins(tab = 'dice') {
       <b>${esc(k.name)}</b><small>${esc(k.desc)}</small>
       ${open ? (k.tier === 'special' ? '<span class="skin-tag">보유</span>' : '') : `<span class="skin-tag price">${ico('gem', 'xs')}${Wal.priceOf(tab, k.id).toLocaleString()}</span>`}
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
-      ${trying ? `<span class="skin-buy" role="button" tabindex="0" data-act="buy" data-kind="${tab}" data-id="${k.id}">${ico('gem', 'xs')} ${Wal.priceOf(tab, k.id).toLocaleString()} 사기</span>` : ''}
+      ${trying ? `<span class="skin-buy" role="button" tabindex="0" data-act="buy" data-kind="${tab}" data-id="${k.id}" aria-label="보석 ${Wal.priceOf(tab, k.id).toLocaleString()}에 사기">${ico('gem', 'xs')} 사기</span>` : ''}
     </button>`;
   }).join('');
   // 구매 버튼은 미리 보는 그 카드 안에 (예전엔 미리보기 아래 띠에 따로 떴다)
