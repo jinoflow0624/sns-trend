@@ -42,7 +42,7 @@ const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
 // 채널 음량: 슬라이더가 같은 값이면 효과음이 배경음악보다 또렷하게(약 6dB) 크게 들리도록 맞춘 비율.
 // 효과음이 날 때는 배경음악을 잠깐 DUCK 만큼 낮춰(더킹) 효과음이 묻히지 않게 한다.
-const BGM_LEVEL = 0.42, SFX_LEVEL = 3.1, DUCK = 0.6;
+const BGM_LEVEL = 0.42, SFX_LEVEL = 3.1, DUCK = 0.72;
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* 저장 불가 */ }
 export const audioSettings = () => ({ ...settings });
 export function setAudio(patch) {
@@ -105,7 +105,8 @@ const decoder = () => ctx || (offline ||= (() => {
 export function unlock() {
   if (!ctx) {
     if (!hasGesture()) return null;
-    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+    // latencyHint 'balanced': 오디오 버퍼를 조금 여유 있게 — 3D · 입자 그리기로 바쁠 때 소리가 미세하게 끊기던(언더런) 것을 줄인다
+    try { const AC = window.AudioContext || window.webkitAudioContext; try { ctx = new AC({ latencyHint: 'balanced' }); } catch { ctx = new AC(); } } catch { return null; }
     master = ctx.createGain();
     master.gain.value = 0.9;
     // 살짝 눌러 주는 컴프레서 — 채널이 겹쳐도 찢어지지 않게
@@ -137,12 +138,21 @@ const wake = e => {
 ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
 
 // 효과음이 울리는 동안 배경음악을 살짝 내렸다가 끝나면 부드럽게 되돌린다
+// · 아주 짧은 소리(주사위 부딪힘 · 틱 등 0.1초 미만)는 낮추지 않는다 — 연달아 나면 음악이 오르내려 '끊기는' 것처럼 들렸다
+// · 예약을 지울 때 지금 음량을 붙잡아 둔다 (cancelScheduledValues 만 하면 음량이 순간 튀어 '툭' 소리가 났다)
 let duckUntil = 0;
 function duck(t, dur) {
-  duckUntil = Math.max(duckUntil, t + dur);
-  const g = duckGain.gain;
-  g.cancelScheduledValues(t);
-  g.setTargetAtTime(DUCK, t, 0.015);
+  if (dur < 0.1) return;
+  const g = duckGain.gain, end = Math.max(duckUntil, t + dur);
+  if (t < duckUntil - 0.02) {            // 이미 낮춘 중: 되돌리는 예약만 뒤로 미룬다 (낮춘 음량은 그대로)
+    const prev = duckUntil;
+    duckUntil = end;
+    if (end > prev) { g.cancelScheduledValues(prev + 0.01); g.setTargetAtTime(1, duckUntil + 0.05, 0.15); }
+    return;
+  }
+  duckUntil = end;
+  if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t); else { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); }
+  g.setTargetAtTime(DUCK, t, 0.03);
   g.setTargetAtTime(1, duckUntil + 0.05, 0.15);
 }
 
