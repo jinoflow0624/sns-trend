@@ -182,28 +182,30 @@ class FxLayer {
       g.globalAlpha = a * 0.35; g.fillStyle = p.color;
       g.beginPath(); g.ellipse(0, 0, s * 1.3, s * 1.7, 0, 0, TAU); g.fill();
       g.globalAlpha = a;
-      const grad = g.createLinearGradient(0, -s, 0, s); grad.addColorStop(0, '#FFF2A8'); grad.addColorStop(0.45, p.color); grad.addColorStop(1, p.edge || '#7A0E14');
+      const grad = g.createLinearGradient(0, -s, 0, s); grad.addColorStop(0, p.tip || '#FFF2A8'); grad.addColorStop(0.45, p.color); grad.addColorStop(1, p.edge || '#7A0E14');
       g.fillStyle = grad;
       g.beginPath(); g.moveTo(0, -s); g.quadraticCurveTo(s * 0.9, -s * 0.1, 0, s); g.quadraticCurveTo(-s * 0.9, -s * 0.1, 0, -s); g.fill();
       g.restore();
     } else if (p.shape === 'flame') {
       const r = p.size * (0.7 + 0.8 * (1 - k));
       const grad = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-      grad.addColorStop(0, `rgba(255,242,168,${0.9 * a})`); grad.addColorStop(0.35, p.color.replace('A', `${0.55 * a}`)); grad.addColorStop(1, 'rgba(255,60,10,0)');
+      grad.addColorStop(0, (p.core || 'rgba(255,242,168,A)').replace('A', `${0.9 * a}`)); grad.addColorStop(0.35, p.color.replace('A', `${0.55 * a}`)); grad.addColorStop(1, p.color.replace('A', '0'));
       g.globalAlpha = 1; g.fillStyle = grad;
       g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.fill();
     }
     g.globalAlpha = 1;
   }
-  scales(x, y, { n = 3, pal = ['#FF9A1F', '#FF6A1A', '#FFC83D'], size = [4, 7], speed = [20, 60], life = [0.7, 1.2], grav = -40 } = {}) {
+  // pal · tip · edge 로 꽃잎(벚꽃 도자기) 같은 다른 조각에도 쓴다
+  scales(x, y, { n = 3, pal = ['#FF9A1F', '#FF6A1A', '#FFC83D'], tip, edge, size = [4, 7], speed = [20, 60], life = [0.7, 1.2], grav = -40 } = {}) {
     for (let i = 0; i < n; i++) {
       const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, v = rnd(...speed);
-      this.spawn({ shape: 'scale', x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), color: pick(pal), grav, drag: 1.8, rot: Math.random() * TAU, spin: (Math.random() - 0.5) * 9, ph: Math.random() * TAU });
+      this.spawn({ shape: 'scale', x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), color: pick(pal), tip, edge, grav, drag: 1.8, rot: Math.random() * TAU, spin: (Math.random() - 0.5) * 9, ph: Math.random() * TAU });
     }
   }
-  flames(x, y, { n = 2, size = [7, 12], life = [0.45, 0.8], grav = -70 } = {}) {
+  // pal: 'rgba(r,g,b,A)' 꼴 색들, core: 가운데 색 — 도깨비불 · 젤리 방울에도 쓴다
+  flames(x, y, { n = 2, size = [7, 12], life = [0.45, 0.8], grav = -70, pal = ['rgba(255,138,26,A)', 'rgba(255,106,26,A)', 'rgba(255,170,60,A)'], core } = {}) {
     for (let i = 0; i < n; i++) {
-      this.spawn({ shape: 'flame', x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 18, vy: -10 - Math.random() * 20, life: rnd(...life), size: rnd(...size), color: pick(['rgba(255,138,26,A)', 'rgba(255,106,26,A)', 'rgba(255,170,60,A)']), grav, drag: 1.4 });
+      this.spawn({ shape: 'flame', x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 18, vy: -10 - Math.random() * 20, life: rnd(...life), size: rnd(...size), color: pick(pal), core, grav, drag: 1.4 });
     }
   }
 

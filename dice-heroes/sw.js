@@ -17,9 +17,9 @@ const FILES = [
   ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].map(id => `assets/boss/${id}.webp`),
   ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
   // 그림 주사위 · 트레이 스킨: 앱이 부르는 주소 그대로(?v=그림 버전) → 설치할 때부터 캐시에 있어 첫 판부터 바로 뜬다
-  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', 'corner_side', 'corner_top', ...(['demon', 'lava', 'starry'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
-  ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal', 'dragon', 'lava'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
-  ...['dragon', 'lava'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}_glow.webp?v=${ART_VER}`)),
+  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry', 'pixel8', 'deck', 'casino', 'alchemy', 'ruins', 'glacier', 'dragonnest'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', 'corner_side', 'corner_top', ...(['demon', 'lava', 'starry', 'ruins', 'glacier', 'dragonnest'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
+  ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal', 'dragon', 'lava', 'pixel', 'bone', 'slime', 'chip', 'chest', 'porcelain', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
+  ...['dragon', 'lava', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}_glow.webp?v=${ART_VER}`)),
 ];
 const NET_WAIT = 2500;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로 (첫 화면이 오래 검게 남지 않게)
 let slowUntil = 0;       // 방금 네트워크가 느렸으면 30초 동안은 캐시부터 (파일마다 4초씩 기다리지 않게)

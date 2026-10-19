@@ -702,6 +702,76 @@ export const sfx = {
         }
         break;
       }
+      // ── v0.39.10 새 주사위 10종 ──
+      case 'bit': {         // 8비트: 뿅 — 짧은 사각파 두 음 (세게 부딪히면 한 옥타브 위 음이 하나 더)
+        if (t - (this.btT || 0) < 0.04) break;
+        this.btT = t;
+        const f = [523, 587, 659, 784][Math.floor(r * 4)];
+        ping(sfxGain, { f, t, dur: 0.05, vol: 0.035 + k * 0.05, type: 'square' });
+        ping(sfxGain, { f: f * 1.5, t: t + 0.045, dur: 0.05, vol: 0.025 + k * 0.04, type: 'square' });
+        if (k > 0.55) ping(sfxGain, { f: f * 2, t: t + 0.09, dur: 0.05, vol: 0.02 + k * 0.03, type: 'square' });
+        break;
+      }
+      case 'bone': {        // 해골 뼈: 속이 빈 뼈가 달그락 — 마른 나무 같은 딸깍 두 번
+        const f = 820 + r * 260;
+        noise(sfxGain, { t, dur: 0.02, vol: 0.06 + k * 0.12, hp: 900, lp: 5000 });
+        ping(sfxGain, { f, slide: f * 0.8, t, dur: 0.06, vol: 0.06 + k * 0.08, type: 'triangle' });
+        if (k > 0.3) { noise(sfxGain, { t: t + 0.035, dur: 0.012, vol: 0.03 + k * 0.06, hp: 1200, lp: 5000 }); ping(sfxGain, { f: f * 1.25, t: t + 0.035, dur: 0.04, vol: 0.03 + k * 0.04, type: 'triangle' }); }
+        break;
+      }
+      case 'squish':        // 슬라임: 말캉 — 아래로 미끄러지는 둥근 소리 + 촉촉한 거품
+        ping(sfxGain, { f: 420 + r * 120, slide: 160, t, dur: 0.12, vol: 0.07 + k * 0.1, type: 'sine' });
+        noise(sfxGain, { t, dur: 0.05 + k * 0.04, vol: 0.02 + k * 0.04, hp: 500, lp: 2200 });
+        if (k > 0.5) ping(sfxGain, { f: 900 + r * 300, slide: 1300, t: t + 0.05, dur: 0.05, vol: 0.02 + k * 0.03 });
+        break;
+      case 'chips': {       // 카지노 칩: 점토 칩끼리 탁 · 겹치며 차르륵
+        const f = 2300 + r * 600;
+        noise(sfxGain, { t, dur: 0.018, vol: 0.07 + k * 0.12, hp: 2500, lp: 9000 });
+        ping(sfxGain, { f, t, dur: 0.05, vol: 0.03 + k * 0.04 });
+        for (let i = 1; i <= (k > 0.4 ? 3 : 1); i++) noise(sfxGain, { t: t + i * (0.022 + Math.random() * 0.012), dur: 0.01, vol: (0.04 + k * 0.06) / i, hp: 2800, lp: 9000 });
+        break;
+      }
+      case 'wood':          // 보물 상자: 단단한 나무 쿵 + 철 리벳 챙
+        noise(sfxGain, { t, dur: 0.035 + k * 0.03, vol: 0.08 + k * 0.16, hp: 250, lp: 2600 });
+        ping(sfxGain, { f: 210 + r * 50, slide: 150, t, dur: 0.09, vol: 0.07 + k * 0.09, type: 'triangle' });
+        if (k > 0.35) ping(sfxGain, { f: 2400 + r * 500, t: t + 0.006, dur: 0.09, vol: 0.015 + k * 0.03 });
+        break;
+      case 'china': {       // 벚꽃 도자기: 맑은 자기 팅 — 높고 짧은 두 배음
+        if (t - (this.chT || 0) < 0.03) break;
+        this.chT = t;
+        const f = 3400 + r * 900;
+        ping(sfxGain, { f, t, dur: 0.16, vol: 0.035 + k * 0.06 });
+        ping(sfxGain, { f: f * 2.4, t, dur: 0.08, vol: 0.015 + k * 0.03 });
+        noise(sfxGain, { t, dur: 0.01, vol: 0.03 + k * 0.05, hp: 5000, lp: 13000 });
+        break;
+      }
+      case 'ice': {         // 얼음 결정: 얼음끼리 딸깍 · 차가운 고음 + 살짝 서걱
+        const f = 2900 + r * 1300;
+        noise(sfxGain, { t, dur: 0.02, vol: 0.05 + k * 0.08, hp: 3500, lp: 12000 });
+        ping(sfxGain, { f, t, dur: 0.12, vol: 0.03 + k * 0.05 });
+        ping(sfxGain, { f: f * 1.37, t: t + 0.008, dur: 0.07, vol: 0.015 + k * 0.03 });
+        if (k > 0.5) noise(sfxGain, { t: t + 0.03, dur: 0.06, vol: 0.015 + k * 0.02, hp: 6000, lp: 13000 });
+        break;
+      }
+      case 'rune':          // 룬석: 묵직한 돌 툭 + 룬이 울리는 낮은 맑은 소리
+        noise(sfxGain, { t, dur: 0.03 + k * 0.03, vol: 0.08 + k * 0.15, hp: 150, lp: 1800 });
+        ping(sfxGain, { f: 150 + r * 30, slide: 110, t, dur: 0.08, vol: 0.06 + k * 0.08, type: 'triangle' });
+        if (t - (this.ruT || 0) > 0.12) { this.ruT = t; ping(sfxGain, { f: 880 + r * 220, t: t + 0.01, dur: 0.35, vol: 0.012 + k * 0.025 }); ping(sfxGain, { f: (880 + r * 220) * 1.5, t: t + 0.01, dur: 0.25, vol: 0.006 + k * 0.012 }); }
+        break;
+      case 'brass': {       // 별자리 놋쇠: 작은 놋쇠 종 — 낮은 금속 울림이 길게
+        if (t - (this.brT || 0) < 0.04) break;
+        this.brT = t;
+        const f = 1250 + r * 350;
+        noise(sfxGain, { t, dur: 0.012, vol: 0.04 + k * 0.07, hp: 2000, lp: 9000 });
+        ping(sfxGain, { f, t, dur: 0.4, vol: 0.03 + k * 0.05 });
+        ping(sfxGain, { f: f * 1.008, t, dur: 0.4, vol: 0.015 + k * 0.025 });
+        ping(sfxGain, { f: f * 2.62, t, dur: 0.18, vol: 0.012 + k * 0.025 });
+        break;
+      }
+      case 'wisp':          // 유령 불꽃: 부드러운 바람 스침 + 으스스하게 휘어지는 낮은 음 (너무 자주 울리지 않게)
+        noise(sfxGain, { t, dur: 0.02, vol: 0.03 + k * 0.05, hp: 1200, lp: 6000 });
+        if (t - (this.wsT || 0) > 0.11) { this.wsT = t; noise(sfxGain, { t, dur: 0.18 + k * 0.2, vol: 0.012 + k * 0.025, hp: 700, lp: 3000 }); ping(sfxGain, { f: 520 + r * 160, slide: 380, t, dur: 0.3, vol: 0.012 + k * 0.022 }); }
+        break;
       case 'key':           // 키캡: 도각 — 스위치 클릭 + 낮은 바닥음
         noise(sfxGain, { t, dur: 0.018, vol: 0.12 + k * 0.2, hp: 2000, lp: 6000 });
         ping(sfxGain, { f: 170 + r * 40, slide: 120, t: t + 0.004, dur: 0.05, vol: 0.12 + k * 0.12, type: 'triangle' });
