@@ -58,6 +58,8 @@ export const TOURS = {
   ],
 };
 
+// 안내마다 그 화면이 지금 떠 있는지 보는 표시
+const SCREEN = { select: '.run-select', omens: '.run-omens', reward: '.run-reward', map: '.run-map:not(.peek)', combat: '#rc', play: '#rc', split: '#split', shop: '.run-shop', rest: '.run-rest', event: '.run-event' };
 const KEY = 'diceheroes.runTour';
 let store = null, wantFn = () => false, el = null, queue = Promise.resolve();
 // app 의 store 와 '지금 안내를 보여도 되나' (첫 원정인가 · 시험 원정이 아닌가)
@@ -81,6 +83,8 @@ async function run(key, delay) {
   if (s.seen[key]) return;
   await new Promise(r => setTimeout(r, delay));
   if (!wantFn()) return;
+  // 기다리는 사이 다른 화면으로 넘어갔으면 이 안내는 다음에 (예: 시작 화면 안내가 시험 원정 전투 위에 뜨던 것)
+  if (SCREEN[key] && !document.querySelector(SCREEN[key])) return;
   // 다른 창(징조 고르기 등)이 떠 있으면 그 화면 안내는 다음에 (창이 닫히고 화면이 다시 그려질 때)
   if (key !== 'omens' && document.querySelector('#layer .overlay')) return;
   s.seen[key] = 1;
