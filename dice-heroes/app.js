@@ -3159,7 +3159,7 @@ const TRAIL = {
   dragon:    { pal: ['#FFF2A8', '#FFC83D', '#FF9A1F', '#E8435A'], grav: -30, glint: '#FFE2B0', glintP: 0, noGlint: true, few: 0.4, scales: true },   // 화염 비늘이 나풀나풀 흩날린다
   lava:      { pal: ['#FFF2A8', '#FFC83D', '#FF8A1A', '#FF4A1A'], grav: -60, glint: '#FFD24A', glintP: 0, noGlint: true, few: 0.25, flames: true },    // 궤적을 따라 부드러운 불꽃
   // v0.39.10 새 주사위 10종 — scales/flames 에 객체를 주면 그 색 · 움직임으로 (꽃잎 · 도깨비불 · 젤리 방울)
-  pixel:     { pal: ['#FFFFFF', '#F4E6C5', '#D62647', '#1A1030'], grav: 160, glint: '#FFFFFF', glintP: 0.15, few: 0.8 },                 // 도트 조각이 톡톡 떨어진다
+  pixel:     { pal: ['#FFFFFF', '#FFE27A', '#E8435A'], grav: 0, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0, pix: true },          // 8비트: 또렷한 도트 별 · 하트 · 동전이 칸 단위로 떠오르고 깜빡이며 사라진다
   bone:      { pal: ['#FFF6DE', '#F1DDAE', '#C9B48A'], grav: 140, glint: '#FFF6DE', noGlint: true, glintP: 0, few: 0.55 },            // 뼛가루
   slime:     { pal: ['#E8FFB0', '#B8F04A', '#7AC81E'], grav: 0, glint: '#E8FFB0', noGlint: true, glintP: 0, few: 0.2,
                flames: { pal: ['rgba(184,240,74,A)', 'rgba(122,200,30,A)', 'rgba(210,255,120,A)'], core: 'rgba(240,255,200,A)', grav: 260, size: [5, 9] } },   // 젤리 방울이 똑똑
@@ -3190,6 +3190,7 @@ function diceTrail(t, p, sp) {
   if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
   fx.burst(p.x, p.y, { n: fxN((fast ? 6 : 4) * (tr.few ?? 1)), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
   const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
+  if (tr.pix) fx.pix(p.x, p.y, { n: fxN(fast ? 1.4 : 0.8) });
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
   if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN(fast ? 2.6 : 1.8), size: (fo.size || [7, 12]).map(fxS) });
   if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
@@ -3218,6 +3219,7 @@ function hitSpark(id, v, i, t) {
   sparkT[i] = now;
   const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
   fx.c.classList.toggle('over', t === skinPreview);
+  if (tr.pix) return fx.pixBurst(p.x, p.y, { power: k });      // 8비트: 도트 8방향 폭발 + 별
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
   const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
