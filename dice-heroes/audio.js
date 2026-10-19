@@ -676,6 +676,32 @@ export const sfx = {
       case 'pop':           // 하트: 뿅
         ping(sfxGain, { f: 700 + r * 200, slide: 1500 + r * 300, t, dur: 0.1, vol: 0.05 + k * 0.07, type: 'square' });
         break;
+      case 'scale': {       // 드래곤: 단단한 비늘끼리 맞부딪히는 고급스러운 '찰칵' — 짧은 각질 딸깍 + 낮은 금속성 몸통음, 세게 부딪히면 비늘이 겹쳐 밀리는 잔떨림
+        if (t - (this.scT || 0) < 0.03) break;
+        this.scT = t;
+        const f = 1150 + r * 300;
+        noise(sfxGain, { t, dur: 0.014, vol: 0.06 + k * 0.1, hp: 2200, lp: 7000 });
+        ping(sfxGain, { f, t, dur: 0.11, vol: 0.035 + k * 0.05, type: 'triangle' });
+        ping(sfxGain, { f: f * 1.53, t, dur: 0.08, vol: 0.018 + k * 0.03 });
+        ping(sfxGain, { f: 190 + r * 40, slide: 140, t, dur: 0.07, vol: 0.05 + k * 0.07, type: 'triangle' });
+        if (k > 0.35) for (let i = 1; i <= 2 + (k > 0.7 ? 1 : 0); i++) {
+          const ti = t + i * (0.016 + Math.random() * 0.01);
+          noise(sfxGain, { t: ti, dur: 0.008, vol: (0.03 + k * 0.04) / i, hp: 2800, lp: 8000 });
+          ping(sfxGain, { f: f * (1.1 + Math.random() * 0.3), t: ti, dur: 0.05, vol: (0.012 + k * 0.02) / i });
+        }
+        break;
+      }
+      case 'sizzle': {      // 용암: 돌이 닿는 둔탁한 '툭' + 뜨거운 표면에 닿아 '치익' 지지는 소리 (세게 부딪힐수록 길고 진하게 · 탁탁 튀는 불티)
+        const now = t;
+        noise(sfxGain, { t, dur: 0.03 + k * 0.03, vol: 0.07 + k * 0.14, hp: 200, lp: 1600 });
+        ping(sfxGain, { f: 120 + r * 40, slide: 80, t, dur: 0.08, vol: 0.06 + k * 0.08, type: 'triangle' });
+        if (now - (this.szT || 0) > 0.09) {
+          this.szT = now;
+          noise(sfxGain, { t: t + 0.01, dur: 0.18 + k * 0.32, vol: 0.02 + k * 0.045, hp: 3200, lp: 10000 });
+          for (let i = 0; i < 1 + Math.round(k * 3); i++) noise(sfxGain, { t: t + 0.03 + Math.random() * (0.12 + k * 0.2), dur: 0.006, vol: 0.02 + k * 0.03, hp: 1800, lp: 7000 });
+        }
+        break;
+      }
       case 'key':           // 키캡: 도각 — 스위치 클릭 + 낮은 바닥음
         noise(sfxGain, { t, dur: 0.018, vol: 0.12 + k * 0.2, hp: 2000, lp: 6000 });
         ping(sfxGain, { f: 170 + r * 40, slide: 120, t: t + 0.004, dur: 0.05, vol: 0.12 + k * 0.12, type: 'triangle' });

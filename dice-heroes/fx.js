@@ -92,6 +92,7 @@ class FxLayer {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       const k = p.life / p.max;
+      if (p.shape) { FxLayer.drawShape(g, p, k, dt); keep.push(p); continue; }
       const size = Math.max(1, p.shrink ? p.size * (0.3 + 0.7 * k) : p.size);
       g.globalAlpha = Math.min(1, k * 1.6) * p.alpha;
       if (p.glow) {
@@ -167,6 +168,43 @@ class FxLayer {
       g.fillRect(0, 0, innerWidth, innerHeight);
       g.globalAlpha = 1;
     }, dur);
+  }
+
+  // 모양 입자 (주사위 궤적)
+  //   scale: 화염 비늘 — 끝이 뾰족한 비늘 조각이 빙글 돌며 나풀나풀 떠오른다 (드래곤 주사위)
+  //   flame: 부드러운 불꽃 — 번지는 둥근 불빛이 커지며 피어올라 사라진다 (용암 주사위)
+  static drawShape(g, p, k, dt) {
+    const a = Math.min(1, k * 2.2) * p.alpha;
+    if (p.shape === 'scale') {
+      p.rot += p.spin * dt; p.ph += dt * 7;
+      const s = p.size, sx = s * (0.55 + 0.45 * Math.abs(Math.sin(p.ph)));   // 앞뒤로 뒤집히며 나풀거린다
+      g.save(); g.translate(p.x + Math.sin(p.ph * 0.6) * 3, p.y); g.rotate(p.rot); g.scale(sx / s, 1);
+      g.globalAlpha = a * 0.35; g.fillStyle = p.color;
+      g.beginPath(); g.ellipse(0, 0, s * 1.3, s * 1.7, 0, 0, TAU); g.fill();
+      g.globalAlpha = a;
+      const grad = g.createLinearGradient(0, -s, 0, s); grad.addColorStop(0, '#FFF2A8'); grad.addColorStop(0.45, p.color); grad.addColorStop(1, p.edge || '#7A0E14');
+      g.fillStyle = grad;
+      g.beginPath(); g.moveTo(0, -s); g.quadraticCurveTo(s * 0.9, -s * 0.1, 0, s); g.quadraticCurveTo(-s * 0.9, -s * 0.1, 0, -s); g.fill();
+      g.restore();
+    } else if (p.shape === 'flame') {
+      const r = p.size * (0.7 + 0.8 * (1 - k));
+      const grad = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      grad.addColorStop(0, `rgba(255,242,168,${0.9 * a})`); grad.addColorStop(0.35, p.color.replace('A', `${0.55 * a}`)); grad.addColorStop(1, 'rgba(255,60,10,0)');
+      g.globalAlpha = 1; g.fillStyle = grad;
+      g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  scales(x, y, { n = 3, pal = ['#FF9A1F', '#FF6A1A', '#FFC83D'], size = [4, 7], speed = [20, 60], life = [0.7, 1.2], grav = -40 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, v = rnd(...speed);
+      this.spawn({ shape: 'scale', x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), color: pick(pal), grav, drag: 1.8, rot: Math.random() * TAU, spin: (Math.random() - 0.5) * 9, ph: Math.random() * TAU });
+    }
+  }
+  flames(x, y, { n = 2, size = [7, 12], life = [0.45, 0.8], grav = -70 } = {}) {
+    for (let i = 0; i < n; i++) {
+      this.spawn({ shape: 'flame', x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 18, vy: -10 - Math.random() * 20, life: rnd(...life), size: rnd(...size), color: pick(['rgba(255,138,26,A)', 'rgba(255,106,26,A)', 'rgba(255,170,60,A)']), grav, drag: 1.4 });
+    }
   }
 
   // 원 모양 빛 (구체)
