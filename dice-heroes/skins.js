@@ -14,6 +14,8 @@ export const DICE_SKINS = [
   { id: 'clear', name: '투명', desc: '무지갯빛이 번지는 유리 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
   { id: 'heart', name: '하트', desc: '반짝이는 연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
   { id: 'keycap', name: '키캡', desc: '기계식 키보드 키캡 · 도각 소리', tier: 'special', sound: 'key' },
+  { id: 'dragon', name: '드래곤', desc: '진홍 용비늘 · 금빛 보주 눈 · 1은 용의 눈', tier: 'special', sound: 'classic' },
+  { id: 'lava', name: '용암', desc: '갈라진 현무암 속에서 끓는 용암 눈', tier: 'special', sound: 'classic' },
 ];
 
 export const TRAY_SKINS = [
@@ -60,6 +62,9 @@ const DIE_MAT = {
   clear: { roughness: 0.12, metalness: 0.0, env: 0.9, image: true, selfGlow: 0.18 },
   heart: { roughness: 0.3, metalness: 0.0, env: 0.4, image: true },
   keycap: { roughness: 0.6, metalness: 0.0, env: 0.2, image: true },
+  // glowImage: 면마다 발광 지도(assets/dice/<스킨>/<n>_glow.webp)로 눈 · 균열만 빛난다. 숫자는 그 세기, glowColor 는 빛 색 (흰빛이면 눈이 하얗게 날아간다)
+  dragon: { roughness: 0.38, metalness: 0.25, env: 0.6, image: true, glowImage: 0.45, glowColor: 0xFFB040 },
+  lava: { roughness: 0.75, metalness: 0.05, env: 0.25, image: true, glowImage: 0.55, glowColor: 0xFF8A2A },
 };
 export const dieMatParams = id => DIE_MAT[id] || DIE_MAT.classic;
 export const dieGlows = id => !!DIE_MAT[id]?.glow;
@@ -69,6 +74,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 export const ART_VER = 'a3';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
+export const dieGlowImage = (id, v) => (DIE_MAT[id]?.glowImage ? `assets/dice/${id}/${v}_glow.webp${AV}` : null);
 
 // 면 그림을 미리 받아 둔다 (꾸미기에서 고르면 바로 바뀌게). 받은 그림은 READY 에 남는다
 const IMGS = new Map();
@@ -85,7 +91,7 @@ export function loadImage(url) {
   }
   return IMGS.get(url);
 }
-const dieImages = id => [1, 2, 3, 4, 5, 6].map(v => dieImage(id, v)).filter(Boolean);
+const dieImages = id => [1, 2, 3, 4, 5, 6].flatMap(v => [dieImage(id, v), dieGlowImage(id, v)]).filter(Boolean);
 export const diceReady = id => dieImages(id).every(u => READY.has(u));
 export const preloadDice = id => Promise.all(dieImages(id).map(loadImage));
 

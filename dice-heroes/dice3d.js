@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, loadImage, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
+import { drawDieFace, dieMatParams, dieGlows, dieImage, dieGlowImage, READY, loadImage, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
 
 // 원정 특수 주사위가 눈을 바꿀 때의 빛 색
 const MORPH_COLOR = { gold: 0xFFC83D, twin: 0xFF9AD0, stair: 0x3EE6B4, heavy: 0x9AA4B8 };
@@ -397,6 +397,8 @@ export class DiceTray {
           if (p.glow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = face('glow'); m.emissiveIntensity = p.glow; }
           if (p.bump) { m.bumpMap = face('bump'); m.bumpScale = p.bump; }
           if (p.selfGlow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = m.map; m.emissiveIntensity = p.selfGlow; }
+          // 발광 지도 그림 (드래곤 · 용암): 받기 전엔 빛 없음(검정)으로 둔다
+          if (p.glowImage) { m.emissive = new THREE.Color(p.glowColor ?? 0xFFFFFF); m.emissiveMap = this.imageTex(dieGlowImage(diceId, v), () => { const c = document.createElement('canvas'); c.width = c.height = 4; const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 4, 4); return c; }); m.emissiveIntensity = p.glowImage; }
           m.userData.glowBase = m.emissiveIntensity;
         }
         if (p.cutout) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }        // 구멍 뚫린 금속 골조: 반대편 면이 비쳐 보인다
