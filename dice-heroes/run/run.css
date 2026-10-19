@@ -503,6 +503,7 @@
 .act-banner .banner b.rn { font-size: 60px; }
 .run-intro .banner span { color: #FF9AA8; font-size: 14px; letter-spacing: .1em; }
 .run-intro .banner small { color: var(--muted); }
+.sc-why { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.45; color: var(--muted); opacity: .9; }
 .pot-acts { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
 .pot-acts .pot-drop { font-size: 11px; padding: 3px 8px; min-height: 0; opacity: .85; margin-left: auto; }
 

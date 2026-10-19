@@ -672,9 +672,24 @@ function playTip(c) {
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
   if (Run.hasRelic(R, 'madscale') && !(Run.isTrinity(c) && !Run.prismOn(R, c))) {
     const t = Run.madTilt(R), m = Run.preview(R, hi, Math.round(Run.splitPool(R, c, Run.scoreCard(R, c).total) * t));
-    return `<p>${ico('scale', 'xs')} 광기의 저울 · 공격 ${Math.round(t * 100)}% → 피해 ${m.dmg} · 보호막 ${m.block}</p>`;
+    return `<p>${ico('scale', 'xs')} 광기의 저울 · 공격 ${Math.round(t * 100)}% → 피해 ${m.dmg} · 보호막 ${m.block}</p>${scoreWhy(m)}`;
   }
-  return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p>`;
+  return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p>${scoreWhy(a)}`;
+}
+// 점수 · 피해가 왜 그렇게 나오는지 (작은 글씨). 기본 점수에서 달라진 게 있을 때만
+function scoreWhy(a) {
+  const sc = a.sc, bits = sc.parts.map(p => `${esc(p.ko)} ${p.amt > 0 ? '+' : ''}${p.amt}${p.mul ? '(곱)' : ''}`);
+  sc.notes.forEach(n => bits.push(esc(n)));
+  const dmg = [];
+  if (a.whet) dmg.push(`숫돌 +${a.whet}`);
+  if (a.arcane) dmg.push(`비전 지식 +${a.arcane}`);
+  if (a.kal) dmg.push(`만화경 +${a.kal}`);
+  if (a.bsword) dmg.push(`피에 굶주린 검 +${a.bsword}`);
+  if (a.combo) dmg.push('연환 ×1.3');
+  if (a.horn) dmg.push('사냥꾼의 뿔피리 ×1.25');
+  if (a.poison) dmg.push('독 안개 ½');
+  if (!bits.length && !dmg.length) return '';
+  return `<small class="sc-why">기본 ${sc.base}${bits.length ? ` · ${bits.join(' · ')}` : ''} → 점수 ${sc.total}${dmg.length ? `<br>피해: ${dmg.join(' · ')}` : ''}</small>`;
 }
 
 // ── 전투 조작 ────────────────────────────────────────────────────────────────
