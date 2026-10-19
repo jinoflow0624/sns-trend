@@ -1,6 +1,7 @@
 // 원정 안내 — 첫 원정에서 화면을 처음 볼 때 한 번씩, 요정 루루가 화면의 한 곳을 비추며 짧게 설명한다.
 // (대전 · 협동 튜토리얼은 tutorial.js — 직접 해 보는 방식. 원정은 화면 구성이 많아서 '어디에 무엇이 있나'를 보여 준다)
-// 한 번이라도 원정을 끝낸 사람에게는 나오지 않는다. 원정 메뉴의 「안내 다시 보기」로 다시 켤 수 있다. 시험 원정에서는 나오지 않는다.
+// 한 번이라도 원정을 끝낸 사람에게는 나오지 않는다. 「안내 끄기」를 누르면 그 뒤로 모든 안내가 꺼진다.
+// 원정 메뉴의 「안내 다시 보기」로 다시 켤 수 있다. 시험 원정에서는 나오지 않는다.
 // 단계: { sel: 비출 곳 (없으면 화면 가운데에 말만), text, pos: 'top' | 'bottom' (말풍선 자리, 없으면 비춘 곳 반대편) }
 import { spriteURL } from '../pixel.js';
 
@@ -61,13 +62,15 @@ export const TOURS = {
 // 안내마다 그 화면이 지금 떠 있는지 보는 표시
 const SCREEN = { select: '.run-select', omens: '.run-omens', reward: '.run-reward', map: '.run-map:not(.peek)', combat: '#rc', play: '#rc', split: '#split', shop: '.run-shop', rest: '.run-rest', event: '.run-event' };
 const KEY = 'diceheroes.runTour';
-let store = null, wantFn = () => false, el = null, queue = Promise.resolve();
+let store = null, wantFn = () => false, el = null, queue = Promise.resolve(), skipped = null;
 // app 의 store 와 '지금 안내를 보여도 되나' (첫 원정인가 · 시험 원정이 아닌가)
 export function initTour(s, want) { store = s; wantFn = want; }
 const state = () => store?.get(KEY) || { seen: {} };
 export const tourForced = () => !!state().force;
-// 「안내 다시 보기」: 본 것을 지우고, 이번 원정이 끝날 때까지 다시 보인다
+// 「안내 다시 보기」: 본 것을 지우고(안내 끄기도 풀고), 이번 원정이 끝날 때까지 다시 보인다
 export function replayTours() { store?.set(KEY, { seen: {}, force: true }); }
+// 「안내 끄기」: 다른 화면 · 다른 상황의 안내도 더는 나오지 않는다 (원정 메뉴의 「안내 다시 보기」로 다시 켠다)
+function stopAll() { const s = state(); s.off = true; s.force = false; store?.set(KEY, s); }
 // 원정이 끝나면 다시 보기는 꺼진다
 export function tourRunEnded() { const s = state(); if (s.force) { s.force = false; store?.set(KEY, s); } }
 
@@ -80,9 +83,12 @@ async function run(key, delay) {
   const steps = TOURS[key];
   if (!steps || !store || !wantFn()) return;
   const s = state();
-  if (s.seen[key]) return;
+  if (s.off || s.seen[key]) return;
+  // 건너뛰기를 누른 화면에 이어서 뜨려던 안내(예: 전투 → 카드 내기)도 이번엔 건너뛴다
+  if (skipped && SCREEN[key] === skipped && document.querySelector(skipped)) { s.seen[key] = 1; store.set(KEY, s); return; }
+  skipped = null;
   await new Promise(r => setTimeout(r, delay));
-  if (!wantFn()) return;
+  if (!wantFn() || state().off) return;
   // 기다리는 사이 다른 화면으로 넘어갔으면 이 안내는 다음에 (예: 시작 화면 안내가 시험 원정 전투 위에 뜨던 것)
   if (SCREEN[key] && !document.querySelector(SCREEN[key])) return;
   // 다른 창(징조 고르기 등)이 떠 있으면 그 화면 안내는 다음에 (창이 닫히고 화면이 다시 그려질 때)
@@ -92,7 +98,8 @@ async function run(key, delay) {
   const list = steps.filter(st => !st.sel || document.querySelector(st.sel));
   for (let k = 0; k < list.length; k++) {
     const go = await show(list[k], k, list.length);
-    if (!go) break;
+    if (go === 'off') { stopAll(); break; }
+    if (!go) { skipped = SCREEN[key] || null; break; }
   }
   close();
 }
@@ -114,7 +121,7 @@ function show(st, k, n) {
       <div class="rt-box">
         <img class="rt-fairy" src="${spriteURL('fairy', 4)}" alt="">
         <div class="rt-text"><b>루루</b><p>${st.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>
-          <div class="rt-row"><button class="rt-skip">건너뛰기</button><span class="rt-step">${k + 1} / ${n}</span><button class="pbtn gold small rt-next">${k + 1 < n ? '다음' : '알겠어!'}</button></div></div>
+          <div class="rt-row"><button class="rt-off">안내 끄기</button><button class="rt-skip">건너뛰기</button><span class="rt-step">${k + 1} / ${n}</span><button class="pbtn gold small rt-next">${k + 1 < n ? '다음' : '알겠어!'}</button></div></div>
       </div>`;
     const spot = el.querySelector('.rt-spot'), box = el.querySelector('.rt-box');
     const place = () => {
@@ -135,6 +142,7 @@ function show(st, k, n) {
     const next = e => { e?.stopPropagation(); done(true); };
     el.querySelector('.rt-next').onclick = next;
     el.querySelector('.rt-skip').onclick = e => { e.stopPropagation(); done(false); };
+    el.querySelector('.rt-off').onclick = e => { e.stopPropagation(); done('off'); };
     el.onclick = next;                       // 아무 곳이나 눌러도 다음
   });
 }
