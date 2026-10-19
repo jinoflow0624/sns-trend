@@ -21,7 +21,7 @@ export const DICE_SKINS = [
   { id: 'slime', name: '슬라임', desc: '말랑한 연두 젤리 · 방울 눈 · 말캉 소리', tier: 'special', sound: 'squish' },
   { id: 'chip', name: '카지노 칩', desc: '진홍 칩 · 금박 눈 · 1은 스페이드 · 칩 쌓는 소리', tier: 'special', sound: 'chips' },
   { id: 'chest', name: '보물 상자', desc: '철띠 두른 나무 · 금 못 눈 · 1은 열쇠 구멍 · 나무 쿵 소리', tier: 'special', sound: 'wood' },
-  { id: 'porcelain', name: '벚꽃 도자기', desc: '하얀 자기에 분홍 유약 · 꽃잎 눈 · 맑은 자기 소리', tier: 'special', sound: 'china' },
+  { id: 'porcelain', name: '청자', desc: '고려청자의 맑은 비취빛 유약 · 상감처럼 새긴 꽃잎 눈 · 맑은 자기 소리', tier: 'special', sound: 'china' },
   { id: 'frost', name: '얼음 결정', desc: '속이 비치는 빙하 얼음 · 서리꽃 눈 · 얼음 부딪히는 소리', tier: 'special', sound: 'ice' },
   { id: 'rune', name: '룬석', desc: '이끼 낀 고대 돌 · 푸르게 빛나는 룬 · 돌 울림 소리', tier: 'special', sound: 'rune' },
   { id: 'brass', name: '별자리 놋쇠', desc: '오래된 천문 기구 놋쇠 · 별 눈 · 1은 태양 · 놋쇠 종 소리', tier: 'special', sound: 'brass' },
@@ -87,7 +87,7 @@ const DIE_MAT = {
   slime: { roughness: 0.18, metalness: 0.0, env: 0.7, image: true },
   chip: { roughness: 0.4, metalness: 0.05, env: 0.35, image: true },
   chest: { roughness: 0.7, metalness: 0.15, env: 0.3, image: true },
-  porcelain: { roughness: 0.14, metalness: 0.0, env: 0.8, image: true },
+  porcelain: { roughness: 0.22, metalness: 0.0, env: 0.4, image: true },   // 청자: 반사를 줄여 비취빛이 하얗게 날아가지 않게
   frost: { roughness: 0.15, metalness: 0.0, env: 0.85, image: true, glowImage: 0.5, glowColor: 0x9FE8FF },
   rune: { roughness: 0.82, metalness: 0.0, env: 0.2, image: true, glowImage: 0.9, glowColor: 0x3EC8FF },
   brass: { roughness: 0.3, metalness: 0.55, env: 0.9, image: true, glowImage: 0.5, glowColor: 0xFFF2C8 },
@@ -98,7 +98,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 // 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
 // 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
 // (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
-export const ART_VER = 'a3';
+export const ART_VER = 'a4';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 export const dieGlowImage = (id, v) => (DIE_MAT[id]?.glowImage ? `assets/dice/${id}/${v}_glow.webp${AV}` : null);

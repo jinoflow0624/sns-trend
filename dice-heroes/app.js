@@ -3165,8 +3165,8 @@ const TRAIL = {
                flames: { pal: ['rgba(184,240,74,A)', 'rgba(122,200,30,A)', 'rgba(210,255,120,A)'], core: 'rgba(240,255,200,A)', grav: 260, size: [5, 9] } },   // 젤리 방울이 똑똑
   chip:      { pal: ['#FFFFFF', '#FFE27A', '#FFC83D', '#E8435A'], grav: 150, glint: '#FFE27A', glintP: 0.35, few: 0.7 },               // 금박 · 종이 조각
   chest:     { pal: ['#FFF6C8', '#FFE27A', '#FFC83D', '#C8861E'], grav: 120, glint: '#FFF0A8', glintP: 0.6, few: 0.5 },               // 금화 반짝
-  porcelain: { pal: ['#FFFFFF', '#FFE0EE'], grav: 20, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0.2,
-               scales: { pal: ['#FFB8D8', '#FF9AC8', '#FFD0E4'], tip: '#FFFFFF', edge: '#E8679A', grav: 22 } },                   // 꽃잎이 나풀나풀
+  porcelain: { pal: ['#FFFFFF', '#E0F2E8'], grav: 20, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0.2,
+               scales: { pal: ['#A8D8C4', '#84C0A8', '#C8E8DA'], tip: '#F2FBF6', edge: '#3E8A74', grav: 22 } },                   // 청자: 비취빛 꽃잎이 나풀나풀
   frost:     { pal: ['#FFFFFF', '#E0F8FF', '#9FE8FF', '#5AC8FF'], grav: 40, glint: '#E0F8FF', glintP: 0.5, few: 0.8 },               // 서리 조각 · 차가운 반짝
   rune:      { pal: ['#E0FAFF', '#9FE8FF', '#3EC8FF'], grav: -24, glint: '#9FE8FF', noGlint: true, glintP: 0, few: 0.35,
                flames: { pal: ['rgba(62,200,255,A)', 'rgba(90,170,255,A)', 'rgba(140,230,255,A)'], core: 'rgba(224,250,255,A)', grav: -50, size: [5, 9] } },  // 푸른 룬빛이 떠오른다
@@ -3381,8 +3381,8 @@ function skinPop(kind, id) {
   const k = (kind === 'dice' ? diceSkin : traySkin)(id), own = Wal.owns(kind, id), price = Wal.priceOf(kind, id);
   const el = document.createElement('div');
   el.className = 'skin-pop-wrap';
-  el.dataset.act = 'skin-pop-close';
   el.innerHTML = `<div class="skin-pop frame" data-act="noop" role="dialog" aria-label="${esc(k.name)}">
+    <button class="sp-x" data-act="skin-pop-close" aria-label="닫기">✕</button>
     <img${kind === 'dice' ? ' class="die-th"' : ''} src="${(kind === 'dice' ? diceThumb : trayThumb)(id)}" alt="">
     <div class="sp-txt"><b>${esc(k.name)}</b><p>${esc(k.desc)}</p></div>
     ${own ? '<span class="sp-own">사용 중</span>'
