@@ -681,14 +681,21 @@ export class DiceTray {
     this.dice.forEach((d, i) => {
       d.held = !!held[i];
       if (this.live?.ids.has(i)) return;   // 흔드는 중인 주사위는 물리가 움직인다
+      // 새 차례(아직 안 굴림 · 값 0)인데 앞서 굴린 눈이 있으면: 눈은 그대로 두고 자리로만 돌아온다
+      // (예전엔 1 · 2 · 3 · 4 · 5 자리표시 눈으로 갑자기 바뀌어 부자연스러웠다)
+      const keep = !values[i] && d.value && !d.blank;
       if (d.boxed && (!d.held || !values[i])) {
         // 고정을 풀었거나 새 차례: 함에서 트레이로 돌아온다
-        if (values[i] && d.value === values[i]) this.hop(d, false);
+        if ((values[i] && d.value === values[i]) || keep) this.hop(d, false);
         else { d.boxed = false; d.hop = null; }
       }
       // 고정하면 바로 주사위 함으로 (다른 기기에서 고정한 것도)
       if (d.held && !d.boxed && values[i] && d.value === values[i] && !d.blank && !this.live) this.hop(d, true);
       if (d.morph) return;          // 보스 스킬 연출 중인 주사위는 연출이 끝나면 눈을 바꾼다
+      if (keep) {
+        if (!d.hop) { d.mesh.position.x = this.slotX(i, n); d.mesh.position.z = this.homeZ(d); }
+        return;
+      }
       // 눈이 그대로면 굴러서 멈춘 자세를 유지한다 (다시 그릴 때 튀지 않게)
       if (values[i] && d.value === values[i] && !d.blank) {
         d.mesh.position.x = this.slotX(i, n);
