@@ -6,6 +6,17 @@
 const TAU = Math.PI * 2;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+// 8비트 도트 그림 (한 글자 = 한 칸). k 외곽선 · w 흰 · y 노랑 · o 주황 · r 빨강 · p 분홍
+const PIX = {
+  star: ['..y..', '.yyy.', 'yywyy', '.yyy.', '..y..'],
+  spark: ['.w.', 'www', '.w.'],
+  heart: ['.r.r.', 'rprrr', 'rrrrr', '.rrr.', '..r..'],
+  coin: ['.kkk.', 'kyywk', 'kyoyk', 'kyyyk', '.kkk.'],
+  dot: ['ww', 'ww'],
+  blk: ['yy', 'yy'],
+  big: ['...y...', '...y...', '..yyy..', 'yyywyyy', '..yyy..', '...y...', '...y...'],
+};
+const PIX_COL = { k: '#1A1030', w: '#FFFFFF', y: '#FFE27A', o: '#FF9A1F', r: '#E8435A', p: '#FFB0C0' };
 const ease = t => 1 - Math.pow(1 - t, 3);
 const easeIn = t => t * t * t;
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -174,6 +185,7 @@ class FxLayer {
   //   scale: 화염 비늘 — 끝이 뾰족한 비늘 조각이 빙글 돌며 나풀나풀 떠오른다 (드래곤 주사위)
   //   flame: 부드러운 불꽃 — 번지는 둥근 불빛이 커지며 피어올라 사라진다 (용암 주사위)
   static drawShape(g, p, k, dt) {
+    if (p.shape === 'pix') return FxLayer.drawPix(g, p, k);
     const a = Math.min(1, k * 2.2) * p.alpha;
     if (p.shape === 'scale') {
       p.rot += p.spin * dt; p.ph += dt * 7;
@@ -194,6 +206,32 @@ class FxLayer {
       g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.fill();
     }
     g.globalAlpha = 1;
+  }
+  // 8비트 도트 그림 (8비트 주사위): 빛 번짐 없이 또렷한 도트, 칸(u px) 단위로 움직이고 끝에는 깜빡이며 사라진다
+  static drawPix(g, p, k) {
+    if (k < 0.32 && Math.floor(p.life * 14) % 2) return;            // 사라지기 전 깜빡깜빡
+    const u = p.u, spr = PIX[p.spr], x0 = Math.round(p.x / u) * u - (spr[0].length * u) / 2, y0 = Math.round(p.y / u) * u - (spr.length * u) / 2;
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    for (let r = 0; r < spr.length; r++) for (let c = 0; c < spr[r].length; c++) {
+      const ch = spr[r][c]; if (ch === '.') continue;
+      g.fillStyle = PIX_COL[ch] || p.color;
+      g.fillRect(Math.round(x0 + c * u), Math.round(y0 + r * u), u, u);
+    }
+    g.globalCompositeOperation = 'lighter';
+  }
+  pix(x, y, { n = 1, sprs = ['star', 'spark', 'heart', 'coin'], u = 3, speed = [10, 40], life = [0.5, 0.9], grav = -30 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = rnd(...speed);
+      this.spawn({ shape: 'pix', spr: pick(sprs), u, x: x + (Math.random() - 0.5) * 14, y: y + (Math.random() - 0.5) * 10, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), grav, drag: 2 });
+    }
+  }
+  // 세게 부딪힐 때: 도트 조각이 8방향으로 탁 퍼지고 가운데 별이 번쩍 (옛날 게임 폭발처럼)
+  pixBurst(x, y, { u = 3, power = 1 } = {}) {
+    for (let i = 0; i < 8; i++) {
+      const ang = i * Math.PI / 4, v = 90 + power * 60;
+      this.spawn({ shape: 'pix', spr: i % 2 ? 'dot' : 'blk', u, x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: 0.32 + power * 0.12, grav: 0, drag: 4 });
+    }
+    this.spawn({ shape: 'pix', spr: 'big', u, x, y, vx: 0, vy: -8, life: 0.4, grav: 0, drag: 0 });
   }
   // pal · tip · edge 로 꽃잎(벚꽃 도자기) 같은 다른 조각에도 쓴다
   scales(x, y, { n = 3, pal = ['#FF9A1F', '#FF6A1A', '#FFC83D'], tip, edge, size = [4, 7], speed = [20, 60], life = [0.7, 1.2], grav = -40 } = {}) {
