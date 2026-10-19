@@ -1121,6 +1121,17 @@ export async function shuffleFx() {   // (디버그에서도 부른다)
 // 떠오르는 글자. 숫자(피해 · 보호막 · 회복 +N)는 그 자리에서, 효과 이름 같은 글(약화 · 순례 · 보호막 파괴! …)은
 // 화면 정가운데에 작게 차례로 쌓아 띄운다 (영웅 · 적 옆에 띄우면 화면 밖으로 잘렸다)
 let noteN = 0, noteT = 0;
+// 보스 · 적 방해(전쟁의 북 등) 이름: 트레이 위쪽 가운데에 크게 강조
+function skillCall(html) {
+  const r = $('tray')?.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'skill-call';
+  el.innerHTML = html;
+  el.style.left = `${r ? r.left + r.width / 2 : innerWidth / 2}px`;
+  el.style.top = `${r ? r.top + 22 : innerHeight * 0.35}px`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
 function floatAt(x, y, text, cls = '') {
   const words = /[가-힣]/.test(String(text).replace(/<[^>]*>/g, '')) && !/\bdmg\b/.test(cls);
   if (words) {
@@ -1412,7 +1423,7 @@ async function playOne(f) {
       if (f.when !== 'turn') return;
       const e = foeAt(), h = Run.HEX[f.t], fx = FX(), rc = $('rc');
       const trayC = center($('tray'));
-      if (!Run.omen(R, 'fog')) floatAt(e.x, e.y + 40, `${runIco('hex', f.t, h.icon, 'xs')} ${h.ko}`, 'gold');   // 짙은 안개: 방해 이름은 미리 알리지 않는다
+      if (!Run.omen(R, 'fog')) skillCall(`${runIco('hex', f.t, h.icon)} ${h.ko}`);   // 보스 · 적 방해 이름: 트레이 위쪽에 크게 (짙은 안개면 알리지 않는다)
       if (!fxOn) { await wait(380); return; }
       if (f.t === 'drums') {                     // 전쟁의 북: 쿵쿵쿵 — 주사위가 튀고 충격파
         for (let k = 0; k < 3; k++) {

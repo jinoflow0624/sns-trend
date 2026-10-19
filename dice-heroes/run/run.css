@@ -1238,3 +1238,10 @@ body:has(.run-sb) .popover { z-index: 310; }
 .run-map.peek .mnode { pointer-events: none; }
 .run-map.peek .mnode.can { animation: none; }
 .peek-back { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20; box-shadow: 0 4px 0 var(--ink), 0 0 16px rgba(255, 200, 61, .5); }
+/* 보스 · 적 방해 이름: 트레이 위쪽에 크게 */
+.skill-call { position: fixed; z-index: 61; transform: translateX(-50%); pointer-events: none; white-space: nowrap; max-width: 94vw;
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; font-size: 24px; font-weight: 700; color: #FFE27A;
+  background: rgba(58, 10, 28, .88); border: 3px solid var(--ruby, #E8435A); box-shadow: 0 0 18px rgba(232, 67, 90, .6), 0 3px 0 var(--ink);
+  text-shadow: 2px 2px 0 var(--ink); animation: skillCall 1.7s ease-out forwards; }
+.skill-call .ico { width: 26px; height: 26px; }
+@keyframes skillCall { 0% { opacity: 0; transform: translateX(-50%) scale(1.6); } 12% { opacity: 1; transform: translateX(-50%) scale(.95); } 20% { transform: translateX(-50%) scale(1.04); } 28%, 80% { transform: translateX(-50%) scale(1); opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
