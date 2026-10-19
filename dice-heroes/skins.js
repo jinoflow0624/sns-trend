@@ -14,8 +14,8 @@ export const DICE_SKINS = [
   { id: 'clear', name: '투명', desc: '무지갯빛이 번지는 유리 주사위 · 유리 소리', tier: 'special', sound: 'glass' },
   { id: 'heart', name: '하트', desc: '반짝이는 연분홍에 하트 눈 · 뿅뿅', tier: 'special', sound: 'pop' },
   { id: 'keycap', name: '키캡', desc: '기계식 키보드 키캡 · 도각 소리', tier: 'special', sound: 'key' },
-  { id: 'dragon', name: '드래곤', desc: '진홍 용비늘 · 금빛 보주 눈 · 1은 용의 눈', tier: 'special', sound: 'classic' },
-  { id: 'lava', name: '용암', desc: '갈라진 현무암 속에서 끓는 용암 눈', tier: 'special', sound: 'classic' },
+  { id: 'dragon', name: '드래곤', desc: '진홍 용비늘 · 금빛 보주 눈 · 1은 용의 눈 · 비늘 부딪히는 소리', tier: 'special', sound: 'scale' },
+  { id: 'lava', name: '용암', desc: '갈라진 현무암 속에서 끓는 용암 눈 · 지글지글 불 소리', tier: 'special', sound: 'sizzle' },
 ];
 
 export const TRAY_SKINS = [

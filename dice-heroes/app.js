@@ -3156,6 +3156,8 @@ const TRAIL = {
   cosmic:    { pal: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF', '#FF9AE0'], grav: -8, glint: '#FFFFFF' },       // 별가루 + 별빛
   clear:     { pal: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A', '#B98CFF', '#3EE6B4'], grav: -24, glint: '#FFFFFF' },  // 무지개 조각
   heart:     { pal: ['#FFFFFF', '#FFE0EE', '#FF9AC8', '#FF7AB0', '#FF4A8A'], grav: -36, glint: '#FFD0E4', hearts: true },
+  dragon:    { pal: ['#FFF2A8', '#FFC83D', '#FF9A1F', '#E8435A'], grav: -30, glint: '#FFE2B0', glintP: 0.3, few: 0.4, scales: true },   // 화염 비늘이 나풀나풀 흩날린다
+  lava:      { pal: ['#FFF2A8', '#FFC83D', '#FF8A1A', '#FF4A1A'], grav: -60, glint: '#FFD24A', glintP: 0, few: 0.25, flames: true },    // 궤적을 따라 부드러운 불꽃
 };
 let heartTrailT = 0;
 // 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
@@ -3172,6 +3174,8 @@ function diceTrail(t, p, sp) {
   fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
   if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
   fx.burst(p.x, p.y, { n: fxN((fast ? 6 : 4) * (tr.few ?? 1)), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
+  if (tr.scales) fx.scales(p.x, p.y, { n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
+  if (tr.flames) fx.flames(p.x, p.y, { n: fxN(fast ? 2.6 : 1.8), size: [fxS(7), fxS(12)] });
   if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
   const now = performance.now();
   if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5 * DICE_FX) {
@@ -3199,6 +3203,8 @@ function hitSpark(id, v, i, t) {
   const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
   fx.c.classList.toggle('over', t === skinPreview);
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
+  if (tr.scales) fx.scales(p.x, p.y, { n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
+  if (tr.flames) fx.flames(p.x, p.y, { n: fxN(3 + k * 3), size: [fxS(9), fxS(16)] });
   if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
   else fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });
 }
