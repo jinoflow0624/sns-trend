@@ -193,6 +193,7 @@ export const META = [
   { id: 'seal',  ko: '인장 상자',   icon: 'sparkle', max: 3, cost: [50, 90, 140],         desc: n => `출발할 때 덱의 무작위 카드 ${n}장에 무작위 인장` },
   { id: 'reshop', ko: '단골 장부',  icon: 'coins',  max: 3, cost: [60, 100, 150],        desc: n => `원정마다 상점 새로고침 ${n}번` },
   { id: 'repick', ko: '다시 뽑기 부적', icon: 'card', max: 3, cost: [60, 100, 150],      desc: n => `원정마다 카드 · 유물 고르기 새로고침 ${n}번` },
+  { id: 'appraise', ko: '감정 안목', icon: 'eye',   max: 1, cost: [120],                 desc: () => '유물을 고를 때 2개가 아니라 3개 중에서 고른다' },
 ];
 // (예전) 특수 주사위 · 주사위 칸은 없앴다. 이미 산 것은 별조각으로 돌려준다 (fixProgress)
 const OLD_DIE_COST = { gold: 80, heavy: 100, twin: 120, stair: 120 }, OLD_SLOT_COST = [60, 150];
@@ -408,7 +409,7 @@ export const RELICS = [
   { id: 'counter',   ko: '반격의 문장',     icon: 'shield',    r: 1, desc: '적의 공격을 보호막으로 다 막으면, 남은 보호막만큼 적에게 피해' },
   { id: 'sandbank',  ko: '모래 저금통',     icon: 'hourglass', r: 1, desc: '쓰지 않고 남긴 굴림을 다음 턴으로 넘긴다 (최대 +2)' },
   { id: 'zero',      ko: '0점의 기적',      icon: 'sparkle',   r: 1, desc: '0점으로 낸 카드는 그 카드가 영구히 +20% (쌓인다)' },
-  { id: 'loupe',     ko: '감정사의 돋보기', icon: 'eye',       r: 1, desc: '유물을 고를 때 3개가 아니라 4개 중에서 고른다' },
+  { id: 'loupe',     ko: '감정사의 돋보기', icon: 'eye',       r: 1, desc: '유물을 고를 때 후보가 1개 더 나온다' },
   // 특별 카드 전용 (그 카드가 덱에 있으면 더 잘 나온다)
   { id: 'cape',      ko: '회귀자의 망토',   icon: 'crown',     r: 1, desc: '에이스 <주인공>: 낼 때마다 기본 점수가 +2 대신 +3 자란다' },
   { id: 'culture',   ko: '세포배양관',      icon: 'potion',    r: 1, desc: '듀스 <두배>: 점수가 한 단계 커진다 (4 → 8 → 16 → 32 → 64)' },
@@ -424,7 +425,8 @@ export const hammerBonus = (R, cat) => Math.min(RT.hammerCap, Math.floor((R.hamm
 // 유물 하나를 들고 출발했을 때 늘어난 클리어율 (%p, 1 · 2 · 3막 평균 · 봇 9직업 × 40판) — 희귀도를 나누고 봇이 유물을 고를 때 쓴다
 export const RELIC_POWER = { midas: 34.8, bloodpact: 31.7, madscale: 21.1, sixth: 28.4, reroll: 21.5, flow: 19.2, pairs: 19.1, horn: 18.1, phoenix: 16.7, emptyhand: 16.3, scale: 16.2, glasscannon: 16.0, beast: 15.6, quad: 15.6, kaleido: 15.4, thorn: 15.2, bloodsword: 15.2, crown: 15.1, weight: 14.7, straight: 14.6, coin: 14.0, chalice: 13.4, balance: 13.1, basic: 12.9, combo: 12.9, nudge: 12.6, palette: 12.2, iron: 12.1, flip: 12.1, crutch: 11.8, yacht: 11.6, drum: 11.3, pairring: 11.1, hammer: 10.7, emptyhouse: 10.4, seven: 10.1, insure: 9.9, choice: 9.8, bone: 9.4, ember: 9.3, whet: 9.3, echodrum: 9.1, fang: 9.1, lucky: 8.2, heart: 8.1, sandbank: 7.9, miser: 7.7, prism: 7.4, reso: 6.9, discard: 6.6, hourglass: 6.5, pilgrim: 6.4, full: 5.9, parity: 5.9, lotus: 5.7, rampart: 5.6, scholar: 5.5, fourk: 4.7, keepbox: 4.6, magnet: 4.1, counter: 3.9, sealbag: 3.8, cape: 3.3, dust: 3.0, loupe: 2.8, culture: 2.8, bloodcup: 2.6, camp: 2.3, ytower: 2.1, zero: 1.6, goldframe: 1.0, libkey: 0.7, purse: 0.6, trinity: 0.5, wax: 0.3, rosary: 0.2, sealknife: -0.6, small: -1.9, medal: -2.9 };
 export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
-export const relicChoices = R => 3 + (hasRelic(R, 'loupe') ? 1 : 0);
+// 유물 고르기 후보 수: 기본 2개 (출정 채비 「감정 안목」이면 3개) + 감정사의 돋보기 1개. 예전 저장 판(relicN 없음)은 3개
+export const relicChoices = R => (R.relicN ?? 3) + (hasRelic(R, 'loupe') ? 1 : 0);
 // 덱 빌딩 유물 ↔ 그 계열 카드
 const SAME_CATS = ['four', 'yacht', 'full'];
 const ARCH = {
@@ -639,6 +641,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
   // 인장 상자: 덱의 무작위 카드에 인장 (원정 내내 붙어 있다가, 그 카드를 내면 터진다)
   // 새로고침 횟수 (원정 내내): 상점 · 카드/유물 고르기
   R.rr = { shop: ml('reshop'), pick: ml('repick') };
+  R.relicN = 2 + ml('appraise');
   for (let n = 0; n < ml('seal'); n++) { const free = R.deck.filter(c => !c.seal); if (free.length) pick(R, free).seal = pick(R, SEAL_IDS); }
   const sig = R.deck[R.deck.length - 1];
   if (ml('sharp') >= 1) sig.up = 1;
@@ -699,7 +702,10 @@ export const enterNode = act('enterNode', function enterNode(R, id) {
   if (n.type === 'rest') { R.phase = 'rest'; return; }
   if (n.type === 'treasure') {
     R.phase = 'reward';
-    R.reward = { kind: 'treasure', items: [{ t: 'relic', id: rollRelic(R, weighted(R, { 1: 50, 2: 45, 3: 5 })) }, { t: 'gold', n: int(R, 15, 30) }] };
+    // 보물 상자: 유물 고르기 (기본 2개 중 1개 · 새로고침 가능)
+    const opts = [];
+    for (let k = 0; k < relicChoices(R); k++) { const id = rollRelic(R, relicRarity(R, 'treasure'), opts); if (id) opts.push(id); }
+    R.reward = { kind: 'treasure', items: [...(opts.length ? [{ t: 'relicPick', opts, kind: 'treasure' }] : []), { t: 'gold', n: int(R, 15, 30) }] };
     return;
   }
   if (n.type === 'event') return startEvent(R);
@@ -1642,7 +1648,7 @@ function genReward(R, kind) {
   const items = [];
   const g = kind === 'boss' ? int(R, 70, 85) + R.act * 10 : kind === 'elite' ? int(R, 28, 36) + R.act * 6 : int(R, 12, 18) + R.act * 4;
   items.push({ t: 'gold', n: Math.round(g * goldMul(R)) });
-  // 유물은 고르기로 (3개 중 1개, 감정사의 돋보기면 4개)
+  // 유물은 고르기로 (relicChoices 개 중 1개)
   const relicPick = rarity => {
     const opts = [];
     for (let k = 0; k < relicChoices(R); k++) { const id = rollRelic(R, rarity(), opts); if (id) opts.push(id); }
@@ -1688,6 +1694,7 @@ export const rerollPick = act('rerollPick', function rerollPick(R, idx) {
 // 유물 고르기 후보의 희귀도 (genReward 와 같은 규칙)
 function relicRarity(R, kind) {
   if (kind === 'boss') return 3;
+  if (kind === 'treasure') return weighted(R, { 1: 50, 2: 45, 3: 5 });
   if (kind === 'elite') return weighted(R, omen(R, 'war') ? { 2: 70, 3: 30 } : { 1: 60, 2: 40 });
   return weighted(R, { 1: 70, 2: 30 });
 }

@@ -1230,3 +1230,9 @@ body:has(.run-sb) .popover { z-index: 310; }
 .run-shop.ascetic .shop-stall { filter: grayscale(.7) brightness(.7); pointer-events: none; }
 .run-shop.ascetic [data-act=run-reshop] { display: none; }
 .ascetic-note { margin: 4px 10px; padding: 6px 10px; font-size: 12px; text-align: center; color: #E0CCFF; background: rgba(40, 20, 80, .85); border: 2px solid #7A4BFF; }
+/* 이벤트 중 지도 잠깐 보기 */
+.peek-btn { display: block; margin: 6px auto 4px; padding: 5px 12px; font-size: 12px; color: #CFC6FF; background: rgba(20, 14, 50, .85); border: 2px solid #4A4290; }
+.peek-btn .ico { width: 14px; height: 14px; vertical-align: -2px; }
+.run-map.peek .mnode { pointer-events: none; }
+.run-map.peek .mnode.can { animation: none; }
+.peek-back { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20; box-shadow: 0 4px 0 var(--ink), 0 0 16px rgba(255, 200, 61, .5); }
