@@ -645,9 +645,11 @@ export class DiceTray {
     };
     const CR = TB.rad || 0.3, off = CR - 0.02;   // 쿠션 안쪽 면이 벽(바닥 가장자리)에 닿게
     grp.add(cushion(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off, CR, CR * 0.95, TB.rep || 22));
+    if (st.nest) this.nestTwigs(grp, rr(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off), 0, CR, CR * 0.95, tex, 3);
     // 앞쪽 주사위 칸: 얇은 쿠션 고리
     const bz0 = TRAY_D / 2 + 2 * CR, bz1 = BOX_Z + BOX_D / 2 + BOX_T, bc = 0.17;
     const ring = cushion(BOX_OUT - bc, (bz1 - bz0) / 2 - bc, 0.55, bc, bc * 0.95, 18, (bz0 + bz1) / 2);
+    if (st.nest) this.nestTwigs(grp, rr(BOX_OUT - bc, (bz1 - bz0) / 2 - bc, 0.55), (bz0 + bz1) / 2, bc, bc * 0.95, tex, 2);
     ring.position.z = (bz0 + bz1) / 2;
     grp.add(ring);
     // 주사위 칸 바닥도 쿠션 고리 안쪽에 맞춘 둥근 바닥 (네모 바닥이 쿠션 밖으로 삐져나오지 않게)
@@ -658,8 +660,83 @@ export class DiceTray {
     bf.rotation.x = -Math.PI / 2; bf.position.set(0, 0.002, (bz0 + bz1) / 2); bf.receiveShadow = true;
     grp.add(bf);
     this.addDecor(grp, id, st);
+    if (st.nest) this.nestProps(grp);
     this.scene.add(grp);
     return grp;
+  }
+  // 드래곤 둥지: 굵은 가지 둘레를 가는 가지 여러 줄이 꼬며 감는다 (엮어 쌓은 둥지처럼). n: 감는 가지 수
+  nestTwigs(grp, shape, cz, rad, h, tex, n) {
+    const path = shape.getSpacedPoints(400).map(q => new THREE.Vector2(q.x, -q.y + cz));
+    const L = path.reduce((a, p, i) => a + (i ? p.distanceTo(path[i - 1]) : 0), 0);
+    const cols = [0xFFF0D8, 0xE8C8A0, 0xFFFFFF];
+    for (let k = 0; k < n; k++) {
+      const turns = Math.round(L / (1.6 + k * 0.35)), ph = k * 2.1, rr = rad * (0.92 + 0.08 * k), tr = rad * (0.2 + 0.05 * ((k + 1) % 2));
+      const pts = [];
+      let s = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        const p = path[i], q = path[i + 1];
+        if (i) s += p.distanceTo(path[i - 1]);
+        const tx = q.x - p.x, tz = q.y - p.y, tl = Math.hypot(tx, tz) || 1;
+        const nx = tz / tl, nz = -tx / tl;                       // 바깥쪽 (둥근 사각형은 시계 반대 방향)
+        const a = ph + (s / L) * turns * Math.PI * 2;
+        // 아래쪽 반 바퀴(바닥 속)는 안 보이니 위쪽으로 치우쳐 감는다
+        const c = Math.cos(a), sn = Math.sin(a) * 0.5 + 0.5;
+        pts.push(new THREE.Vector3(p.x + nx * c * rr, h * 0.85 + sn * rr * 0.95, p.y + nz * c * rr));
+      }
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 900, tr, 7, true);
+      const t = tex.clone(); t.repeat.set(Math.round(L / 0.9), 1); t.needsUpdate = true;
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, color: cols[k % 3], roughness: 0.85, metalness: 0 }));
+      m.castShadow = m.receiveShadow = true;
+      grp.add(m);
+    }
+  }
+  // 드래곤 둥지 소품: 뒤쪽 난간에 반짝이는 용의 알 무리 · 금화 더미 (그림판이 아닌 진짜 3D — 빛 · 그림자를 받는다)
+  nestProps(grp) {
+    const eggTex = (hue) => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+      gr.addColorStop(0, hue[0]); gr.addColorStop(0.55, hue[1]); gr.addColorStop(1, hue[2]);
+      g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+      // 비늘 무늬
+      g.strokeStyle = 'rgba(255, 220, 140, .35)'; g.lineWidth = 2;
+      for (let y = 0; y < 256; y += 18) for (let x = (y / 18) % 2 ? 9 : 0; x < 256; x += 18) { g.beginPath(); g.arc(x, y, 9, 0, Math.PI); g.stroke(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping;
+      return t;
+    };
+    const eggMats = [['#FFD27A', '#B8261A', '#3A0608'], ['#FFF0B0', '#C8861E', '#4A2A08'], ['#D8C8FF', '#5A2A8A', '#14081E']].map(h => {
+      const t = eggTex(h);
+      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.28, metalness: 0.25, envMap: this.envMap(), envMapIntensity: 0.9, emissive: 0xFF5A1A, emissiveMap: t, emissiveIntensity: 0.06 });
+    });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xFFC83D, roughness: 0.22, metalness: 0.95, envMap: this.envMap(), envMapIntensity: 1.2, emissive: 0x5A3A00, emissiveIntensity: 0.25 });
+    const egg = new THREE.SphereGeometry(1, 24, 18), coin = new THREE.CylinderGeometry(1, 1, 0.16, 18);
+    const seat = (x, z) => {
+      let best = null, bd = Infinity;
+      for (const q of this.railPts || []) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < bd) { bd = d; best = q; } }
+      return best || { x, z, y: 0.6 };
+    };
+    const put = (mesh, x, z, dy = 0) => { const q = seat(x, z); mesh.position.set(q.x + (x - q.x) * 0.0, q.y + dy, q.z); mesh.castShadow = true; grp.add(mesh); return mesh; };
+    const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(7);
+    // 알 무리 (뒤 왼쪽 · 뒤 오른쪽)
+    for (const [cx, mi] of [[-2.3, 0], [2.4, 1]]) {
+      [[0, 0, 0.27], [0.42, 0.08, 0.21], [-0.38, 0.06, 0.2]].forEach(([dx, dz, r], j) => {
+        const m = new THREE.Mesh(egg, eggMats[(mi + j) % 3]);
+        m.scale.set(r, r * 1.35, r);
+        m.rotation.set((rnd() - 0.5) * 0.5, rnd() * 6, (rnd() - 0.5) * 0.6);
+        put(m, cx + dx, -4 + dz, r * 0.95);
+      });
+      // 알 둘레 금화
+      for (let k = 0; k < 7; k++) {
+        const m = new THREE.Mesh(coin, gold), r = 0.075 + rnd() * 0.02;
+        m.scale.set(r, 1, r); m.rotation.set((rnd() - 0.5) * 1.2, rnd() * 6, (rnd() - 0.5) * 1.2);
+        put(m, cx + (rnd() - 0.5) * 1.1, -4 + (rnd() - 0.5) * 0.3, 0.02 + rnd() * 0.05);
+      }
+    }
+    // 가운데 금화 더미 (낮게 쌓인)
+    for (let k = 0; k < 16; k++) {
+      const m = new THREE.Mesh(coin, gold), r = 0.08 + rnd() * 0.025, u = rnd() - 0.5;
+      m.scale.set(r, 1, r); m.rotation.set((rnd() - 0.5) * 1.1, rnd() * 6, (rnd() - 0.5) * 1.1);
+      put(m, u * 1.5, -4, 0.02 + (0.5 - Math.abs(u)) * 0.12 + rnd() * 0.03);
+    }
   }
   // 테두리 장식 그림 (skins.js TRAY_DECOR): 배치도 자리에서 가장 가까운 난간 윗면에 "올려 앉힌다" (높이도 그 자리 난간 높이).
   // 예전엔 빛을 받지 않는 스프라이트를 난간 위에 덮어 그려서 스티커처럼 떠 보였다 — 이제 조명 · 그림자를 받고, 난간 · 바닥에 그림자를 드리우며,
