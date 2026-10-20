@@ -5,7 +5,7 @@
 // 그래서 새 버전을 배포하면 다음 실행에 바로 반영되고, 신호가 약해도 멈춰 있지 않는다.
 // 이름을 바꾸면 예전 캐시를 통째로 지운다 (v0.30.7: 버전이 안 붙은 예전 주사위·트레이 그림이 남아 있어서)
 const BGM_VER = 'b2';   // audio.js 의 BGM_VER 와 같아야 한다 (곡을 바꾸면 둘 다 올린다)
-const ART_VER = 'a6';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
+const ART_VER = 'a7';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
 const CACHE = 'dh-cache-3';   // v0.37.5: 버전이 안 붙은 예전 보스 곡(도입부 없는 루프)을 지운다
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
@@ -17,8 +17,10 @@ const FILES = [
   ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].map(id => `assets/boss/${id}.webp`),
   ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
   // 그림 주사위 · 트레이 스킨: 앱이 부르는 주소 그대로(?v=그림 버전) → 설치할 때부터 캐시에 있어 첫 판부터 바로 뜬다
-  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry', 'pixel8', 'deck', 'alchemy', 'ruins', 'glacier', 'dragonnest'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', 'corner_side', 'corner_top', ...(['demon', 'lava', 'starry', 'ruins', 'glacier', 'dragonnest'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
-  ...['floor', 'glow', 'box', 'thumb', 'cushion'].map(f => `assets/trays/casino/${f}.webp?v=${ART_VER}`),   // 둥근 포커 테이블 (난간 그림 대신 쿠션)
+  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry', 'pixel8', 'deck', 'alchemy', 'ruins', 'glacier', 'dragonnest'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', 'corner_side', 'corner_top', ...(['demon', 'lava', 'starry', 'ruins'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
+  ...['floor', 'glow', 'box', 'thumb', 'cushion'].map(f => `assets/trays/casino/${f}.webp?v=${ART_VER}`),
+  // 테두리 장식 그림 (v0.39.21)
+  ...Object.entries({"deck": ["decor_flag_cloth", "decor_flagpole", "decor_rope_knot", "decor_timber_corner"], "deepsea": ["decor_foam_arc", "decor_small_ripple", "decor_wave_corner", "decor_wave_crest"], "demon": ["decor_blade_spike", "decor_demon_horn", "decor_skull_corner", "decor_violet_crystal"], "dragonnest": ["decor_bone_fragment", "decor_egg_coins", "decor_nest_branch", "decor_red_scales"], "glacier": ["decor_ice_cluster", "decor_ice_corner", "decor_icicle", "decor_snow_cap"], "lava": ["decor_basalt_cluster", "decor_basalt_corner", "decor_lava_fissure", "decor_small_rock"], "pixel8": ["decor_corner_block", "decor_pixel_heart", "decor_pixel_star", "decor_step_block"], "royal": ["decor_crown_point", "decor_filigree_corner", "decor_ruby_setting", "decor_sapphire_setting"], "sakura": ["decor_blossom_cluster", "decor_branch_corner", "decor_branch_fork", "decor_single_blossom"], "starry": ["decor_crescent", "decor_nebula_corner", "decor_small_planet", "decor_star_cluster"]}).flatMap(([k, fs]) => fs.map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),   // 둥근 포커 테이블 (난간 그림 대신 쿠션)
   ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal', 'dragon', 'lava', 'pixel', 'bone', 'slime', 'chip', 'chest', 'porcelain', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
   ...['dragon', 'lava', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}_glow.webp?v=${ART_VER}`)),
 ];
