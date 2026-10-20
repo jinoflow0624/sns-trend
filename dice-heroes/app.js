@@ -3447,11 +3447,42 @@ async function buyItem(kind, id, btn) {
   if (btn) btn.toggleAttribute('disabled', false);
   if (!r.ok) { sfx.back(); return toast(ico('warn'), '살 수 없어요', r.why, 2000); }
   sfx.coin();
-  const name = kind === 'cls' || kind === 'run' ? E.classInfo(id).ko : (kind === 'dice' ? diceSkin : traySkin)(id).name;
-  toast(ico('gem'), `${kind === 'run' ? '원정 ' : ''}${name} 획득!`, `남은 보석 ${Wal.gems().toLocaleString()}`, 1600);
+  unlockReveal(kind, id);
   if (kind === 'cls') { layer.innerHTML = ''; return afterClassBuy?.(id); }
   if (kind === 'run') { layer.innerHTML = ''; return runMod?.refreshSelect?.(); }
   return pickSkin(kind, id);
+}
+
+// 해금 연출: 산 직업 · 주사위 · 트레이를 화면 가운데에 크게 보여 준다 (탭하거나 4초 뒤 닫힘)
+//   직업: 검은 실루엣이 떠올라 두근두근 떨다가 하얀 빛과 함께 "짠!" 하고 제 색 그림으로 바뀐다 → 빛줄기 · 불꽃 · 팡파레
+//   주사위 · 트레이: 그림이 통 튀어나오며 빛줄기 · 불꽃
+function unlockReveal(kind, id) {
+  document.querySelector('.unlock-fx')?.remove();
+  const isCls = kind === 'cls' || kind === 'run';
+  const info = isCls ? E.classInfo(id) : (kind === 'dice' ? diceSkin : traySkin)(id);
+  const name = isCls ? info.ko : info.name;
+  const color = isCls ? info.color : '#FFD24A';
+  const art = isCls ? spriteURL(id, 12) : (kind === 'dice' ? diceThumb : trayThumb)(id);
+  const title = isCls ? (kind === 'run' ? '원정 직업 해금!' : '새 직업 해금!') : kind === 'dice' ? '새 주사위 획득!' : '새 트레이 획득!';
+  const sparks = Array.from({ length: 18 }, (_, i) => `<i class="uf-sp" style="--a:${(i * 20 + Math.random() * 10).toFixed(0)}deg;--d:${(90 + Math.random() * 70).toFixed(0)}px;--s:${(3 + Math.random() * 4).toFixed(1)}px"></i>`).join('');
+  const el = document.createElement('div');
+  el.className = `unlock-fx ${isCls ? 'is-cls' : 'is-skin'} k-${kind}`;
+  el.style.setProperty('--c', color);
+  el.innerHTML = `<div class="uf-stage">
+      <div class="uf-rays"></div><div class="uf-glow"></div>
+      <img class="uf-art${kind === 'dice' ? ' die-th' : ''}${isCls && isImgSprite(id) ? ' spr-hi' : isCls ? ' spr' : ''}" src="${art}" alt="">
+      <div class="uf-flash"></div>${sparks}
+    </div>
+    <div class="uf-txt"><small>${title}</small><b>${esc(name)}</b><span>남은 보석 ${ico('gem', 'xs')}${Wal.gems().toLocaleString()}</span></div>
+    <p class="uf-tap">화면을 눌러 계속</p>`;
+  document.body.appendChild(el);
+  const revealAt = isCls ? 1150 : 120;
+  if (isCls) sfx.heartbeat?.();
+  setTimeout(() => { if (el.isConnected) { (isCls ? sfx.levelup : sfx.quest)?.(); } }, revealAt);
+  const t0 = performance.now();
+  const close = () => { if (!el.isConnected || el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  el.addEventListener('click', () => { if (performance.now() - t0 > revealAt + 450) close(); });
+  setTimeout(close, revealAt + 3600);
 }
 
 async function rollPreview() {
