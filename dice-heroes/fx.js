@@ -213,23 +213,23 @@ class FxLayer {
   static drawPix(g, p, k) {
     if (k < 0.32 && Math.floor(p.life * 14) % 2) return;            // 사라지기 전 깜빡깜빡
     const u = p.u, spr = PIX[p.spr], x0 = Math.round(p.x / u) * u - (spr[0].length * u) / 2, y0 = Math.round(p.y / u) * u - (spr.length * u) / 2;
-    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.6 * Math.min(1, k * 2.5);    // 반투명 — 효과는 거들 뿐, 주사위보다 눈에 띄지 않게
     for (let r = 0; r < spr.length; r++) for (let c = 0; c < spr[r].length; c++) {
       const ch = spr[r][c]; if (ch === '.') continue;
       g.fillStyle = PIX_COL[ch] || p.color;
       g.fillRect(Math.round(x0 + c * u), Math.round(y0 + r * u), u, u);
     }
-    g.globalCompositeOperation = 'lighter';
+    g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
   }
-  // 트럼프 문양 (칩 주사위): ♠ ♣ 은 검정, ♥ ♦ 는 빨강, 흰 테두리로 또렷하게. 톡 튀어 올랐다가 떨어지며 사라진다
+  // 트럼프 문양 (칩 주사위): ♠ ♣ 은 짙은 회색, ♥ ♦ 는 차분한 빨강, 얇은 흰 테두리. 반투명으로 작게 톡 튀었다 사라진다 (주사위보다 튀지 않게)
   static drawSuit(g, p, k, dt) {
     p.rot += p.spin * dt;
-    const a = Math.min(1, k * 2.5), s = p.size * (k > 0.85 ? 0.6 + (1 - k) / 0.15 * 0.4 : 1);
+    const a = 0.5 * Math.min(1, k * 2.5), s = p.size * (k > 0.85 ? 0.6 + (1 - k) / 0.15 * 0.4 : 1);
     g.save(); g.globalCompositeOperation = 'source-over'; g.globalAlpha = a;
     g.translate(p.x, p.y); g.rotate(p.rot);
     g.font = `bold ${Math.round(s * 2)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineJoin = 'round'; g.lineWidth = Math.max(2, s * 0.32); g.strokeStyle = '#FFFFFF'; g.strokeText(p.ch, 0, 0);
-    g.fillStyle = p.ch === '♥' || p.ch === '♦' ? '#E8253F' : '#16121E'; g.fillText(p.ch, 0, 0);
+    g.lineJoin = 'round'; g.lineWidth = Math.max(1, s * 0.2); g.strokeStyle = 'rgba(255,255,255,.7)'; g.strokeText(p.ch, 0, 0);
+    g.fillStyle = p.ch === '♥' || p.ch === '♦' ? '#C8485A' : '#3A3448'; g.fillText(p.ch, 0, 0);
     g.restore(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
   }
   // 금화 (보물 상자 주사위): 빙글 도는 금화가 아래로 떨어진다 (도는 동안 폭이 줄었다 늘었다)
@@ -249,7 +249,7 @@ class FxLayer {
     }
     g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
   }
-  suits(x, y, { n = 1, size = [6, 9], speed = [40, 90], life = [0.6, 0.95], grav = 220 } = {}) {
+  suits(x, y, { n = 1, size = [4, 6], speed = [30, 70], life = [0.45, 0.7], grav = 220 } = {}) {
     for (let i = 0; i < n; i++) {
       const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = rnd(...speed);
       this.spawn({ shape: 'suit', ch: pick(['♠', '♣', '♥', '♦']), x: x + (Math.random() - 0.5) * 12, y: y + (Math.random() - 0.5) * 8, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), grav, drag: 1.6, rot: (Math.random() - 0.5) * 0.6, spin: (Math.random() - 0.5) * 4 });
@@ -261,19 +261,18 @@ class FxLayer {
       this.spawn({ shape: 'coin', x: x + (Math.random() - 0.5) * 22, y: y - 6 - Math.random() * 10, vx: (Math.random() - 0.5) * 50, vy: -up * (0.5 + Math.random()), life: rnd(...life), size: rnd(...size), grav, drag: 0.6, ph: Math.random() * TAU, spin: 7 + Math.random() * 6 });
     }
   }
-  pix(x, y, { n = 1, sprs = ['star', 'spark', 'heart', 'coin'], u = 3, speed = [10, 40], life = [0.5, 0.9], grav = -30 } = {}) {
+  pix(x, y, { n = 1, sprs = ['star', 'spark', 'heart', 'coin'], u = 2, speed = [10, 34], life = [0.4, 0.7], grav = -30 } = {}) {
     for (let i = 0; i < n; i++) {
       const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = rnd(...speed);
       this.spawn({ shape: 'pix', spr: pick(sprs), u, x: x + (Math.random() - 0.5) * 14, y: y + (Math.random() - 0.5) * 10, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), grav, drag: 2 });
     }
   }
-  // 세게 부딪힐 때: 도트 조각이 8방향으로 탁 퍼지고 가운데 별이 번쩍 (옛날 게임 폭발처럼)
-  pixBurst(x, y, { u = 3, power = 1 } = {}) {
-    for (let i = 0; i < 8; i++) {
-      const ang = i * Math.PI / 4, v = 90 + power * 60;
-      this.spawn({ shape: 'pix', spr: i % 2 ? 'dot' : 'blk', u, x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: 0.32 + power * 0.12, grav: 0, drag: 4 });
+  // 세게 부딪힐 때: 작은 도트 조각이 4방향(대각선)으로 톡 퍼진다 (가운데 큰 별은 주사위를 가려서 뺐다)
+  pixBurst(x, y, { u = 2, power = 1 } = {}) {
+    for (let i = 0; i < 4; i++) {
+      const ang = Math.PI / 4 + i * Math.PI / 2, v = 60 + power * 40;
+      this.spawn({ shape: 'pix', spr: i % 2 ? 'dot' : 'blk', u, x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: 0.22 + power * 0.1, grav: 0, drag: 4 });
     }
-    this.spawn({ shape: 'pix', spr: 'big', u, x, y, vx: 0, vy: -8, life: 0.4, grav: 0, drag: 0 });
   }
   // pal · tip · edge 로 꽃잎(벚꽃 도자기) 같은 다른 조각에도 쓴다
   scales(x, y, { n = 3, pal = ['#FF9A1F', '#FF6A1A', '#FFC83D'], tip, edge, size = [4, 7], speed = [20, 60], life = [0.7, 1.2], grav = -40 } = {}) {
