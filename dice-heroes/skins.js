@@ -422,19 +422,20 @@ const IMAGE_TRAY = {
   glacier: { rail: 0x335E78, trim: 0xA6CAD7, trimEnv: true, glow: 0.45, rails: { shape: 'jag', amp: 0.12, freq: 3.0, fancy: true, gems: false, rough: 0.2, metal: 0.05 } },   // 얼음 결정이 붙은 테두리
   dragonnest: { rail: 0x3A2618, trim: 0x71313A, glow: 0.5, oval: 1.6, tube: { tex: 'rail_side', rad: 0.34, rough: 0.9, metal: 0, rep: 12 } },   // 가지 · 뼈로 쌓은 둥근 둥지
 };
+// 장식은 뒤쪽 난간(화면 위쪽)과 그 두 모서리에만 (v0.39.25 — 옆 · 앞 난간 장식은 비스듬히 보여 붙인 그림처럼 어색해서 뺐다)
 // 테두리 장식 (v0.39.21, GPT 초안 부품 그림 assets/trays/<스킨>/decor_<이름>.webp): [이름, 가로/세로 비, 배치도 x, y, 앞쪽(낮게)]
 //   배치도: 바닥 왼위 = (160,160), 120px = 1 유닛, 앞 보관 칸은 y 1050~1314. 깃발(flag_cloth · flagpole)은 3D 로 따로 만든다
 export const TRAY_DECOR = {
-  deepsea: [["wave_crest",1.04,136,136,0],["wave_crest",1.04,1384,136,0],["foam_arc",1.22,500,132,0],["foam_arc",1.22,1020,132,0],["wave_corner",0.99,132,430,0],["wave_corner",0.99,1388,430,0],["small_ripple",3.51,740,1338,1]],
-  sakura: [["blossom_cluster",1.01,136,136,0],["blossom_cluster",1.01,1384,136,0],["branch_fork",1.07,132,430,0],["branch_fork",1.07,1388,430,0],["single_blossom",1.01,550,132,0],["single_blossom",1.01,970,132,0],["branch_corner",0.82,136,952,1],["branch_corner",0.82,1384,952,1]],
-  pixel8: [["pixel_star",0.94,136,136,0],["pixel_heart",1.11,1384,136,0],["corner_block",0.97,132,450,0],["corner_block",0.97,1388,450,0],["step_block",1.16,450,132,0],["step_block",1.16,1070,132,0]],
-  royal: [["crown_point",0.84,300,132,0],["crown_point",0.84,500,132,0],["crown_point",0.84,700,132,0],["crown_point",0.84,900,132,0],["crown_point",0.84,1100,132,0],["crown_point",0.84,1300,132,0],["ruby_setting",0.93,136,136,0],["ruby_setting",0.93,1384,136,0],["sapphire_setting",0.84,132,480,0],["sapphire_setting",0.84,1388,480,0],["filigree_corner",0.95,136,952,1],["filigree_corner",0.95,1384,952,1]],
-  deck: [["flag_cloth",1.41,136,136,0],["flag_cloth",1.41,1384,136,0],["flag_cloth",1.41,136,952,1],["flag_cloth",1.41,1384,952,1],["flagpole",0.18,136,136,0],["flagpole",0.18,1384,136,0],["flagpole",0.18,136,952,1],["flagpole",0.18,1384,952,1],["rope_knot",1.86,470,132,0],["rope_knot",1.86,1050,132,0],["timber_corner",1.25,136,1338,1],["timber_corner",1.25,1384,1338,1]],
-  demon: [["demon_horn",0.73,136,136,0],["demon_horn",0.73,1384,136,0],["skull_corner",0.78,400,132,0],["skull_corner",0.78,1120,132,0],["blade_spike",0.48,132,450,0],["blade_spike",0.48,1388,450,0],["violet_crystal",0.39,760,132,0]],
-  lava: [["basalt_cluster",1.25,136,136,0],["basalt_cluster",1.25,1384,136,0],["lava_fissure",0.53,460,132,0],["lava_fissure",0.53,1060,132,0],["basalt_corner",1.01,132,520,0],["basalt_corner",1.01,1388,520,0],["small_rock",2.0,450,1338,1],["small_rock",2.0,1070,1338,1]],
-  starry: [["crescent",1.26,1384,136,0],["small_planet",1.32,136,136,0],["star_cluster",0.89,530,132,0],["star_cluster",0.89,990,132,0],["nebula_corner",1.07,132,520,0],["nebula_corner",1.07,1388,520,0]],
-  glacier: [["ice_cluster",1.0,136,136,0],["ice_cluster",1.0,1384,136,0],["icicle",1.0,132,410,0],["icicle",1.0,1388,410,0],["snow_cap",1.35,460,132,0],["snow_cap",1.35,1060,132,0],["ice_corner",0.93,136,952,1],["ice_corner",0.93,1384,952,1]],
-  dragonnest: [["nest_branch",0.95,136,136,0],["nest_branch",0.95,1384,136,0],["bone_fragment",1.08,132,450,0],["bone_fragment",1.08,1388,450,0],["egg_coins",1.51,500,132,0],["red_scales",1.35,1020,132,0]],
+  deepsea: [["wave_crest",1.04,136,136,0],["wave_crest",1.04,1384,136,0],["foam_arc",1.22,500,132,0],["foam_arc",1.22,1020,132,0]],
+  sakura: [["blossom_cluster",1.01,136,136,0],["blossom_cluster",1.01,1384,136,0],["single_blossom",1.01,550,132,0],["single_blossom",1.01,970,132,0]],
+  pixel8: [["pixel_star",0.94,136,136,0],["pixel_heart",1.11,1384,136,0],["step_block",1.16,450,132,0],["step_block",1.16,1070,132,0]],
+  royal: [["crown_point",0.84,300,132,0],["crown_point",0.84,500,132,0],["crown_point",0.84,700,132,0],["crown_point",0.84,900,132,0],["crown_point",0.84,1100,132,0],["crown_point",0.84,1300,132,0],["ruby_setting",0.93,136,136,0],["ruby_setting",0.93,1384,136,0]],
+  deck: [["flag_cloth",1.41,136,136,0],["flag_cloth",1.41,1384,136,0],["flagpole",0.18,136,136,0],["flagpole",0.18,1384,136,0],["rope_knot",1.86,470,132,0],["rope_knot",1.86,1050,132,0]],
+  demon: [["demon_horn",0.73,136,136,0],["demon_horn",0.73,1384,136,0],["skull_corner",0.78,400,132,0],["skull_corner",0.78,1120,132,0],["violet_crystal",0.39,760,132,0]],
+  lava: [["basalt_cluster",1.25,136,136,0],["basalt_cluster",1.25,1384,136,0],["lava_fissure",0.53,460,132,0],["lava_fissure",0.53,1060,132,0]],
+  starry: [["crescent",1.26,1384,136,0],["small_planet",1.32,136,136,0],["star_cluster",0.89,530,132,0],["star_cluster",0.89,990,132,0]],
+  glacier: [["ice_cluster",1.0,136,136,0],["ice_cluster",1.0,1384,136,0],["snow_cap",1.35,460,132,0],["snow_cap",1.35,1060,132,0]],
+  dragonnest: [["nest_branch",0.95,136,136,0],["nest_branch",0.95,1384,136,0],["egg_coins",1.51,500,132,0],["red_scales",1.35,1020,132,0]],
 };
 export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
