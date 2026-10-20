@@ -46,6 +46,13 @@ export function attackStyle(pts, cat) {
   return { pal: PALETTES.frost, power: 1 };
 }
 
+// 별자리 모양 (가운데 기준 -1 ~ 1): p 별 자리, e 잇는 선, big 밝은 별
+const CONSTELS = [
+  { p: [[-1, 0.4], [-0.5, -0.1], [0, 0.1], [0.5, -0.3], [1, -0.1], [0.75, 0.55], [0.3, 0.5]], e: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]], big: 2 },   // 큰곰자리 (국자)
+  { p: [[-1, -0.3], [-0.5, 0.3], [0, -0.2], [0.5, 0.35], [1, -0.25]], e: [[0, 1], [1, 2], [2, 3], [3, 4]], big: 2 },                                       // 카시오페이아 (W)
+  { p: [[-0.5, -1], [0.5, -0.9], [-0.15, -0.05], [0.15, 0.05], [-0.6, 0.95], [0.55, 1]], e: [[0, 2], [1, 3], [2, 3], [2, 4], [3, 5]], big: 3 },           // 오리온 (허리띠)
+  { p: [[0, -1], [0, -0.2], [-0.8, -0.1], [0.8, -0.1], [0, 0.9]], e: [[0, 1], [1, 2], [1, 3], [1, 4]], big: 1 },                                         // 백조자리 (십자)
+];
 class FxLayer {
   constructor() {
     this.c = document.createElement('canvas');
@@ -189,6 +196,7 @@ class FxLayer {
     if (p.shape === 'suit') return FxLayer.drawSuit(g, p, k, dt);
     if (p.shape === 'coin') return FxLayer.drawCoin(g, p, k, dt);
     if (p.shape === 'hexa') return FxLayer.drawHexa(g, p, k, dt);
+    if (p.shape === 'constel') return FxLayer.drawConstel(g, p, k);
     const a = Math.min(1, k * 2.2) * p.alpha;
     if (p.shape === 'scale') {
       p.rot += p.spin * dt; p.ph += dt * 7;
@@ -237,6 +245,34 @@ class FxLayer {
       g.closePath(); g.stroke();
     }
     g.restore(); g.globalAlpha = 1;
+  }
+  // 별자리 (별자리 놋쇠 주사위): 별 몇 개가 차례로 반짝 뜨고 가는 금빛 선이 이어지며 별자리를 그린 뒤 옅어진다
+  static drawConstel(g, p, k) {
+    const C = CONSTELS[p.ci], t = 1 - k, s = p.size, fade = Math.min(1, k * 3) * p.alpha;
+    const pt = i => [p.x + C.p[i][0] * s, p.y + C.p[i][1] * s];
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = p.color; g.lineWidth = 0.9; g.lineCap = 'round';
+    C.e.forEach(([a, b], j) => {                                 // 선이 하나씩 이어진다
+      const u = Math.min(1, Math.max(0, (t - 0.08 - j * 0.07) / 0.14));
+      if (u <= 0) return;
+      const [ax, ay] = pt(a), [bx, by] = pt(b);
+      g.globalAlpha = fade * 0.55;
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + (bx - ax) * u, ay + (by - ay) * u); g.stroke();
+    });
+    C.p.forEach((_, i) => {                                     // 별: 작은 십자 반짝
+      const u = Math.min(1, Math.max(0, (t - i * 0.05) / 0.1));
+      if (u <= 0) return;
+      const [x, y] = pt(i), r = (i === C.big ? 3.2 : 2.2) * (0.8 + 0.2 * Math.sin(t * 30 + i));
+      g.globalAlpha = fade * u;
+      g.fillStyle = '#FFF6D8';
+      g.fillRect(x - r, y - 0.5, r * 2, 1); g.fillRect(x - 0.5, y - r, 1, r * 2);
+      g.globalAlpha = fade * u * 0.5; g.fillStyle = p.color;
+      g.beginPath(); g.arc(x, y, r * 0.7, 0, TAU); g.fill();
+    });
+    g.restore(); g.globalAlpha = 1;
+  }
+  constel(x, y, { size = 16, life = 1.3, color = '#FFD27A', alpha = 0.7 } = {}) {
+    this.spawn({ shape: 'constel', ci: Math.floor(Math.random() * CONSTELS.length), x: x + (Math.random() - 0.5) * 10, y: y - 6, vx: 0, vy: -10, size, life, color, alpha, grav: 0, drag: 0.5 });
   }
   hexa(x, y, { r0 = 6, r1 = 22, life = 0.9, color = '#9FE8FF', alpha = 0.35 } = {}) {
     this.spawn({ shape: 'hexa', x, y, r0, r1, life, color, alpha, rot: Math.random() * TAU, spin: (Math.random() < 0.5 ? -1 : 1) * 1.4, drag: 0, grav: 0 });
