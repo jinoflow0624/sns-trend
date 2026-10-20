@@ -5,7 +5,7 @@
 // 그래서 새 버전을 배포하면 다음 실행에 바로 반영되고, 신호가 약해도 멈춰 있지 않는다.
 // 이름을 바꾸면 예전 캐시를 통째로 지운다 (v0.30.7: 버전이 안 붙은 예전 주사위·트레이 그림이 남아 있어서)
 const BGM_VER = 'b2';   // audio.js 의 BGM_VER 와 같아야 한다 (곡을 바꾸면 둘 다 올린다)
-const ART_VER = 'a7';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
+const ART_VER = 'a8';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
 const CACHE = 'dh-cache-3';   // v0.37.5: 버전이 안 붙은 예전 보스 곡(도입부 없는 루프)을 지운다
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
