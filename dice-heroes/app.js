@@ -3190,8 +3190,8 @@ function diceTrail(t, p, sp) {
   if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
   fx.burst(p.x, p.y, { n: fxN((fast ? 6 : 4) * (tr.few ?? 1)), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
   const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
-  if (tr.pix) fx.pix(p.x, p.y, { n: fxN(fast ? 1.4 : 0.8) });
-  if (tr.suits) fx.suits(p.x, p.y, { n: fxN(fast ? 0.9 : 0.5), size: [fxS(6), fxS(9)] });
+  if (tr.pix) fx.pix(p.x, p.y, { n: fxN(fast ? 0.8 : 0.4) });
+  if (tr.suits) fx.suits(p.x, p.y, { n: fxN(fast ? 0.4 : 0.2), size: [fxS(4), fxS(6)] });
   if (tr.coins) fx.coinRain(p.x, p.y, { n: fxN(fast ? 1.1 : 0.6), size: [fxS(4), fxS(6)] });
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
   if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN(fast ? 2.6 : 1.8), size: (fo.size || [7, 12]).map(fxS) });
@@ -3221,8 +3221,8 @@ function hitSpark(id, v, i, t) {
   sparkT[i] = now;
   const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
   fx.c.classList.toggle('over', t === skinPreview);
-  if (tr.pix) return fx.pixBurst(p.x, p.y, { power: k });      // 8비트: 도트 8방향 폭발 + 별
-  if (tr.suits) return fx.suits(p.x, p.y, { n: fxN(3 + k * 3), speed: [70, fxS(140 + k * 60)], size: [fxS(7), fxS(10)] });   // 칩: 문양이 사방으로
+  if (tr.pix) return fx.pixBurst(p.x, p.y, { power: k });      // 8비트: 작은 도트가 4방향으로 톡
+  if (tr.suits) return fx.suits(p.x, p.y, { n: fxN(1 + k * 1.5), speed: [50, fxS(100 + k * 40)], size: [fxS(4.5), fxS(6.5)] });   // 칩: 문양 1~2개가 톡
   if (tr.coins) return fx.coinRain(p.x, p.y, { n: fxN(2 + k * 3), size: [fxS(4.5), fxS(6.5)], up: 110 + k * 60 });               // 보물 상자: 금화가 튀어 올랐다 떨어진다
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
   const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
