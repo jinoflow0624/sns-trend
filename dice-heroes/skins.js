@@ -98,7 +98,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 // 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
 // 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
 // (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
-export const ART_VER = 'a8';
+export const ART_VER = 'a9';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 export const dieGlowImage = (id, v) => (DIE_MAT[id]?.glowImage ? `assets/dice/${id}/${v}_glow.webp${AV}` : null);
@@ -440,7 +440,7 @@ export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_ST
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
 export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 // 트레이 그림도 미리 받아 둔다 (꾸미기에서 고르면 바닥이 비었다가 뒤늦게 뜨지 않게)
-export const RAIL_FILES = ['rail_top', 'rail_side', 'corner_side', 'corner_top'];
+export const RAIL_FILES = ['rail_top', 'rail_side'];
 const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.oval ? [IMAGE_TRAY[id].tube?.tex || 'cushion'] : []), ...[...new Set((TRAY_DECOR[id] || []).map(m => `decor_${m[0]}`))], ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
 export const trayReady = id => trayImages(id).every(u => READY.has(u));
 export const preloadTray = id => Promise.all(trayImages(id).map(loadImage));
