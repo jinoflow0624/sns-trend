@@ -32,7 +32,7 @@ export const TRAY_SKINS = [
   { id: 'classic', name: '기본', desc: '초록 펠트 · 나무 테두리', tier: 'free' },
   { id: 'marble', name: '클래식', desc: '상아빛 대리석 · 얇은 금선', tier: 'special' },
   { id: 'royal', name: '왕실', desc: '진홍 벨벳 · 얇은 금선', tier: 'special' },
-  { id: 'deepsea', name: '심해', desc: '일렁이는 깊은 물빛', tier: 'special' },
+  { id: 'deepsea', name: '바다', desc: '일렁이는 깊은 바다 물빛', tier: 'special' },
   { id: 'demon', name: '마왕성', desc: '검은 돌바닥 · 보랏빛 틈', tier: 'special' },
   { id: 'sakura', name: '벚꽃', desc: '연분홍 화지에 흩날린 꽃잎', tier: 'special' },
   { id: 'lava', name: '용암', desc: '갈라진 현무암 사이로 끓는 용암', tier: 'special' },
