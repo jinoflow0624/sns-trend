@@ -460,9 +460,10 @@ export const potionInfo = id => POTIONS.find(p => p.id === id);
 // ── 적 ───────────────────────────────────────────────────────────────────────
 // 행동(move): atk 공격력 · hits 타수 · block 보호막 · str 힘(이후 공격 +) · heal 회복 · steal 골드 빼앗기
 //             weak 영웅 약화(턴) · hex 방해 { t, n } — 영웅이 굴리는 이번 턴 동안 걸린다
-// ai: 'random' 무작위(같은 행동 세 번 연속 없음) · 'cycle' 차례대로. 보스는 rage(체력 절반 아래) 행동 목록이 따로 있다
+// ai: 'random' 무작위(같은 행동 세 번 연속 없음, w: 뽑힐 비중 · 기본 1) · 'cycle' 차례대로. 보스는 rage(체력 절반 아래) 행동 목록이 따로 있다
+// 방해(hex) 빈도: 보스는 매 턴 자기 스킬(대전 · 협동 보스 스킬 그대로) > 엘리트는 4번에 1번 > 일반은 5번에 1번쯤 (방해 행동 w 0.5)
 export const HEX = {
-  burn:    { ko: '화염 숨결',  icon: 'fire',   desc: () => '첫 굴림 뒤 가장 높은 주사위 1개가 1로 탄다' },
+  burn:    { ko: '화염 숨결',  icon: 'fire',   desc: n => `첫 굴림 뒤 가장 높은 주사위 ${n}개가 1로 탄다` },
   freeze:  { ko: '얼음',       icon: 'snow',   desc: n => `첫 굴림 뒤 주사위 ${n}개가 얼어 다시 굴릴 수 없다 (뒤집기 · 조정은 된다)` },
   seal:    { ko: '봉인',       icon: 'chain',  desc: n => `첫 굴림 뒤 주사위 ${n}개가 봉인된다 (잡기 · 뒤집기 · 조정 불가, 다시 굴리면 풀림)` },
   twist:   { ko: '운명 비틀기', icon: 'vortex', desc: n => `두 번째 굴림 뒤 주사위 ${n}개가 뒤집힌다 (7-눈)` },
@@ -477,31 +478,31 @@ const MV = (ko, o = {}) => ({ ko, ...o });
 export const ENEMIES = {
   // 1막 — 어둠의 숲
   slime:    { ko: '슬라임', act: 1, kind: 'normal', hp: [52, 58], ai: 'random', moves: [
-    MV('몸통 박치기', { atk: 8 }), MV('끈적이는 점액', { atk: 5, hex: H('freeze') }), MV('부풀기', { block: 8, str: 1 })] },
+    MV('몸통 박치기', { atk: 8 }), MV('끈적이는 점액', { atk: 5, hex: H('freeze'), w: 0.5 }), MV('부풀기', { block: 8, str: 1 })] },
   goblin:   { ko: '고블린 약탈꾼', act: 1, kind: 'normal', hp: [56, 62], ai: 'random', moves: [
     MV('단검 찌르기', { atk: 9 }), MV('주머니 털기', { atk: 6, steal: 10 }), MV('방패 들기', { block: 10, atk: 4 })] },
   bat:      { ko: '동굴 박쥐', act: 1, kind: 'normal', hp: [44, 50], ai: 'random', moves: [
-    MV('날개 할퀴기', { atk: 5, hits: 2 }), MV('흡혈', { atk: 6, heal: 6 }), MV('초음파', { atk: 4, hex: H('seal') })] },
+    MV('날개 할퀴기', { atk: 5, hits: 2 }), MV('흡혈', { atk: 6, heal: 6 }), MV('초음파', { atk: 4, hex: H('seal'), w: 0.5 })] },
   wolf:     { ko: '숲 늑대', act: 1, kind: 'normal', hp: [58, 64], ai: 'random', moves: [
     MV('물어뜯기', { atk: 10 }), MV('울부짖기', { str: 2, block: 5 }), MV('연속 물기', { atk: 5, hits: 2 })] },
   shaman:   { ko: '고블린 주술사', act: 1, kind: 'elite', hp: [112, 120], ai: 'cycle', moves: [
-    MV('저주 인형', { atk: 9, hex: H('twist') }), MV('불꽃 화살', { atk: 14 }), MV('봉인 주문', { atk: 7, hex: H('seal') }), MV('마력 방패', { block: 14, str: 2 })] },
+    MV('저주 인형', { atk: 9, hex: H('twist') }), MV('불꽃 화살', { atk: 14 }), MV('저주 주문', { atk: 8, weak: 1 }), MV('마력 방패', { block: 14, str: 2 })] },
   mimic:    { ko: '미믹', act: 1, kind: 'elite', hp: [120, 130], ai: 'cycle', moves: [
     MV('덥석 물기', { atk: 16 }), MV('혀 휘감기', { atk: 7, hex: H('seal', 2) }), MV('뚜껑 닫기', { block: 18 }), MV('금화 삼키기', { atk: 10, steal: 15 })] },
   // 2막 — 얼어붙은 폐허
   skeleton: { ko: '해골 병사', act: 2, kind: 'normal', hp: [78, 86], ai: 'random', moves: [
     MV('녹슨 칼', { atk: 13 }), MV('뼈 방패', { block: 14, atk: 5 }), MV('뼈 던지기', { atk: 7, hits: 2 })] },
   ghost:    { ko: '원혼', act: 2, kind: 'normal', hp: [70, 78], ai: 'random', moves: [
-    MV('원망의 눈길', { atk: 10, hex: H('gaze') }), MV('흐려지기', { block: 16 }), MV('비명', { atk: 16 })] },
+    MV('원망의 눈길', { atk: 10, hex: H('gaze'), w: 0.5 }), MV('흐려지기', { block: 16 }), MV('비명', { atk: 16 })] },
   wisp:     { ko: '서리 정령', act: 2, kind: 'normal', hp: [72, 80], ai: 'random', moves: [
-    MV('서리 입김', { atk: 9, hex: H('freeze', 2) }), MV('냉기 폭발', { atk: 17 }), MV('얼음 갑옷', { block: 12, str: 1 })] },
+    MV('서리 입김', { atk: 9, hex: H('freeze', 2), w: 0.5 }), MV('냉기 폭발', { atk: 17 }), MV('얼음 갑옷', { block: 12, str: 1 })] },
   knight:   { ko: '망령 기사', act: 2, kind: 'elite', hp: [146, 156], ai: 'cycle', moves: [
     MV('공포의 기세', { atk: 13, hex: H('haki') }), MV('대검 내려치기', { atk: 21 }), MV('검은 방패', { block: 18 }), MV('삼연참', { atk: 7, hits: 3 })] },
   golem:    { ko: '고대 골렘', act: 2, kind: 'elite', hp: [170, 180], ai: 'cycle', moves: [
     MV('바위 피부', { block: 24 }), MV('지진', { atk: 11, hex: H('drums') }), MV('분쇄', { atk: 24 }), MV('가동', { str: 2, block: 8 })] },
   // 3막 — 마왕성
   imp:      { ko: '임프', act: 3, kind: 'normal', hp: [92, 100], ai: 'random', moves: [
-    MV('화염구', { atk: 12, hex: H('burn') }), MV('장난질', { atk: 10, hex: H('twist') }), MV('꼬리 찌르기', { atk: 6, hits: 3 })] },
+    MV('화염구', { atk: 12, hex: H('burn'), w: 0.5 }), MV('장난질', { atk: 8, weak: 1 }), MV('꼬리 찌르기', { atk: 6, hits: 3 })] },
   hound:    { ko: '지옥견', act: 3, kind: 'normal', hp: [100, 110], ai: 'random', moves: [
     MV('물어뜯기', { atk: 16 }), MV('연속 물기', { atk: 8, hits: 2 }), MV('지옥의 울음', { str: 2, block: 8 })] },
   gargoyle: { ko: '가고일', act: 3, kind: 'normal', hp: [108, 118], ai: 'random', moves: [
@@ -512,27 +513,27 @@ export const ENEMIES = {
     MV('도륙', { atk: 22 }), MV('철벽', { block: 20, str: 2 }), MV('위압', { atk: 15, hex: H('haki') }), MV('회전 베기', { atk: 9, hits: 3 })] },
 
   // ── 막 보스 (협동 보스 8종을 원정 전투에 맞게) ──
-  // 보스는 거의 모든 공격에 방해(봉인 · 패기 · 비틀기 · 응시 · 북 …)가 붙는다 — 원정의 고비는 보스전
-  dragon:   { ko: '화염룡 이그니스', act: 1, kind: 'boss', hp: [170, 170], ai: 'cycle', moves: [
-    MV('화염 숨결', { atk: 10, hex: H('burn') }), MV('할퀴기', { atk: 6, hits: 2, hex: H('seal') }), MV('용린 갑옷', { block: 16, hex: H('burn') }), MV('포효', { atk: 6, str: 2, hex: H('haki') })],
-    rage: [MV('화염 숨결', { atk: 12, hex: H('burn') }), MV('불바다', { atk: 8, hits: 2, hex: H('burn') }), MV('용의 위압', { atk: 10, hex: H('haki') }), MV('용린 갑옷', { block: 18, hex: H('seal') })] },
-  orc:      { ko: '오크 대장 그로크', act: 1, kind: 'boss', hp: [160, 160], ai: 'cycle', moves: [
-    MV('전쟁의 북', { atk: 7, hex: H('drums') }), MV('대도끼', { atk: 12, hex: H('haki') }), MV('약탈', { atk: 6, steal: 12, heal: 5, hex: H('seal') }), MV('함성', { str: 1, block: 8, hex: H('drums') })],
-    rage: [MV('전쟁의 북', { atk: 8, hex: H('drums') }), MV('대도끼', { atk: 14, hex: H('haki') }), MV('광폭화', { atk: 5, hits: 3, hex: H('drums') })] },
-  lich:     { ko: '리치 왕 모르가스', act: 1, kind: 'boss', hp: [172, 172], ai: 'cycle', moves: [
-    MV('운명 비틀기', { atk: 11, hex: H('twist') }), MV('뼈 방패', { block: 20, hex: H('seal') }), MV('영혼 흡수', { atk: 11, heal: 10, hex: H('gaze') }), MV('해골 소환', { str: 2, block: 8, hex: H('twist') })],
-    rage: [MV('운명 비틀기', { atk: 12, hex: H('twist', 2) }), MV('영혼 흡수', { atk: 13, heal: 12, hex: H('gaze') }), MV('뼈 방패', { block: 22, hex: H('seal', 2) })] },
+  // 보스는 매 턴 자기 스킬을 쓴다 — 대전 · 협동 보스와 같은 스킬만 (마왕: 봉인 · 패기, 화염룡: 화염 숨결 …). 원정의 고비는 보스전
+  dragon:   { ko: '화염룡 이그니스', act: 1, kind: 'boss', hp: [156, 156], ai: 'cycle', moves: [
+    MV('화염 숨결', { atk: 10, hex: H('burn') }), MV('할퀴기', { atk: 6, hits: 2, hex: H('burn') }), MV('용린 갑옷', { block: 16, hex: H('burn') }), MV('포효', { atk: 6, str: 2, hex: H('burn') })],
+    rage: [MV('업화', { atk: 12, hex: H('burn', 2) }), MV('불바다', { atk: 8, hits: 2, hex: H('burn') }), MV('화염 숨결', { atk: 10, hex: H('burn', 2) }), MV('용린 갑옷', { block: 18, hex: H('burn') })] },
+  orc:      { ko: '오크 대장 그로크', act: 1, kind: 'boss', hp: [136, 136], ai: 'cycle', moves: [
+    MV('전쟁의 북', { atk: 7, hex: H('drums') }), MV('약탈', { atk: 8, steal: 12, heal: 6 }), MV('대도끼', { atk: 12, hex: H('drums') }), MV('약탈', { atk: 6, steal: 10, heal: 6, block: 6 })],
+    rage: [MV('전쟁의 북', { atk: 8, hex: H('drums') }), MV('대약탈', { atk: 8, steal: 12, heal: 12 }), MV('광폭화', { atk: 5, hits: 3, hex: H('drums') })] },
+  lich:     { ko: '리치 왕 모르가스', act: 1, kind: 'boss', hp: [124, 124], ai: 'cycle', moves: [
+    MV('운명 비틀기', { atk: 11, hex: H('twist') }), MV('뼈 방패', { block: 20, atk: 4 }), MV('영혼 흡수', { atk: 11, heal: 10, hex: H('twist') }), MV('뼈 방패', { block: 14, str: 2 })],
+    rage: [MV('운명 비틀기', { atk: 12, hex: H('twist', 2) }), MV('영혼 흡수', { atk: 13, heal: 12, hex: H('twist', 2) }), MV('뼈 방패', { block: 22, atk: 5 })] },
   hydra:    { ko: '세머리 용 트리글라브', act: 2, kind: 'boss', hp: [250, 250], ai: 'heads', moves: [
     MV('불 머리의 숨결', { atk: 13, hex: H('burn'), head: 'fire' }), MV('얼음 머리의 숨결', { atk: 11, hex: H('freeze', 2), head: 'ice' }), MV('독 머리의 숨결', { atk: 8, hits: 2, hex: H('poison'), head: 'poison' })] },
   cyclops:  { ko: '키클롭스 폴리페모스', act: 2, kind: 'boss', hp: [230, 230], ai: 'cycle', moves: [
-    MV('외눈 응시', { atk: 11, hex: H('gaze') }), MV('바위 투척', { atk: 18, hex: H('drums') }), MV('약탈', { atk: 9, steal: 15, heal: 10, hex: H('seal') }), MV('땅 구르기', { atk: 8, hex: H('drums'), block: 10 })],
-    rage: [MV('외눈 응시', { atk: 12, hex: H('gaze', 2) }), MV('바위 투척', { atk: 20, hex: H('drums') }), MV('분노의 발길질', { atk: 7, hits: 3, hex: H('haki') })] },
-  overlord: { ko: '오버로드 네크라스', act: 2, kind: 'boss', hp: [215, 215], ai: 'cycle', moves: [
-    MV('사령술', { str: 2, block: 10, hex: H('seal') }), MV('운명 역전', { atk: 12, hex: H('reverse') }), MV('뼈의 왕좌', { block: 18, atk: 6, hex: H('gaze') }), MV('죽음의 손길', { atk: 16, hex: H('haki') })],
-    rage: [MV('시간 역행', { heal: 30, block: 10, once: true }), MV('운명 역전', { atk: 14, hex: H('reverse') }), MV('죽음의 손길', { atk: 19, hex: H('haki') }), MV('해골 군단', { atk: 6, hits: 3, hex: H('seal', 2) })] },
-  demon:    { ko: '마왕 릴리스', act: 3, kind: 'boss', hp: [300, 300], ai: 'cycle', moves: [
-    MV('봉인', { atk: 13, hex: H('seal') }), MV('패기', { atk: 16, hex: H('haki') }), MV('밤의 춤', { atk: 7, hits: 3, hex: H('twist') }), MV('어둠의 장막', { block: 24, str: 2, hex: H('gaze') })],
-    rage: [MV('이중 봉인', { atk: 14, hex: H('seal', 2) }), MV('패기', { atk: 18, hex: H('haki') }), MV('종말', { atk: 28, hex: H('drums') }), MV('밤의 춤', { atk: 8, hits: 3, hex: H('twist', 2) })] },
+    MV('외눈 응시', { atk: 11, hex: H('gaze') }), MV('바위 투척', { atk: 18, hex: H('drums') }), MV('약탈', { atk: 9, steal: 15, heal: 10 }), MV('외눈 응시', { atk: 8, block: 10, hex: H('gaze') })],
+    rage: [MV('외눈 응시', { atk: 12, hex: H('gaze', 2) }), MV('바위 투척', { atk: 20, hex: H('drums') }), MV('분노의 발길질', { atk: 7, hits: 3, hex: H('gaze', 2) })] },
+  overlord: { ko: '오버로드 네크라스', act: 2, kind: 'boss', hp: [190, 190], ai: 'cycle', moves: [
+    MV('사령술', { str: 2, block: 10, atk: 5 }), MV('운명 역전', { atk: 12, hex: H('reverse') }), MV('뼈의 왕좌', { block: 18, atk: 6, hex: H('reverse') }), MV('운명 역전', { atk: 16, hex: H('reverse') })],
+    rage: [MV('시간 역행', { heal: 30, block: 10, once: true }), MV('운명 역전', { atk: 14, hex: H('reverse') }), MV('사령술', { atk: 6, hits: 3, str: 1 }), MV('뼈의 왕좌', { block: 20, atk: 8, hex: H('reverse') })] },
+  demon:    { ko: '마왕 릴리스', act: 3, kind: 'boss', hp: [255, 255], ai: 'cycle', moves: [
+    MV('봉인', { atk: 13, hex: H('seal') }), MV('패기', { atk: 16, hex: H('haki') }), MV('봉인의 춤', { atk: 7, hits: 3, hex: H('seal') }), MV('패왕의 기세', { block: 24, str: 2, hex: H('haki') })],
+    rage: [MV('이중 봉인', { atk: 14, hex: H('seal', 2) }), MV('패기', { atk: 18, hex: H('haki') }), MV('봉인의 춤', { atk: 8, hits: 3, hex: H('seal', 2) }), MV('종말', { atk: 26, hex: H('haki') })] },
 };
 export const enemyInfo = id => ENEMIES[id];
 export const ACT_INFO = {
@@ -799,7 +800,7 @@ function chooseIntent(R) {
   } else {
     const ban = e.last.length >= 2 && e.last[0] === e.last[1] ? e.last[0] : -1;
     const opts = moves.map((m, k) => k).filter(k => k !== ban);
-    i = pick(R, opts);
+    i = Number(weighted(R, Object.fromEntries(opts.map(k => [k, moves[k].w ?? 1]))));
   }
   e.mi = i;
   e.last = [i, ...e.last].slice(0, 2);
@@ -947,11 +948,11 @@ function afterRollHex(R) {
   const free = () => C.dice.map((v, i) => i).filter(i => !isSealed(R, i) && !isFrozen(R, i));
   if (C.rollNo === 1) {
     if (h.t === 'burn') {
-      const i = free().sort((a, b) => C.dice[b] - C.dice[a])[0];
-      if (i != null && C.dice[i] > 1) {
+      const idx = free().sort((a, b) => C.dice[b] - C.dice[a]).slice(0, h.n || 1).filter(i => C.dice[i] > 1);
+      if (idx.length) {
         const from = C.dice.slice();
-        C.dice[i] = 1;
-        fx(R, { type: 'hexDice', t: 'burn', dice: [i], from, to: 1 });
+        idx.forEach(i => (C.dice[i] = 1));
+        fx(R, { type: 'hexDice', t: 'burn', dice: idx, from, to: 1 });
       }
     }
     if (h.t === 'freeze') {
