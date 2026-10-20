@@ -3173,12 +3173,12 @@ const TRAIL = {
   // 룬석: 굴러가는 자리에 육망성 마법진이 연하게 떠올랐다 사라진다 + 푸른 룬빛 조금
   rune:      { pal: ['#E0FAFF', '#9FE8FF', '#3EC8FF'], grav: -24, glint: '#9FE8FF', noGlint: true, glintP: 0, few: 0.2, hexa: true,
                flames: { pal: ['rgba(62,200,255,A)', 'rgba(90,170,255,A)', 'rgba(140,230,255,A)'], core: 'rgba(224,250,255,A)', grav: -50, size: [4, 7], alpha: 0.6 } },  // 푸른 룬빛
-  brass:     { pal: ['#FFFFFF', '#FFF2C8', '#FFD27A', '#C8861E'], grav: 30, glint: '#FFF6C8', glintP: 0.8, few: 0.4 },               // 별빛 반짝
+  brass:     { pal: ['#FFFFFF', '#FFF2C8', '#FFD27A'], grav: 20, glint: '#FFF6C8', noGlint: true, glintP: 0, few: 0.15, constel: true },   // 별자리 놋쇠: 굴러간 자리에 금빛 별자리가 그려졌다 사라진다
   wisp:      { pal: ['#E0FFF8', '#5AF0E0', '#B98CFF'], grav: -30, glint: '#5AF0E0', noGlint: true, glintP: 0, few: 0.2,
                flames: { pal: ['rgba(90,240,224,A)', 'rgba(185,140,255,A)', 'rgba(62,200,200,A)'], core: 'rgba(230,255,250,A)', grav: -60, size: [7, 12] } },  // 도깨비불
 };
 let heartTrailT = 0;
-// 룬석 마법진은 화면 전체에서 0.35초에 하나까지 (한꺼번에 여러 개가 겹쳐 뜨면 주사위보다 눈에 띈다)
+// 룬석 마법진 · 별자리 놋쇠 별자리는 화면 전체에서 0.35초에 하나까지 (한꺼번에 여러 개가 겹쳐 뜨면 주사위보다 눈에 띈다)
 let hexaT = 0;
 const hexaOK = () => { const n = performance.now(); if (n - hexaT < 350) return false; hexaT = n; return true; };
 // 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
@@ -3201,6 +3201,7 @@ function diceTrail(t, p, sp) {
   if (tr.coins) fx.coinRain(p.x, p.y, { n: fxN(fast ? 1.1 : 0.6), size: [fxS(4), fxS(6)] });
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
   if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN((fast ? 2.6 : 1.8) * (tr.hexa ? 0.4 : 1)), size: (fo.size || [7, 12]).map(fxS) });
+  if (tr.constel && Math.random() < (fast ? 0.05 : 0.025) && hexaOK()) fx.constel(p.x, p.y, { size: fxS(20 + Math.random() * 6) });
   if (tr.hexa && Math.random() < (fast ? 0.04 : 0.02) && hexaOK()) fx.hexa(p.x, p.y, { r0: fxS(6), r1: fxS(20 + Math.random() * 6), alpha: 0.32 });
   if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
   const now = performance.now();
@@ -3235,6 +3236,7 @@ function hitSpark(id, v, i, t) {
   const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
   if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN((3 + k * 3) * (tr.hexa ? 0.4 : 1)), size: (fo.size || [9, 16]).map(v => fxS(v * 1.3)) });
+  if (tr.constel && k > 0.25 && hexaOK()) fx.constel(p.x, p.y, { size: fxS(24 + k * 8), life: 1.4 });
   if (tr.hexa && k > 0.25 && hexaOK()) fx.hexa(p.x, p.y, { r0: fxS(8), r1: fxS(30 + k * 14), life: 1.1, alpha: 0.32 + k * 0.08 });   // 룬석: 부딪힌 자리에 마법진
   if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
   else if (!tr.noGlint) fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });   // 드래곤 · 용암: 십자 반짝 없이
@@ -3405,6 +3407,22 @@ function skinPop(kind, id) {
       : `<button class="pbtn gold sp-buy" data-act="buy" data-kind="${kind}" data-id="${id}" ${Wal.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()} 사기</button>`}
   </div>`;
   box.appendChild(el);
+  // 아래 창이 목록을 가리지 않게: 목록 아래에 창 높이만큼 여백을 두고, 고른 카드가 창 밑에 깔리면 위로 올려 보여 준다
+  // (showSkins 가 카드 표시를 고치는 것보다 뒤에 재야 해서 다음 프레임에)
+  const pop = el.querySelector('.skin-pop');
+  box.style.paddingBottom = `${pop.getBoundingClientRect().height + 24}px`;
+  requestAnimationFrame(() => {
+    if (!el.isConnected) return;
+    const popT = innerHeight - el.offsetHeight;     // 창은 아래에서 미끄러져 올라오는 중이라 다 올라온 자리로 잰다
+    const card = box.querySelector(`.skin-card[data-kind="${kind}"][data-id="${id}"]`);
+    const over = card ? card.getBoundingClientRect().bottom - (popT - 10) : 0;
+    if (over > 0) box.scrollTop += over;
+  });
+}
+function closeSkinPop() {
+  layer.querySelector('.skin-pop-wrap')?.remove();
+  const box = layer.querySelector('.modal.skins');
+  if (box) box.style.paddingBottom = '';
 }
 // 잠긴 직업을 누르면: 설명과 가격을 보여 주고 살지 묻는다
 let afterClassBuy = null;
@@ -4113,7 +4131,7 @@ function onAct(act, t) {
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
   if (act === 'skin-use') return useSkin(t.dataset.kind, t.dataset.id);
-  if (act === 'skin-pop-close') { sfx.back?.(); return layer.querySelector('.skin-pop-wrap')?.remove(); }
+  if (act === 'skin-pop-close') { sfx.back?.(); return closeSkinPop(); }
   if (act === 'skin-roll') return rollPreview();
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
