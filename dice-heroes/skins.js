@@ -39,7 +39,7 @@ export const TRAY_SKINS = [
   { id: 'starry', name: '은하', desc: '별 가루 반짝이는 밤하늘', tier: 'special' },
   { id: 'pixel8', name: '8비트 픽셀', desc: '남보라 도트 체크 · 도트 테두리', tier: 'special' },
   { id: 'deck', name: '해적선 갑판', desc: '낡은 나무 갑판 · 밧줄 감긴 난간', tier: 'special' },
-  { id: 'casino', name: '카지노 테이블', desc: '파란 펠트 · 마호가니 띠 · 검은 가죽 쿠션의 포커 테이블', tier: 'special' },
+  { id: 'casino', name: '카지노 테이블', desc: '파란 펠트와 가죽 쿠션의 둥근 포커 테이블', tier: 'special' },
   { id: 'alchemy', name: '연금술 작업대', desc: '얼룩진 가죽 작업대 · 놋쇠 띠', tier: 'special' },
   { id: 'ruins', name: '고대 유적', desc: '이끼 낀 돌 판석 · 은은한 룬빛', tier: 'special' },
   { id: 'glacier', name: '빙하', desc: '갈라진 얼음판 아래 푸른빛', tier: 'special' },
@@ -98,7 +98,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 // 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
 // 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
 // (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
-export const ART_VER = 'a5';
+export const ART_VER = 'a6';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 export const dieGlowImage = (id, v) => (DIE_MAT[id]?.glowImage ? `assets/dice/${id}/${v}_glow.webp${AV}` : null);
@@ -415,7 +415,8 @@ const IMAGE_TRAY = {
   // v0.39.10 새 트레이 7종 (디자인 세션 그림, 장식 없는 재질 하나 · 곧은 난간)
   pixel8: { rail: 0x32233B, trim: 0x967348, glow: 0, rails: { gemColor: 0x967348, rough: 0.8, metal: 0 } },
   deck: { rail: 0x443024, trim: 0x8E7958, glow: 0, rails: { gemColor: 0x8E7958, rough: 0.8, metal: 0.05 } },
-  casino: { rail: 0x141418, trim: 0x6A2A1A, trimEnv: true, glow: 0, rails: { gemColor: 0xA78B4D, rough: 0.32, metal: 0.12 } },   // 포커 테이블: 파란 펠트 · 마호가니 띠 · 검은 가죽 쿠션 난간
+  // 포커 테이블: 모서리가 둥근 경기장 모양 (oval = 모서리 반지름). 바닥에 파란 펠트 · 마호가니 띠, 둘레는 검은 가죽 쿠션 (cushion.webp) — dice3d.js buildOvalFrame
+  casino: { rail: 0x141418, trim: 0x6A2A1A, glow: 0, oval: 1.8 },
   alchemy: { rail: 0x5A4B31, trim: 0x9A8758, trimEnv: true, glow: 0, rails: { gemColor: 0x9A8758, rough: 0.6, metal: 0.25 } },
   ruins: { rail: 0x373E3E, trim: 0x667C79, glow: 0.45, railGlow: true, rails: { gemColor: 0x3EC8FF, rough: 0.85, metal: 0 } },
   glacier: { rail: 0x335E78, trim: 0xA6CAD7, trimEnv: true, glow: 0.45, railGlow: true, rails: { gemColor: 0xA6CAD7, rough: 0.2, metal: 0.05 } },
@@ -426,7 +427,7 @@ export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_ST
 export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 // 트레이 그림도 미리 받아 둔다 (꾸미기에서 고르면 바닥이 비었다가 뒤늦게 뜨지 않게)
 export const RAIL_FILES = ['rail_top', 'rail_side', 'corner_side', 'corner_top'];
-const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
+const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.oval ? ['cushion'] : []), ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
 export const trayReady = id => trayImages(id).every(u => READY.has(u));
 export const preloadTray = id => Promise.all(trayImages(id).map(loadImage));
 
