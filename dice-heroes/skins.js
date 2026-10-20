@@ -98,7 +98,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 // 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
 // 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
 // (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
-export const ART_VER = 'a6';
+export const ART_VER = 'a7';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 export const dieGlowImage = (id, v) => (DIE_MAT[id]?.glowImage ? `assets/dice/${id}/${v}_glow.webp${AV}` : null);
@@ -406,28 +406,42 @@ const TRAY_STYLE = {
 //   railGlow: rail_glow.webp 로 난간이 빛난다. 기본(classic) 트레이는 rails 가 없어 예전 나무 테두리 그대로
 const IMAGE_TRAY = {
   marble: { rail: 0xE9DFCB, trim: 0xD4A443, trimEnv: true, glow: 0.3, rails: { shape: 'scallop', amp: 0.09, freq: 2.2, gemColor: 0xFFC83D, metal: 0.15 } },
-  royal: { rail: 0x7E1222, trim: 0xFFC83D, trimEnv: true, glow: 0.35, rails: { shape: 'scallop', amp: 0.13, freq: 1.9, gemColor: 0xE8152A, metal: 0.3 } },
-  deepsea: { rail: 0x1E4A52, trim: 0xD8B45A, trimEnv: true, glow: 0.55, rails: { shape: 'wave', amp: 0.16, freq: 2.6, gem: 'pearl', gemColor: 0xF2F0E6 } },
-  demon: { rail: 0x15101C, trim: 0xB36BFF, trimGlow: true, glow: 0.9, railGlow: true, rails: { shape: 'jag', amp: 0.2, freq: 3.2, gemColor: 0xB36BFF, gemGlow: true, rough: 0.6 } },   // 보라 · 검정 테마
-  sakura: { rail: 0xA8744A, trim: 0xF5A8C0, trimEnv: true, glow: 0.35, rails: { shape: 'wave', amp: 0.12, freq: 2.0, gemColor: 0xFF9AD0, metal: 0.1 } },
-  lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1, railGlow: true, rails: { shape: 'rock', amp: 0.2, freq: 1.7, gemColor: 0xFF7A1A, gemGlow: true, rough: 0.8, metal: 0.05 } },
-  starry: { rail: 0x161C52, trim: 0xE6C35C, trimEnv: true, glow: 0.8, railGlow: true, rails: { shape: 'wave', amp: 0.1, freq: 2.4, gemColor: 0x9AD6FF, gemGlow: true, metal: 0.3 } },
+  royal: { rail: 0xB8892E, trim: 0xFFC83D, trimEnv: true, glow: 0.35, rails: { shape: 'scallop', amp: 0.07, freq: 2.6, fancy: true, gems: false, metal: 0.85, rough: 0.28 } },   // 금속 금테 · 왕관 뾰족 장식
+  deepsea: { rail: 0x1E5A66, trim: 0xD8F0F0, trimEnv: true, glow: 0.55, rails: { shape: 'wave', amp: 0.2, freq: 2.2, fancy: true, gems: false, metal: 0.15, rough: 0.3 } },   // 바다: 출렁이는 파도 · 물보라
+  demon: { rail: 0x15101C, trim: 0xB36BFF, trimGlow: true, glow: 0.9, railGlow: true, rails: { shape: 'jag', amp: 0.24, freq: 3.4, fancy: true, gems: false, rough: 0.55, metal: 0.3 } },   // 날카로운 흑철 · 가시 · 뿔
+  sakura: { rail: 0x6A4028, trim: 0xF5A8C0, glow: 0.35, oval: 1.5, tube: { tex: 'rail_side', rad: 0.3, rough: 0.85, metal: 0, rep: 14 } },   // 둥근 벚꽃나무 가지
+  lava: { rail: 0x2B2422, trim: 0xFF7A1A, trimGlow: true, glow: 1.1, railGlow: true, rails: { shape: 'rock', amp: 0.26, freq: 1.6, fancy: true, gems: false, rough: 0.85, metal: 0.05 } },   // 울퉁불퉁한 용암 바위
+  starry: { rail: 0x161C52, trim: 0xE6C35C, glow: 0.8, railGlow: true, oval: 1.7, tube: { tex: 'rail_side', rad: 0.3, rough: 0.35, metal: 0.2, rep: 12, glow: 0.9 } },   // 둥근 성운 고리
   // v0.39.10 새 트레이 7종 (디자인 세션 그림, 장식 없는 재질 하나 · 곧은 난간)
-  pixel8: { rail: 0x32233B, trim: 0x967348, glow: 0, rails: { gemColor: 0x967348, rough: 0.8, metal: 0 } },
-  deck: { rail: 0x443024, trim: 0x8E7958, glow: 0, rails: { gemColor: 0x8E7958, rough: 0.8, metal: 0.05 } },
+  pixel8: { rail: 0x32233B, trim: 0x967348, glow: 0, pixel: true, rails: { gemColor: 0x967348, rough: 0.8, metal: 0 } },   // 8비트 색 도트 테두리 (그림을 또렷하게)
+  deck: { rail: 0x443024, trim: 0x8E7958, glow: 0, flags: true, rails: { gemColor: 0x8E7958, rough: 0.8, metal: 0.05 } },   // 네 꼭짓점에 펄럭이는 해적 깃발
   // 포커 테이블: 모서리가 둥근 경기장 모양 (oval = 모서리 반지름). 바닥에 파란 펠트 · 마호가니 띠, 둘레는 검은 가죽 쿠션 (cushion.webp) — dice3d.js buildOvalFrame
   casino: { rail: 0x141418, trim: 0x6A2A1A, glow: 0, oval: 1.8 },
   alchemy: { rail: 0x5A4B31, trim: 0x9A8758, trimEnv: true, glow: 0, rails: { gemColor: 0x9A8758, rough: 0.6, metal: 0.25 } },
   ruins: { rail: 0x373E3E, trim: 0x667C79, glow: 0.45, railGlow: true, rails: { gemColor: 0x3EC8FF, rough: 0.85, metal: 0 } },
-  glacier: { rail: 0x335E78, trim: 0xA6CAD7, trimEnv: true, glow: 0.45, railGlow: true, rails: { gemColor: 0xA6CAD7, rough: 0.2, metal: 0.05 } },
-  dragonnest: { rail: 0x211923, trim: 0x71313A, glow: 0.5, railGlow: true, rails: { gemColor: 0xE8435A, rough: 0.5, metal: 0.35 } },
+  glacier: { rail: 0x335E78, trim: 0xA6CAD7, trimEnv: true, glow: 0.45, rails: { shape: 'jag', amp: 0.12, freq: 3.0, fancy: true, gems: false, rough: 0.2, metal: 0.05 } },   // 얼음 결정이 붙은 테두리
+  dragonnest: { rail: 0x3A2618, trim: 0x71313A, glow: 0.5, oval: 1.6, tube: { tex: 'rail_side', rad: 0.34, rough: 0.9, metal: 0, rep: 12 } },   // 가지 · 뼈로 쌓은 둥근 둥지
+};
+// 테두리 장식 (v0.39.21, GPT 초안 부품 그림 assets/trays/<스킨>/decor_<이름>.webp): [이름, 가로/세로 비, 배치도 x, y, 앞쪽(낮게)]
+//   배치도: 바닥 왼위 = (160,160), 120px = 1 유닛, 앞 보관 칸은 y 1050~1314. 깃발(flag_cloth · flagpole)은 3D 로 따로 만든다
+export const TRAY_DECOR = {
+  deepsea: [["wave_crest",1.04,136,136,0],["wave_crest",1.04,1384,136,0],["foam_arc",1.22,500,132,0],["foam_arc",1.22,1020,132,0],["wave_corner",0.99,132,430,0],["wave_corner",0.99,1388,430,0],["small_ripple",3.51,740,1338,1]],
+  sakura: [["blossom_cluster",1.01,136,136,0],["blossom_cluster",1.01,1384,136,0],["branch_fork",1.07,132,430,0],["branch_fork",1.07,1388,430,0],["single_blossom",1.01,550,132,0],["single_blossom",1.01,970,132,0],["branch_corner",0.82,136,952,1],["branch_corner",0.82,1384,952,1]],
+  pixel8: [["pixel_star",0.94,136,136,0],["pixel_heart",1.11,1384,136,0],["corner_block",0.97,132,450,0],["corner_block",0.97,1388,450,0],["step_block",1.16,450,132,0],["step_block",1.16,1070,132,0]],
+  royal: [["crown_point",0.84,300,132,0],["crown_point",0.84,500,132,0],["crown_point",0.84,700,132,0],["crown_point",0.84,900,132,0],["crown_point",0.84,1100,132,0],["crown_point",0.84,1300,132,0],["ruby_setting",0.93,136,136,0],["ruby_setting",0.93,1384,136,0],["sapphire_setting",0.84,132,480,0],["sapphire_setting",0.84,1388,480,0],["filigree_corner",0.95,136,952,1],["filigree_corner",0.95,1384,952,1]],
+  deck: [["flag_cloth",1.41,136,136,0],["flag_cloth",1.41,1384,136,0],["flag_cloth",1.41,136,952,1],["flag_cloth",1.41,1384,952,1],["flagpole",0.18,136,136,0],["flagpole",0.18,1384,136,0],["flagpole",0.18,136,952,1],["flagpole",0.18,1384,952,1],["rope_knot",1.86,470,132,0],["rope_knot",1.86,1050,132,0],["timber_corner",1.25,136,1338,1],["timber_corner",1.25,1384,1338,1]],
+  demon: [["demon_horn",0.73,136,136,0],["demon_horn",0.73,1384,136,0],["skull_corner",0.78,400,132,0],["skull_corner",0.78,1120,132,0],["blade_spike",0.48,132,450,0],["blade_spike",0.48,1388,450,0],["violet_crystal",0.39,760,132,0]],
+  lava: [["basalt_cluster",1.25,136,136,0],["basalt_cluster",1.25,1384,136,0],["lava_fissure",0.53,460,132,0],["lava_fissure",0.53,1060,132,0],["basalt_corner",1.01,132,520,0],["basalt_corner",1.01,1388,520,0],["small_rock",2.0,450,1338,1],["small_rock",2.0,1070,1338,1]],
+  starry: [["crescent",1.26,1384,136,0],["small_planet",1.32,136,136,0],["star_cluster",0.89,530,132,0],["star_cluster",0.89,990,132,0],["nebula_corner",1.07,132,520,0],["nebula_corner",1.07,1388,520,0]],
+  glacier: [["ice_cluster",1.0,136,136,0],["ice_cluster",1.0,1384,136,0],["icicle",1.0,132,410,0],["icicle",1.0,1388,410,0],["snow_cap",1.35,460,132,0],["snow_cap",1.35,1060,132,0],["ice_corner",0.93,136,952,1],["ice_corner",0.93,1384,952,1]],
+  dragonnest: [["nest_branch",0.95,136,136,0],["nest_branch",0.95,1384,136,0],["bone_fragment",1.08,132,450,0],["bone_fragment",1.08,1388,450,0],["egg_coins",1.51,500,132,0],["red_scales",1.35,1020,132,0]],
 };
 export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null
 export const trayImage = (id, kind) => (IMAGE_TRAY[id] ? `assets/trays/${id}/${kind}.webp${AV}` : null);
 // 트레이 그림도 미리 받아 둔다 (꾸미기에서 고르면 바닥이 비었다가 뒤늦게 뜨지 않게)
 export const RAIL_FILES = ['rail_top', 'rail_side', 'corner_side', 'corner_top'];
-const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.oval ? ['cushion'] : []), ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
+const trayImages = id => [...['floor', 'glow', 'box'], ...(IMAGE_TRAY[id]?.rails ? RAIL_FILES : []), ...(IMAGE_TRAY[id]?.oval ? [IMAGE_TRAY[id].tube?.tex || 'cushion'] : []), ...[...new Set((TRAY_DECOR[id] || []).map(m => `decor_${m[0]}`))], ...(IMAGE_TRAY[id]?.railGlow ? ['rail_glow'] : [])].map(k => trayImage(id, k)).filter(Boolean);
 export const trayReady = id => trayImages(id).every(u => READY.has(u));
 export const preloadTray = id => Promise.all(trayImages(id).map(loadImage));
 

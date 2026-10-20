@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, dieGlowImage, READY, loadImage, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
+import { TRAY_DECOR, drawDieFace, dieMatParams, dieGlows, dieImage, dieGlowImage, READY, loadImage, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
 
 // 원정 특수 주사위가 눈을 바꿀 때의 빛 색
 const MORPH_COLOR = { gold: 0xFFC83D, twin: 0xFF9AD0, stair: 0x3EE6B4, heavy: 0x9AA4B8 };
@@ -462,6 +462,8 @@ export class DiceTray {
       Object.values(this.fancyFrames || {}).forEach(f => { f.visible = f === frame; });
       this.plainFrame.forEach(o => { o.visible = !frame; });
       this.cornerR = st.oval || 0;
+      const dt = TRAY_DECOR[trayId] ? 2.05 : 0.7;
+      if (dt !== this.decorTop) { this.decorTop = dt; if (this.resizeObs) { this.lastW = 0; this.resize(); } }   // 장식 높이가 바뀌면 화면 맞춤을 다시
       this.floorMesh.visible = this.boxFloor.visible = !st.oval;   // 둥근 트레이는 모서리를 깎은 바닥 · 칸 바닥을 따로 쓴다 (같은 재질)
     }
   }
@@ -477,6 +479,7 @@ export class DiceTray {
       const t = base.clone();
       t.wrapS = THREE.RepeatWrapping; t.repeat.set(rx, 1); t.needsUpdate = true;
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      if (st.pixel) { t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; }
       return t;
     };
     const mat = (kind, rx, glow) => {
@@ -516,22 +519,22 @@ export class DiceTray {
       if (rot) m.position.x = off; else m.position.z = off;
       m.castShadow = m.receiveShadow = true;
       grp.add(m);
-      // 난간 가운데 보석 (조금 떠서 솟은 모양) — fancy 일 때만
-      if (S.fancy) {
+      // 난간 가운데 보석 (조금 떠서 솟은 모양) — fancy 일 때만 (gems: false 면 장식 그림이 대신한다)
+      if (S.fancy && S.gems !== false) {
         const gem = this.frameGem(S, 0.17);
         gem.position.set(rot ? off : 0, H + bump(off * 3.1) + 0.16, rot ? 0 : off);
         grp.add(gem);
       }
     }
     // 네 모서리 기둥 + 꼭대기 보석
-    const PW = S.fancy ? 0.72 : T, PH = S.fancy ? H + 0.32 : H + 0.02;
+    const PW = S.fancy && S.gems !== false ? 0.72 : T, PH = S.fancy && S.gems !== false ? H + 0.32 : H + 0.02;
     const sideM = mat('corner_side', 1, false), topM = mat('corner_top', 1, false);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, PW), [sideM, sideM, topM, topM, sideM, sideM]);
       post.position.set(sx * (TRAY_W / 2 + T / 2), PH / 2, sz * (TRAY_D / 2 + T / 2));
       post.castShadow = post.receiveShadow = true;
       grp.add(post);
-      if (S.fancy) {
+      if (S.fancy && S.gems !== false) {
         const gem = this.frameGem(S, 0.24);
         gem.position.set(post.position.x, PH + 0.24, post.position.z);
         grp.add(gem);
@@ -546,6 +549,7 @@ export class DiceTray {
       m.castShadow = m.receiveShadow = true;
       grp.add(m);
     }
+    this.addDecor(grp, id, st);
     this.scene.add(grp);
     return grp;
   }
@@ -566,20 +570,26 @@ export class DiceTray {
     const floor = new THREE.Mesh(fg, this.floorMesh.material);
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
     grp.add(floor);
-    const tex = this.imageTex(trayImage(id, 'cushion')).clone();
+    const TB = st.tube || {};
+    const tex = this.imageTex(trayImage(id, TB.tex || 'cushion')).clone();
     tex.wrapS = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
-    const leather = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0.05, envMap: this.envMap(), envMapIntensity: 0.55 });
+    const leather = new THREE.MeshStandardMaterial({ map: tex, roughness: TB.rough ?? 0.42, metalness: TB.metal ?? 0.05, envMap: this.envMap(), envMapIntensity: 0.55 });
+    if (TB.glow && st.railGlow) {
+      const gt = this.imageTex(trayImage(id, 'rail_glow')).clone(); gt.wrapS = THREE.RepeatWrapping; gt.needsUpdate = true;
+      leather.emissive = new THREE.Color(0xFFFFFF); leather.emissiveMap = gt; leather.emissiveIntensity = TB.glow;
+    }
     // 둥근 사각형 둘레를 따라 가는 관 (단면은 위아래로 조금 납작한 원)
     const cushion = (hw, hd, r, rad, h, rep) => {
       const pts = rr(hw, hd, r).getSpacedPoints(220).map(q => new THREE.Vector3(q.x, 0, -q.y));
       const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 440, rad, 18, true);
       const m = new THREE.Mesh(g, leather.clone());
       m.material.map = tex.clone(); m.material.map.repeat.set(rep, 1); m.material.map.needsUpdate = true;
+      if (m.material.emissiveMap) { m.material.emissiveMap = m.material.emissiveMap.clone(); m.material.emissiveMap.repeat.set(rep, 1); m.material.emissiveMap.needsUpdate = true; }
       m.scale.y = 0.85; m.position.y = h; m.castShadow = m.receiveShadow = true;
       return m;
     };
-    const CR = 0.3, off = CR - 0.02;   // 쿠션 안쪽 면이 벽(바닥 가장자리)에 닿게
-    grp.add(cushion(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off, CR, CR * 0.95, 22));
+    const CR = TB.rad || 0.3, off = CR - 0.02;   // 쿠션 안쪽 면이 벽(바닥 가장자리)에 닿게
+    grp.add(cushion(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off, CR, CR * 0.95, TB.rep || 22));
     // 앞쪽 주사위 칸: 얇은 쿠션 고리
     const bz0 = TRAY_D / 2 + 2 * CR, bz1 = BOX_Z + BOX_D / 2 + BOX_T, bc = 0.17;
     const ring = cushion(BOX_OUT - bc, (bz1 - bz0) / 2 - bc, 0.55, bc, bc * 0.95, 18);
@@ -592,8 +602,68 @@ export class DiceTray {
     const bf = new THREE.Mesh(bg, this.boxFloor.material);
     bf.rotation.x = -Math.PI / 2; bf.position.set(0, 0.002, (bz0 + bz1) / 2); bf.receiveShadow = true;
     grp.add(bf);
+    this.addDecor(grp, id, st);
     this.scene.add(grp);
     return grp;
+  }
+  // 테두리 장식 그림 (skins.js TRAY_DECOR): 배치도 자리에 아래쪽 기준으로 세운 그림판(항상 카메라를 향함).
+  // 뒤 · 옆은 크게, 앞쪽(front)은 낮게. 해적 깃발은 깃대 + 바람에 펄럭이는 천 (flagTick)
+  addDecor(grp, id, st) {
+    const list = TRAY_DECOR[id];
+    if (!list) return;
+    const wx = px => (px - 160) / 120 - TRAY_W / 2;
+    const wz = py => (py >= 1000 ? TRAY_D / 2 + RAIL_T + (py - 1050) / 120 : (py - 160) / 120 - TRAY_D / 2);
+    const top = st.oval ? (st.tube?.rad || 0.3) * 1.7 : 0.7;
+    for (const [n, asp, px, py, front] of list) {
+      const x = wx(px), z = wz(py);
+      if (n === 'flagpole') continue;
+      if (n === 'flag_cloth') { grp.add(this.makeFlag(id, x, z, front, top)); continue; }
+      const h = front ? 0.55 : (n.match(/point|spike|horn|icicle|fissure|crystal/) ? 1.2 : 1.0);
+      const tex = this.imageTex(trayImage(id, `decor_${n}`)); tex.colorSpace = THREE.SRGBColorSpace;
+      if (st.pixel) { tex.magFilter = THREE.NearestFilter; }
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.08, depthWrite: false }));
+      sp.center.set(0.5, 0.12);
+      sp.scale.set(h * asp, h, 1);
+      sp.position.set(x, top - 0.05, z);
+      sp.renderOrder = 2;
+      grp.add(sp);
+    }
+  }
+  makeFlag(id, x, z, front, top) {
+    const g = new THREE.Group(), s = front ? 0.55 : 1;
+    const ph = 1.15 * s;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s + 0.01, 0.045 * s + 0.01, ph, 8), new THREE.MeshStandardMaterial({ color: 0x3A2618, roughness: 0.7 }));
+    pole.position.y = ph / 2; pole.castShadow = true; g.add(pole);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06 * s + 0.02, 10, 8), new THREE.MeshStandardMaterial({ color: 0xC8A060, roughness: 0.35, metalness: 0.7 }));
+    knob.position.y = ph; g.add(knob);
+    const fw = 1.25 * s, fh = 0.85 * s, dir = (x < 0 ? -1 : 1) * (front ? 1 : -1);   // 뒤 깃발은 안쪽(트레이 위 하늘)으로, 앞 깃발은 바깥쪽으로 휘날린다
+    const geo = new THREE.PlaneGeometry(fw, fh, 14, 6);
+    geo.translate(fw / 2, 0, 0);
+    const tex = this.imageTex(trayImage(id, 'decor_flag_cloth')); tex.colorSpace = THREE.SRGBColorSpace;
+    const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide, roughness: 0.9 }));
+    cloth.position.y = ph - fh / 2 - 0.04;
+    cloth.scale.x = dir;
+    cloth.userData.base = Float32Array.from(geo.attributes.position.array);
+    cloth.userData.fw = fw; cloth.userData.seed = x * 1.7 + z;
+    g.add(cloth);
+    g.position.set(x, top - 0.1, z);
+    g.rotation.z = (x < 0 ? 1 : -1) * (front ? 0.2 : 0.04);   // 깃대는 바깥쪽으로 살짝 (앞 깃발은 더)
+    g.rotation.x = front ? -0.5 : -0.85;   // 카메라가 위에서 내려다봐서 똑바로 서면 납작해 보인다 — 뒤로 눕혀 깃발 면이 화면을 향하게
+    (this.flags ||= []).push(cloth);
+    return g;
+  }
+  // 깃발 천 펄럭임: 깃대에서 멀수록 크게 출렁이는 물결 (초당 30번만 다시 그린다)
+  flagTick(t) {
+    for (const c of this.flags || []) {
+      if (!c.parent?.parent?.visible) continue;
+      const p = c.geometry.attributes.position, b = c.userData.base, fw = c.userData.fw, sd = c.userData.seed;
+      for (let i = 0; i < p.count; i++) {
+        const x = b[i * 3], y = b[i * 3 + 1], k = x / fw;
+        p.setZ(i, Math.sin(x * 7 - t * 0.006 + sd) * 0.09 * k + Math.sin(x * 3.1 - t * 0.0037 + y * 4) * 0.05 * k);
+        p.setY(i, y - k * k * 0.06 + Math.sin(t * 0.004 + x * 5) * 0.02 * k);
+      }
+      p.needsUpdate = true; c.geometry.computeVertexNormals();
+    }
   }
   // 난간 장식 보석: 스킨 색의 팔면체(진주는 구), 빛나는 스킨은 스스로 빛난다
   frameGem(S, r) {
@@ -654,10 +724,11 @@ export class DiceTray {
     // 앞쪽 주사위 함은 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝이 잘렸다.
     // 함 바닥 양 끝 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 끝은 이제 난간 바깥 끝과 같은 선)
     const XE = BOX_OUT - 0.15, XR = BOX_OUT;
-    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
+    // 뒤쪽에 높은 장식(깃발 · 왕관 · 뿔)이 있는 트레이는 그 높이까지 화면에 담는다
+    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, this.decorTop || 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
     const v = new THREE.Vector3();
     for (let k = 0; k < 40; k++) {
-      const out = corners.some(([x, y, z]) => { v.set(x, y, z).project(this.camera); return Math.abs(v.x) > 0.985 || Math.abs(v.y) > 0.985; });
+      const out = corners.some(([x, y, z], i) => { v.set(x, y, z).project(this.camera); const lim = i === 2 && (this.decorTop || 0.7) > 0.7 ? 0.9 : 0.985; return Math.abs(v.x) > 0.985 || Math.abs(v.y) > lim; });   // 장식 끝 위로 여유
       if (!out) break;
       dist *= 1.025;
       place();
@@ -1283,9 +1354,12 @@ export class DiceTray {
     const moving = this.anim || this.live || this.shrink || this.dice.some(d => d.morph || d.wobble || d.hop || d.auraI > 0.01 || Math.abs(this.liftWant(d) - d.lift) > 0.002);
     const glowing = this.twinkle || this.dice.some(d => d.glow.visible);
     if (this.twinkle) for (let v = 1; v <= 6; v++) { const m = this.faceMats[v]; m.emissiveIntensity = (m.userData.glowBase || 0.5) * (0.85 + Math.sin(t / 380 + v * 1.7) * 0.35); }   // 별빛이 반짝인다
+    const flags = this.flags?.some(c => c.parent?.parent?.visible);
     if (!moving && !this.dirty) {
-      if (!glowing || t - (this.lastDraw || 0) < 100) return;
+      if (flags && t - (this.lastDraw || 0) >= 33) { /* 깃발이 펄럭인다 */ }
+      else if (!glowing || t - (this.lastDraw || 0) < 100) return;
     }
+    if (flags) this.flagTick(t);
     this.dirty = false;
     this.lastDraw = t;
     if (this.live) this.stepLive(t);
