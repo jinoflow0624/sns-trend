@@ -98,7 +98,7 @@ export const dieGlows = id => !!DIE_MAT[id]?.glow;
 // 그림 주소 끝에 그림 버전(ART_VER)을 붙인다. 게임 버전을 붙이면 업데이트마다 주사위 · 트레이 그림을 전부 다시 받아서
 // 첫 판에 트레이가 늦게 뜨곤 했다. 주사위 · 트레이 그림 파일을 바꾸거나 더하면 sw.js 의 ART_VER 와 함께 올린다
 // (안 올려도 sw.js 가 뒤에서 새 그림을 받아 두어 다음 실행부터는 새 그림 — 올리면 바로)
-export const ART_VER = 'a9';
+export const ART_VER = 'b1';
 const AV = `?v=${ART_VER}`;
 export const dieImage = (id, v) => (DIE_MAT[id]?.image ? `assets/dice/${id}/${v}.webp${AV}` : null);
 export const dieGlowImage = (id, v) => (DIE_MAT[id]?.glowImage ? `assets/dice/${id}/${v}_glow.webp${AV}` : null);
@@ -420,7 +420,7 @@ const IMAGE_TRAY = {
   alchemy: { rail: 0x5A4B31, trim: 0x9A8758, trimEnv: true, glow: 0, rails: { gemColor: 0x9A8758, rough: 0.6, metal: 0.25 } },
   ruins: { rail: 0x373E3E, trim: 0x667C79, glow: 0.45, railGlow: true, rails: { gemColor: 0x3EC8FF, rough: 0.85, metal: 0 } },
   glacier: { rail: 0x335E78, trim: 0xA6CAD7, trimEnv: true, glow: 0.45, rails: { shape: 'jag', amp: 0.12, freq: 3.0, fancy: true, gems: false, rough: 0.2, metal: 0.05 } },   // 얼음 결정이 붙은 테두리
-  dragonnest: { rail: 0x3A2618, trim: 0x71313A, glow: 0.5, oval: 1.6, tube: { tex: 'rail_side', rad: 0.34, rough: 0.9, metal: 0, rep: 12 } },   // 가지 · 뼈로 쌓은 둥근 둥지
+  dragonnest: { rail: 0x3A2618, trim: 0x71313A, glow: 0.7, oval: 1.6, nest: true, tube: { tex: 'rail_side', rad: 0.34, rough: 0.9, metal: 0, rep: 12 } },   // 가지 · 뼈로 쌓은 둥근 둥지 + 감아 엮은 가는 가지 · 3D 용의 알 · 금화 (dice3d.js nestTwigs · nestProps)
 };
 // 장식은 뒤쪽 난간(화면 위쪽)과 그 두 모서리에만 (v0.39.25 — 옆 · 앞 난간 장식은 비스듬히 보여 붙인 그림처럼 어색해서 뺐다)
 // 테두리 장식 (v0.39.21, GPT 초안 부품 그림 assets/trays/<스킨>/decor_<이름>.webp): [이름, 가로/세로 비, 배치도 x, y, 앞쪽(낮게)]
@@ -435,7 +435,7 @@ export const TRAY_DECOR = {
   lava: [["basalt_cluster",1.25,136,136,0],["basalt_cluster",1.25,1384,136,0],["lava_fissure",0.53,460,132,0],["lava_fissure",0.53,1060,132,0]],
   starry: [["crescent",1.26,1384,136,0],["small_planet",1.32,136,136,0],["star_cluster",0.89,530,132,0],["star_cluster",0.89,990,132,0]],
   glacier: [["ice_cluster",1.0,136,136,0],["ice_cluster",1.0,1384,136,0],["snow_cap",1.35,460,132,0],["snow_cap",1.35,1060,132,0]],
-  dragonnest: [["nest_branch",0.95,136,136,0],["nest_branch",0.95,1384,136,0],["egg_coins",1.51,500,132,0],["red_scales",1.35,1020,132,0]],
+  dragonnest: [["nest_branch",0.95,136,136,0],["nest_branch",0.95,1384,136,0]],
 };
 export const trayStyle = id => (IMAGE_TRAY[id] ? { ...(TRAY_STYLE[id] || TRAY_STYLE.classic), ...IMAGE_TRAY[id], image: true } : TRAY_STYLE[id] || TRAY_STYLE.classic);
 // 그림 트레이의 파일 주소 (kind: floor · glow · box · thumb). 코드로 그리는 트레이는 null

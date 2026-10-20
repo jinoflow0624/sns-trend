@@ -31,7 +31,7 @@ const AURA = {
   alchemy: { n: 12, col: ['154,232,90', '255,210,122', '200,184,255'], v: [0, -6], sway: 3, life: [2, 4], s: [2, 3], bubble: 1 },   // 약물 거품
   ruins:   { n: 11, col: ['159,232,255', '62,200,255'], v: [0, -3], sway: 2, tw: 1, life: [3, 6], s: [2, 3] },                 // 룬빛 티끌
   glacier: { n: 16, col: ['255,255,255', '200,244,255'], v: [-2, 5], sway: 4, life: [4, 7], s: [2, 2] },                       // 눈가루
-  dragonnest: { n: 15, col: ['255,200,61', '255,106,26', '232,67,90'], v: [0, -7], sway: 3, life: [2, 4], s: [2, 3] },         // 불티
+  dragonnest: { n: 24, col: ['255,200,61', '255,106,26', '232,67,90', '255,240,180'], v: [0, -9], sway: 4, life: [2, 4], s: [2, 3.5] },         // 불티
 };
 let trayFn = null, aura = null, auraRect = null, auraParts = [];
 export function setTrayAura(fn) { trayFn = fn; }
