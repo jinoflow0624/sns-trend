@@ -90,7 +90,8 @@ const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 
 const easeIn = t => t * t * t;
 
 // 트레이 물리 세계 (바닥·벽·천장). 굴림 녹화와 흔드는 동안의 실시간 물리가 같이 쓴다
-function makeWorld(ceiling = 6.0, dieBounce = 0.08) {
+// cornerR: 둥근 모서리 트레이(포커 테이블)는 네 모서리에 둥근 벽을 짧은 판 여러 개로 세운다
+function makeWorld(ceiling = 6.0, dieBounce = 0.08, cornerR = 0) {
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -32, 0) });
   world.allowSleep = true;
   const dieMat = new CANNON.Material('die');
@@ -116,6 +117,20 @@ function makeWorld(ceiling = 6.0, dieBounce = 0.08) {
     b.position.set(...p);
     b.quaternion.setFromEuler(...r);
     world.addBody(b);
+  }
+  if (cornerR > 0) {
+    const SEG = 9, th = 0.6, len = (Math.PI / 2) * cornerR / SEG + 0.08;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const cx = sx * (TRAY_W / 2 - cornerR), cz = sz * (TRAY_D / 2 - cornerR);
+      for (let k = 0; k < SEG; k++) {
+        const a = ((k + 0.5) / SEG) * (Math.PI / 2), nx = sx * Math.cos(a), nz = sz * Math.sin(a);   // 바깥을 향한 법선
+        const r = cornerR + th / 2;
+        const b = new CANNON.Body({ mass: 0, material: wallMat, shape: new CANNON.Box(new CANNON.Vec3(len / 2, 3, th / 2)) });
+        b.position.set(cx + nx * r, 3, cz + nz * r);
+        b.quaternion.setFromEuler(0, Math.atan2(-nz, nx) + Math.PI / 2, 0);
+        world.addBody(b);
+      }
+    }
   }
 
   return { world, dieMat };
@@ -442,9 +457,12 @@ export class DiceTray {
       bm.map = img('box', () => drawBoxFloor(document.createElement('canvas'), trayId)) || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
       // 그림 난간이 있는 스킨: 단색 나무 테두리 대신 울퉁불퉁한 그림 난간 · 모서리 기둥 · 보석 장식 (기본 트레이는 그대로)
-      const frame = st.rails ? (this.fancyFrames ||= {})[trayId] ||= this.buildFancyFrame(trayId, st) : null;
+      const frame = st.oval ? (this.fancyFrames ||= {})[trayId] ||= this.buildOvalFrame(trayId, st)
+        : st.rails ? (this.fancyFrames ||= {})[trayId] ||= this.buildFancyFrame(trayId, st) : null;
       Object.values(this.fancyFrames || {}).forEach(f => { f.visible = f === frame; });
       this.plainFrame.forEach(o => { o.visible = !frame; });
+      this.cornerR = st.oval || 0;
+      this.floorMesh.visible = this.boxFloor.visible = !st.oval;   // 둥근 트레이는 모서리를 깎은 바닥 · 칸 바닥을 따로 쓴다 (같은 재질)
     }
   }
 
@@ -528,6 +546,52 @@ export class DiceTray {
       m.castShadow = m.receiveShadow = true;
       grp.add(m);
     }
+    this.scene.add(grp);
+    return grp;
+  }
+  // 둥근 포커 테이블 (카지노): 모서리를 깎은 펠트 바닥 + 둘레를 감싸는 볼록한 검은 가죽 쿠션, 앞쪽 주사위 칸도 쿠션으로 두른다
+  buildOvalFrame(id, st) {
+    const R = st.oval, grp = new THREE.Group();
+    const rr = (hw, hd, r) => {        // 가운데 기준 둥근 사각형 Shape
+      const s = new THREE.Shape();
+      s.moveTo(-hw + r, -hd); s.lineTo(hw - r, -hd); s.absarc(hw - r, -hd + r, r, -Math.PI / 2, 0);
+      s.lineTo(hw, hd - r); s.absarc(hw - r, hd - r, r, 0, Math.PI / 2);
+      s.lineTo(-hw + r, hd); s.absarc(-hw + r, hd - r, r, Math.PI / 2, Math.PI);
+      s.lineTo(-hw, -hd + r); s.absarc(-hw + r, -hd + r, r, Math.PI, Math.PI * 1.5);
+      return s;
+    };
+    const fg = new THREE.ShapeGeometry(rr(TRAY_W / 2, TRAY_D / 2, R), 24);
+    const p = fg.attributes.position, uv = fg.attributes.uv;
+    for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / TRAY_W + 0.5, p.getY(i) / TRAY_D + 0.5);
+    const floor = new THREE.Mesh(fg, this.floorMesh.material);
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+    grp.add(floor);
+    const tex = this.imageTex(trayImage(id, 'cushion')).clone();
+    tex.wrapS = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
+    const leather = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0.05, envMap: this.envMap(), envMapIntensity: 0.55 });
+    // 둥근 사각형 둘레를 따라 가는 관 (단면은 위아래로 조금 납작한 원)
+    const cushion = (hw, hd, r, rad, h, rep) => {
+      const pts = rr(hw, hd, r).getSpacedPoints(220).map(q => new THREE.Vector3(q.x, 0, -q.y));
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 440, rad, 18, true);
+      const m = new THREE.Mesh(g, leather.clone());
+      m.material.map = tex.clone(); m.material.map.repeat.set(rep, 1); m.material.map.needsUpdate = true;
+      m.scale.y = 0.85; m.position.y = h; m.castShadow = m.receiveShadow = true;
+      return m;
+    };
+    const CR = 0.3, off = CR - 0.02;   // 쿠션 안쪽 면이 벽(바닥 가장자리)에 닿게
+    grp.add(cushion(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off, CR, CR * 0.95, 22));
+    // 앞쪽 주사위 칸: 얇은 쿠션 고리
+    const bz0 = TRAY_D / 2 + 2 * CR, bz1 = BOX_Z + BOX_D / 2 + BOX_T, bc = 0.17;
+    const ring = cushion(BOX_OUT - bc, (bz1 - bz0) / 2 - bc, 0.55, bc, bc * 0.95, 18);
+    ring.position.z = (bz0 + bz1) / 2;
+    grp.add(ring);
+    // 주사위 칸 바닥도 쿠션 고리 안쪽에 맞춘 둥근 바닥 (네모 바닥이 쿠션 밖으로 삐져나오지 않게)
+    const bhw = BOX_OUT - 2 * bc + 0.04, bhd = (bz1 - bz0) / 2 - 2 * bc + 0.04;
+    const bg = new THREE.ShapeGeometry(rr(bhw, bhd, 0.42), 16), bp = bg.attributes.position, buv = bg.attributes.uv;
+    for (let i = 0; i < bp.count; i++) buv.setXY(i, bp.getX(i) / (2 * bhw) + 0.5, bp.getY(i) / (2 * bhd) + 0.5);
+    const bf = new THREE.Mesh(bg, this.boxFloor.material);
+    bf.rotation.x = -Math.PI / 2; bf.position.set(0, 0.002, (bz0 + bz1) / 2); bf.receiveShadow = true;
+    grp.add(bf);
     this.scene.add(grp);
     return grp;
   }
@@ -862,7 +926,7 @@ export class DiceTray {
     speed *= 1.2;                  // 굴러가는 모습 1.2배속
     const n = values.length;
     this.ensure(n);
-    const { world, dieMat } = makeWorld();
+    const { world, dieMat } = makeWorld(6.0, 0.08, this.cornerR || 0);
 
     const bodies = [];
     let boxing = false;   // 고정한 주사위를 함으로 옮기는 중이면, 다 옮긴 다음에 던진다
@@ -1068,7 +1132,7 @@ export class DiceTray {
   // 흔들기를 멈추면 앱이 roll() 을 부르고, roll() 은 지금 자세·속도 그대로 이어서 멈출 때까지 굴린다
   startShake(rolling) {
     if (this.anim || this.live) return false;
-    const { world, dieMat } = makeWorld(3.4, 0.7);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튀고, 주사위끼리는 통통 튕긴다
+    const { world, dieMat } = makeWorld(3.4, 0.7, this.cornerR || 0);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튀고, 주사위끼리는 통통 튕긴다
     const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
     const bodies = [];
     let lastHit = 0;
