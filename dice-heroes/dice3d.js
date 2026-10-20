@@ -462,8 +462,6 @@ export class DiceTray {
       Object.values(this.fancyFrames || {}).forEach(f => { f.visible = f === frame; });
       this.plainFrame.forEach(o => { o.visible = !frame; });
       this.cornerR = st.oval || 0;
-      const dt = TRAY_DECOR[trayId] ? 2.05 : 0.7;
-      if (dt !== this.decorTop) { this.decorTop = dt; if (this.resizeObs) { this.lastW = 0; this.resize(); } }   // 장식 높이가 바뀌면 화면 맞춤을 다시
       this.floorMesh.visible = this.boxFloor.visible = !st.oval;   // 둥근 트레이는 모서리를 깎은 바닥 · 칸 바닥을 따로 쓴다 (같은 재질)
     }
   }
@@ -618,7 +616,7 @@ export class DiceTray {
       const x = wx(px), z = wz(py);
       if (n === 'flagpole') continue;
       if (n === 'flag_cloth') { grp.add(this.makeFlag(id, x, z, front, top)); continue; }
-      const h = front ? 0.55 : (n.match(/point|spike|horn|icicle|fissure|crystal/) ? 1.2 : 1.0);
+      const h = front ? 0.5 : (n.match(/point|spike|horn|icicle|fissure|crystal/) ? 0.95 : 0.8);
       const tex = this.imageTex(trayImage(id, `decor_${n}`)); tex.colorSpace = THREE.SRGBColorSpace;
       if (st.pixel) { tex.magFilter = THREE.NearestFilter; }
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.08, depthWrite: false }));
@@ -631,12 +629,12 @@ export class DiceTray {
   }
   makeFlag(id, x, z, front, top) {
     const g = new THREE.Group(), s = front ? 0.55 : 1;
-    const ph = 1.15 * s;
+    const ph = 0.95 * s;
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s + 0.01, 0.045 * s + 0.01, ph, 8), new THREE.MeshStandardMaterial({ color: 0x3A2618, roughness: 0.7 }));
     pole.position.y = ph / 2; pole.castShadow = true; g.add(pole);
     const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06 * s + 0.02, 10, 8), new THREE.MeshStandardMaterial({ color: 0xC8A060, roughness: 0.35, metalness: 0.7 }));
     knob.position.y = ph; g.add(knob);
-    const fw = 1.25 * s, fh = 0.85 * s, dir = (x < 0 ? -1 : 1) * (front ? 1 : -1);   // 뒤 깃발은 안쪽(트레이 위 하늘)으로, 앞 깃발은 바깥쪽으로 휘날린다
+    const fw = 1.1 * s, fh = 0.75 * s, dir = (x < 0 ? -1 : 1) * (front ? 1 : -1);   // 뒤 깃발은 안쪽(트레이 위 하늘)으로, 앞 깃발은 바깥쪽으로 휘날린다
     const geo = new THREE.PlaneGeometry(fw, fh, 14, 6);
     geo.translate(fw / 2, 0, 0);
     const tex = this.imageTex(trayImage(id, 'decor_flag_cloth')); tex.colorSpace = THREE.SRGBColorSpace;
@@ -724,11 +722,12 @@ export class DiceTray {
     // 앞쪽 주사위 함은 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝이 잘렸다.
     // 함 바닥 양 끝 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 끝은 이제 난간 바깥 끝과 같은 선)
     const XE = BOX_OUT - 0.15, XR = BOX_OUT;
-    // 뒤쪽에 높은 장식(깃발 · 왕관 · 뿔)이 있는 트레이는 그 높이까지 화면에 담는다
-    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, this.decorTop || 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
+    // 모든 트레이가 같은 화면 맞춤 (장식이 있든 없든 주사위 · 굴리는 면이 같은 크기로 보이게). 뒤쪽 장식(깃발 · 왕관 · 뿔)이 들어갈 만큼 위쪽 여유를 늘 둔다
+    const DECOR_TOP = 1.45;
+    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, DECOR_TOP, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
     const v = new THREE.Vector3();
     for (let k = 0; k < 40; k++) {
-      const out = corners.some(([x, y, z], i) => { v.set(x, y, z).project(this.camera); const lim = i === 2 && (this.decorTop || 0.7) > 0.7 ? 0.9 : 0.985; return Math.abs(v.x) > 0.985 || Math.abs(v.y) > lim; });   // 장식 끝 위로 여유
+      const out = corners.some(([x, y, z]) => { v.set(x, y, z).project(this.camera); return Math.abs(v.x) > 0.985 || Math.abs(v.y) > 0.985; });
       if (!out) break;
       dist *= 1.025;
       place();

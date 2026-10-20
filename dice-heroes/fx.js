@@ -186,6 +186,8 @@ class FxLayer {
   //   flame: 부드러운 불꽃 — 번지는 둥근 불빛이 커지며 피어올라 사라진다 (용암 주사위)
   static drawShape(g, p, k, dt) {
     if (p.shape === 'pix') return FxLayer.drawPix(g, p, k);
+    if (p.shape === 'suit') return FxLayer.drawSuit(g, p, k, dt);
+    if (p.shape === 'coin') return FxLayer.drawCoin(g, p, k, dt);
     const a = Math.min(1, k * 2.2) * p.alpha;
     if (p.shape === 'scale') {
       p.rot += p.spin * dt; p.ph += dt * 7;
@@ -218,6 +220,46 @@ class FxLayer {
       g.fillRect(Math.round(x0 + c * u), Math.round(y0 + r * u), u, u);
     }
     g.globalCompositeOperation = 'lighter';
+  }
+  // 트럼프 문양 (칩 주사위): ♠ ♣ 은 검정, ♥ ♦ 는 빨강, 흰 테두리로 또렷하게. 톡 튀어 올랐다가 떨어지며 사라진다
+  static drawSuit(g, p, k, dt) {
+    p.rot += p.spin * dt;
+    const a = Math.min(1, k * 2.5), s = p.size * (k > 0.85 ? 0.6 + (1 - k) / 0.15 * 0.4 : 1);
+    g.save(); g.globalCompositeOperation = 'source-over'; g.globalAlpha = a;
+    g.translate(p.x, p.y); g.rotate(p.rot);
+    g.font = `bold ${Math.round(s * 2)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineJoin = 'round'; g.lineWidth = Math.max(2, s * 0.32); g.strokeStyle = '#FFFFFF'; g.strokeText(p.ch, 0, 0);
+    g.fillStyle = p.ch === '♥' || p.ch === '♦' ? '#E8253F' : '#16121E'; g.fillText(p.ch, 0, 0);
+    g.restore(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
+  }
+  // 금화 (보물 상자 주사위): 빙글 도는 금화가 아래로 떨어진다 (도는 동안 폭이 줄었다 늘었다)
+  static drawCoin(g, p, k, dt) {
+    p.ph += p.spin * dt;
+    const a = Math.min(1, k * 3), r = p.size, w = Math.max(0.15, Math.abs(Math.cos(p.ph)));
+    g.save(); g.globalCompositeOperation = 'source-over'; g.globalAlpha = a;
+    g.translate(p.x, p.y); g.scale(w, 1);
+    g.fillStyle = '#8A5A12'; g.beginPath(); g.arc(0, r * 0.12, r, 0, TAU); g.fill();          // 옆면 두께
+    const grad = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+    grad.addColorStop(0, '#FFF6C8'); grad.addColorStop(0.45, '#FFD24A'); grad.addColorStop(1, '#C8861E');
+    g.fillStyle = grad; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+    g.strokeStyle = '#A8701A'; g.lineWidth = Math.max(1, r * 0.16); g.beginPath(); g.arc(0, 0, r * 0.66, 0, TAU); g.stroke();
+    g.restore();
+    if (w > 0.85 && k > 0.3) {                                                                   // 정면일 때 반짝
+      g.globalAlpha = a * 0.5; g.fillStyle = '#FFF6C8'; g.fillRect(Math.round(p.x - r * 0.35 - 1), Math.round(p.y - r * 0.45 - 1), 2, 2);
+    }
+    g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
+  }
+  suits(x, y, { n = 1, size = [6, 9], speed = [40, 90], life = [0.6, 0.95], grav = 220 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = rnd(...speed);
+      this.spawn({ shape: 'suit', ch: pick(['♠', '♣', '♥', '♦']), x: x + (Math.random() - 0.5) * 12, y: y + (Math.random() - 0.5) * 8, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), grav, drag: 1.6, rot: (Math.random() - 0.5) * 0.6, spin: (Math.random() - 0.5) * 4 });
+    }
+  }
+  // 금화: 주사위 위쪽에서 생겨 아래로 똑똑 떨어진다 (up: 위로 살짝 튀어 오른 뒤 떨어지게)
+  coinRain(x, y, { n = 1, size = [4, 6], life = [0.7, 1.0], grav = 420, up = 40 } = {}) {
+    for (let i = 0; i < n; i++) {
+      this.spawn({ shape: 'coin', x: x + (Math.random() - 0.5) * 22, y: y - 6 - Math.random() * 10, vx: (Math.random() - 0.5) * 50, vy: -up * (0.5 + Math.random()), life: rnd(...life), size: rnd(...size), grav, drag: 0.6, ph: Math.random() * TAU, spin: 7 + Math.random() * 6 });
+    }
   }
   pix(x, y, { n = 1, sprs = ['star', 'spark', 'heart', 'coin'], u = 3, speed = [10, 40], life = [0.5, 0.9], grav = -30 } = {}) {
     for (let i = 0; i < n; i++) {
