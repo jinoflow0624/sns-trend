@@ -3167,14 +3167,20 @@ const TRAIL = {
   chest:     { pal: ['#FFF6C8', '#FFE27A', '#FFC83D'], grav: 120, glint: '#FFF0A8', glintP: 0.25, few: 0.15, coins: true },                // 금화가 짤랑짤랑 떨어진다
   porcelain: { pal: ['#FFFFFF', '#E0F2E8'], grav: 20, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0.2,
                scales: { pal: ['#A8D8C4', '#84C0A8', '#C8E8DA'], tip: '#F2FBF6', edge: '#3E8A74', grav: 22 } },                   // 청자: 비취빛 꽃잎이 나풀나풀
-  frost:     { pal: ['#FFFFFF', '#E0F8FF', '#9FE8FF', '#5AC8FF'], grav: 40, glint: '#E0F8FF', glintP: 0.5, few: 0.8 },               // 서리 조각 · 차가운 반짝
-  rune:      { pal: ['#E0FAFF', '#9FE8FF', '#3EC8FF'], grav: -24, glint: '#9FE8FF', noGlint: true, glintP: 0, few: 0.35,
-               flames: { pal: ['rgba(62,200,255,A)', 'rgba(90,170,255,A)', 'rgba(140,230,255,A)'], core: 'rgba(224,250,255,A)', grav: -50, size: [5, 9] } },  // 푸른 룬빛이 떠오른다
+  // 얼음 결정: 차가운 냉기 — 옅은 하얀 김이 주사위에서 피어나 아래로 가라앉으며 흩어진다 (찬 공기는 가라앉는다) + 아주 작은 서리 가루
+  frost:     { pal: ['#FFFFFF', '#E0F8FF', '#BFEFFF'], grav: 30, glint: '#E0F8FF', noGlint: true, glintP: 0, few: 0.25,
+               flames: { pal: ['rgba(200,236,255,A)', 'rgba(170,220,250,A)', 'rgba(230,248,255,A)'], core: 'rgba(225,244,255,A)', grav: 26, size: [10, 16], life: [0.7, 1.1], alpha: 0.28, vx: 30, vy: [-6, 6] } },
+  // 룬석: 굴러가는 자리에 육망성 마법진이 연하게 떠올랐다 사라진다 + 푸른 룬빛 조금
+  rune:      { pal: ['#E0FAFF', '#9FE8FF', '#3EC8FF'], grav: -24, glint: '#9FE8FF', noGlint: true, glintP: 0, few: 0.2, hexa: true,
+               flames: { pal: ['rgba(62,200,255,A)', 'rgba(90,170,255,A)', 'rgba(140,230,255,A)'], core: 'rgba(224,250,255,A)', grav: -50, size: [4, 7], alpha: 0.6 } },  // 푸른 룬빛
   brass:     { pal: ['#FFFFFF', '#FFF2C8', '#FFD27A', '#C8861E'], grav: 30, glint: '#FFF6C8', glintP: 0.8, few: 0.4 },               // 별빛 반짝
   wisp:      { pal: ['#E0FFF8', '#5AF0E0', '#B98CFF'], grav: -30, glint: '#5AF0E0', noGlint: true, glintP: 0, few: 0.2,
                flames: { pal: ['rgba(90,240,224,A)', 'rgba(185,140,255,A)', 'rgba(62,200,200,A)'], core: 'rgba(230,255,250,A)', grav: -60, size: [7, 12] } },  // 도깨비불
 };
 let heartTrailT = 0;
+// 룬석 마법진은 화면 전체에서 0.35초에 하나까지 (한꺼번에 여러 개가 겹쳐 뜨면 주사위보다 눈에 띈다)
+let hexaT = 0;
+const hexaOK = () => { const n = performance.now(); if (n - hexaT < 350) return false; hexaT = n; return true; };
 // 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
 const DICE_FX = 0.7;
 const fxN = n => { const x = n * DICE_FX; return Math.floor(x) + (Math.random() < x % 1 ? 1 : 0); };   // 개수 (소수점은 확률로)
@@ -3194,7 +3200,8 @@ function diceTrail(t, p, sp) {
   if (tr.suits) fx.suits(p.x, p.y, { n: fxN(fast ? 0.4 : 0.2), size: [fxS(4), fxS(6)] });
   if (tr.coins) fx.coinRain(p.x, p.y, { n: fxN(fast ? 1.1 : 0.6), size: [fxS(4), fxS(6)] });
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
-  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN(fast ? 2.6 : 1.8), size: (fo.size || [7, 12]).map(fxS) });
+  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN((fast ? 2.6 : 1.8) * (tr.hexa ? 0.4 : 1)), size: (fo.size || [7, 12]).map(fxS) });
+  if (tr.hexa && Math.random() < (fast ? 0.04 : 0.02) && hexaOK()) fx.hexa(p.x, p.y, { r0: fxS(6), r1: fxS(20 + Math.random() * 6), alpha: 0.32 });
   if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
   const now = performance.now();
   if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5 * DICE_FX) {
@@ -3227,7 +3234,8 @@ function hitSpark(id, v, i, t) {
   fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
   const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
   if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
-  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN(3 + k * 3), size: (fo.size || [9, 16]).map(v => fxS(v * 1.3)) });
+  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN((3 + k * 3) * (tr.hexa ? 0.4 : 1)), size: (fo.size || [9, 16]).map(v => fxS(v * 1.3)) });
+  if (tr.hexa && k > 0.25 && hexaOK()) fx.hexa(p.x, p.y, { r0: fxS(8), r1: fxS(30 + k * 14), life: 1.1, alpha: 0.32 + k * 0.08 });   // 룬석: 부딪힌 자리에 마법진
   if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
   else if (!tr.noGlint) fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });   // 드래곤 · 용암: 십자 반짝 없이
 }

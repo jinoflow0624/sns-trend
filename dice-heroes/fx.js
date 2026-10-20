@@ -188,6 +188,7 @@ class FxLayer {
     if (p.shape === 'pix') return FxLayer.drawPix(g, p, k);
     if (p.shape === 'suit') return FxLayer.drawSuit(g, p, k, dt);
     if (p.shape === 'coin') return FxLayer.drawCoin(g, p, k, dt);
+    if (p.shape === 'hexa') return FxLayer.drawHexa(g, p, k, dt);
     const a = Math.min(1, k * 2.2) * p.alpha;
     if (p.shape === 'scale') {
       p.rot += p.spin * dt; p.ph += dt * 7;
@@ -220,6 +221,25 @@ class FxLayer {
       g.fillRect(Math.round(x0 + c * u), Math.round(y0 + r * u), u, u);
     }
     g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
+  }
+  // 육망성 마법진 (룬석 주사위): 원 + 두 삼각형이 천천히 돌며 퍼졌다 옅어진다. 아주 연하게 (주사위보다 튀지 않게)
+  static drawHexa(g, p, k, dt) {
+    p.rot += p.spin * dt;
+    const r = p.r0 + (p.r1 - p.r0) * (1 - k) ** 0.6, a = p.alpha * Math.min(1, k * 2) * Math.min(1, (1 - k) * 6);
+    g.save(); g.translate(p.x, p.y); g.scale(1, 0.62); g.rotate(p.rot);      // 바닥에 깔린 듯 납작하게
+    g.globalAlpha = a; g.strokeStyle = p.color; g.lineWidth = 1.2; g.shadowColor = p.color; g.shadowBlur = 6;
+    g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke();
+    g.globalAlpha = a * 0.6; g.beginPath(); g.arc(0, 0, r * 0.82, 0, TAU); g.stroke();
+    g.globalAlpha = a;
+    for (const o of [0, Math.PI / 3]) {
+      g.beginPath();
+      for (let i = 0; i < 3; i++) { const t = o + i * TAU / 3 - Math.PI / 2; g[i ? 'lineTo' : 'moveTo'](Math.cos(t) * r * 0.82, Math.sin(t) * r * 0.82); }
+      g.closePath(); g.stroke();
+    }
+    g.restore(); g.globalAlpha = 1;
+  }
+  hexa(x, y, { r0 = 6, r1 = 22, life = 0.9, color = '#9FE8FF', alpha = 0.35 } = {}) {
+    this.spawn({ shape: 'hexa', x, y, r0, r1, life, color, alpha, rot: Math.random() * TAU, spin: (Math.random() < 0.5 ? -1 : 1) * 1.4, drag: 0, grav: 0 });
   }
   // 트럼프 문양 (칩 주사위): ♠ ♣ 은 짙은 회색, ♥ ♦ 는 차분한 빨강, 얇은 흰 테두리. 반투명으로 작게 톡 튀었다 사라진다 (주사위보다 튀지 않게)
   static drawSuit(g, p, k, dt) {
@@ -282,9 +302,9 @@ class FxLayer {
     }
   }
   // pal: 'rgba(r,g,b,A)' 꼴 색들, core: 가운데 색 — 도깨비불 · 젤리 방울에도 쓴다
-  flames(x, y, { n = 2, size = [7, 12], life = [0.45, 0.8], grav = -70, pal = ['rgba(255,138,26,A)', 'rgba(255,106,26,A)', 'rgba(255,170,60,A)'], core } = {}) {
+  flames(x, y, { n = 2, size = [7, 12], life = [0.45, 0.8], grav = -70, pal = ['rgba(255,138,26,A)', 'rgba(255,106,26,A)', 'rgba(255,170,60,A)'], core, alpha = 1, vx = 18, vy = [-10, -30] } = {}) {
     for (let i = 0; i < n; i++) {
-      this.spawn({ shape: 'flame', x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 18, vy: -10 - Math.random() * 20, life: rnd(...life), size: rnd(...size), color: pick(pal), core, grav, drag: 1.4 });
+      this.spawn({ shape: 'flame', x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * vx, vy: rnd(...vy), life: rnd(...life), size: rnd(...size), color: pick(pal), core, grav, drag: 1.4, alpha });
     }
   }
 
