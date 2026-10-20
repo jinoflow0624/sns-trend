@@ -3357,22 +3357,24 @@ async function showSkins(tab = 'dice') {
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }
-// 안 산 스킨: 미리 보기만 (사기 버튼이 뜬다). 산 스킨: 바로 쓴다
+// 스킨을 누르면 미리 보기만 한다 (아래 창에 사기 · 사용하기 버튼). 사용하기를 눌러야 바뀐다
 let skinTry = null;
+const curSkin = kind => kind === 'dice' ? diceSkin(prefs.diceSkin).id : traySkin(prefs.traySkin).id;
 function pickSkin(kind, id) {
-  if (!Wal.owns(kind, id)) {
-    sfx.select();
-    skinTry = { kind, id };
-    const d = kind === 'dice' ? id : diceSkin(prefs.diceSkin).id, t = kind === 'tray' ? id : traySkin(prefs.traySkin).id;
-    skinPreview?.setSkin(d, t);
-    showSkins(kind);
-    return skinPop(kind, id);
-  }
+  sfx.select();
+  skinTry = id === curSkin(kind) ? null : { kind, id };
+  const d = kind === 'dice' ? id : curSkin('dice'), t = kind === 'tray' ? id : curSkin('tray');
+  skinPreview?.setSkin(d, t);
+  showSkins(kind);
+  skinPop(kind, id);
+}
+function useSkin(kind, id) {
+  if (!Wal.owns(kind, id)) return;
   skinTry = null;
   sfx.select();
   if (kind === 'dice') prefs.diceSkin = id; else prefs.traySkin = id;
   store.set(KEYS.prefs, prefs);
-  const d = diceSkin(prefs.diceSkin).id, t = traySkin(prefs.traySkin).id;
+  const d = curSkin('dice'), t = curSkin('tray');
   skinPreview?.setSkin(d, t);
   tray?.setSkin?.(d, t);
   if (tray) tray.skinKey = '';
@@ -3391,7 +3393,7 @@ function skinPop(kind, id) {
     <button class="sp-x" data-act="skin-pop-close" aria-label="닫기">✕</button>
     <img${kind === 'dice' ? ' class="die-th"' : ''} src="${(kind === 'dice' ? diceThumb : trayThumb)(id)}" alt="">
     <div class="sp-txt"><b>${esc(k.name)}</b><p>${esc(k.desc)}</p></div>
-    ${own ? '<span class="sp-own">사용 중</span>'
+    ${own ? (id === curSkin(kind) ? '<span class="sp-own">사용 중</span>' : `<button class="pbtn gold sp-buy" data-act="skin-use" data-kind="${kind}" data-id="${id}">사용하기</button>`)
       : `<button class="pbtn gold sp-buy" data-act="buy" data-kind="${kind}" data-id="${id}" ${Wal.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()} 사기</button>`}
   </div>`;
   box.appendChild(el);
@@ -4102,6 +4104,7 @@ function onAct(act, t) {
   if (act === 'ach-claim') return claimAchUI(t.dataset.id, t);
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
+  if (act === 'skin-use') return useSkin(t.dataset.kind, t.dataset.id);
   if (act === 'skin-pop-close') { sfx.back?.(); return layer.querySelector('.skin-pop-wrap')?.remove(); }
   if (act === 'skin-roll') return rollPreview();
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
