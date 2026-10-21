@@ -1489,11 +1489,15 @@ export function parallelSet(R, u) {
   const C = R.C;
   return C.hand.filter(c => c.u !== u && !isFuture(c.cat)).map(c => ({ c, s: splitPool(R, c, scoreCard(R, c).total) })).filter(o => o.s > 0);
 }
+// 동전 던지기 앞면 확률: 기본 반반, 뒷면 연속 2번부터 +10%p 씩 (최대 90%)
+export const coinHeadP = R => { const t = R.coinTails || 0; return t < 2 ? 0.5 : Math.min(0.9, 0.5 + (t - 1) * 0.1); };
 // 카드 한 장을 낸다 (적의 턴은 부르지 않는다). 적이 쓰러지면 'won'
 function resolvePlay(R, hi, target, gold = 0) {
   const C = R.C, card = C.hand[hi];
   // 동전 던지기 · 광기의 저울: 낼 때 정해진다 (같은 난수라 다시 돌려도 같다)
-  const coin = hasRelic(R, 'coin') ? (rand(R) < 0.5 ? 1 : -1) : 0;
+  // 몰래 보정: 뒷면이 2번 이어지면 그다음부터 앞면 확률을 60 → 70 → 80 → 90% 로 올리고, 앞면이 나오면 다시 반반 (화면엔 보이지 않는다)
+  const coin = hasRelic(R, 'coin') ? (rand(R) < coinHeadP(R) ? 1 : -1) : 0;
+  if (coin) R.coinTails = coin > 0 ? 0 : (R.coinTails || 0) + 1;
   const sc = scoreCard(R, card, C.dice, { coin });
   // 나눠 낸 카드: 동전이 바꾼 비율만큼 공격 몫도 같이 (공격 · 방어가 같은 % 로 늘고 준다)
   gold = Math.max(0, Math.round(Number(gold) || 0));
