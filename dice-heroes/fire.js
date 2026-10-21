@@ -5,6 +5,7 @@
 //                      들어 있는 vendor/firebase-full.js 를 쓴다.
 //
 // 에뮬레이터로 점검할 때: ?fbemu=127.0.0.1:9100 (데이터베이스) &fbauth=127.0.0.1:9099 (로그인)
+import { t as TR } from './i18n.js';
 import { ENV } from './env.js';
 
 export const PROD = ENV === 'prod';
@@ -63,7 +64,7 @@ export function signIn() {
 // 배포판: 구글 계정 연결. 지금 익명 계정에 구글을 붙이므로 보석·구매 기록이 그대로 이어진다.
 // 이미 다른 기기에서 연결한 구글 계정이면 그 계정으로 바꿔 들어간다 (그 계정의 보석을 쓴다).
 export async function linkGoogle() {
-  if (!PROD) throw new Error('테스트판에서는 구글 계정을 연결할 수 없어요.');
+  if (!PROD) throw new Error(TR('테스트판에서는 구글 계정을 연결할 수 없어요.'));
   const { fb, app } = await fireApp();
   await signIn();
   const auth = fb.getAuth(app);

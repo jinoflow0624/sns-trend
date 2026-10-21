@@ -1,6 +1,7 @@
 // 원정 화면 — 테스트판 전용 (배포판 빌드에는 run/ 폴더가 들어가지 않는다).
 // app.js 가 init(도구) 로 트레이 · 알림 · 저장소 같은 공용 도구를 넘겨 주고,
 // 'run-' 으로 시작하는 행동과 원정 중의 주사위 터치를 onAct 로 보낸다. 규칙은 rules.js (순수 로직).
+import { t as TR } from '../i18n.js';
 import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
@@ -30,7 +31,7 @@ const FOE_COLOR = { jester: '#3EE6E0', slime: '#3EE6B4', goblin: '#7CC24A', bat:
   skeleton: '#EEE6D0', ghost: '#7CA8D8', wisp: '#7CE0FF', knight: '#6A6A9A', golem: '#A8A090', imp: '#E8435A', hound: '#FF8A1A',
   gargoyle: '#8A8FA8', shade: '#9A6AFF', champion: '#C21E56' };
 const foeColor = id => bossInfo(id)?.color || FOE_COLOR[id] || '#9486FF';
-const KIND_KO = { normal: '', elite: '엘리트', boss: '보스', special: '' };
+const KIND_KO = { normal: '', elite: TR('엘리트'), boss: TR('보스'), special: '' };
 // 시공 광대의 스킬은 한 번 이기기 전까지 ??? (이긴 기록은 이 사람의 원정 기록 best.jester)
 const jKnown = () => (Prog.progress()?.best?.jester || 0) > 0 || (R?.stats?.jester || 0) > 0;
 const jMask = () => R?.C?.e?.id === 'jester' && !jKnown();
@@ -42,7 +43,7 @@ const hexDesc = (t, n) => (jMask() ? '???' : Run.HEX[t].desc(n));   // 시공 �
 let cssReady = null;
 export function init(ctx) {
   // 원정 파일끼리 버전이 섞였는지 (예전 rules.js + 새 ui.js) — 섞였으면 app.js 가 새로 받아 다시 연다
-  if (typeof Run.replay !== 'function' || typeof Run.fixProgress !== 'function' || typeof Prog.progress !== 'function') throw new TypeError('원정 파일 버전이 섞였어요');
+  if (typeof Run.replay !== 'function' || typeof Run.fixProgress !== 'function' || typeof Prog.progress !== 'function') throw new TypeError(TR('원정 파일 버전이 섞였어요'));
   X = ctx;
   Prog.initProgress(X.store);
   // 원정 안내: 원정을 한 번도 끝내지 않았을 때(또는 「안내 다시 보기」) · 시험 원정은 빼고
@@ -66,17 +67,12 @@ export const reloadProgress = () => { Prog.reload(); if (ui.view === 'select' &&
 export const menuArt = () => ({ bg: actBgURL(1), nodes: ['node_fight', 'node_rest', 'node_boss'].map(uiArtURL) });
 export const refreshSelect = () => { if (ui.view === 'select' && !R) paintSelect(); };
 // 원정 직업이 열렸나: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석으로 산 직업
-function runOpen(id, b = best()) {
-  const u = Run.RUN_UNLOCK[id];
-  if (u?.free) return true;
-  if (u?.feat) return b.feats.includes(u.feat);
-  return X.ownsRun(id);
-}
+function runOpen(id, b = best()) { return Run.runClassOpen(id, b.feats, X.ownsRun); }   // 서버 xStart 와 같은 규칙
 // 잠긴 직업을 여는 방법 (한 줄)
 function unlockHow(id) {
   const u = Run.RUN_UNLOCK[id];
-  if (u?.feat) { const f = Run.FEATS.find(x => x.id === u.feat); return `${ico('trophy', 'xs')} 도전과제 「${f.ko}」: ${f.desc.replace(/ · .*$/, '')}`; }
-  return `${ico('gem', 'xs')} 보석 ${X.runPrice(id).toLocaleString()}으로 해금`;
+  if (u?.feat) { const f = Run.FEATS.find(x => x.id === u.feat); return TR('{0} 도전과제 「{1}」: {2}', ico('trophy', 'xs'), f.ko, f.desc.replace(/ · .*$/, '')); }
+  return TR('{0} 보석 {1}으로 해금', ico('gem', 'xs'), X.runPrice(id).toLocaleString());
 }   // 원정 기록 → 도전과제 (테스트판)
 export const savedRun = store => { const s = store.get(SAVE); return s && s.v === 1 && !s.ended ? s : null; };
 function save() {
@@ -99,7 +95,7 @@ function syncFeats(extra = []) {
   fresh.forEach((id, k) => {
     ui.featShown.add(id);
     const f = Run.FEATS.find(x => x.id === id);
-    if (f) setTimeout(() => { sfx.legend?.(); X.toast(ico(f.icon), `원정 도전과제 · ${f.ko}`, f.desc, 2200); }, k * 900);
+    if (f) setTimeout(() => { sfx.legend?.(); X.toast(ico(f.icon), TR('원정 도전과제 · {0}', f.ko), f.desc, 2200); }, k * 900);
   });
 }
 
@@ -165,7 +161,7 @@ async function preloadRun() {
   let done = 0;
   X.layer.innerHTML = '';
   X.app.innerHTML = `<div class="screen run-loading">
-    <div class="rl-box"><div class="rl-walk"><i class="rl-mon goblin"></i><i class="rl-mon slime"></i><s class="rl-ground"></s></div><b>원정 준비 중…</b>
+    <div class="rl-box"><div class="rl-walk"><i class="rl-mon goblin"></i><i class="rl-mon slime"></i><s class="rl-ground"></s></div><b>${TR('원정 준비 중…')}</b>
       <div class="rl-bar"><i id="rl-fill"></i></div><small id="rl-n">0%</small>
 </div></div>`;
   const tick = () => { done++; const k = Math.round((done / total) * 100); const f = $('rl-fill'); if (f) f.style.width = `${k}%`; const n = $('rl-n'); if (n) n.textContent = `${k}%`; };
@@ -230,32 +226,32 @@ function paintSelect() {
   X.app.innerHTML = `
   <div class="screen run-select">
     <header class="rs-head">
-      <button class="icon-btn" data-act="run-home" aria-label="뒤로">◀</button>
-      <div><b>원정</b></div>
+      <button class="icon-btn" data-act="run-home" aria-label="${TR('뒤로')}">◀</button>
+      <div><b>${TR('원정')}</b></div>
       <button class="pbtn small rs-feats" data-act="run-feats">${ico('trophy', 'xs')} ${b.feats.length}/${Run.FEATS.length}</button>
     </header>
     <section class="rs-info frame">${ids.map(id => `<div class="rs-info-in${id === sel ? ' on' : ''}" style="--c:${classInfo(id).color}" ${id === sel ? '' : 'aria-hidden="true"'}>${classInfoHTML(id, b)}</div>`).join('')}</section>
     <div class="rs-dial${spin}">
-      <button class="dial-arrow" data-act="run-cls" data-id="${at(-1)}" data-d="-1" aria-label="이전 직업">◀</button>
+      <button class="dial-arrow" data-act="run-cls" data-id="${at(-1)}" data-d="-1" aria-label="${TR('이전 직업')}">◀</button>
       <div class="dial-track">${[-2, -1, 0, 1, 2].map(slot).join('')}</div>
-      <button class="dial-arrow" data-act="run-cls" data-id="${at(1)}" data-d="1" aria-label="다음 직업">▶</button>
+      <button class="dial-arrow" data-act="run-cls" data-id="${at(1)}" data-d="1" aria-label="${TR('다음 직업')}">▶</button>
     </div>
     <b class="rs-name" style="--c:${info.color}">${[...info.ko].map((ch, i) => `<i class="rs-ch" style="--i:${i}">${ch}</i>`).join('')}${b.cls[sel]?.wins ? ` <i class="rs-won">${ico('crown', 'xs')}${b.cls[sel].wins}</i>` : ''}${runOpen(sel, bb) ? '' : ` ${ico('lock', 'xs')}`}</b>
-    <div class="rs-pile" id="rs-pile" aria-label="시작 덱 ${deck.length}장">
+    <div class="rs-pile" id="rs-pile" aria-label="${TR('시작 덱 {0}장', deck.length)}">
       ${deck.slice(0, -1).map((c, n) => `<i class="rs-back" style="--n:${n};background-image:url(${cardBackURL(sel)})"></i>`).join('')}
       <div class="rc rc-static rs-front">${cardFace(sig)}</div>
       <span class="rs-count">${runIco('ui', 'deck', 'card', 'xs')}${deck.length}</span>
     </div>
     <div class="rs-go">
-      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${runIco('node', 'shop', 'coins', 'xs')} 출정 채비 <b>${starIco()}${b.meta.stars}</b></span></button>
-      ${runOpen(sel, bb) ? '<button class="pbtn gold big" data-act="run-go">원정 떠나기</button>'
+      <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${TR('{0} 출정 채비', runIco('node', 'shop', 'coins', 'xs'))} <b>${starIco()}${b.meta.stars}</b></span></button>
+      ${runOpen(sel, bb) ? `<button class="pbtn gold big" data-act="run-go">${TR('원정 떠나기')}</button>`
         : Run.RUN_UNLOCK[sel]?.feat ? `<p class="rs-lockhow">${unlockHow(sel)}</p>`
-        : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${ico('gem', 'xs')} ${X.runPrice(sel).toLocaleString()}에 해금</button>`}
-      <button class="pbtn small trial-btn" data-act="run-trial">시험 원정 · 특별 카드</button>
+        : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${TR('{0} {1}에 해금', ico('gem', 'xs'), X.runPrice(sel).toLocaleString())}</button>`}
+      <button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>
     </div>
   </div>`;
   // 덱 더미를 길게 누르면 시작 덱 9장
-  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${ico('card', 'xs')} 시작 덱 ${deck.length}장</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div>`, { afterRelease: true }));
+  longPress($('rs-pile'), () => X.popover($('rs-pile'), `<b>${TR('{0} 시작 덱 {1}장', ico('card', 'xs'), deck.length)}</b><div class="deck-peek">${deck.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('')}</div>`, { afterRelease: true }));
 }
 
 // 승천: 직업 고르기 화면에는 버튼 하나. 누르면 승천 창에서 단계를 고른다 (이 직업으로 깬 단계 + 1 까지)
@@ -271,14 +267,14 @@ function showAsc() {
   }).reverse().join('');
   X.layer.innerHTML = `<div class="overlay run-ascbox" data-act="close-bg"><div class="deck-box" data-act="noop" style="--t:${a / Run.ASC_MAX}">
     <div class="asc-hero">
-      <button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="하드모드 낮추기">◀</button>
+      <button class="icon-btn" data-act="run-asc" data-d="-1" ${a <= 0 ? 'disabled' : ''} aria-label="${TR('하드모드 낮추기')}">◀</button>
       <div class="ah-mid"><span class="ah-emb${a ? '' : ' off'}">${ascEmblem(a)}</span>
-        <b>${a ? `하드모드 ${a}` : '하드모드 0'}</b><small>${a ? `어려움 ×${a}` : ''}</small></div>
-      <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="하드모드 높이기">▶</button>
+        <b>${a ? TR('하드모드 {0}', a) : TR('하드모드 0')}</b><small>${a ? TR('어려움 ×{0}', a) : ''}</small></div>
+      <button class="icon-btn" data-act="run-asc" data-d="1" ${a >= open ? 'disabled' : ''} aria-label="${TR('하드모드 높이기')}">▶</button>
     </div>
     <div class="asc-ladder">${rows}</div>
-    <p class="hint">${esc(classInfo(ui.cls).ko)}: 하드모드 ${open}까지 열렸어요${open < Run.ASC_MAX ? ` · 하드모드 ${open}을 깨면 다음 단계가 열려요` : ''}</p>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">하드모드 끄기</button><button class="pbtn gold" data-act="run-start">${a ? `${ascEmblem(a, 'xs')} 하드모드 ${a}로 ` : ''}출발</button></div>
+    <p class="hint">${TR('{0}: 하드모드 {1}까지 열렸어요{2}', esc(classInfo(ui.cls).ko), open, open < Run.ASC_MAX ? ` ${TR('· 하드모드 {0}을 깨면 다음 단계가 열려요', open)}` : '')}</p>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-ascset" data-v="0">${TR('하드모드 끄기')}</button><button class="pbtn gold" data-act="run-start">${TR('{0}출발', a ? `${TR('{0} 하드모드 {1}로', ascEmblem(a, 'xs'), a)} ` : '')}</button></div>
   </div></div>`;
   const cur = X.layer.querySelector('.asc-step.cur'), lad = X.layer.querySelector('.asc-ladder');
   if (cur && lad) lad.scrollTop = cur.offsetTop - lad.offsetTop - lad.clientHeight / 2 + cur.offsetHeight / 2;   // 고른 단계가 가운데 오게
@@ -293,16 +289,20 @@ function showMeta() {
     return `<button class="shelf-item meta-ware${full ? ' sold' : ''}" data-act="run-metaitem" data-id="${u.id}">
       <span class="si-ico">${runIco('meta', u.id, u.icon, 'lg')}</span>
       <span class="mw-name">${u.ko}</span><span class="mpips">${pips}</span>
-      <em class="price${!full && m.stars < cost ? ' poor' : ''}">${full ? '완료' : `${starIco()}${cost}`}</em></button>`;
+      <em class="price${!full && m.stars < cost ? ' poor' : ''}">${full ? TR('완료') : `${starIco()}${cost}`}</em></button>`;
   };
   const shelf = list => `<div class="shelf"><div class="shelf-row">${list.map(item).join('')}</div><i class="shelf-plank" aria-hidden="true"></i></div>`;
   const rows = [];
   for (let k = 0; k < Run.META.length; k += 3) rows.push(Run.META.slice(k, k + 3));
   const inner = `
-    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>출정 채비</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
-    <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></div>
+    <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>${TR('출정 채비')}</h2><small>${TR('영구 강화 · 원정을 떠날 때마다 적용')}</small></div></div>
+    <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>${TR('보유 별조각')}</small><b>${m.stars}</b></span></span></div>
     <div class="shop-stall meta-stall">${rows.map(shelf).join('')}</div>
+<<<<<<< HEAD
     <div class="pick-actions"><button class="pbtn small" data-act="close">닫기</button></div>`;
+=======
+    <div class="pick-actions"><button class="pbtn small gold" data-act="close">${TR('닫기')}</button></div>`;
+>>>>>>> origin/main
   // 이미 열려 있으면(물건을 산 뒤) 창은 그대로 두고 안만 바꾼다 — 창을 지우고 다시 열면 깜빡였다
   const box = X.layer.querySelector('.run-meta .meta-store');
   if (box) box.innerHTML = inner;
@@ -314,7 +314,7 @@ function metaReveal(id) {
   const u = Run.META.find(x => x.id === id);
   if (!u) return;
   const n = mlv(best(), id);
-  bigReveal({ cls: 'k-meta', art: runIco('meta', u.id, u.icon, 'lg'), small: `출정 채비 ${n >= u.max ? '완성!' : `${n}단계!`}`, name: u.ko, sub: u.desc(n) });
+  bigReveal({ cls: 'k-meta', art: runIco('meta', u.id, u.icon, 'lg'), small: TR('출정 채비 {0}', n >= u.max ? TR('완성!') : TR('{0}단계!', n)), name: u.ko, sub: u.desc(n) });
 }
 // 획득 연출 (공용): 화면 가운데에 크게 떠오르며 빛줄기 · 후광 · 불꽃. 누르거나 3.6초 뒤 닫힌다
 function bigReveal({ cls = '', art, small, name, sub = '', color = '#FFD24A' }) {
@@ -326,7 +326,7 @@ function bigReveal({ cls = '', art, small, name, sub = '', color = '#FFD24A' }) 
   el.innerHTML = `<div class="uf-stage"><div class="uf-rays"></div><div class="uf-glow"></div>
       <div class="uf-art uf-meta">${art}</div><div class="uf-flash"></div>${sparks}</div>
     <div class="uf-txt"><small>${small}</small><b>${esc(name)}</b>${sub ? `<span>${sub}</span>` : ''}</div>
-    <p class="uf-tap">화면을 눌러 계속</p>`;
+    <p class="uf-tap">${TR('화면을 눌러 계속')}</p>`;
   document.body.appendChild(el);
   sfx.quest?.();
   const t0 = performance.now();
@@ -340,16 +340,16 @@ function metaItemTip(el, id) {
   if (!u) return;
   const n = mlv(b, id), full = n >= u.max, cost = full ? 0 : u.cost[n];
   sfx.tap();
-  X.popover(el, `<b>${runIco('meta', u.id, u.icon, 'xs')} ${u.ko}</b> <small>${n}/${u.max}단계</small>
-    <p>${n ? u.desc(n) : '아직 없음'}${full ? '' : `<br>→ <em class="mint">${u.desc(n + 1)}</em>`}</p>
-    ${full ? '<p class="dim">다 올렸어요</p>' : `<div class="buy-btns"><button class="hb" data-act="run-metaclose">취소</button><button class="hb gold" data-act="run-metabuy" data-id="${id}" ${m.stars < cost ? 'disabled' : ''}>${starIco()}${cost} 구매</button></div>`}`);
+  X.popover(el, `<b>${runIco('meta', u.id, u.icon, 'xs')} ${u.ko}</b> <small>${TR('{0}/{1}단계', n, u.max)}</small>
+    <p>${n ? u.desc(n) : TR('아직 없음')}${full ? '' : `<br>→ <em class="mint">${u.desc(n + 1)}</em>`}</p>
+    ${full ? `<p class="dim">${TR('다 올렸어요')}</p>` : `<div class="buy-btns"><button class="hb" data-act="run-metaclose">${TR('취소')}</button><button class="hb gold" data-act="run-metabuy" data-id="${id}" ${m.stars < cost ? 'disabled' : ''}>${TR('{0}{1} 구매', starIco(), cost)}</button></div>`}`);
 }
 async function metaAct(act, id) {
   if (ui.metaBusy) return;
   ui.metaBusy = true;
   try {
     if (act === 'run-metabuy') await Prog.buy('meta', id);
-  } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+  } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); }
   finally { ui.metaBusy = false; }
   sfx.forge?.();
   showMeta();                            // 창은 그대로 두고 안만 바꾼다 (깜빡이지 않게)
@@ -364,9 +364,13 @@ async function metaAct(act, id) {
 function showFeats() {
   const b = best();
   X.layer.innerHTML = `<div class="overlay run-feats" data-act="close-bg"><div class="deck-box" data-act="noop">
-    <h2>${runIco('feat', 'clear', 'trophy')} 원정 도전과제 ${b.feats.length}/${Run.FEATS.length}</h2>
+    <h2>${TR('{0} 원정 도전과제 {1}/{2}', runIco('feat', 'clear', 'trophy'), b.feats.length, Run.FEATS.length)}</h2>
     <div class="feat-list">${Run.FEATS.map(f => { const ok = b.feats.includes(f.id); return `<div class="feat${ok ? ' ok' : ''}">${runIco('feat', f.id, ok ? f.icon : 'lock')}<span><b>${f.ko}</b><small>${f.desc}</small></span></div>`; }).join('')}</div>
+<<<<<<< HEAD
     <div class="pick-actions"><button class="pbtn small" data-act="close">닫기</button></div>
+=======
+    <div class="pick-actions"><button class="pbtn small gold" data-act="close">${TR('닫기')}</button></div>
+>>>>>>> origin/main
   </div></div>`;
 }
 
@@ -376,16 +380,16 @@ const shownBlk = () => (ui.show ? ui.show.blk : R.C?.block || 0);
 function hud() {
   const C = R.C;
   const fl = Run.floorOf(R);
-  return `${R.trial ? '<button class="sb-open" data-act="run-sb" aria-label="샌드박스">시험</button>' : ''}<header class="rhud">
-    <button class="icon-btn" data-act="run-menu" aria-label="메뉴">☰</button>
-    <div class="rh-act" ${X.tipAttr(`${R.act}막${R.asc ? ` · 하드모드 ${R.asc}` : ''}`, `${Run.ROWS}층 + 보스 · 3막까지`)}><small>${R.act}막${R.asc ? ` · 하드모드${R.asc}` : ''}</small><b>${fl > Run.ROWS ? '보스' : fl ? `${fl}층` : '출발'}</b></div>
+  return `${R.trial ? `<button class="sb-open" data-act="run-sb" aria-label="${TR('샌드박스')}">${TR('시험')}</button>` : ''}<header class="rhud">
+    <button class="icon-btn" data-act="run-menu" aria-label="${TR('메뉴')}">☰</button>
+    <div class="rh-act" ${X.tipAttr(TR('{0}막{1}', R.act, R.asc ? ` ${TR('· 하드모드 {0}', R.asc)}` : ''), TR('{0}층 + 보스 · 3막까지', Run.ROWS))}><small>${TR('{0}막{1}', R.act, R.asc ? ` ${TR('· 하드모드{0}', R.asc)}` : '')}</small><b>${fl > Run.ROWS ? TR('보스') : fl ? TR('{0}층', fl) : TR('출발')}</b></div>
     <div class="rh-res">
-      ${R.phase === 'combat' ? '' : `<span class="res" ${X.tipAttr('뒤집기', '1↔6 · 2↔5 · 3↔4')}>${ico('flip', 'xs')}<b>${R.flip}</b></span>
-      <span class="res" ${X.tipAttr('조정', '주사위 눈 ±1')}>${ico('nudge', 'xs')}<b>${R.nudge}</b></span>`}
-      ${R.cls === 'dancer' ? `<span class="res" ${X.tipAttr('춤사위', Run.RUN_CLASSES.dancer.desc)}>${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
+      ${R.phase === 'combat' ? '' : `<span class="res" ${X.tipAttr(TR('뒤집기'), '1↔6 · 2↔5 · 3↔4')}>${ico('flip', 'xs')}<b>${R.flip}</b></span>
+      <span class="res" ${X.tipAttr(TR('조정'), TR('주사위 눈 ±1'))}>${ico('nudge', 'xs')}<b>${R.nudge}</b></span>`}
+      ${R.cls === 'dancer' ? `<span class="res" ${X.tipAttr(TR('춤사위'), Run.RUN_CLASSES.dancer.desc)}>${ico('sparkle', 'xs')}<b>${R.dance}</b></span>` : ''}
     </div>
-    <div class="potions pouch" aria-label="물약 주머니" style="background-image:url(${uiArtURL('pouch')})">${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : '빈 칸'}">${p ? runIco('potion', p.id, p.icon) : ''}</button>`; }).join('')}</div>
-    <button class="pile" data-act="run-deck" aria-label="덱 보기">${runIco('ui', 'deck', 'card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
+    <div class="potions pouch" aria-label="${TR('물약 주머니')}" style="background-image:url(${uiArtURL('pouch')})">${[0, 1, 2].map(k => { const id = R.potions[k]; const p = id && Run.potionInfo(id); return `<button class="pot${p ? '' : ' empty'}" data-act="run-pot" data-k="${k}" ${p ? `style="--pc:${p.color}"` : 'disabled'} aria-label="${p ? p.ko : TR('빈 칸')}">${p ? runIco('potion', p.id, p.icon) : ''}</button>`; }).join('')}</div>
+    <button class="pile" data-act="run-deck" aria-label="${TR('덱 보기')}">${runIco('ui', 'deck', 'card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
   </header>`;
 }
 // 유물 대여 카드로 빌린 유물 (전투 중 · 손패에 있는 동안). 유물 줄은 한 줄만 보이므로 맨 앞에 둔다 (예전엔 끝에 붙어 유물이 많으면 가려졌다)
@@ -397,14 +401,14 @@ function heroStrip() {
   return `<section class="rhero" id="rhero" style="--c:${info.color}">
     <div class="rh-por" id="rh-por" data-rcls="${R.cls}">${hero(R.cls)}</div>
     <div class="rh-main">
-      <div class="rh-name"><b>${esc(R.name)}</b><button class="rh-skill" data-act="run-skill">${ico('star', 'xs')}${ci.skill}</button>${weak ? `<span class="st weak" ${X.tipAttr(`약화 ${R.C.weak}턴`, '카드 점수 ×0.75')}>${ico('snow', 'xs')}약화 ${R.C.weak}</span>` : ''}</div>
+      <div class="rh-name"><b>${esc(R.name)}</b><button class="rh-skill" data-act="run-skill">${ico('star', 'xs')}${ci.skill}</button>${weak ? `<span class="st weak" ${X.tipAttr(TR('약화 {0}턴', R.C.weak), TR('카드 점수 ×0.75'))}>${TR('{0}약화 {1}', ico('snow', 'xs'), R.C.weak)}</span>` : ''}</div>
       <div class="hp rh-hp${hp / R.maxHp < 0.3 ? ' low' : ''}"><i style="width:${(hp / R.maxHp) * 100}%"></i><em>${hp} / ${R.maxHp}</em></div>
     </div>
     <div class="rh-side">
-      <div class="rh-gold" id="r-gold" ${X.tipAttr('골드', '상점에서 써요')}>${ico('coins', 'xs')}<b>${R.gold}</b></div>
-      <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(`방어도 ${blk}`, '적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요')}>${ico('shield', 'xs')}<b>${blk}</b></div>
+      <div class="rh-gold" id="r-gold" ${X.tipAttr(TR('골드'), TR('상점에서 써요'))}>${ico('coins', 'xs')}<b>${R.gold}</b></div>
+      <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(TR('방어도 {0}', blk), TR('적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요'))}>${ico('shield', 'xs')}<b>${blk}</b></div>
     </div>
-    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; return `<button class="relic r${r.r}${rent ? ' rent' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ' (대여)' : ''}">${relicIco(r)}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
+    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; return `<button class="relic r${r.r}${rent ? ' rent' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ` ${TR('(대여)')}` : ''}">${relicIco(r)}</button>`; }).join('') || `<span class="dim">${TR('유물 없음')}</span>`}</div>
   </section>`;
 }
 
@@ -418,8 +422,8 @@ export function cardFace(c, { score = null, cls = '' } = {}) {
   const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
   const sl = c.seal && Run.sealInfo(c.seal);
-  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${c.jest ? ` jest j-${c.jest}` : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>${c.jest ? `<i class="rc-jest">${jMask() ? '???' : c.jest === 'bomb' ? '시한폭탄' : '광대 카드'}</i>` : ''}
-    ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
+  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${c.jest ? ` jest j-${c.jest}` : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>${c.jest ? `<i class="rc-jest">${jMask() ? '???' : c.jest === 'bomb' ? TR('시한폭탄') : TR('광대 카드')}</i>` : ''}
+    ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? `<i class="rc-moon" title="${TR('달빛 복사본 · 한 번 쓰면 사라진다')}"></i>` : ''}
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')}${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${ruleOf(c)}</small>
@@ -457,8 +461,8 @@ function longPress(el, fn, ms = 450) {
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
 // 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
-const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
-const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)}</b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">강화할 수 없다 (인장은 붙는다)</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>빌린 유물: ${R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · ')}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.jest ? `<p>${jMask() ? '???' : c.jest === 'bomb' ? '시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5' : '광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5'}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
+const ruleOf = c => (c.cat === 'ones' && c.grow ? TR('1의 개수 + {0}', c.grow) : Run.CAT_RULE[c.cat]);
+const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)}</b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">${TR('강화할 수 없다 (인장은 붙는다)')}</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>${TR('빌린 유물: {0}', R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · '))}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ` ${TR('· 강화: 점수 +30%')}` : ''}</p>${c.jest ? `<p>${jMask() ? '???' : c.jest === 'bomb' ? TR('시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5') : TR('광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5')}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` ${TR('(지금 +{0})', c.grow)}` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? `<p><b>${TR('달빛 복사본')}</b> ${TR('한 번 쓰면 사라진다')}</p>` : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -494,8 +498,8 @@ function showMap(again = false) {
   X.app.innerHTML = `
   <div class="screen run-map${ui.peek ? ' peek' : ''}">
     ${hud()}
-    ${ui.peek ? `<button class="pbtn gold peek-back" data-act="run-peekback">${ico('scroll', 'xs')} 이벤트로 돌아가기</button>` : ''}
-    <div class="map-head"><b>${R.act}막 · ${Run.ACT_INFO[R.act].ko}</b>${R.omen ? omenChip() : ''}</div>
+    ${ui.peek ? `<button class="pbtn gold peek-back" data-act="run-peekback">${TR('{0} 이벤트로 돌아가기', ico('scroll', 'xs'))}</button>` : ''}
+    <div class="map-head"><b>${TR('{0}막 · {1}', R.act, Run.ACT_INFO[R.act].ko)}</b>${R.omen ? omenChip() : ''}</div>
     <div class="map-scroll" id="map-scroll" style="background-image:linear-gradient(rgba(8,5,24,.25), rgba(8,5,24,.25)), url(${actBgURL(R.act)})"><div class="map" style="height:${H}px">
       <svg class="map-lines" aria-hidden="true"></svg>
       ${nodes.map(n => {
@@ -554,7 +558,7 @@ addEventListener('resize', () => mapSteps?.());
 
 // 막 징조: 이번 막 내내 깔리는 효과 (2장 중 1장)
 const omenChip = () => { const o = Run.omenInfo(R.omen); return `<button class="omen-chip" data-act="run-omeninfo" aria-label="${o.ko}">${omenIco(o, 'xs')}<span>${o.ko}</span></button>`; };
-function omenText(o) { return o.id === 'forbid' && R.omen === 'forbid' && R.omenCat ? `${o.desc} — 금지: ${Run.cardTitle(R.omenCat)}` : o.desc; }
+function omenText(o) { return o.id === 'forbid' && R.omen === 'forbid' && R.omenCat ? TR('{0} — 금지: {1}', o.desc, Run.cardTitle(R.omenCat)) : o.desc; }
 // 징조 창문 밖 하늘 (오늘의 날씨처럼) — [위, 아래]
 const OMEN_SKY = {
   feast: ['#5A0A1E', '#E8435A'], bounty: ['#FFD27A', '#7ED957'], fog: ['#8A90A8', '#C8CCD8'], forbid: ['#1A0E3A', '#6A3A8A'], rush: ['#3A8AFF', '#BDEBFF'],
@@ -565,7 +569,7 @@ function showOmens() {
   sfx.legend?.();
   tour('omens');
   X.layer.innerHTML = `<div class="overlay run-omens" data-act="noop"><div class="pick-box">
-    <h2>${R.act}막의 징조</h2>
+    <h2>${TR('{0}막의 징조', R.act)}</h2>
     <div class="omen-picks">${R.omenOpts.map((id, k) => { const o = Run.omenInfo(id), art = omenWinURL(id), sky = OMEN_SKY[id] || OMEN_SKY.regular; return `<button class="omen-card window t${o.tier}" data-act="run-omen" data-k="${k}" style="--i:${k};--s1:${sky[0]};--s2:${sky[1]}">
       <span class="ow-win"><span class="ow-sky${art ? ' art' : ''}"${art ? ` style="background-image:url(${art})"` : ''}>${art ? '' : `<span class="om-ico">${omenIco(o, 'lg')}</span>`}</span><i class="ow-bars" aria-hidden="true"></i></span>
       <i class="ow-sill" aria-hidden="true"></i><b>${o.ko}</b><small>${o.desc}</small></button>`; }).join('')}</div>
@@ -583,7 +587,7 @@ function showCombat(fresh) {
     <div id="r-hud">${hud()}</div>
     <section class="foe k-${kind}" id="foe"></section>
     <section class="table rtable">
-      <div id="tray" class="tray"><div class="dice-ovl" id="dice-ovl"></div><div id="tray-btns"></div><p class="tray-loading">주사위 준비 중…</p></div>
+      <div id="tray" class="tray"><div class="dice-ovl" id="dice-ovl"></div><div id="tray-btns"></div><p class="tray-loading">${TR('주사위 준비 중…')}</p></div>
       <div class="rolls-left" id="rolls-left"></div>
     </section>
     <section class="rctl" id="rctl"></section>
@@ -639,11 +643,11 @@ function paint() {
   const locked = Run.toolsLocked(R);
   $('rolls-left').innerHTML = [...Array(Run.maxRolls(R))].map((_, i) => `<i class="${i < C.rollsLeft ? 'on' : ''}"></i>`).join('');
   $('rctl').innerHTML = `
-    <button class="pbtn gold roll${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? '배팅 먼저' : rolled ? '다시 굴리기' : '굴리기'}</span><small class="left-n">남은 ${C.rollsLeft}회</small></button>
-    <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${R.flip}</b></button>
-    <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${R.nudge}</b></button>
-    <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? '카드 고르기' : '교체'}<b>${C.swaps}</b></button>`;
-  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure && !Run.omen(R, 'fog') ? `<button class="hex-badge" data-act="run-hex">${jMask() ? '' : runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${hexKo(C.hex.t)}</button>` : ''}`;
+    <button class="pbtn gold roll${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? TR('배팅 먼저') : rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n">${TR('남은 {0}회', C.rollsLeft)}</small></button>
+    <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? TR('사용 중') : TR('뒤집기')}<b>${R.flip}</b></button>
+    <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? TR('사용 중') : TR('조정')}<b>${R.nudge}</b></button>
+    <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? TR('카드 고르기') : TR('교체')}<b>${C.swaps}</b></button>`;
+  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${TR('{0} 춤사위 ×{1}', ico('sparkle', 'xs'), R.dance)} <small>${TR('모든 주사위 +1')}</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? TR('취소') : TR('밑장빼기 {0}', R.C.deals)}</button>` : ''}${C.hex && !C.pure && !Run.omen(R, 'fog') ? `<button class="hex-badge" data-act="run-hex">${jMask() ? '' : runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${hexKo(C.hex.t)}</button>` : ''}`;
   $('rtip').innerHTML = tipText(needBet);
   hand?.refresh();
   // 도박사: 배팅할 때 손패가 반짝인다, 배팅한 카드는 금빛
@@ -658,9 +662,9 @@ function tipText(needBet) {
   const C = R.C;
   if (ui.busy) return '';
   // 안내 문구는 두지 않는다 (화면만 봐도 알 수 있게). 도박사 배팅만 남긴다 (배팅해야 굴릴 수 있다)
-  if (needBet) return `${ico('coins', 'xs')} 배팅 ×${Run.CLASS_TUNE.betMul}`;
+  if (needBet) return TR('{0} 배팅 ×{1}', ico('coins', 'xs'), Run.CLASS_TUNE.betMul);
   // 광기의 저울: 이번 턴 저울이 기운 쪽을 늘 보여 준다 (카드를 고르기 전에 계획할 수 있게)
-  if (Run.hasRelic(R, 'madscale') && C) { const t = Math.round(Run.madTilt(R) * 100); return `<b class="mad-tip">${ico('scale', 'xs')} 저울 ${ico('sword', 'xs')}${t}% · ${ico('shield', 'xs')}${100 - t}%</b>`; }
+  if (Run.hasRelic(R, 'madscale') && C) { const t = Math.round(Run.madTilt(R) * 100); return `<b class="mad-tip">${TR('{0} 저울 {1}{2}% · {3}{4}%', ico('scale', 'xs'), ico('sword', 'xs'), t, ico('shield', 'xs'), 100 - t)}</b>`; }
   return '';
 }
 
@@ -670,12 +674,12 @@ function foePanel() {
   const fog = Run.omen(R, 'fog');
   const parts = ui.show?.hideIntent || fog ? [] : Run.intentParts(R);
   const st = [];
-  if (e.str > 0) st.push(`<span class="st str">${ico('up', 'xs')}힘 ${e.str}</span>`);
-  if (e.weak > 0) st.push(`<span class="st weak">${ico('snow', 'xs')}약화</span>`);
-  if (e.burn > 0) st.push(`<span class="st burn">${ico('fire', 'xs')}화상 ${e.burn}·${e.burnT}</span>`);
-  if (e.fury) st.push(`<span class="st fury">${ico('anger', 'xs')}격앙</span>`);
-  if (e.raged) st.push('<span class="rage-tag">분노</span>');
-  if (e.cut) st.push(`<span class="st heads">머리 ${['fire', 'ice', 'poison'].filter(h => !e.cut[h]).length}/3</span>`);
+  if (e.str > 0) st.push(`<span class="st str">${TR('{0}힘 {1}', ico('up', 'xs'), e.str)}</span>`);
+  if (e.weak > 0) st.push(`<span class="st weak">${TR('{0}약화', ico('snow', 'xs'))}</span>`);
+  if (e.burn > 0) st.push(`<span class="st burn">${TR('{0}화상 {1}·{2}', ico('fire', 'xs'), e.burn, e.burnT)}</span>`);
+  if (e.fury) st.push(`<span class="st fury">${TR('{0}격앙', ico('anger', 'xs'))}</span>`);
+  if (e.raged) st.push(`<span class="rage-tag">${TR('분노')}</span>`);
+  if (e.cut) st.push(`<span class="st heads">${TR('머리 {0}/3', ['fire', 'ice', 'poison'].filter(h => !e.cut[h]).length)}</span>`);
   const intent = parts.map(p => {
     if (p.k === 'atk') return `<span class="it atk${Run.hurtMul(R) > 1 ? ' boosted' : ''}">${ico('sword', 'xs')}<b>${p.n}${p.hits > 1 ? `×${p.hits}` : ''}</b>${Run.hurtMul(R) > 1 ? `<i class="it-mul">×${Run.hurtMul(R)}</i>` : ''}</span>`;
     if (p.k === 'block') return `<span class="it blk">${ico('shield', 'xs')}<b>${p.n}</b></span>`;
@@ -690,10 +694,10 @@ function foePanel() {
     <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
-      <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
+      <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="${TR('보호막')}">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
       <div class="foe-st">${st.join('')}</div>
     </div>
-    ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="적의 다음 행동">${intent}</button>` : fog && !ui.show?.hideIntent ? `<div class="intent fog" aria-label="짙은 안개" ${X.tipAttr('짙은 안개', '적의 다음 행동이 안 보여요')}>?</div>` : ''}`;
+    ${intent ? `<button class="intent" id="intent" data-act="run-intent" aria-label="${TR('적의 다음 행동')}">${intent}</button>` : fog && !ui.show?.hideIntent ? `<div class="intent fog" aria-label="${TR('짙은 안개')}" ${X.tipAttr(TR('짙은 안개'), TR('적의 다음 행동이 안 보여요'))}>?</div>` : ''}`;
 }
 
 // (예전 특수 주사위 껍질 표시는 없앴다)
@@ -717,9 +721,9 @@ function paintTray() {
     if (Run.isSealed(R, i)) return '';
     if (ui.tool === 'deal') {
       if (ui.dealDie === i) return `<div class="deal-pick" style="left:${x}px;top:${y}px">${[1, 2, 3, 4, 5, 6].map(n => `<button data-act="run-deal" data-i="${i}" data-v="${n}" ${n === v ? 'disabled' : ''}>${miniDie(n)}</button>`).join('')}</div>`;
-      return `<button class="flip-tag deal-tag" style="left:${x}px;top:${y}px" data-act="run-die" data-i="${i}"><i>바꾸기</i>${miniDie(v)}</button>`;
+      return `<button class="flip-tag deal-tag" style="left:${x}px;top:${y}px" data-act="run-die" data-i="${i}"><i>${TR('바꾸기')}</i>${miniDie(v)}</button>`;
     }
-    if (ui.tool === 'flip') return `<button class="flip-tag" style="left:${x}px;top:${y}px" data-act="run-die" data-i="${i}"><i>뒤집으면</i>${miniDie(7 - v)}</button>`;
+    if (ui.tool === 'flip') return `<button class="flip-tag" style="left:${x}px;top:${y}px" data-act="run-die" data-i="${i}"><i>${TR('뒤집으면')}</i>${miniDie(7 - v)}</button>`;
     return `<div class="nudge-tag" style="left:${x}px;top:${y}px"><button data-act="run-nudge" data-i="${i}" data-d="1" ${v >= 6 ? 'disabled' : ''}>+1</button><button data-act="run-nudge" data-i="${i}" data-d="-1" ${v <= 1 ? 'disabled' : ''}>−1</button></div>`;
   }).join('');
 }
@@ -727,30 +731,30 @@ function paintTray() {
 // 카드에 손가락을 올렸을 때 공격 · 방어 미리보기 (길게 누르기)
 function playTip(c) {
   if (!R.C.rolled) return '';
-  if (R.C.hidden?.includes(c.u) && !R.C.pure) return `<p>${ico('sword', 'xs')} 공격 ??? &nbsp; ${ico('shield', 'xs')} 수비 ???</p>`;
-  if (c.cat === 'xpar') { const set = Run.parallelSet(R, c.u); return `<p>${ico('card', 'xs')} 함께 낼 카드 ${set.length}장 · 점수 합 ${set.reduce((a, o) => a + o.s, 0)}</p>`; }
+  if (R.C.hidden?.includes(c.u) && !R.C.pure) return `<p>${TR('{0} 공격 ??? &nbsp; {1} 수비 ???', ico('sword', 'xs'), ico('shield', 'xs'))}</p>`;
+  if (c.cat === 'xpar') { const set = Run.parallelSet(R, c.u); return `<p>${TR('{0} 함께 낼 카드 {1}장 · 점수 합 {2}', ico('card', 'xs'), set.length, set.reduce((a, o) => a + o.s, 0))}</p>`; }
   const hi = R.C.hand.findIndex(x => x.u === c.u);
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
   if (Run.hasRelic(R, 'madscale') && !(Run.isTrinity(c) && !Run.prismOn(R, c))) {
     const t = Run.madTilt(R), m = Run.preview(R, hi, Math.round(Run.splitPool(R, c, Run.scoreCard(R, c).total) * t));
-    return `<p>${ico('scale', 'xs')} 광기의 저울 · 공격 ${Math.round(t * 100)}% → 피해 ${m.dmg} · 보호막 ${m.block}</p>${scoreWhy(m)}`;
+    return `<p>${TR('{0} 광기의 저울 · 공격 {1}% → 피해 {2} · 보호막 {3}', ico('scale', 'xs'), Math.round(t * 100), m.dmg, m.block)}</p>${scoreWhy(m)}`;
   }
-  return `<p>${ico('sword', 'xs')} 전부 공격 ${a.dmg}${a.block ? ` · 보호막 ${a.block}` : ''}${a.heal ? ` · 회복 ${a.heal}` : ''} &nbsp; ${ico('shield', 'xs')} 전부 방어 ${d.block}</p>${scoreWhy(a)}`;
+  return `<p>${TR('{0} 전부 공격 {1}{2}{3} &nbsp; {4} 전부 방어 {5}', ico('sword', 'xs'), a.dmg, a.block ? ` ${TR('· 보호막 {0}', a.block)}` : '', a.heal ? ` ${TR('· 회복 {0}', a.heal)}` : '', ico('shield', 'xs'), d.block)}</p>${scoreWhy(a)}`;
 }
 // 점수 · 피해가 왜 그렇게 나오는지 (작은 글씨). 기본 점수에서 달라진 게 있을 때만
 function scoreWhy(a) {
-  const sc = a.sc, bits = sc.parts.map(p => `${esc(p.ko)} ${p.amt > 0 ? '+' : ''}${p.amt}${p.mul ? '(곱)' : ''}`);
+  const sc = a.sc, bits = sc.parts.map(p => `${esc(p.ko)} ${p.amt > 0 ? '+' : ''}${p.amt}${p.mul ? TR('(곱)') : ''}`);
   sc.notes.forEach(n => bits.push(esc(n)));
   const dmg = [];
-  if (a.whet) dmg.push(`숫돌 +${a.whet}`);
-  if (a.arcane) dmg.push(`비전 지식 +${a.arcane}`);
-  if (a.kal) dmg.push(`만화경 +${a.kal}`);
-  if (a.bsword) dmg.push(`피에 굶주린 검 +${a.bsword}`);
-  if (a.combo) dmg.push('연환 ×1.3');
-  if (a.horn) dmg.push('사냥꾼의 뿔피리 ×1.25');
-  if (a.poison) dmg.push('독 안개 ½');
+  if (a.whet) dmg.push(TR('숫돌 +{0}', a.whet));
+  if (a.arcane) dmg.push(TR('비전 지식 +{0}', a.arcane));
+  if (a.kal) dmg.push(TR('만화경 +{0}', a.kal));
+  if (a.bsword) dmg.push(TR('피에 굶주린 검 +{0}', a.bsword));
+  if (a.combo) dmg.push(TR('연환 ×1.3'));
+  if (a.horn) dmg.push(TR('사냥꾼의 뿔피리 ×1.25'));
+  if (a.poison) dmg.push(TR('독 안개 ½'));
   if (!bits.length && !dmg.length) return '';
-  return `<small class="sc-why">기본 ${sc.base}${bits.length ? ` · ${bits.join(' · ')}` : ''} → 점수 ${sc.total}${dmg.length ? `<br>피해: ${dmg.join(' · ')}` : ''}</small>`;
+  return `<small class="sc-why">${TR('기본 {0}{1} → 점수 {2}{3}', sc.base, bits.length ? ` · ${bits.join(' · ')}` : '', sc.total, dmg.length ? `<br>${TR('피해: {0}', dmg.join(' · '))}` : '')}</small>`;
 }
 
 // ── 전투 조작 ────────────────────────────────────────────────────────────────
@@ -770,7 +774,7 @@ function tapCard(u) {
     $('rtip').innerHTML = tipText(false);
     return;
   }
-  if (!Run.canPlayCard(R, C.hand[hi])) { sfx.tap(); return X.popover(hand.el(u), cardTip(C.hand[hi]) + '<p class="dim">손패에 들고 있는 카드예요 (낼 수 없어요)</p>'); }   // 유물 대여
+  if (!Run.canPlayCard(R, C.hand[hi])) { sfx.tap(); return X.popover(hand.el(u), cardTip(C.hand[hi]) + `<p class="dim">${TR('손패에 들고 있는 카드예요 (낼 수 없어요)')}</p>`); }   // 유물 대여
   if (!C.rolled) { sfx.back(); nudgeRoll(); return; }   // 굴리기 전: 글자 대신 굴리기 버튼이 톡 튄다
   sfx.card();
   if (ui.sel === u && hand.sel === u) return closeSplit();
@@ -783,14 +787,14 @@ function betAsk(u) {
   const corner = `<b>A</b><i>${suit}</i>`;
   return `<div class="bet-ask playing ${tone}">
     <span class="bc-corner tl">${corner}</span><span class="bc-corner br">${corner}</span>
-    <div class="bc-mid"><i class="bc-suit">${suit}</i><b>${re ? '배팅 바꾸기' : '배팅'}</b><em>×${Run.CLASS_TUNE.betMul}</em></div>
-    <div class="bet-btns"><button class="hb bc-no" data-act="run-betno">접기</button><button class="hb gold bc-go" data-act="run-bet" data-u="${u}">${suit} 콜!</button></div>
+    <div class="bc-mid"><i class="bc-suit">${suit}</i><b>${re ? TR('배팅 바꾸기') : TR('배팅')}</b><em>×${Run.CLASS_TUNE.betMul}</em></div>
+    <div class="bet-btns"><button class="hb bc-no" data-act="run-betno">${TR('접기')}</button><button class="hb gold bc-go" data-act="run-bet" data-u="${u}">${TR('{0} 콜!', suit)}</button></div>
   </div>`;
 }
 function doBet(u) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u);
   if (hi < 0 || C.rolled) return;
-  try { Run.placeBet(R, hi); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+  try { Run.placeBet(R, hi); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); }
   drain();
   ui.sel = null;
   hand.select(null);
@@ -813,8 +817,8 @@ function openSplit(u) {
     ui.sel = u; ui.split = null;
     const go = (t, label, cls = '') => `<button class="pbtn sp-go${cls}" data-act="run-play" data-u="${u}" data-t="${t}">${label}</button>`;
     let body;
-    if (hidden) body = `<div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 공격 ???`, ' gold')}${go('self', `${ico('shield', 'xs')} 수비 ???`)}</div>`;
-    else body = `<p class="sp-info">${esc(Run.FUTURE[card.cat].desc)}</p><div class="sp-row">${go('self', card.cat === 'xpause' ? '일시정지!' : '내기 (0점)', ' gold')}</div>`;
+    if (hidden) body = `<div class="sp-row">${go('enemy', TR('{0} 공격 ???', ico('sword', 'xs')), ' gold')}${go('self', TR('{0} 수비 ???', ico('shield', 'xs')))}</div>`;
+    else body = `<p class="sp-info">${esc(Run.FUTURE[card.cat].desc)}</p><div class="sp-row">${go('self', card.cat === 'xpause' ? TR('일시정지!') : TR('내기 (0점)'), ' gold')}</div>`;
     hand.select(u, `<div class="split simple fut" id="split">${body}</div>`, { wide: true });
     hand.el(u)?.classList.add('splitting');
     return;
@@ -865,29 +869,29 @@ function syncSplit() {
 }
 function trinityHTML(u) {
   return `<div class="split tri" id="split">
-    <div class="sp-tri" aria-label="삼위일체: 모두 얻는다">
-      <span class="sp-stat atk"><small>${ico('sword', 'xs')}피해</small><b id="sp-dmg"></b></span><i class="sp-plus">+</i>
-      <span class="sp-stat gold"><small>${ico('coins', 'xs')}골드</small><b id="sp-gold"></b></span><i class="sp-plus">+</i>
-      <span class="sp-stat def"><small>${ico('shield', 'xs')}보호막</small><b id="sp-blk"></b></span>
+    <div class="sp-tri" aria-label="${TR('삼위일체: 모두 얻는다')}">
+      <span class="sp-stat atk"><small>${TR('{0}피해', ico('sword', 'xs'))}</small><b id="sp-dmg"></b></span><i class="sp-plus">+</i>
+      <span class="sp-stat gold"><small>${TR('{0}골드', ico('coins', 'xs'))}</small><b id="sp-gold"></b></span><i class="sp-plus">+</i>
+      <span class="sp-stat def"><small>${TR('{0}보호막', ico('shield', 'xs'))}</small><b id="sp-blk"></b></span>
     </div>
     <p class="sp-info" id="sp-info"></p>
-    <div class="sp-row one"><span class="sp-note">${ico('star', 'xs')}삼위일체 · 모두 얻는다</span><button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button></div>
+    <div class="sp-row one"><span class="sp-note">${TR('{0}삼위일체 · 모두 얻는다', ico('star', 'xs'))}</span><button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">${TR('내기')}</button></div>
   </div>`;
 }
 function splitHTML(u, prism = false) {
   return `<div class="split${prism ? ' prism' : ''}" id="split">
     <div class="sp-top">
-      <button class="sp-end atk" data-act="run-split" data-v="all" aria-label="전부 공격">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>피해</small></button>
-      <div class="sp-bar" id="sp-bar" role="slider" aria-label="공격 · 방어 나누기"><i class="sp-a" id="sp-a"></i>${prism ? '<i class="sp-g" id="sp-g"></i>' : ''}<span class="sp-knob" id="sp-knob">${runIco('ui', 'split_knob', 'sword')}<em id="sp-n"></em></span></div>
-      <button class="sp-end def" data-act="run-split" data-v="none" aria-label="전부 방어">${ico('shield', 'xs')}<b id="sp-blk"></b><small>보호막</small></button>
+      <button class="sp-end atk" data-act="run-split" data-v="all" aria-label="${TR('전부 공격')}">${ico('sword', 'xs')}<b id="sp-dmg"></b><small>${TR('피해')}</small></button>
+      <div class="sp-bar" id="sp-bar" role="slider" aria-label="${TR('공격 · 방어 나누기')}"><i class="sp-a" id="sp-a"></i>${prism ? '<i class="sp-g" id="sp-g"></i>' : ''}<span class="sp-knob" id="sp-knob">${runIco('ui', 'split_knob', 'sword')}<em id="sp-n"></em></span></div>
+      <button class="sp-end def" data-act="run-split" data-v="none" aria-label="${TR('전부 방어')}">${ico('shield', 'xs')}<b id="sp-blk"></b><small>${TR('보호막')}</small></button>
     </div>
-    ${prism ? `<div class="sp-gtop"><span class="sp-glab">${ico('coins', 'xs')}<b id="sp-gold"></b></span><div class="sp-bar sp-gbar" id="sp-gbar" role="slider" aria-label="골드 나누기"><i class="sp-gf" id="sp-gf"></i></div></div>` : ''}
+    ${prism ? `<div class="sp-gtop"><span class="sp-glab">${ico('coins', 'xs')}<b id="sp-gold"></b></span><div class="sp-bar sp-gbar" id="sp-gbar" role="slider" aria-label="${TR('골드 나누기')}"><i class="sp-gf" id="sp-gf"></i></div></div>` : ''}
     <p class="sp-info" id="sp-info"></p>
     <div class="sp-row">
-      <button class="sp-step" data-act="run-split" data-v="-1" aria-label="공격 1 줄이기">◀</button>
+      <button class="sp-step" data-act="run-split" data-v="-1" aria-label="${TR('공격 1 줄이기')}">◀</button>
       <button class="sp-cover" id="sp-cover" data-act="run-split" data-v="cover"></button>
-      <button class="sp-step" data-act="run-split" data-v="1" aria-label="공격 1 늘리기">▶</button>
-      <button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">내기</button>
+      <button class="sp-step" data-act="run-split" data-v="1" aria-label="${TR('공격 1 늘리기')}">▶</button>
+      <button class="pbtn gold sp-go" data-act="run-play" data-u="${u}">${TR('내기')}</button>
     </div>
   </div>`;
 }
@@ -945,7 +949,7 @@ function paintSplit() {
   if (sp.fixed) {
     const fog = Run.omen(R, 'fog'), taken = fog ? 0 : Run.takenAfter(R, p);
     const info = [];
-    if (p.pierce) info.push(`${ico('dagger', 'xs')}관통`);
+    if (p.pierce) info.push(TR('{0}관통', ico('dagger', 'xs')));
     if (card.seal) info.unshift(`${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}`);
     if (!fog && Run.incomingAfter(R, p.weak) > 0 && !p.kill && taken) info.push(`<em class="hurt">${ico('sword', 'xs')}-${taken}</em>`);
     $('sp-info').innerHTML = info.join('<i class="sep">·</i>') || '&nbsp;';
@@ -966,28 +970,28 @@ function paintSplit() {
   const inc = fog ? 0 : Run.incomingAfter(R, p.weak), taken = fog ? 0 : Run.takenAfter(R, p);
   const info = [];
   if (p.atk > 0) {
-    if (p.pierce) info.push(`${ico('dagger', 'xs')}관통`);
-    if (p.whet) info.push(`숫돌 +${p.whet}`);
-    if (p.arcane) info.push(`비전 +${p.arcane}`);
-    if (p.horn) info.push('뿔피리 ×1.25');
-    if (p.poison) info.push('독: 피해 ½');
+    if (p.pierce) info.push(TR('{0}관통', ico('dagger', 'xs')));
+    if (p.whet) info.push(TR('숫돌 +{0}', p.whet));
+    if (p.arcane) info.push(TR('비전 +{0}', p.arcane));
+    if (p.horn) info.push(TR('뿔피리 ×1.25'));
+    if (p.poison) info.push(TR('독: 피해 ½'));
     if (p.heal) info.push(`${ico('heart', 'xs')}+${p.heal}`);
     if (p.gold - p.tri > 0) info.push(`${ico('coins', 'xs')}+${p.gold - p.tri}`);
-    if (p.burn) info.push(`${ico('fire', 'xs')}화상 ${p.burn}`);
+    if (p.burn) info.push(TR('{0}화상 {1}', ico('fire', 'xs'), p.burn));
   }
-  if (sp.lock) info.unshift(`${ico('scale', 'xs')}저울 고정 · 공격 ${Math.round(Run.madTilt(R) * 100)}%`);
+  if (sp.lock) info.unshift(TR('{0}저울 고정 · 공격 {1}%', ico('scale', 'xs'), Math.round(Run.madTilt(R) * 100)));
   if (card.seal) info.unshift(`${sealIco(card.seal)}${Run.sealInfo(card.seal).ko}`);
-  if (Run.hasKw(card, 'weak')) info.push(p.weak ? `${ico('snow', 'xs')}약화` : '<s>약화</s>');
-  if (p.def > 0 && p.defMul > 1) info.push(`${ico('shield', 'xs')}방어 +${Math.round((p.defMul - 1) * 100)}%`);
-  if (p.wblk) info.push(`불굴 +${p.wblk}`);
-  if (p.always) info.push(`보호막 +${p.always}`);
+  if (Run.hasKw(card, 'weak')) info.push(p.weak ? TR('{0}약화', ico('snow', 'xs')) : `<s>${TR('약화')}</s>`);
+  if (p.def > 0 && p.defMul > 1) info.push(TR('{0}방어 +{1}%', ico('shield', 'xs'), Math.round((p.defMul - 1) * 100)));
+  if (p.wblk) info.push(TR('불굴 +{0}', p.wblk));
+  if (p.always) info.push(TR('보호막 +{0}', p.always));
   if (inc > 0 && !p.kill && taken) info.push(`<em class="hurt">${ico('sword', 'xs')}-${taken}</em>`);
   $('sp-info').innerHTML = info.join('<i class="sep">·</i>') || '&nbsp;';
   const cb = $('sp-cover');
   if (fog) { cb.disabled = true; cb.innerHTML = '?'; hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3)); return; }
   const cov = Run.coverAtk(R, hi);
-  if (!inc) { cb.disabled = true; cb.innerHTML = '딱 막기'; }
-  else { cb.disabled = false; cb.innerHTML = cov.full ? `딱 막기<small>방어 ${p.pool - cov.atk - cov.gold}</small>` : '전부 방어'; }
+  if (!inc) { cb.disabled = true; cb.innerHTML = TR('딱 막기'); }
+  else { cb.disabled = false; cb.innerHTML = cov.full ? `${TR('딱 막기')}<small>${TR('방어 {0}', p.pool - cov.atk - cov.gold)}</small>` : TR('전부 방어'); }
   hand.el(sp.u)?.style.setProperty('--mix', k.toFixed(3));
 }
 function dropCard(u, target) {
@@ -999,7 +1003,7 @@ function dropCard(u, target) {
 
 async function act(fn, { roll = false } = {}) {
   const before = snap();
-  try { fn(); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1500); return null; }
+  try { fn(); } catch (e) { X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1500); return null; }
   const list = drain();
   return { list, before };
 }
@@ -1105,7 +1109,7 @@ function sealBurst(id, p) {
   if (!sl || !p) return;
   if (X.prefs.fx !== 'min') { FX().ring(p.x, p.y, { color: sl.color, r0: 8, r1: 80, dur: 420, width: 7 }); FX().burst(p.x, p.y, { n: 26, pal: [sl.color, '#FFFFFF', '#FFF4D2'], speed: [80, 260] }); }
   sfx.quest?.();
-  floatAt(p.x, p.y - 60, `${sealIco(id)}${sl.ko}${id === 'sun' ? ' · 점수 ×1.5' : ''}`, id === 'cloud' ? 'sky' : 'gold');
+  floatAt(p.x, p.y - 60, `${sealIco(id)}${sl.ko}${id === 'sun' ? ` ${TR('· 점수 ×1.5')}` : ''}`, id === 'cloud' ? 'sky' : 'gold');
 }
 // 동전 던지기 유물: 화면을 어둡게 하고 가운데에 큰 동전을 높이 튕겨 올려 빙글빙글 — 떨어져 앞면(금 · 왕관) / 뒷면(은 · 해골)
 async function coinToss(side, h) {
@@ -1122,7 +1126,7 @@ async function coinToss(side, h) {
   await wait(min ? 150 : 1150);
   sfx.coin();
   el.classList.add('landed');
-  el.querySelector('.ct-text').innerHTML = head ? `앞면! 점수 +100%` : `뒷면… 점수 −${low}%`;
+  el.querySelector('.ct-text').innerHTML = head ? TR('앞면! 점수 +100%') : TR('뒷면… 점수 −{0}%', low);
   if (!min) {
     const r = el.querySelector('.ct-coin').getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
     FX().ring(x, y, { color: head ? '#FFC83D' : '#C9D3E8', r0: 20, r1: 120, dur: 420, width: 6 });
@@ -1245,7 +1249,7 @@ function skillCall(html) {
   setTimeout(() => el.remove(), 1700);
 }
 function floatAt(x, y, text, cls = '') {
-  const words = /[가-힣]/.test(String(text).replace(/<[^>]*>/g, '')) && !/\bdmg\b/.test(cls);
+  const words = /[^\d\s+\-−%×·.,/:()]/u.test(String(text).replace(/<[^>]*>/g, '').replace(/&[a-z]+;/g, '')) && !/\bdmg\b/.test(cls);   // 숫자만이 아닌 글자(어느 언어든)
   if (words) {
     const now = performance.now();
     if (now - noteT > 900) noteN = 0;
@@ -1329,7 +1333,7 @@ function shieldBreak(r) {
   if (!r) return;
   const x = r.left + r.width / 2, y = r.top + r.height / 2;
   sfx.clang?.(1.3);
-  floatAt(x, y - 22, '보호막 파괴!', 'sky');
+  floatAt(x, y - 22, TR('보호막 파괴!'), 'sky');
   if (X.prefs.fx === 'min') return;
   const el = document.createElement('div');
   el.className = 'shbreak';
@@ -1353,7 +1357,7 @@ async function hakiFx() {
   await wait(250);
   const el = document.createElement('div');
   el.className = 'haki-banner';
-  el.innerHTML = `<b>패기 발동</b><small>${ico('eye')} 이번 턴 뒤집기 · 조정 금지</small>`;
+  el.innerHTML = `<b>${TR('패기 발동')}</b><small>${TR('{0} 이번 턴 뒤집기 · 조정 금지', ico('eye'))}</small>`;
   document.body.appendChild(el);
   setTimeout(() => fx.ring(innerWidth / 2, innerHeight * 0.42, { color: '#FF9AB8', r0: 30, r1: innerWidth * 0.6, dur: 900, width: 4 }), 800);
   await wait(1700);
@@ -1425,7 +1429,7 @@ async function playOne(f) {
       if (f.dodge) setTimeout(() => { const a = $('foe-art'); a?.classList.remove('dodge'); void a?.offsetWidth; a?.classList.add('dodge'); sfx.whoosh?.(); }, 150);
       await hand.launch(f.u, tgt, f.target);           // 카드가 날아가 꽂힌다
       if (f.target === 'enemy' && f.dodge) {
-        jBanner('회피!', 'dodge');
+        jBanner(TR('회피!'), 'dodge');
         if (fxOn) FX().burst(e.x + 20, e.y, { n: 18, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [80, 240], life: [0.2, 0.5] });
         sfx.zero?.();
       } else if (f.target === 'enemy') {
@@ -1446,7 +1450,7 @@ async function playOne(f) {
           shieldBreak(sr);
           if (f.blocked) floatAt(e.x + 30, e.y - 20, `${ico('shield', 'xs')}${f.blocked}`, 'dim');
           floatAt(e.x, e.y - 10, `${f.dmg}`, `dmg big${power >= 2 ? ' huge' : ''}`);
-          if (f.behead) { await wait(250); floatAt(e.x, e.y + 30, '머리 베기!', 'gold'); sfx.slash?.(); if (fxOn) FX().slash?.(e, 140); }
+          if (f.behead) { await wait(250); floatAt(e.x, e.y + 30, TR('머리 베기!'), 'gold'); sfx.slash?.(); if (fxOn) FX().slash?.(e, 140); }
         } else {
           floatAt(e.x, e.y - 10, '0', 'dim');
           sfx.zero();
@@ -1463,17 +1467,17 @@ async function playOne(f) {
       }
       if (f.heal) { setShow({ hp: ui.show.hp + f.heal }); repaintBars(); floatAt(h.x, h.y - 50, `+${f.heal}`, 'mint'); if (fxOn) FX().burst(h.x, h.y, { n: 16, pal: PALETTES.heal, grav: -60 }); }
       if (f.gold) { floatAt(h.x + 40, h.y - 40, `${ico('coins', 'xs')}+${f.gold}`, 'gold'); sfx.coin(); }
-      if (f.burn) floatAt(e.x, e.y + 26, `${ico('fire', 'xs')}화상 ${f.burn}`, 'gold');
-      if (f.weak) floatAt(e.x, e.y + 26, `${ico('snow', 'xs')}약화`, 'sky');
+      if (f.burn) floatAt(e.x, e.y + 26, TR('{0}화상 {1}', ico('fire', 'xs'), f.burn), 'gold');
+      if (f.weak) floatAt(e.x, e.y + 26, TR('{0}약화', ico('snow', 'xs')), 'sky');
       if (f.flip) floatAt(h.x, h.y - 70, `${ico('flip', 'xs')}+1`, 'mint');
-      if (f.dance) floatAt(h.x, h.y - 70, `${ico('sparkle', 'xs')}춤사위 +1`, 'gold');
+      if (f.dance) floatAt(h.x, h.y - 70, TR('{0}춤사위 +1', ico('sparkle', 'xs')), 'gold');
       if (f.nudge) floatAt(h.x + 30, h.y - 70, `${ico('nudge', 'xs')}+${f.nudge}`, 'mint');
       if (f.flip) floatAt(h.x - 30, h.y - 70, `${ico('flip', 'xs')}+${f.flip}`, 'mint');
       if (f.sealUsed) sealBurst(f.sealUsed, f.target === 'enemy' ? e : h);
-      if (f.moon) floatAt(h.x, h.y - 100, `달빛 복사본 +${f.moon}`, 'sky');
-      if (f.grow) floatAt(h.x - 30, h.y - 90, `${ico('crown', 'xs')}주인공 기본 점수 +${f.grow}`, 'gold');
-      if (f.pilgrim) floatAt(h.x + 20, h.y - 110, `${ico('scroll', 'xs')}순례 · 골드 +15 · 최대 체력 +2`, 'gold');
-      if (f.palette) { sfx.legend?.(); X.toast(relicIco(Run.relicInfo('palette')), '무지개 팔레트 완성!', '이제 모든 카드 +50%', 2200); }
+      if (f.moon) floatAt(h.x, h.y - 100, TR('달빛 복사본 +{0}', f.moon), 'sky');
+      if (f.grow) floatAt(h.x - 30, h.y - 90, TR('{0}주인공 기본 점수 +{1}', ico('crown', 'xs'), f.grow), 'gold');
+      if (f.pilgrim) floatAt(h.x + 20, h.y - 110, TR('{0}순례 · 골드 +15 · 최대 체력 +2', ico('scroll', 'xs')), 'gold');
+      if (f.palette) { sfx.legend?.(); X.toast(relicIco(Run.relicInfo('palette')), TR('무지개 팔레트 완성!'), TR('이제 모든 카드 +50%'), 2200); }
       if (f.temp) moonset(f.target === 'enemy' ? e : h);   // 달빛 복사본은 달이 지듯 스르륵
       await wait(f.target === 'enemy' ? 420 : 260);
       return;
@@ -1488,8 +1492,8 @@ async function playOne(f) {
       setShow({ eblk: 0 });
       const e = foeAt(), h = heroAt();
       const art = $('foe-art');
-      if (f.behead) { floatAt(e.x, e.y - 30, '숨결이 끊겼다!', 'mint'); await wait(500); return; }
-      if (f.paused) { skillCall(`${ico('hourglass')} 일시정지 — 적의 행동 무효`); if (fxOn) FX().flash('#3EE6E0', 400, 0.3); floatAt(e.x, e.y - 30, '⏸ 정지!', 'sky big'); sfx.seal?.(); await wait(900); return; }
+      if (f.behead) { floatAt(e.x, e.y - 30, TR('숨결이 끊겼다!'), 'mint'); await wait(500); return; }
+      if (f.paused) { skillCall(TR('{0} 일시정지 — 적의 행동 무효', ico('hourglass'))); if (fxOn) FX().flash('#3EE6E0', 400, 0.3); floatAt(e.x, e.y - 30, TR('⏸ 정지!'), 'sky big'); sfx.seal?.(); await wait(900); return; }
       if (f.hits.length) {
         // 적이 달려든다 → 할퀸 자국 · 붉은 번쩍임 · 체력바가 깎이며 흰 띠가 따라 줄어든다. 막으면 방패가 '쨍'
         art?.classList.remove('lunge'); void art?.offsetWidth; art?.classList.add('lunge');
@@ -1522,18 +1526,18 @@ async function playOne(f) {
         if (f.thorn) { setShow({ ehp: ui.show.ehp - f.thorn }); repaintBars(); floatAt(e.x, e.y, `${f.thorn}`, 'dmg'); }
       }
       if (f.block) { if (fxOn) FX().shield(e); setShow({ eblk: f.block }); repaintBars(); floatAt(e.x, e.y - 30, `${ico('shield', 'xs')}+${f.block}`, 'sky'); sfx.hold(); await wait(380); }
-      if (f.str) { floatAt(e.x, e.y - 40, `${ico('up', 'xs')}힘 +${f.str}`, 'dmg'); sfx.powerUp?.(1); if (fxOn) FX().burst(e.x, e.y, { n: 20, pal: PALETTES.fire, grav: -120 }); await wait(380); }
+      if (f.str) { floatAt(e.x, e.y - 40, TR('{0}힘 +{1}', ico('up', 'xs'), f.str), 'dmg'); sfx.powerUp?.(1); if (fxOn) FX().burst(e.x, e.y, { n: 20, pal: PALETTES.fire, grav: -120 }); await wait(380); }
       if (f.heal) { setShow({ ehp: ui.show.ehp + f.heal }); repaintBars(); floatAt(e.x, e.y - 20, `+${f.heal}`, 'mint'); if (fxOn) FX().burst(e.x, e.y, { n: 18, pal: PALETTES.heal, grav: -60 }); await wait(360); }
-      if (f.kept) { floatAt(h.x, h.y - 40, `${ico('coins', 'xs')}금화를 지켰다`, 'gold'); await wait(300); }
+      if (f.kept) { floatAt(h.x, h.y - 40, TR('{0}금화를 지켰다', ico('coins', 'xs')), 'gold'); await wait(300); }
       if (f.steal) { if (fxOn) FX().coins(h, e, 10); floatAt(h.x, h.y - 40, `${ico('coins', 'xs')}-${f.steal}`, 'gold'); sfx.coin(); await wait(500); }
-      if (f.weak) { floatAt(h.x, h.y - 40, `${ico('snow', 'xs')}약화 ${f.weak}턴`, 'sky'); await wait(300); }
+      if (f.weak) { floatAt(h.x, h.y - 40, TR('{0}약화 {1}턴', ico('snow', 'xs'), f.weak), 'sky'); await wait(300); }
       if (!f.hits.length && !f.block && !f.str && !f.heal) await wait(200);
-      if (f.counter) { const e2 = foeAt(); floatAt(e2.x, e2.y - 10, `${ico('shield', 'xs')}반격 ${f.counter}`, 'sky'); setShow({ ehp: Math.max(0, ui.show.ehp - f.counter) }); repaintBars(); await wait(300); }
+      if (f.counter) { const e2 = foeAt(); floatAt(e2.x, e2.y - 10, TR('{0}반격 {1}', ico('shield', 'xs'), f.counter), 'sky'); setShow({ ehp: Math.max(0, ui.show.ehp - f.counter) }); repaintBars(); await wait(300); }
       return;
     }
     case 'hit': {
       const e = foeAt();
-      if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.dmg}${f.blocked ? ` <small>${ico('shield', 'xs')}${f.blocked} 막힘</small>` : ''}`, 'dmg'); sfx.fire?.(); }
+      if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.dmg}${f.blocked ? ` <small>${TR('{0}{1} 막힘', ico('shield', 'xs'), f.blocked)}</small>` : ''}`, 'dmg'); sfx.fire?.(); }
       else if (f.why === 'potion') { if (fxOn) FX().impact(e.x, e.y, PALETTES.fire, 1.8); floatAt(e.x, e.y - 10, `${f.dmg}`, 'dmg big'); sfx.boom?.(1); }
       const sr = ui.show.eblk > 0 && f.blocked && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
       setShow({ ehp: ui.show.ehp - f.dmg, eblk: Math.max(0, ui.show.eblk - f.blocked) });
@@ -1546,14 +1550,14 @@ async function playOne(f) {
       const e = foeAt();
       sfx.haki?.();
       if (fxOn) { FX().flash('#E8435A', 400, 0.35); FX().burst(e.x, e.y, { n: 60, pal: PALETTES.hell, speed: [120, 380] }); }
-      floatAt(e.x, e.y - 50, '분노!', 'dmg big');
+      floatAt(e.x, e.y - 50, TR('분노!'), 'dmg big');
       shake($('rc'), 2);
       await wait(700);
       if (Run.ENEMIES[f.foe]?.talk) await jSay('', 'rage');
       return;
     }
-    case 'regrow': { const e = foeAt(); floatAt(e.x, e.y - 40, '머리가 다시 자란다!', 'dmg'); if (fxOn) FX().regrow?.(e); await wait(600); return; }
-    case 'fury': { const e = foeAt(); floatAt(e.x, e.y - 50, `${ico('anger', 'xs')}격앙 +${f.str}`, 'dmg'); await wait(320); return; }
+    case 'regrow': { const e = foeAt(); floatAt(e.x, e.y - 40, TR('머리가 다시 자란다!'), 'dmg'); if (fxOn) FX().regrow?.(e); await wait(600); return; }
+    case 'fury': { const e = foeAt(); floatAt(e.x, e.y - 50, TR('{0}격앙 +{1}', ico('anger', 'xs'), f.str), 'dmg'); await wait(320); return; }
     case 'turn': {
       setShow({ blk: 0, hideIntent: false });
       repaintBars();
@@ -1656,7 +1660,7 @@ async function playOne(f) {
     case 'unseal': {                              // 봉인 해제: 사슬이 달아올라 산산조각, 빛기둥
       sfx.unseal?.();
       if (t && fxOn) {
-        floatAt(center($('tray')).x, center($('tray')).y - 30, '봉인 해제!', 'gold');
+        floatAt(center($('tray')).x, center($('tray')).y - 30, TR('봉인 해제!'), 'gold');
         await FX().unseal(f.dice.map(i => t.topPos?.(i) || t.screenPos(i)), 900);
       }
       return;
@@ -1689,13 +1693,13 @@ async function playOne(f) {
       await wait(1100);
       return;
     }
-    case 'phoenix': { const h = heroAt(); if (fxOn) { FX().burst(h.x, h.y, { n: 60, pal: PALETTES.fire, grav: -160 }); FX().flash('#FFD24A', 400, 0.4); } floatAt(h.x, h.y - 40, '불사조의 부활!', 'gold big'); sfx.levelup?.(); setShow({ hp: f.hp }); repaintBars(); await wait(900); return; }
+    case 'phoenix': { const h = heroAt(); if (fxOn) { FX().burst(h.x, h.y, { n: 60, pal: PALETTES.fire, grav: -160 }); FX().flash('#FFD24A', 400, 0.4); } floatAt(h.x, h.y - 40, TR('불사조의 부활!'), 'gold big'); sfx.levelup?.(); setShow({ hp: f.hp }); repaintBars(); await wait(900); return; }
     case 'runWon': return;
     // ── 시공 광대 ──
     case 'jesterIn': await jSay(f.say, 'taunt', 2600); return;
     case 'dodge': await jSay('', 'taunt'); return;      // 몸 빼기 · '회피!' 는 카드가 닿을 때 (play) 함께
     case 'facedown': {
-      skillCall(jMask() ? '???' : `${ico('card')} 뒷면 카드`);
+      skillCall(jMask() ? '???' : TR('{0} 뒷면 카드', ico('card')));
       f.us.forEach(u => { const el = hand.el(u); el?.classList.remove('flipback'); void el?.offsetWidth; el?.classList.add('flipback'); });
       sfx.card();
       hand.refresh();
@@ -1703,14 +1707,14 @@ async function playOne(f) {
       return;
     }
     case 'jestCard': {
-      skillCall(jMask() ? '???' : `${ico(f.kind === 'bomb' ? 'fire' : 'anger')} ${f.kind === 'bomb' ? '시한폭탄' : '광대의 도전장'}`);
+      skillCall(jMask() ? '???' : `${ico(f.kind === 'bomb' ? 'fire' : 'anger')} ${f.kind === 'bomb' ? TR('시한폭탄') : TR('광대의 도전장')}`);
       const c = R.C?.hand.find(x => x.u === f.u);
       if (c) await hand.draw([c]);
       await jSay(f.say, 'taunt');
       return;
     }
     case 'jestShuffle': {
-      jBanner(`${ico('card')} 손패 섞기!`, 'shuffle');
+      jBanner(TR('{0} 손패 섞기!', ico('card')), 'shuffle');
       await jSay(f.say, 'taunt', 2000);
       if (fxOn) FX().flash('#FF4FD8', 260, 0.25);
       ui.hidTmp = new Set(f.hidOld || []);            // 섞여 나가는 뒷면 카드는 끝까지 뒷면으로
@@ -1737,7 +1741,7 @@ async function playOne(f) {
       return;
     }
     case 'parallel': {
-      skillCall(`${ico('card')} 병렬 연산 · 합 ${f.score}`);
+      skillCall(TR('{0} 병렬 연산 · 합 {1}', ico('card'), f.score));
       f.us.forEach(u => hand.el(u)?.classList.add('par-glow'));
       sfx.card?.();                                  // 팡파레는 울리지 않는다
       await wait(700);
@@ -1747,7 +1751,7 @@ async function playOne(f) {
       const h = heroAt(), add = f.ids.filter(id => !f.from.includes(id));
       setHTML($('r-hud'), hud());
       if ($('r-hero')) setHTML($('r-hero'), heroStrip());
-      if (add.length) { floatAt(h.x, h.y - 60, `${ico('gem', 'xs')} 대여: ${add.map(id => Run.relicInfo(id).ko).join(' · ')}`, 'gold'); sfx.select(); await wait(300); }
+      if (add.length) { floatAt(h.x, h.y - 60, TR('{0} 대여: {1}', ico('gem', 'xs'), add.map(id => Run.relicInfo(id).ko).join(' · ')), 'gold'); sfx.select(); await wait(300); }
       return;
     }
     case 'jesterOut': {
@@ -1787,7 +1791,7 @@ async function introFoe() {
     X.layer.innerHTML = `<div class="overlay boss-intro run-intro" data-act="run-skip" style="--c:${foeColor(e.id)}">
       <div class="bi-band"><i></i></div><div class="bi-band thin"></div>
       <img class="spr bi-boss${isImgSprite(e.id) ? ' spr-hi' : ''}" src="${foeURL(e.id)}" alt="">
-      <div class="bi-name"><small>${R.act}막 보스 · ${esc(def.ko.slice(0, cut))}</small><b>${esc(def.ko.slice(cut + 1))}</b></div>
+      <div class="bi-name"><small>${TR('{0}막 보스 · {1}', R.act, esc(def.ko.slice(0, cut)))}</small><b>${esc(def.ko.slice(cut + 1))}</b></div>
       <div class="bi-flash"></div></div>`;
     sfx.slash?.();
     setTimeout(() => { sfx.boom?.(2); shake(X.layer.firstElementChild, 2.5); }, 430);
@@ -1798,7 +1802,7 @@ async function introFoe() {
     paint();
   } else if (def.kind === 'elite') {
     const p = foeAt();
-    floatAt(p.x, p.y - 60, '엘리트!', 'dmg big');
+    floatAt(p.x, p.y - 60, TR('엘리트!'), 'dmg big');
     sfx.haki?.();
   } else if (def.kind === 'special') {
     // 시공 광대: 화면이 지지직 깨지며 홀로그램 띠 — 정체는 알리지 않는다 (??? · 지도에 없던 적)
@@ -1838,7 +1842,7 @@ function showReward() {
   if (rw) tour('reward', 900);
   if (!rw) { R.phase = 'map'; return showMap(); }
   playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'run_map');
-  const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : rw.kind === 'special' ? '승리!' : '승리!';
+  const title = rw.kind === 'start' ? TR('출발 준비!') : rw.kind === 'treasure' ? TR('보물 상자!') : rw.kind === 'boss' ? TR('보스 토벌!') : rw.kind === 'elite' ? TR('엘리트 처치!') : rw.kind === 'special' ? TR('승리!') : TR('승리!');
   X.layer.innerHTML = '';
   const again = !!rw.cheered;
   X.app.innerHTML = `
@@ -1850,7 +1854,7 @@ function showReward() {
       <div class="rw-items">
         ${rw.items.map((it, k) => rewardRow(it, k)).join('')}
       </div>
-      <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? '다음 막으로' : rw.kind === 'start' ? '출발' : rw.kind === 'special' ? '가던 길로' : '지도로'}</button>
+      <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? TR('다음 막으로') : rw.kind === 'start' ? TR('출발') : rw.kind === 'special' ? TR('가던 길로') : TR('지도로')}</button>
     </div>
     ${heroStrip()}
   </div>`;
@@ -1866,24 +1870,24 @@ const autoTakes = it => !it.done && ((it.t === 'card' && it.fixed) || it.t === '
 function rewardRow(it, k) {
   const done = it.done ? ' done' : '';
   const full = it.t === 'potion' && !it.done && R.potions.length >= Run.POTION_SLOTS;
-  const tag = it.done ? '<em class="rw-tag ok">받음</em>' : full ? '<em class="rw-tag warn">물약 칸 가득</em>'
-    : ['card', 'relicPick'].includes(it.t) ? '<em class="rw-tag pick">고르기 ▸</em>' : ['gold', 'potion', 'stars', 'gems'].includes(it.t) ? '' : '<em class="rw-tag pick">받기</em>';
-  if (it.t === 'gold') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('coins')}<b>골드 ${it.n}</b>${tag}</button>`;
+  const tag = it.done ? `<em class="rw-tag ok">${TR('받음')}</em>` : full ? `<em class="rw-tag warn">${TR('물약 칸 가득')}</em>`
+    : ['card', 'relicPick'].includes(it.t) ? `<em class="rw-tag pick">${TR('고르기 ▸')}</em>` : ['gold', 'potion', 'stars', 'gems'].includes(it.t) ? '' : `<em class="rw-tag pick">${TR('받기')}</em>`;
+  if (it.t === 'gold') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('coins')}<b>${TR('골드 {0}', it.n)}</b>${tag}</button>`;
   if (it.t === 'potion') { const p = Run.potionInfo(it.id); return `<button class="rw${done}${full ? ' full' : ''}" data-act="run-take" data-k="${k}" style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<b>${p.ko}</b><small>${p.desc}</small>${tag}</button>`; }
   if (it.t === 'relic') { const r = Run.relicInfo(it.id); return `<button class="rw relic-row r${r.r}${done}" data-act="run-take" data-k="${k}">${relicIco(r)}<b>${r.ko}</b><small>${r.desc}</small>${tag}</button>`; }
-  if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>${it.kind === 'boss' ? '보스 유물' : '유물'}</b><small>${it.opts.length}개 중 1개</small>${tag}</button>`;
-  if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b>${tag}</button>`;
-  if (it.t === 'stars') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${starIco('')}<b>별조각 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
-  if (it.t === 'gems') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('gem')}<b>보석 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
-  if (it.t === 'card' && it.fixed) { const c = it.opts[0]; return `<button class="rw card-row future-row${done}" data-act="run-take" data-k="${k}">${ico('card')}<b>히든 족보 · ${esc(Run.FUTURE[c.cat]?.ko || Run.cardName(c))}</b><small>${esc(Run.FUTURE[c.cat]?.desc || '')}</small>${tag}</button>`; }
-  if (it.t === 'card' && it.future) return `<button class="rw card-row future-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
-  if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
+  if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>${it.kind === 'boss' ? TR('보스 유물') : TR('유물')}</b><small>${TR('{0}개 중 1개', it.opts.length)}</small>${tag}</button>`;
+  if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? TR('뒤집기') : TR('조정')} +${it.n}</b>${tag}</button>`;
+  if (it.t === 'stars') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${starIco('')}<b>${TR('별조각 {0}', it.n)}</b><small>${TR('원정이 끝나면 받는다')}</small>${tag}</button>`;
+  if (it.t === 'gems') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('gem')}<b>${TR('보석 {0}', it.n)}</b><small>${TR('원정이 끝나면 받는다')}</small>${tag}</button>`;
+  if (it.t === 'card' && it.fixed) { const c = it.opts[0]; return `<button class="rw card-row future-row${done}" data-act="run-take" data-k="${k}">${ico('card')}<b>${TR('히든 족보 · {0}', esc(Run.FUTURE[c.cat]?.ko || Run.cardName(c)))}</b><small>${esc(Run.FUTURE[c.cat]?.desc || '')}</small>${tag}</button>`; }
+  if (it.t === 'card' && it.future) return `<button class="rw card-row future-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>${TR('카드')}</b><small>${TR('{0}장 중 1장', it.opts.length)}</small>${tag}</button>`;
+  if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>${TR('카드')}</b><small>${TR('{0}장 중 1장', it.opts.length)}</small>${tag}</button>`;
   return '';
 }
 async function takeItem(k) {
   const it = R.reward.items[k];
   if (!it || it.done) return;
-  try { Run.takeReward(R, k); } catch (e) { return X.toast(ico('warn'), '받을 수 없어요', e.message, 1700); }
+  try { Run.takeReward(R, k); } catch (e) { return X.toast(ico('warn'), TR('받을 수 없어요'), e.message, 1700); }
   drain();
   const el = X.app.querySelector(`[data-act=run-take][data-k="${k}"]`);
   const p = center(el);
@@ -1900,17 +1904,17 @@ function cardPick(k) {
   ui.cardPick = k;
   sfx.card();
   X.layer.innerHTML = `<div class="overlay run-pick${it.future ? ' future-pick' : ''}" data-act="noop"><div class="pick-box">
-    ${it.future ? '' : '<h2>보상</h2>'}
+    ${it.future ? '' : `<h2>${TR('보상')}</h2>`}
     <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}</button>`).join('')}</div>
     ${it.future ? `<div class="fut-descs">${it.opts.map(c => `<p><b>${esc(Run.FUTURE[c.cat].ko)}</b> ${esc(Run.FUTURE[c.cat].desc)}</p>`).join('')}</div>` : ''}
-    <div class="pick-actions">${it.future ? '' : rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
+    <div class="pick-actions">${it.future ? '' : rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">${TR('내 덱 보기')}</button><button class="pbtn small" data-act="run-cardskip">${TR('건너뛰기')}</button></div>
   </div></div>`;  // 카드를 길게 누르면 설명 (누르면 바로 가져간다)
   X.layer.querySelectorAll('.pick-cards .rc').forEach((el, i) => longPress(el, () => X.popover(el, cardTip(it.opts[i]), { afterRelease: true })));
 }
 function cardTake(i) {
   const k = ui.cardPick;
   const el = X.layer.querySelector(`[data-act=run-cardtake][data-i="${i}"]`);
-  try { Run.takeReward(R, k, i); } catch (e) { return X.toast(ico('warn'), '받을 수 없어요', e.message, 1500); }
+  try { Run.takeReward(R, k, i); } catch (e) { return X.toast(ico('warn'), TR('받을 수 없어요'), e.message, 1500); }
   drain();
   sfx.legend();
   if (el) { el.classList.add('taken'); const p = center(el); FX().burst(p.x, p.y, { n: 40, pal: PALETTES.gold }); }
@@ -1919,16 +1923,16 @@ function cardTake(i) {
   setTimeout(() => { X.layer.innerHTML = ''; if (R.phase === 'reward') showReward(); }, 520);
 }
 // 새로고침 버튼 (남은 횟수가 없으면 회색)
-const rerollBtn = (act, n, k = '') => `<button class="pbtn small reroll-btn" data-act="${act}" ${k !== '' ? `data-k="${k}"` : ''} ${n > 0 ? '' : 'disabled'}>${ico('recycle', 'xs')} 새로고침 <b>${n}</b></button>`;
+const rerollBtn = (act, n, k = '') => `<button class="pbtn small reroll-btn" data-act="${act}" ${k !== '' ? `data-k="${k}"` : ''} ${n > 0 ? '' : 'disabled'}>${TR('{0} 새로고침', ico('recycle', 'xs'))} <b>${n}</b></button>`;
 function relicPick(k) {
   const it = R.reward.items[k];
   if (!it || it.done) return;
   ui.relicPick = k;
   sfx.legend();
   X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
-    <h2>${it.kind === 'boss' ? '보스 유물' : '유물'} 1개를 고르세요</h2>
+    <h2>${TR('{0} 1개를 고르세요', it.kind === 'boss' ? TR('보스 유물') : TR('유물'))}</h2>
     <div class="relic-picks n${it.opts.length}">${it.opts.map((id, i) => { const r = Run.relicInfo(id); return `<button class="relic-card r${r.r}" data-act="run-relictake" data-i="${i}">${relicIco(r, 'lg')}<b>${r.ko}</b><small>${r.desc}</small></button>`; }).join('')}</div>
-    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-relicskip">건너뛰기</button></div>
+    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-relicskip">${TR('건너뛰기')}</button></div>
   </div></div>`;
 }
 
@@ -1937,31 +1941,31 @@ function showShop() {
   playBgm('run_map');
   tour('shop');
   const sh = R.shop;
-  const price = (p, sold) => `<em class="price${!sold && R.gold < p ? ' poor' : ''}">${sold ? '판매됨' : `${ico('coins', 'xs')}${p}`}</em>`;
+  const price = (p, sold) => `<em class="price${!sold && R.gold < p ? ' poor' : ''}">${sold ? TR('판매됨') : `${ico('coins', 'xs')}${p}`}</em>`;
   // 진열대: 아이콘과 가격표만. 누르면 산다, 길게 누르면 설명
   const tips = [];
   const item = (attrs, icon, p, sold, tip, cls = '') => { tips.push(tip); return `<button class="shelf-item${cls}${sold ? ' sold' : ''}" ${attrs} data-ti="${tips.length - 1}" ${sold ? 'disabled' : ''}><span class="si-ico">${icon}</span>${price(p, sold)}</button>`; };
   const tipOf = (title, desc, sub = '') => `<b>${title}</b>${sub ? ` <small>${sub}</small>` : ''}<p>${desc}</p>`;
   const cards = sh.cards.map((it, i) => item(`data-act="run-buy" data-kind="card" data-i="${i}"`, `<div class="rc rc-static">${cardFace(it.c)}</div>`, it.price, it.sold, cardTip(it.c), ' card'));
-  const seals = (sh.seals || []).map((it, i) => { const sl = Run.sealInfo(it.id); return item(`data-act="run-buy" data-kind="seal" data-i="${i}" style="--sc:${sl.color}"`, `<i class="seal-big s-${it.id}">${sealIco(it.id, '')}</i>`, it.price, it.sold, tipOf(`${sealIco(it.id)} ${sl.ko}`, sl.desc, '카드에 붙이는 일회용 효과'), ' seal-row'); });
-  const relics = sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return item(`data-act="run-buy" data-kind="relic" data-i="${i}"`, relicIco(r, 'lg'), it.price, it.sold, tipOf(`${relicIco(r, 'xs')} ${r.ko}`, r.desc, ['', '일반', '희귀', '보스'][r.r]), ` si-relic r${r.r}`); });
-  const potions = sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return item(`data-act="run-buy" data-kind="potion" data-i="${i}" style="--pc:${p.color}"`, runIco('potion', p.id, p.icon, 'lg'), it.price, it.sold, tipOf(p.ko, p.desc, '물약')); });
-  const tools = sh.tools.map((it, i) => item(`data-act="run-buy" data-kind="tool" data-i="${i}"`, ico(it.kind, 'lg'), it.price, it.sold, tipOf(`${it.kind === 'flip' ? '뒤집기' : '조정'} +1`, `${it.kind === 'flip' ? '주사위 1개를 반대 면으로' : '주사위 1개를 ±1'} (최대 ${Run.TOOL_CAP})`)));
-  const smith = item(`data-act="run-shopsmith"${!sh.smithed && !R.deck.some(Run.canUpgrade) ? ' disabled' : ''}`, runIco('ui', 'smith', 'axe', 'lg'), Run.smithPrice(R), sh.smithed, tipOf('대장장이', `카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 ${Run.KW_MAX}개)`));
-  const remove = item('data-act="run-remove"', ico('skull', 'lg'), Run.removePrice(R), sh.removed, tipOf('카드 제거', '덱에서 카드 1장을 없앤다'));
+  const seals = (sh.seals || []).map((it, i) => { const sl = Run.sealInfo(it.id); return item(`data-act="run-buy" data-kind="seal" data-i="${i}" style="--sc:${sl.color}"`, `<i class="seal-big s-${it.id}">${sealIco(it.id, '')}</i>`, it.price, it.sold, tipOf(`${sealIco(it.id)} ${sl.ko}`, sl.desc, TR('카드에 붙이는 일회용 효과')), ' seal-row'); });
+  const relics = sh.relics.map((it, i) => { const r = Run.relicInfo(it.id); return item(`data-act="run-buy" data-kind="relic" data-i="${i}"`, relicIco(r, 'lg'), it.price, it.sold, tipOf(`${relicIco(r, 'xs')} ${r.ko}`, r.desc, ['', TR('일반'), TR('희귀'), TR('보스')][r.r]), ` si-relic r${r.r}`); });
+  const potions = sh.potions.map((it, i) => { const p = Run.potionInfo(it.id); return item(`data-act="run-buy" data-kind="potion" data-i="${i}" style="--pc:${p.color}"`, runIco('potion', p.id, p.icon, 'lg'), it.price, it.sold, tipOf(p.ko, p.desc, TR('물약'))); });
+  const tools = sh.tools.map((it, i) => item(`data-act="run-buy" data-kind="tool" data-i="${i}"`, ico(it.kind, 'lg'), it.price, it.sold, tipOf(`${it.kind === 'flip' ? TR('뒤집기') : TR('조정')} +1`, TR('{0} (최대 {1})', it.kind === 'flip' ? TR('주사위 1개를 반대 면으로') : TR('주사위 1개를 ±1'), Run.TOOL_CAP))));
+  const smith = item(`data-act="run-shopsmith"${!sh.smithed && !R.deck.some(Run.canUpgrade) ? ' disabled' : ''}`, runIco('ui', 'smith', 'axe', 'lg'), Run.smithPrice(R), sh.smithed, tipOf(TR('대장장이'), TR('카드 1장 강화 (점수 +30% 또는 효과 새기기, 최대 {0}개)', Run.KW_MAX)));
+  const remove = item('data-act="run-remove"', ico('skull', 'lg'), Run.removePrice(R), sh.removed, tipOf(TR('카드 제거'), TR('덱에서 카드 1장을 없앤다')));
   const shelf = (list, cls = '') => (list.length ? `<div class="shelf${cls}"><div class="shelf-row">${list.join('')}</div><i class="shelf-plank" aria-hidden="true"></i></div>` : '');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-shop${R.cls === 'monk' ? ' ascetic' : ''}">
     ${hud()}
-    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>떠돌이 상점</b></div>${rerollBtn('run-reshop', Run.rrOf(R).shop)}</div>
-    ${R.cls === 'monk' ? `<p class="ascetic-note">${ico('lotus', 'xs')} 금욕: 수도승은 상점을 쓸 수 없어요. 구경만 하고 지나가요</p>` : ''}
+    <div class="shop-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene sm" src="${sceneURL('shop')}" alt=""><div><b>${TR('떠돌이 상점')}</b></div>${rerollBtn('run-reshop', Run.rrOf(R).shop)}</div>
+    ${R.cls === 'monk' ? `<p class="ascetic-note">${TR('{0} 금욕: 수도승은 상점을 쓸 수 없어요. 구경만 하고 지나가요', ico('lotus', 'xs'))}</p>` : ''}
     <div class="shop-scroll shop-stall">
       ${shelf(cards, ' cards')}
       ${shelf([...seals, ...relics])}
       ${shelf([...potions, ...tools, smith, remove])}
     </div>
-    <button class="pbtn gold" data-act="run-shopleave">상점 나가기</button>
+    <button class="pbtn gold" data-act="run-shopleave">${TR('상점 나가기')}</button>
     ${heroStrip()}
   </div>`;
   ui.shopTips = tips;
@@ -1976,10 +1980,10 @@ function showRest() {
   X.app.innerHTML = `
   <div class="screen run-rest">
     ${hud()}
-    <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>모닥불</b></div>
+    <div class="camp"><div class="campfire" id="campfire"><img class="run-scene" src="${sceneURL('rest')}" alt=""></div><b>${TR('모닥불')}</b></div>
     <div class="rest-opts">
-      <button class="pbtn big rest-btn" data-act="run-rest">${ico('heart')}<span>휴식<small>체력 ${Run.restAmount(R)} 회복</small></span></button>
-      <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(Run.canUpgrade) ? '' : 'disabled'}>${runIco('ui', 'smith', 'axe')}<span>단련<small>카드 1장 강화 (+30% 또는 효과)</small></span></button>
+      <button class="pbtn big rest-btn" data-act="run-rest">${ico('heart')}<span>${TR('휴식')}<small>${TR('체력 {0} 회복', Run.restAmount(R))}</small></span></button>
+      <button class="pbtn big rest-btn" data-act="run-smith" ${R.deck.some(Run.canUpgrade) ? '' : 'disabled'}>${runIco('ui', 'smith', 'axe')}<span>${TR('단련')}<small>${TR('카드 1장 강화 (+30% 또는 효과)')}</small></span></button>
     </div>
     ${heroStrip()}
   </div>`;
@@ -2003,11 +2007,11 @@ function showEvent(rolled = false) {
       <p class="ev-text">${esc(ev.text)}</p>
       ${R.event.dice ? `<div class="ev-dice${ui.evRoll ? ' rolling' : rolled ? ' settled' : ''}">${R.event.dice.map(v => `<i class="dd-die" data-v="${v}">${miniDie(ui.evRoll ? 1 + Math.floor(Math.random() * 6) : v)}</i>`).join('')}</div>` : ''}
       ${R.event.yacht && res == null ? yachtView(R.event.yacht)
-        : ui.evRoll ? '<p class="ev-result wait">주사위를 굴린다…</p>'
-        : res != null ? `<p class="ev-result">${esc(res)}</p><button class="pbtn gold" data-act="run-evleave">계속</button>`
+        : ui.evRoll ? `<p class="ev-result wait">${TR('주사위를 굴린다…')}</p>`
+        : res != null ? `<p class="ev-result">${esc(res)}</p><button class="pbtn gold" data-act="run-evleave">${TR('계속')}</button>`
         : `<div class="ev-opts">${ev.opts.map((o, k) => { const ok = o.can(R); const d = typeof o.desc === 'function' ? o.desc(R) : o.desc; return `<button class="pbtn ev-opt" data-act="run-evopt" data-k="${k}" ${ok ? '' : 'disabled'}><span>${esc(o.ko)}</span><small>${esc(d)}</small></button>`; }).join('')}</div>`}
     </div>
-    ${ui.evRoll ? '' : `<button class="peek-btn" data-act="run-peekmap">${ico('scroll', 'xs')} 지도 잠깐 보기</button>`}
+    ${ui.evRoll ? '' : `<button class="peek-btn" data-act="run-peekmap">${TR('{0} 지도 잠깐 보기', ico('scroll', 'xs'))}</button>`}
     ${heroStrip()}
   </div>`;
   if (R.pick?.why === 'face') { if (ui.carveIntro) showCarveResult(); else showCarve(); }
@@ -2016,16 +2020,16 @@ function showEvent(rolled = false) {
 function showCarveResult() {
   const y = R.event.yacht, done = y?.done;
   if (!done) { ui.carveIntro = false; return showCarve(); }
-  const steps = [...Run.CARVE_STEPS.map(([max, n]) => ({ n, ko: `${max}점 이하` })), { n: 4, ko: '요트' }];
+  const steps = [...Run.CARVE_STEPS.map(([max, n]) => ({ n, ko: TR('{0}점 이하', max) })), { n: 4, ko: TR('요트') }];
   const yacht = done.cat === 'yacht';
   X.layer.innerHTML = `<div class="overlay run-carveres" data-act="noop"><div class="carve-res${yacht ? ' yacht' : ''}">
-    <p class="cr-tag">${ico('axe', 'xs')} 굴림 끝!</p>
+    <p class="cr-tag">${TR('{0} 굴림 끝!', ico('axe', 'xs'))}</p>
     <div class="cr-dice">${y.dice.map((v, i) => `<i style="--i:${i}">${miniDie(v)}</i>`).join('')}</div>
     <p class="cr-cat">${esc(Run.cardTitle(done.cat))}</p>
-    <p class="cr-score"><b id="cr-n">0</b><small>점</small></p>
-    <div class="cr-ladder">${steps.map(st => `<div class="cr-step${st.n === done.n ? ' hit' : st.n < done.n ? ' past' : ''}"><span class="cr-pips">${'◆'.repeat(st.n)}</span><b>${st.n}면</b><small>${st.ko}</small></div>`).join('')}</div>
-    <p class="cr-sum">깎기 <b>${done.n}</b> / 4 면${done.n === 4 ? ' — 최대!' : ''}</p>
-    <button class="pbtn gold" data-act="run-carvego">${ico('axe', 'xs')} 면 깎으러 가기</button>
+    <p class="cr-score"><b id="cr-n">0</b><small>${TR('점')}</small></p>
+    <div class="cr-ladder">${steps.map(st => `<div class="cr-step${st.n === done.n ? ' hit' : st.n < done.n ? ' past' : ''}"><span class="cr-pips">${'◆'.repeat(st.n)}</span><b>${TR('{0}면', st.n)}</b><small>${st.ko}</small></div>`).join('')}</div>
+    <p class="cr-sum">${TR('깎기')} <b>${done.n}</b> ${TR('/ 4 면{0}', done.n === 4 ? ` ${TR('— 최대!')}` : '')}</p>
+    <button class="pbtn gold" data-act="run-carvego">${TR('{0} 면 깎으러 가기', ico('axe', 'xs'))}</button>
   </div></div>`;
   sfx.select();
   // 점수가 0 에서 올라가며 세어진다
@@ -2038,19 +2042,19 @@ function yachtView(y) {
   const done = y.done;
   return `<div class="ev-yacht">
     <div class="ev-dice yacht${ui.yRoll ? ' rolling' : ''}">${y.dice.map((v, i) => `<button class="dd-die${y.held[i] ? ' held' : ''}" data-act="run-yhold" data-i="${i}" ${y.rolls === 3 || done ? 'disabled' : ''}>${v ? miniDie(ui.yRoll && !y.held[i] ? 1 + Math.floor(Math.random() * 6) : v) : '<span class="md q">?</span>'}</button>`).join('')}</div>
-    ${done ? `<p class="ev-result">${esc(Run.cardTitle(done.cat))} ${done.score}점 → 주사위 면 <b>${done.n}</b>개 깎기</p>`
-      : `<p class="ev-carve-rule">10점 이하 1면 · 20점 이하 2면 · 30점 이하 3면 · 요트 4면</p>
-      <div class="ev-opts"><button class="pbtn gold" data-act="run-yroll" ${ui.yRoll ? 'disabled' : ''}>굴리기 <small>남은 ${y.rolls}번</small></button>${y.rolls < 3 ? '<button class="pbtn" data-act="run-ystop">여기서 멈추기</button>' : ''}</div>`}
+    ${done ? `<p class="ev-result">${TR('{0} {1}점 → 주사위 면', esc(Run.cardTitle(done.cat)), done.score)} <b>${done.n}</b>${TR('개 깎기')}</p>`
+      : `<p class="ev-carve-rule">${TR('10점 이하 1면 · 20점 이하 2면 · 30점 이하 3면 · 요트 4면')}</p>
+      <div class="ev-opts"><button class="pbtn gold" data-act="run-yroll" ${ui.yRoll ? 'disabled' : ''}>${TR('굴리기')} <small>${TR('남은 {0}번', y.rolls)}</small></button>${y.rolls < 3 ? `<button class="pbtn" data-act="run-ystop">${TR('여기서 멈추기')}</button>` : ''}</div>`}
   </div>`;
 }
 // 주사위 면 깎기: 주사위를 고르고 → 바꿀 면 → 새 눈
 function showCarve() {
   const pk = R.pick, sel = ui.carve;
   X.layer.innerHTML = `<div class="overlay run-carve" data-act="noop"><div class="deck-box">
-    <h2>${ico('axe')} 주사위 면 깎기 <small>남은 ${pk.left}면</small></h2>
+    <h2>${TR('{0} 주사위 면 깎기', ico('axe'))} <small>${TR('남은 {0}면', pk.left)}</small></h2>
     <div class="carve-dice">${[0, 1, 2, 3, 4].map(i => `<div class="carve-row"><b>${i + 1}</b>${Run.facesOf(R, i).map((v, f) => `<button class="cface${sel?.i === i && sel?.f === f ? ' on' : ''}${Run.facesOf(R, i) !== Run.DIE_FACES && v !== f + 1 ? ' carved' : ''}" data-act="run-cface" data-i="${i}" data-f="${f}">${miniDie(v)}</button>`).join('')}</div>`).join('')}</div>
-    ${sel ? `<p class="hint">${sel.i + 1}번 주사위의 「${Run.facesOf(R, sel.i)[sel.f]}」 면을 → </p><div class="carve-vals">${[1, 2, 3, 4, 5, 6].map(v => `<button class="cface val" data-act="run-cval" data-v="${v}" ${v === Run.facesOf(R, sel.i)[sel.f] ? 'disabled' : ''}>${miniDie(v)}</button>`).join('')}</div>` : ''}
-    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">그만두기</button></div>
+    ${sel ? `<p class="hint">${TR('{0}번 주사위의 「{1}」 면을 →', sel.i + 1, Run.facesOf(R, sel.i)[sel.f])} </p><div class="carve-vals">${[1, 2, 3, 4, 5, 6].map(v => `<button class="cface val" data-act="run-cval" data-v="${v}" ${v === Run.facesOf(R, sel.i)[sel.f] ? 'disabled' : ''}>${miniDie(v)}</button>`).join('')}</div>` : ''}
+    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">${TR('그만두기')}</button></div>
   </div></div>`;
 }
 // 이벤트 주사위: 일일 보상처럼 다 같이 흔들리다가 앞에서부터 하나씩 멈춘다. 결과(체력 · 골드)는 다 멈춘 뒤에 보인다
@@ -2075,11 +2079,11 @@ async function rollEventDice(before) {
   if (R.phase === 'lost') return showEnd();
   showEvent(true);
   // 주사위로 골드를 땄으면(고블린 도박사 · 신전): 주사위 · 출정 채비를 샀을 때처럼 가운데에 크게 「골드 획득!」
-  const net = R.gold - before.gold, got = Number(/(\d+)\s*골드를 받았다/.exec(R.event?.result || '')?.[1]) || net;   // 받은 골드 (건 돈을 빼기 전, 결과 문구와 같게)
+  const net = R.gold - before.gold, got = R.event?.won || net;   // 받은 골드 (건 돈을 빼기 전, 결과 문구와 같게)
   const won = net > 0 ? got : 0;
   if (won > 0) {
     sfx.coin(); FX().coins(center(X.app.querySelector('.ev-dice')), center($('r-gold')), 14);
-    bigReveal({ cls: 'k-gold', art: `<span class="uf-gold">${ico('coins')}</span>`, small: '골드 획득!', name: `+${won} 골드`, sub: `가진 골드 ${R.gold}` });
+    bigReveal({ cls: 'k-gold', art: `<span class="uf-gold">${ico('coins')}</span>`, small: TR('골드 획득!'), name: TR('+{0} 골드', won), sub: TR('가진 골드 {0}', R.gold) });
   }
 }
 
@@ -2088,15 +2092,15 @@ function showPick() {
   const pk = R.pick;
   if (pk.why === 'face') return showCarve();
   if (pk.opts) return showUpgrade();
-  const title = { upgrade: '강화', remove: '제거', dup: '복제', seal: `${Run.sealInfo(pk.seal)?.ko}` }[pk.why];
+  const title = { upgrade: TR('강화'), remove: TR('제거'), dup: TR('복제'), seal: `${Run.sealInfo(pk.seal)?.ko}` }[pk.why];
   const list = Run.deckCards(R).filter(c => (pk.why === 'upgrade' ? Run.canUpgrade(c) : pk.why === 'seal' ? !c.seal : true));
   const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
     <h2>${title}</h2>
-    ${pk.why === 'seal' ? sealNotice(pk) : pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : pk.hp ? `<p class="hint">체력 ${pk.hp}을 잃어요</p>` : ''}
+    ${pk.why === 'seal' ? sealNotice(pk) : pk.cost ? `<p class="hint">${TR('{0} {1} 골드', ico('coins', 'xs'), pk.cost)}</p>` : pk.hp ? `<p class="hint">${TR('체력 {0}을 잃어요', pk.hp)}</p>` : ''}
     <div class="deck-grid">${list.map(c => `<button class="rc rc-static mini${ui.pickU === c.u ? ' on' : ''}" data-act="run-pickcard" data-u="${c.u}">${cardFace(c)}</button>`).join('')}</div>
     ${sel ? `<div class="pick-prev"><div class="rc rc-static">${cardFace(sel)}</div></div>` : ''}
-    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: '다음', remove: '제거', dup: '복제', seal: '붙이기' }[pk.why]}</button></div>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">${TR('취소')}</button><button class="pbtn small gold" data-act="run-pickok" ${sel ? '' : 'disabled'}>${{ upgrade: TR('다음'), remove: TR('제거'), dup: TR('복제'), seal: TR('붙이기') }[pk.why]}</button></div>
   </div></div>`;
 }
 // 인장을 붙일 카드 고르기 안내: 어떤 인장을 · 어떤 카드에 붙이는지
@@ -2104,95 +2108,106 @@ function sealNotice(pk) {
   const sl = Run.sealInfo(pk.seal);
   const sel = ui.pickU != null ? R.deck.find(c => c.u === ui.pickU) : null;
   return `<div class="seal-notice" style="--sc:${sl.color}"><i class="sn-ico">${sealIco(pk.seal, '')}</i>
-    <span><i class="sn-line"><b>${sl.ko}</b>을 붙일 카드를 고르세요</i><small>${sl.desc}${pk.cost ? ` · ${ico('coins', 'xs')}${pk.cost}` : ''}</small>
-    ${sel ? `<em>→ <b>${esc(Run.cardName(sel))}</b> 에 붙여요</em>` : '<em>인장이 없는 카드만 고를 수 있어요</em>'}</span></div>`;
+    <span><i class="sn-line"><b>${sl.ko}</b>${TR('을 붙일 카드를 고르세요')}</i><small>${sl.desc}${pk.cost ? ` · ${ico('coins', 'xs')}${pk.cost}` : ''}</small>
+    ${sel ? `<em>→ <b>${esc(Run.cardName(sel))}</b> ${TR('에 붙여요')}</em>` : `<em>${TR('인장이 없는 카드만 고를 수 있어요')}</em>`}</span></div>`;
 }
 // 강화 고르기: 점수 +30% 또는 새 효과 (3개 중 1개). 고르면 바뀐 카드를 미리 보여 준다
 function showUpgrade() {
   const pk = R.pick, c = R.deck.find(x => x.u === pk.u);
   const after = o => (o === 'up' ? { ...c, up: 1 } : { ...c, kws: [...Run.kwsOf(c), o] });
   X.layer.innerHTML = `<div class="overlay run-deckpick" data-act="noop"><div class="deck-box">
-    <div class="up-head"><img class="run-scene" src="${sceneURL('smith')}" alt=""><h2>강화</h2></div>
-    ${pk.cost ? `<p class="hint">${ico('coins', 'xs')} ${pk.cost} 골드</p>` : ''}
+    <div class="up-head"><img class="run-scene" src="${sceneURL('smith')}" alt=""><h2>${TR('강화')}</h2></div>
+    ${pk.cost ? `<p class="hint">${TR('{0} {1} 골드', ico('coins', 'xs'), pk.cost)}</p>` : ''}
     <div class="up-opts">${pk.opts.map((o, k) => {
       const kw = o !== 'up' && Run.KEYWORDS[o];
       return `<button class="up-opt" data-act="run-upopt" data-k="${k}"><div class="rc rc-static mini">${cardFace(after(o))}</div>
-        <span><b>${o === 'up' ? `${ico('up', 'xs')} 점수 +30%` : `${runIco('kw', o, kw.icon, 'xs')} ${kw.ko}`}</b><small>${o === 'up' ? '이 카드의 점수가 늘 30% 더 나온다' : kw.desc}</small></span></button>`;
+        <span><b>${o === 'up' ? TR('{0} 점수 +30%', ico('up', 'xs')) : `${runIco('kw', o, kw.icon, 'xs')} ${kw.ko}`}</b><small>${o === 'up' ? TR('이 카드의 점수가 늘 30% 더 나온다') : kw.desc}</small></span></button>`;
     }).join('')}</div>
-    <p class="hint">효과 ${Run.kwsOf(c).length}/${Run.KW_MAX}${c.up ? ' · 점수 강화 완료' : ''}</p>
-    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">취소</button></div>
+    <p class="hint">${TR('효과 {0}/{1}{2}', Run.kwsOf(c).length, Run.KW_MAX, c.up ? ` ${TR('· 점수 강화 완료')}` : '')}</p>
+    <div class="pick-actions"><button class="pbtn small" data-act="run-pickcancel">${TR('취소')}</button></div>
   </div></div>`;
 }
 function showDeck() {
   const C = R.phase === 'combat' ? R.C : null;
-  const sec = (title, cards) => `<h3>${title} <small>${cards.length}장</small></h3><div class="deck-grid">${cards.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('') || '<p class="dim">없음</p>'}</div>`;
+  const sec = (title, cards) => `<h3>${title} <small>${TR('{0}장', cards.length)}</small></h3><div class="deck-grid">${cards.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('') || `<p class="dim">${TR('없음')}</p>`}</div>`;
   X.layer.innerHTML = `<div class="overlay run-deckview" data-act="close-bg"><div class="deck-box" data-act="noop">
+<<<<<<< HEAD
     <h2>${runIco('ui', 'deck', 'card')} 내 덱 ${R.deck.length}장</h2>
     ${C ? sec('뽑을 카드', C.draw.slice().sort((a, b) => a.cat.localeCompare(b.cat))) + sec('버린 카드', C.discard) : sec('전체', Run.deckCards(R))}
     ${Object.keys(R.dfaces || {}).length ? `<h3>깎은 주사위</h3><div class="carve-dice">${Object.keys(R.dfaces).map(i => `<div class="carve-row"><b>${Number(i) + 1}</b>${Run.facesOf(R, Number(i)).map(v => `<span class="cface">${miniDie(v)}</span>`).join('')}</div>`).join('')}</div>` : ''}
     <div class="pick-actions"><button class="pbtn small" data-act="close">닫기</button></div>
+=======
+    <h2>${TR('{0} 내 덱 {1}장', runIco('ui', 'deck', 'card'), R.deck.length)}</h2>
+    ${C ? sec(TR('뽑을 카드'), C.draw.slice().sort((a, b) => a.cat.localeCompare(b.cat))) + sec(TR('버린 카드'), C.discard) : sec(TR('전체'), Run.deckCards(R))}
+    ${Object.keys(R.dfaces || {}).length ? `<h3>${TR('깎은 주사위')}</h3><div class="carve-dice">${Object.keys(R.dfaces).map(i => `<div class="carve-row"><b>${Number(i) + 1}</b>${Run.facesOf(R, Number(i)).map(v => `<span class="cface">${miniDie(v)}</span>`).join('')}</div>`).join('')}</div>` : ''}
+    <div class="pick-actions"><button class="pbtn small gold" data-act="close">${TR('닫기')}</button></div>
+>>>>>>> origin/main
   </div></div>`;
 }
 
 // ── 시험 원정 샌드박스 (테스트판 전용 · 정식 출시 전에 시험 원정 버튼과 함께 지울 것) ──
 // 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 바꾸고, 손패 카드의 점수 계산을 줄줄이 본다.
-const SB_TABS = [['score', '점수'], ['relic', '유물'], ['card', '카드'], ['item', '소모품'], ['foe', '적'], ['event', '이벤트'], ['omen', '징조']];
+const SB_TABS = [['score', TR('점수')], ['relic', TR('유물')], ['card', TR('카드')], ['item', TR('소모품')], ['foe', TR('적')], ['event', TR('이벤트')], ['omen', TR('징조')]];
 const sbState = () => (ui.sb ||= { tab: R.phase === 'combat' ? 'score' : 'relic', cat: 'ones', up: 0, kws: [], seal: '' });
 function showSandbox() {
   const sb = sbState(), C = R.phase === 'combat' && R.C?.phase === 'roll' ? R.C : null;
   const chip = (act, v, on, label, extra = '') => `<button class="sb-chip${on ? ' on' : ''}" data-act="${act}" data-v="${v}"${extra}>${label}</button>`;
   let body = '';
   if (sb.tab === 'score') {
-    if (!C) body = '<p class="dim">전투 중에만 볼 수 있어요. 「적」 탭에서 싸울 적을 고르세요.</p>';
+    if (!C) body = `<p class="dim">${TR('전투 중에만 볼 수 있어요. 「적」 탭에서 싸울 적을 고르세요.')}</p>`;
     else {
       const dice = C.rolled ? C.dice : [];
-      body = `<h3>주사위 <small>${C.rolled ? '눈을 눌러 바꾸기' : '먼저 굴려 주세요'}</small></h3>
+      body = `<h3>${TR('주사위')} <small>${C.rolled ? TR('눈을 눌러 바꾸기') : TR('먼저 굴려 주세요')}</small></h3>
         <div class="sb-dice">${dice.map((v, i) => `<button class="sb-die" data-act="run-sbdie" data-i="${i}">${miniDie(v)}<b>${v}</b></button>`).join('')}</div>
-        <div class="sb-row">${chip('run-sbx', 'rolls', false, '굴림 +1')}${chip('run-sbx', 'hex', false, '방해 · 약화 풀기')}${chip('run-sbx', 'foe999', false, '적 체력 999')}${chip('run-sbx', 'foe1', false, '적 체력 1')}</div>
-        <h3>손패 점수 계산</h3>
+        <div class="sb-row">${chip('run-sbx', 'rolls', false, TR('굴림 +1'))}${chip('run-sbx', 'hex', false, TR('방해 · 약화 풀기'))}${chip('run-sbx', 'foe999', false, TR('적 체력 999'))}${chip('run-sbx', 'foe1', false, TR('적 체력 1'))}</div>
+        <h3>${TR('손패 점수 계산')}</h3>
         ${C.hand.map((c, hi) => {
-          if (!C.rolled) return `<div class="sb-score"><b>${esc(Run.cardName(c))}</b><span class="dim">굴린 뒤에 계산</span></div>`;
+          if (!C.rolled) return `<div class="sb-score"><b>${esc(Run.cardName(c))}</b><span class="dim">${TR('굴린 뒤에 계산')}</span></div>`;
           const sc = Run.scoreCard(R, c), a = Run.preview(R, hi, 'enemy', sc), d = Run.preview(R, hi, 'self', sc);
           return `<div class="sb-score"><b>${esc(Run.cardName(c))}${c.seal ? ` ${sealIco(c.seal)}` : ''}</b>
-            <ol><li>기본 점수 <em>${sc.base}</em></li>${sc.parts.map(p => `<li class="${p.mul ? 'mul' : ''}">${esc(p.ko)} <em>${p.amt > 0 ? '+' : ''}${p.amt}</em>${p.mul ? ' <small>곱</small>' : ''}</li>`).join('')}${sc.notes.map(n => `<li class="note">${esc(n)}</li>`).join('')}</ol>
-            <p class="sb-tot">= <b>${sc.total}</b> · ${ico('sword', 'xs')}피해 ${a.dmg}${a.gold ? ` · ${ico('coins', 'xs')}${a.gold}` : ''} · ${ico('shield', 'xs')}전부 방어 ${d.block}</p></div>`;
+            <ol><li>${TR('기본 점수')} <em>${sc.base}</em></li>${sc.parts.map(p => `<li class="${p.mul ? 'mul' : ''}">${esc(p.ko)} <em>${p.amt > 0 ? '+' : ''}${p.amt}</em>${p.mul ? ` <small>${TR('곱')}</small>` : ''}</li>`).join('')}${sc.notes.map(n => `<li class="note">${esc(n)}</li>`).join('')}</ol>
+            <p class="sb-tot">= <b>${sc.total}</b> ${TR('· {0}피해 {1}{2} · {3}전부 방어 {4}', ico('sword', 'xs'), a.dmg, a.gold ? ` · ${ico('coins', 'xs')}${a.gold}` : '', ico('shield', 'xs'), d.block)}</p></div>`;
         }).join('')}`;
     }
   } else if (sb.tab === 'relic') {
-    const grp = [[1, '일반'], [2, '희귀'], [3, '보스']];
-    body = `<p class="dim">눌러서 넣고 빼기 · 가진 유물 ${R.relics.length}개</p>${grp.map(([r, ko]) => `<h3>${ko}</h3><div class="sb-grid">${Run.RELICS.filter(x => x.r === r).map(x => `<button class="sb-relic${Run.hasRelic(R, x.id) ? ' on' : ''}" data-act="run-sbrelic" data-v="${x.id}" title="${esc(x.desc)}">${relicIco(x, 'xs')}<span>${esc(x.ko)}</span></button>`).join('')}</div>`).join('')}`;
+    const grp = [[1, TR('일반')], [2, TR('희귀')], [3, TR('보스')]];
+    body = `<p class="dim">${TR('눌러서 넣고 빼기 · 가진 유물 {0}개', R.relics.length)}</p>${grp.map(([r, ko]) => `<h3>${ko}</h3><div class="sb-grid">${Run.RELICS.filter(x => x.r === r).map(x => `<button class="sb-relic${Run.hasRelic(R, x.id) ? ' on' : ''}" data-act="run-sbrelic" data-v="${x.id}" title="${esc(x.desc)}">${relicIco(x, 'xs')}<span>${esc(x.ko)}</span></button>`).join('')}</div>`).join('')}`;
   } else if (sb.tab === 'card') {
     const preview = { u: -7, cat: sb.cat, up: sb.up, kws: sb.kws, seal: sb.seal || null };
-    body = `<h3>족보</h3><div class="sb-row">${[...Run.SAME_CATS_ALL, ...Run.FUTURE_CATS].map(c => chip('run-sbcat', c, sb.cat === c, esc(Run.cardTitle(c)))).join('')}</div>
-      <h3>효과 <small>3개까지</small></h3><div class="sb-row">${Run.KW_IDS.map(k => chip('run-sbkw', k, sb.kws.includes(k), `${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')}${Run.KEYWORDS[k].ko}`)).join('')}</div>
-      <h3>강화 · 인장</h3><div class="sb-row">${chip('run-sbup', 1, sb.up, '강화 +')}${chip('run-sbseal', '', !sb.seal, '인장 없음')}${Run.SEAL_IDS.map(id => chip('run-sbseal', id, sb.seal === id, `${sealIco(id)}${Run.sealInfo(id).ko}`)).join('')}</div>
+    body = `<h3>${TR('족보')}</h3><div class="sb-row">${[...Run.SAME_CATS_ALL, ...Run.FUTURE_CATS].map(c => chip('run-sbcat', c, sb.cat === c, esc(Run.cardTitle(c)))).join('')}</div>
+      <h3>${TR('효과')} <small>${TR('3개까지')}</small></h3><div class="sb-row">${Run.KW_IDS.map(k => chip('run-sbkw', k, sb.kws.includes(k), `${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')}${Run.KEYWORDS[k].ko}`)).join('')}</div>
+      <h3>${TR('강화 · 인장')}</h3><div class="sb-row">${chip('run-sbup', 1, sb.up, TR('강화 +'))}${chip('run-sbseal', '', !sb.seal, TR('인장 없음'))}${Run.SEAL_IDS.map(id => chip('run-sbseal', id, sb.seal === id, `${sealIco(id)}${Run.sealInfo(id).ko}`)).join('')}</div>
       <div class="sb-make"><div class="rc rc-static">${cardFace(preview)}</div><div class="sb-col">
-        <button class="pbtn small gold" data-act="run-sbadd" data-v="deck">덱에 넣기</button>
-        ${C ? '<button class="pbtn small" data-act="run-sbadd" data-v="hand">손패에 바로 넣기</button>' : ''}</div></div>
-      <h3>내 덱 <small>${R.deck.length}장 · 눌러서 빼기</small></h3>
+        <button class="pbtn small gold" data-act="run-sbadd" data-v="deck">${TR('덱에 넣기')}</button>
+        ${C ? `<button class="pbtn small" data-act="run-sbadd" data-v="hand">${TR('손패에 바로 넣기')}</button>` : ''}</div></div>
+      <h3>${TR('내 덱')} <small>${TR('{0}장 · 눌러서 빼기', R.deck.length)}</small></h3>
       <div class="deck-grid">${Run.deckCards(R).map(c => `<button class="rc rc-static mini sb-del" data-act="run-sbdel" data-v="${c.u}">${cardFace(c)}</button>`).join('')}</div>`;
   } else if (sb.tab === 'item') {
-    body = `<h3>물약 <small>${R.potions.length}/${Run.POTION_SLOTS}</small></h3><div class="sb-row">${Run.POTIONS.map(p => chip('run-sbpot', p.id, false, `${runIco('potion', p.id, p.icon, 'xs')}${p.ko}`)).join('')}${chip('run-sbx', 'nopot', false, '물약 비우기')}</div>
-      <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}${chip('run-sbx', 'rrshop', false, `${ico('recycle', 'xs')}상점 새로고침 +1 (${Run.rrOf(R).shop})`)}${chip('run-sbx', 'rrpick', false, `${ico('recycle', 'xs')}카드 · 유물 새로고침 +1 (${Run.rrOf(R).pick})`)}</div>
-      <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
+    body = `<h3>${TR('물약')} <small>${R.potions.length}/${Run.POTION_SLOTS}</small></h3><div class="sb-row">${Run.POTIONS.map(p => chip('run-sbpot', p.id, false, `${runIco('potion', p.id, p.icon, 'xs')}${p.ko}`)).join('')}${chip('run-sbx', 'nopot', false, TR('물약 비우기'))}</div>
+      <h3>${TR('자원')}</h3><div class="sb-row">${chip('run-sbx', 'gold', false, TR('{0}골드 +100', ico('coins', 'xs')))}${chip('run-sbx', 'flip', false, TR('{0}뒤집기 +1', ico('flip', 'xs')))}${chip('run-sbx', 'nudge', false, TR('{0}조정 +1', ico('nudge', 'xs')))}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, TR('춤사위 +1')) : ''}${chip('run-sbx', 'hp', false, TR('{0}체력 가득', ico('heart', 'xs')))}${chip('run-sbx', 'maxhp', false, TR('최대 체력 +10'))}${chip('run-sbx', 'rrshop', false, TR('{0}상점 새로고침 +1 ({1})', ico('recycle', 'xs'), Run.rrOf(R).shop))}${chip('run-sbx', 'rrpick', false, TR('{0}카드 · 유물 새로고침 +1 ({1})', ico('recycle', 'xs'), Run.rrOf(R).pick))}</div>
+      <h3>${TR('무적')}</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? TR('무적 켜짐 (체력 1 아래로 안 내려감)') : TR('무적 끄기 상태 · 눌러서 켜기'))}</div>`;
   } else if (sb.tab === 'foe') {
     prefetchBgm('boss_jester');   // 히든 보스 곡 (고르기 전에 받아 둔다)
-    const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스'], ['special', '히든 보스']];
-    body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
-      <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
-      ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act ? `${e.act}막` : "1 · 2막"}</small></button>`).join('')}</div>`).join('')}`;
+    const kinds = [['normal', TR('일반')], ['elite', TR('엘리트')], ['boss', TR('보스')], ['special', TR('히든 보스')]];
+    body = `<p class="dim">${TR('고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막({0}막) 기준.', R.act)}</p>
+      <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, TR('{0}막', n))).join('')}</div>
+      ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act ? TR('{0}막', e.act) : TR('1 · 2막')}</small></button>`).join('')}</div>`).join('')}`;
   } else if (sb.tab === 'event') {
-    body = `<p class="dim">눌러서 그 이벤트로 바로 가기</p><div class="sb-grid events">${Run.EVENTS.map(e => `<button class="sb-ev" data-act="run-sbevent" data-v="${e.id}">${sceneURL(e.id) ? `<img src="${sceneURL(e.id)}" alt="">` : ico(e.art, 'lg')}<span>${esc(e.ko)}</span></button>`).join('')}</div>`;
+    body = `<p class="dim">${TR('눌러서 그 이벤트로 바로 가기')}</p><div class="sb-grid events">${Run.EVENTS.map(e => `<button class="sb-ev" data-act="run-sbevent" data-v="${e.id}">${sceneURL(e.id) ? `<img src="${sceneURL(e.id)}" alt="">` : ico(e.art, 'lg')}<span>${esc(e.ko)}</span></button>`).join('')}</div>`;
   } else if (sb.tab === 'omen') {
-    body = `<div class="sb-col">${chip('run-sbomen', '', !R.omen, '징조 없음')}${Run.OMENS.map(o => chip('run-sbomen', o.id, R.omen === o.id, `${omenIco(o, 'xs')}<b>${o.ko}</b> <small>${esc(o.desc)}</small>`)).join('')}</div>`;
+    body = `<div class="sb-col">${chip('run-sbomen', '', !R.omen, TR('징조 없음'))}${Run.OMENS.map(o => chip('run-sbomen', o.id, R.omen === o.id, `${omenIco(o, 'xs')}<b>${o.ko}</b> <small>${esc(o.desc)}</small>`)).join('')}</div>`;
   }
   X.layer.innerHTML = `<div class="overlay run-sb" data-act="close-bg"><div class="deck-box sb-box" data-act="noop">
-    <h2>시험 원정 · 샌드박스</h2>
+    <h2>${TR('시험 원정 · 샌드박스')}</h2>
     <div class="sb-tabs">${SB_TABS.map(([id, ko]) => `<button class="sb-tab${sb.tab === id ? ' on' : ''}" data-act="run-sbtab" data-v="${id}">${ko}</button>`).join('')}</div>
     <div class="sb-body">${body}</div>
+<<<<<<< HEAD
     <div class="pick-actions"><button class="pbtn small" data-act="run-sbclose">닫기</button></div>
+=======
+    <div class="pick-actions"><button class="pbtn small gold" data-act="run-sbclose">${TR('닫기')}</button></div>
+>>>>>>> origin/main
   </div></div>`;  // 유물을 길게 누르면 설명 (짧게 누르면 넣고 빼기)
-  X.layer.querySelectorAll('.sb-relic').forEach(el => longPress(el, () => { const x = Run.relicInfo(el.dataset.v); X.popover(el, `<b>${relicIco(x, 'xs')} ${esc(x.ko)}</b> <small>${['', '일반', '희귀', '보스'][x.r] || ''}</small><p>${esc(x.desc)}</p>`, { afterRelease: true }); }));
+  X.layer.querySelectorAll('.sb-relic').forEach(el => longPress(el, () => { const x = Run.relicInfo(el.dataset.v); X.popover(el, `<b>${relicIco(x, 'xs')} ${esc(x.ko)}</b> <small>${['', TR('일반'), TR('희귀'), TR('보스')][x.r] || ''}</small><p>${esc(x.desc)}</p>`, { afterRelease: true }); }));
 }
 // 샌드박스에서 판을 바꾼 뒤 화면을 다시 그린다 (전투면 손패 · 주사위까지)
 function sbRefresh(panel = true) {
@@ -2203,7 +2218,7 @@ function sbRefresh(panel = true) {
 }
 function sbAct(act, t) {
   const sb = sbState(), v = t.dataset.v, S = Run.sandbox;
-  const run = fn => { try { fn(); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1400); return false; } drain(); return true; };
+  const run = fn => { try { fn(); } catch (e) { X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); return false; } drain(); return true; };
   sfx.tap();
   if (act === 'run-sb') { sfx.select(); return showSandbox(); }
   if (act === 'run-sbclose') { X.layer.innerHTML = ''; return sbRefresh(false); }
@@ -2212,7 +2227,7 @@ function sbAct(act, t) {
   if (act === 'run-sbkw') { sb.kws = sb.kws.includes(v) ? sb.kws.filter(k => k !== v) : sb.kws.length < Run.KW_MAX ? [...sb.kws, v] : sb.kws; return showSandbox(); }
   if (act === 'run-sbup') { sb.up = sb.up ? 0 : 1; return showSandbox(); }
   if (act === 'run-sbseal') { sb.seal = v; return showSandbox(); }
-  if (act === 'run-sbadd') { if (run(() => S.card(R, sb, v === 'hand'))) X.toast(ico('card'), '카드를 넣었어요', v === 'hand' ? '손패 · 덱' : '덱', 900); return sbRefresh(); }
+  if (act === 'run-sbadd') { if (run(() => S.card(R, sb, v === 'hand'))) X.toast(ico('card'), TR('카드를 넣었어요'), v === 'hand' ? TR('손패 · 덱') : TR('덱'), 900); return sbRefresh(); }
   if (act === 'run-sbdel') { run(() => S.removeCard(R, Number(v))); return sbRefresh(); }
   if (act === 'run-sbrelic') { run(() => S.relic(R, v)); return sbRefresh(); }
   if (act === 'run-sbpot') { run(() => S.potion(R, v)); return sbRefresh(); }
@@ -2269,26 +2284,26 @@ function showEnd() {
 function paintEnd(arrived) {
   const won = R.won, out = ui.end;
   const opened = !!out?.opened;
-  const stars = !out ? `<p class="end-stars wait">${starIco()} 별조각 계산 중…</p>`
-    : out.error ? `<p class="end-stars off">${ico('warn', 'xs')} 기록을 저장하지 못했어요</p>`
-    : out.offline ? `<p class="end-stars off">${starIco()} 오프라인 원정 · 별조각 없음</p>`
-    : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b>${out.gems ? ` &nbsp; ${ico('gem', 'xs')} 보석 <b>+${out.gems}</b>` : ''}</p>`;
+  const stars = !out ? `<p class="end-stars wait">${TR('{0} 별조각 계산 중…', starIco())}</p>`
+    : out.error ? `<p class="end-stars off">${TR('{0} 기록을 저장하지 못했어요', ico('warn', 'xs'))}</p>`
+    : out.offline ? `<p class="end-stars off">${TR('{0} 오프라인 원정 · 별조각 없음', starIco())}</p>`
+    : `<p class="end-stars">${TR('{0} 별조각', starIco())} <b>+${out.stars || 0}</b>${out.gems ? ` ${TR('&nbsp; {0} 보석', ico('gem', 'xs'))} <b>+${out.gems}</b>` : ''}</p>`;
   const st = R.stats;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-end ${won ? 'won' : 'lost'}">
     <div class="end-box">
-      <h1>${won ? '원정 성공!' : '원정 실패'}</h1>
-      <div class="end-hero">${hero(R.cls)}<b>${esc(classInfo(R.cls).ko)}</b><small>${won ? '마왕을 쓰러뜨리고 돌아왔다!' : `${R.act}막 ${Math.min(Run.ROWS + 1, Run.floorOf(R))}층에서 쓰러졌다`}</small></div>
+      <h1>${won ? TR('원정 성공!') : TR('원정 실패')}</h1>
+      <div class="end-hero">${hero(R.cls)}<b>${esc(classInfo(R.cls).ko)}</b><small>${won ? TR('마왕을 쓰러뜨리고 돌아왔다!') : TR('{0}막 {1}층에서 쓰러졌다', R.act, Math.min(Run.ROWS + 1, Run.floorOf(R)))}</small></div>
       <div class="end-stats">
-        <span><b>${st.fights}</b>일반</span><span><b>${st.elites}</b>엘리트</span><span><b>${st.bosses}</b>보스</span>
-        <span><b>${st.dmg}</b>준 피해</span><span><b>${st.maxHit}</b>최고 한 방</span><span><b>${st.turns}</b>턴</span>
+        <span><b>${st.fights}</b>${TR('일반')}</span><span><b>${st.elites}</b>${TR('엘리트')}</span><span><b>${st.bosses}</b>${TR('보스')}</span>
+        <span><b>${st.dmg}</b>${TR('준 피해')}</span><span><b>${st.maxHit}</b>${TR('최고 한 방')}</span><span><b>${st.turns}</b>${TR('턴')}</span>
       </div>
       <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
-      <p class="hint">${R.asc ? `하드모드 ${R.asc} · ` : ''}덱 ${R.deck.length}장 · 골드 ${st.gold} 획득</p>
+      <p class="hint">${TR('{0}덱 {1}장 · 골드 {2} 획득', R.asc ? `${TR('하드모드 {0} ·', R.asc)} ` : '', R.deck.length, st.gold)}</p>
       ${stars}
-      ${opened ? `<p class="asc-open">${ico('up', 'xs')} ${esc(classInfo(R.cls).ko)} 하드모드 ${(R.asc || 0) + 1} 열림!</p>` : ''}
-      <div class="res-actions"><button class="pbtn" data-act="run-home">메인으로</button><button class="pbtn gold" data-act="run-again">다시 원정</button></div>
+      ${opened ? `<p class="asc-open">${TR('{0} {1} 하드모드 {2} 열림!', ico('up', 'xs'), esc(classInfo(R.cls).ko), (R.asc || 0) + 1)}</p>` : ''}
+      <div class="res-actions"><button class="pbtn" data-act="run-home">${TR('메인으로')}</button><button class="pbtn gold" data-act="run-again">${TR('다시 원정')}</button></div>
     </div>
   </div>`;
   if (arrived && out?.stars) setTimeout(() => sfx.stars?.(out.stars), won ? 1100 : 600);
@@ -2298,15 +2313,16 @@ function paintEnd(arrived) {
 // ── 메뉴 ─────────────────────────────────────────────────────────────────────
 function showMenu() {
   X.layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
-    <h2>원정 일시정지</h2>
-    <p class="hint">${R.act}막 · ${esc(Run.ACT_INFO[R.act].ko)} · 체력 ${R.hp}/${R.maxHp}</p>
+    <h2>${TR('원정 일시정지')}</h2>
+    <p class="hint">${TR('{0}막 · {1} · 체력 {2}/{3}', R.act, esc(Run.ACT_INFO[R.act].ko), R.hp, R.maxHp)}</p>
     <div class="modal-actions">
-      <button class="pbtn gold" data-act="close">계속하기</button>
-      <button class="pbtn" data-act="run-deck">덱 보기</button>${R.trial ? '\n      <button class="pbtn" data-act="run-sb">샌드박스</button>' : ''}
-      <button class="pbtn" data-act="settings">설정</button>
-      <button class="pbtn" data-act="run-tourre">안내 다시 보기</button>
-      <button class="pbtn" data-act="run-home">메인 메뉴로</button>
-      <button class="pbtn danger" data-act="run-giveup">원정 포기</button>
+      <button class="pbtn gold" data-act="close">${TR('계속하기')}</button>
+      <button class="pbtn" data-act="run-deck">${TR('덱 보기')}</button>${R.trial ? `
+      <button class="pbtn" data-act="run-sb">${TR('샌드박스')}</button>` : ''}
+      <button class="pbtn" data-act="settings">${TR('설정')}</button>
+      <button class="pbtn" data-act="run-tourre">${TR('안내 다시 보기')}</button>
+      <button class="pbtn" data-act="run-home">${TR('메인 메뉴로')}</button>
+      <button class="pbtn danger" data-act="run-giveup">${TR('원정 포기')}</button>
     </div>
   </div></div>`;
 }
@@ -2328,11 +2344,11 @@ export function onAct(act, t) {
     const id = t.dataset.id, price = X.runPrice(id), c = classInfo(id);
     sfx.select();
     X.layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame buy-cls" data-act="noop" style="--c:${c.color}">
-      <h2>원정 ${c.ko} 해금</h2>
+      <h2>${TR('원정 {0} 해금', c.ko)}</h2>
       <p>${esc(Run.RUN_CLASSES[id].desc)}</p>
-      <p class="hint">보유 ${ico('gem', 'xs')}${X.gems().toLocaleString()} · 원정에서만 쓰는 직업이에요 (대전 직업과 따로)</p>
-      <div class="modal-actions"><button class="pbtn" data-act="close">취소</button>
-        <button class="pbtn gold" data-act="buy" data-kind="run" data-id="${id}" ${X.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()}에 해금</button></div>
+      <p class="hint">${TR('보유 {0}{1} · 원정에서만 쓰는 직업이에요 (대전 직업과 따로)', ico('gem', 'xs'), X.gems().toLocaleString())}</p>
+      <div class="modal-actions"><button class="pbtn" data-act="close">${TR('취소')}</button>
+        <button class="pbtn gold" data-act="buy" data-kind="run" data-id="${id}" ${X.gems() < price ? 'disabled' : ''}>${TR('{0} {1}에 해금', ico('gem', 'xs'), price.toLocaleString())}</button></div>
     </div></div>`;
     return;
   }
@@ -2372,23 +2388,23 @@ export function onAct(act, t) {
         if (R !== r0) return;
         enterView(true);
         const sealed = R.deck.filter(c => c.seal);           // 영구 강화 「인장 상자」: 출발할 때 붙은 인장
-        if (sealed.length) stampShow(sealed, `${ico('sparkle', 'xs')} 인장 상자`);
+        if (sealed.length) stampShow(sealed, TR('{0} 인장 상자', ico('sparkle', 'xs')));
       });   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
     }).finally(() => { ui.starting = false; });   // 다 받은 뒤 지도로 (보물 지도가 있으면 출발 유물부터)
   }
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
   if (act.startsWith('run-sb')) return R.trial ? sbAct(act, t) : undefined;
-  if (act === 'run-tourre') { sfx.select(); replayTours(); X.layer.innerHTML = ''; X.toast?.(ico('scroll'), '안내를 다시 보여 줄게요', '화면마다 처음 볼 때 한 번씩', 1800); return enterView(); }
+  if (act === 'run-tourre') { sfx.select(); replayTours(); X.layer.innerHTML = ''; X.toast?.(ico('scroll'), TR('안내를 다시 보여 줄게요'), TR('화면마다 처음 볼 때 한 번씩'), 1800); return enterView(); }
   if (act === 'run-giveup') {
-    if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = '한 번 더 누르면 포기해요'; sfx.select(); return; }
+    if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = TR('한 번 더 누르면 포기해요'); sfx.select(); return; }
     try { Run.giveUp(R); } catch { /* 이미 끝남 */ }
     X.layer.innerHTML = '';
     return showEnd();
   }
   if (act === 'run-deck') { sfx.select(); return showDeck(); }
   if (act === 'run-skill') { const ci = Run.RUN_CLASSES[R.cls]; sfx.tap(); return X.popover(t, `<b>${ico('star', 'xs')} ${ci.skill}</b><p>${esc(ci.desc)}</p>`); }
-  if (act === 'run-relic') { const r = Run.relicInfo(t.dataset.id); sfx.tap(); return X.popover(t, `<b>${relicIco(r, 'xs')} ${r.ko}</b> <small>${['', '일반', '희귀', '보스'][r.r]}</small><p>${r.desc}</p>${t.dataset.rent ? '<p class="rent-note">유물 대여 중 · 대여 카드가 손패를 떠나면 돌려준다</p>' : ''}`); }
+  if (act === 'run-relic') { const r = Run.relicInfo(t.dataset.id); sfx.tap(); return X.popover(t, `<b>${relicIco(r, 'xs')} ${r.ko}</b> <small>${['', TR('일반'), TR('희귀'), TR('보스')][r.r]}</small><p>${r.desc}</p>${t.dataset.rent ? `<p class="rent-note">${TR('유물 대여 중 · 대여 카드가 손패를 떠나면 돌려준다')}</p>` : ''}`); }
   if (act === 'run-pot') return potionMenu(Number(t.dataset.k), t);
   if (act === 'run-potuse') return usePotion(Number(t.dataset.k));
   if (act === 'run-potdrop') { X.closePopover(); Run.dropPotion(R, Number(t.dataset.k)); save(); sfx.back(); return R.phase === 'combat' ? paint() : enterView(); }
@@ -2406,7 +2422,7 @@ export function onAct(act, t) {
       return X.popover(t, `<b>${ty === 'boss' ? '' : `${runIco('node', ty, nd.icon, 'xs')} `}${nd.ko}${ty === 'boss' && R.act < Run.ACTS ? ' ???' : ''}</b>`);
     }
     sfx.start();
-    try { Run.enterNode(R, id); } catch (e) { return X.toast(ico('warn'), '갈 수 없어요', e.message, 1400); }
+    try { Run.enterNode(R, id); } catch (e) { return X.toast(ico('warn'), TR('갈 수 없어요'), e.message, 1400); }
     // 첫 턴 방해(응시 등)는 전투 화면이 뜨고 적이 등장한 뒤에 연출한다 (예전엔 여기서 버려져 손패에 응시만 덩그러니 걸려 있었다)
     const opening = drain().filter(f => ['hex', 'gaze', 'jesterIn', 'facedown', 'jestCard', 'rent'].includes(f.type));
     if (R.phase === 'combat' && opening.length) { ui.openFx = opening; ui.hideGaze = true; }
@@ -2428,13 +2444,13 @@ export function onAct(act, t) {
   // 새로고침: 카드 · 유물 고르기 후보 / 상점 물건을 새로 (남은 횟수 1 소모)
   if (act === 'run-repick') {
     const k = Number(t.dataset.k), it = R.reward?.items[k];
-    try { Run.rerollPick(R, k); } catch (e) { return X.toast(ico('warn'), '새로고침할 수 없어요', e.message, 1400); }
+    try { Run.rerollPick(R, k); } catch (e) { return X.toast(ico('warn'), TR('새로고침할 수 없어요'), e.message, 1400); }
     drain(); save(); sfx.card(); sfx.whoosh?.();
     X.layer.querySelectorAll('.pick-cards .rc, .relic-card').forEach(el => el.classList.add('reroll-out'));
     return wait(220).then(() => (it.t === 'card' ? cardPick(k) : relicPick(k)));
   }
   if (act === 'run-reshop') {
-    try { Run.rerollShop(R); } catch (e) { return X.toast(ico('warn'), '새로고침할 수 없어요', e.message, 1400); }
+    try { Run.rerollShop(R); } catch (e) { return X.toast(ico('warn'), TR('새로고침할 수 없어요'), e.message, 1400); }
     drain(); save(); sfx.whoosh?.(); sfx.coin();
     X.app.querySelectorAll('.shelf-item').forEach(el => el.classList.add('reroll-out'));
     return wait(220).then(() => { showShop(); X.app.querySelectorAll('.shelf-item').forEach((el, i) => { el.classList.add('reroll-in'); el.style.animationDelay = `${i * 30}ms`; }); });
@@ -2451,7 +2467,7 @@ export function onAct(act, t) {
     if (now - ui.last < 400) return;
     ui.last = now;
     const left = R.reward?.items.filter(it => !it.done && (it.t === 'card' || it.t === 'relicPick' || it.t === 'relic')).length;
-    if (left && !t.dataset.sure) { t.dataset.sure = '1'; t.textContent = '받지 않은 보상이 있어요 · 한 번 더 누르면 떠나요'; sfx.select(); return; }
+    if (left && !t.dataset.sure) { t.dataset.sure = '1'; t.textContent = TR('받지 않은 보상이 있어요 · 한 번 더 누르면 떠나요'); sfx.select(); return; }
     sfx.start();
     const boss = R.reward?.kind === 'boss', jest = R.reward?.kind === 'special';
     Run.leaveReward(R);
@@ -2469,32 +2485,32 @@ export function onAct(act, t) {
     const spin = setInterval(() => X.app.querySelectorAll('.ev-dice.yacht .dd-die:not(.held)').forEach(e => { e.innerHTML = miniDie(1 + Math.floor(Math.random() * 6)); }), 90);
     return wait(600).then(() => {
       clearInterval(spin); ui.yRoll = false;
-      try { Run.eventRoll(R); } catch (e) { return X.toast(ico('warn'), '굴릴 수 없어요', e.message, 1400); }
+      try { Run.eventRoll(R); } catch (e) { return X.toast(ico('warn'), TR('굴릴 수 없어요'), e.message, 1400); }
       Run.drainFx(R); sfx.clack?.(); save();
       if (R.pick?.why === 'face') ui.carveIntro = true;        // 마지막 굴림이었다 → 결과 창부터
       showEvent(true);
     });
   }
   if (act === 'run-yhold') { try { Run.eventHold(R, Number(t.dataset.i)); } catch { return; } sfx.tap(); save(); return showEvent(true); }
-  if (act === 'run-ystop') { try { Run.eventStop(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); } Run.drainFx(R); sfx.select(); save(); ui.carveIntro = true; return showEvent(true); }
+  if (act === 'run-ystop') { try { Run.eventStop(R); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); } Run.drainFx(R); sfx.select(); save(); ui.carveIntro = true; return showEvent(true); }
   if (act === 'run-carvego') { sfx.tap(); ui.carveIntro = false; return showCarve(); }
   if (act === 'run-cface') { sfx.tap(); ui.carve = { i: Number(t.dataset.i), f: Number(t.dataset.f) }; return showCarve(); }
   if (act === 'run-cval') {
     const c = ui.carve;
     if (!c) return;
-    try { Run.carveFace(R, c.i, c.f, Number(t.dataset.v)); } catch (e) { return X.toast(ico('warn'), '깎을 수 없어요', e.message, 1400); }
+    try { Run.carveFace(R, c.i, c.f, Number(t.dataset.v)); } catch (e) { return X.toast(ico('warn'), TR('깎을 수 없어요'), e.message, 1400); }
     Run.drainFx(R); sfx.forge?.(); ui.carve = null; save();
     if (R.pick?.why === 'face') return showCarve();
     X.layer.innerHTML = '';
     return showEvent(true);
   }
   if (act === 'run-omen') {
-    try { Run.chooseOmen(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '고를 수 없어요', e.message, 1400); }
+    try { Run.chooseOmen(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), TR('고를 수 없어요'), e.message, 1400); }
     drain(); sfx.ascend?.(); save();
     const o = Run.omenInfo(R.omen);
     X.layer.innerHTML = '';
     showMap();
-    return X.toast(omenIco(o), `${R.act}막 징조 · ${o.ko}`, omenText(o), 2200);
+    return X.toast(omenIco(o), TR('{0}막 징조 · {1}', R.act, o.ko), omenText(o), 2200);
   }
   if (act === 'run-closepop') { sfx.back(); return X.closePopover(); }
   if (act === 'run-omeninfo') { const o = Run.omenInfo(R.omen); sfx.tap(); return X.popover(t, `<b>${omenIco(o, 'xs')} ${o.ko}</b><p>${omenText(o)}</p>`); }
@@ -2506,22 +2522,22 @@ export function onAct(act, t) {
       if (!it || it.sold) return;
       sfx.tap();
       const poor = R.gold < it.price;
-      return X.popover(t, `${ui.shopTips?.[t.dataset.ti] || ''}<div class="buy-btns"><button class="hb" data-act="run-closepop">취소</button><button class="hb gold" data-act="run-buy" data-kind="${t.dataset.kind}" data-i="${t.dataset.i}" data-ok="1" ${poor ? 'disabled' : ''}>${ico('coins', 'xs')}${it.price} 구매</button></div>`);
+      return X.popover(t, `${ui.shopTips?.[t.dataset.ti] || ''}<div class="buy-btns"><button class="hb" data-act="run-closepop">${TR('취소')}</button><button class="hb gold" data-act="run-buy" data-kind="${t.dataset.kind}" data-i="${t.dataset.i}" data-ok="1" ${poor ? 'disabled' : ''}>${TR('{0}{1} 구매', ico('coins', 'xs'), it.price)}</button></div>`);
     }
     X.closePopover();
     if (t.dataset.kind === 'seal') {
-      try { Run.buy(R, 'seal', Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
+      try { Run.buy(R, 'seal', Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), TR('살 수 없어요'), e.message, 1400); }
       sfx.select(); ui.pickU = null;
       const sl = Run.sealInfo(R.pick.seal);
-      X.toast(sealIco(R.pick.seal, ''), `${sl.ko} · 붙일 카드를 고르세요`, sl.desc, 1800);
+      X.toast(sealIco(R.pick.seal, ''), TR('{0} · 붙일 카드를 고르세요', sl.ko), sl.desc, 1800);
       return showPick();
     }
-    try { Run.buy(R, t.dataset.kind, Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), '살 수 없어요', e.message, 1400); }
+    try { Run.buy(R, t.dataset.kind, Number(t.dataset.i)); } catch (e) { sfx.back(); return X.toast(ico('warn'), TR('살 수 없어요'), e.message, 1400); }
     drain(); sfx.coin(); save();
     const p = center(t); FX().burst(p.x, p.y, { n: 24, pal: PALETTES.gold });
     return showShop();
   }
-  if (act === 'run-remove') { try { Run.startRemove(R); } catch (e) { sfx.back(); return X.toast(ico('warn'), '할 수 없어요', e.message, 1500); } sfx.select(); ui.pickU = null; return showPick(); }
+  if (act === 'run-remove') { try { Run.startRemove(R); } catch (e) { sfx.back(); return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1500); } sfx.select(); ui.pickU = null; return showPick(); }
   if (act === 'run-shopleave') { sfx.back(); Run.leaveShop(R); save(); return showMap(); }
   // 휴식
   if (act === 'run-rest') {
@@ -2532,22 +2548,22 @@ export function onAct(act, t) {
   }
   if (act === 'run-upopt') {
     const pk = R.pick, from = pk?.from;
-    try { Run.chooseUpgrade(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+    try { Run.chooseUpgrade(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); }
     drain();
     sfx.legend?.();
     const p = center(t); FX().burst(p.x, p.y, { n: 36, pal: PALETTES.gold });
     X.layer.innerHTML = ''; save();
     return from === 'shop' ? showShop() : enterView();
   }
-  if (act === 'run-shopsmith') { try { Run.startSmith(R); } catch (e) { sfx.back(); return X.toast(ico('warn'), '할 수 없어요', e.message, 1500); } sfx.select(); ui.pickU = null; return showPick(); }
-  if (act === 'run-smith') { try { Run.startUpgrade(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); } sfx.select(); ui.pickU = null; return showPick(); }
+  if (act === 'run-shopsmith') { try { Run.startSmith(R); } catch (e) { sfx.back(); return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1500); } sfx.select(); ui.pickU = null; return showPick(); }
+  if (act === 'run-smith') { try { Run.startUpgrade(R); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); } sfx.select(); ui.pickU = null; return showPick(); }
   // 덱 고르기
   if (act === 'run-pickcard') { sfx.tap(); ui.pickU = Number(t.dataset.u); return showPick(); }
   if (act === 'run-pickcancel') { sfx.back(); Run.cancelPick(R); ui.pickU = null; ui.carve = null; X.layer.innerHTML = ''; save(); return enterView(); }
   if (act === 'run-pickok') {
     if (ui.pickU == null) return;
     const why = R.pick?.why;
-    try { Run.pickDeck(R, ui.pickU); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+    try { Run.pickDeck(R, ui.pickU); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); }
     drain();
     if (R.pick?.opts) { sfx.select(); ui.pickU = null; return showUpgrade(); }
     why === 'upgrade' ? sfx.levelup?.() : sfx.select();
@@ -2562,7 +2578,7 @@ export function onAct(act, t) {
   if (act === 'run-evopt') {
     if (ui.evRoll) return;
     const had = R.event.dice, before = { hp: R.hp, blk: 0, gold: R.gold };
-    try { Run.eventChoose(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), '고를 수 없어요', e.message, 1400); }
+    try { Run.eventChoose(R, Number(t.dataset.k)); } catch (e) { return X.toast(ico('warn'), TR('고를 수 없어요'), e.message, 1400); }
     drain(); sfx.select(); save();
     if (R.event?.dice && R.event.dice !== had) return rollEventDice(before);
     if (R.phase === 'lost') return showEnd();
@@ -2588,7 +2604,7 @@ export function onAct(act, t) {
   if (act === 'run-nudge') {
     const i = Number(t.dataset.i), d = Number(t.dataset.d);
     ui.tool = null;
-    try { Run.useNudge(R, i, d); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1400); return paint(); }
+    try { Run.useNudge(R, i, d); } catch (e) { X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); return paint(); }
     sfx.select(); save(); paint();
     X.tray()?.show(R.C.dice, R.C.held);
     return;
@@ -2597,13 +2613,13 @@ export function onAct(act, t) {
     const i = Number(t.dataset.i), v = Number(t.dataset.v);
     ui.tool = null; ui.dealDie = null;
     const r0 = snap();
-    try { Run.useDeal(R, i, v); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1400); return paint(); }
+    try { Run.useDeal(R, i, v); } catch (e) { X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); return paint(); }
     ui.busy = true;
     return playFx(drain(), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
   }
   if (act === 'run-dance') {
     const r0 = snap();
-    try { Run.useDance(R); } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
+    try { Run.useDance(R); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); }
     ui.busy = true;
     return playFx(drain(), r0).then(() => { ui.busy = false; save(); paint(); X.tray()?.show(R.C.dice, R.C.held); });
   }
@@ -2633,7 +2649,7 @@ export function onDie(i) {
   const C = R.C;
   if (ui.tool === 'flip') {
     ui.tool = null;
-    try { Run.useFlip(R, i); } catch (e) { X.toast(ico('warn'), '할 수 없어요', e.message, 1400); return paint(); }
+    try { Run.useFlip(R, i); } catch (e) { X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); return paint(); }
     sfx.select(); save(); paint();
     X.tray()?.show(C.dice, C.held);
     return;
@@ -2657,7 +2673,7 @@ export function dieInfo(i) {
   const a = document.createElement('span');
   a.style.cssText = `position:fixed;left:${pos.x - 20}px;top:${pos.y - 20}px;width:40px;height:40px;pointer-events:none`;
   document.body.appendChild(a);
-  X.popover(a, `<b>주사위 ${miniDie(v)} ${v}</b><p>뒤집으면 ${7 - v} · 조정하면 ${[v - 1, v + 1].filter(x => x >= 1 && x <= 6).join(' 또는 ')}</p>`, { afterRelease: true });
+  X.popover(a, `<b>${TR('주사위 {0} {1}', miniDie(v), v)}</b><p>${TR('뒤집으면 {0} · 조정하면 {1}', 7 - v, [v - 1, v + 1].filter(x => x >= 1 && x <= 6).join(` ${TR('또는')} `))}</p>`, { afterRelease: true });
   a.remove();
 }
 // 배경 분위기 (ambient.js): 막마다 — 1막 반딧불 · 2막 눈송이 · 3막 보라 불꽃 (지도 · 전투에서)
@@ -2669,26 +2685,26 @@ export function render() { if (R?.phase === 'combat') paint(); }
 
 // 받는 피해 배율이 붙었으면 무엇 때문인지 (의도 설명)
 function hurtWhy() {
-  const w = [Run.omen(R, 'feast') && '피의 축제 ×1.5', Run.hasRelic(R, 'glasscannon') && '유리 대포 ×1.4'].filter(Boolean);
-  return w.length ? ` <em class="hurt">(${w.join(' · ')} 반영)</em>` : '';
+  const w = [Run.omen(R, 'feast') && TR('피의 축제 ×1.5'), Run.hasRelic(R, 'glasscannon') && TR('유리 대포 ×1.4')].filter(Boolean);
+  return w.length ? ` <em class="hurt">${TR('({0} 반영)', w.join(' · '))}</em>` : '';
 }
 function intentInfo(t) {
   const C = R.C, m = C.e.intent;
   if (!m) return;
   const parts0 = Run.intentParts(R);
   const parts = parts0.map(p => {
-    if (p.k === 'atk') return `${ico('sword', 'xs')} 공격 ${p.n}${p.hits > 1 ? ` × ${p.hits}번` : ''}${hurtWhy()}`;
-    if (p.k === 'block') return `${ico('shield', 'xs')} 보호막 ${p.n}`;
-    if (p.k === 'str') return `${ico('up', 'xs')} 힘 +${p.n} (이후 공격이 세진다)`;
-    if (p.k === 'heal') return `${ico('heart', 'xs')} 체력 ${p.n} 회복`;
-    if (p.k === 'steal') return `${ico('coins', 'xs')} 골드 ${p.n} 훔치기${parts0.some(q => q.k === 'atk') ? ' (공격을 다 막으면 못 훔친다)' : ''}`;
-    if (p.k === 'weak') return `${ico('snow', 'xs')} 약화 ${p.n}턴 (내 카드 점수 ×0.75)`;
-    if (p.k === 'hex') return jMask() ? '<b>???</b>' : `${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>: ${Run.HEX[p.t].desc(p.n)} (이번 턴)`;
+    if (p.k === 'atk') return TR('{0} 공격 {1}{2}{3}', ico('sword', 'xs'), p.n, p.hits > 1 ? ` ${TR('× {0}번', p.hits)}` : '', hurtWhy());
+    if (p.k === 'block') return TR('{0} 보호막 {1}', ico('shield', 'xs'), p.n);
+    if (p.k === 'str') return TR('{0} 힘 +{1} (이후 공격이 세진다)', ico('up', 'xs'), p.n);
+    if (p.k === 'heal') return TR('{0} 체력 {1} 회복', ico('heart', 'xs'), p.n);
+    if (p.k === 'steal') return TR('{0} 골드 {1} 훔치기{2}', ico('coins', 'xs'), p.n, parts0.some(q => q.k === 'atk') ? ` ${TR('(공격을 다 막으면 못 훔친다)')}` : '');
+    if (p.k === 'weak') return TR('{0} 약화 {1}턴 (내 카드 점수 ×0.75)', ico('snow', 'xs'), p.n);
+    if (p.k === 'hex') return jMask() ? '<b>???</b>' : `${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>${TR(': {0} (이번 턴)', Run.HEX[p.t].desc(p.n))}`;
     return '';
   });
   const fury = Run.furyOf(R);
   sfx.tap();
-  X.popover(t, `<b>${jMask() ? '???' : esc(m.ko)}</b>${parts.map(x => `<p>${x}</p>`).join('')}<small>${fury.from}턴부터 격앙: 적의 턴마다 힘 +${fury.str}</small>`);
+  X.popover(t, `<b>${jMask() ? '???' : esc(m.ko)}</b>${parts.map(x => `<p>${x}</p>`).join('')}<small>${TR('{0}턴부터 격앙: 적의 턴마다 힘 +{1}', fury.from, fury.str)}</small>`);
 }
 function potionMenu(k, t) {
   const id = R.potions[k];
@@ -2696,7 +2712,7 @@ function potionMenu(k, t) {
   const p = Run.potionInfo(id);
   const can = canAct() || (id === 'heal' && Run.canDrinkOut(R) && !ui.busy);
   sfx.tap();
-  X.popover(t, `<b style="color:${p.color}">${ico(p.icon, 'xs')} ${p.ko}</b><p>${p.desc}</p><div class="pot-acts">${can ? `<button class="pbtn small gold" data-act="run-potuse" data-k="${k}">마시기</button>` : ''}<button class="pbtn small pot-drop" data-act="run-potdrop" data-k="${k}">버리기</button></div>`);
+  X.popover(t, `<b style="color:${p.color}">${ico(p.icon, 'xs')} ${p.ko}</b><p>${p.desc}</p><div class="pot-acts">${can ? `<button class="pbtn small gold" data-act="run-potuse" data-k="${k}">${TR('마시기')}</button>` : ''}<button class="pbtn small pot-drop" data-act="run-potdrop" data-k="${k}">${TR('버리기')}</button></div>`);
 }
 async function usePotion(k) {
   X.closePopover();
@@ -2717,7 +2733,7 @@ async function usePotion(k) {
   if (pouch) pouch.outerHTML = hud().match(/<div class="potions[\s\S]*?<\/div>/)[0];
 }
 async function actBanner(f) {
-  X.layer.innerHTML = `<div class="overlay solid act-banner" data-act="run-skip"><div class="banner"><span>막 돌파!</span><b class="rn">${R.act}막</b><b>${esc(Run.ACT_INFO[R.act].ko)}</b>${f?.heal ? `<span>${ico('heart', 'xs')} 체력 ${f.heal} 회복</span>` : ''}</div></div>`;
+  X.layer.innerHTML = `<div class="overlay solid act-banner" data-act="run-skip"><div class="banner"><span>${TR('막 돌파!')}</span><b class="rn">${TR('{0}막', R.act)}</b><b>${esc(Run.ACT_INFO[R.act].ko)}</b>${f?.heal ? `<span>${TR('{0} 체력 {1} 회복', ico('heart', 'xs'), f.heal)}</span>` : ''}</div></div>`;
   sfx.levelup?.();
   await wait(1800);
   X.layer.innerHTML = '';
