@@ -1282,6 +1282,7 @@ async function makeTray() {
     tray = new DiceTray(trayHost(), trayOpts());
     tray.onTrail = (i, p, sp) => diceTrail(tray, p, sp);
     tray.onSlow = (i, on) => slowFx(on);
+    tray.slowmo = prefs.drama !== false;          // 설정 「큰 족보 연출」: 마지막 주사위 슬로모션 · 암전
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -3260,7 +3261,7 @@ function tintOf(t, tr) {
 }
 // 큰 한 방 (요트 · 30점 이상): 0.1초 멈칫(히트스톱) → 화면이 확 당겨졌다 튕겨 나오고, 가장자리가 어두워졌다 밝아진다
 function bigHit(power = 3) {
-  if (prefs.fx === 'min') return;
+  if (prefs.fx === 'min' || prefs.drama === false) return;     // 설정 「큰 족보 연출」을 끄면 없음
   FX().hold(power >= 3 ? 120 : 80);
   document.body.classList.remove('bighit'); void document.body.offsetWidth; document.body.classList.add('bighit');
   const k = power >= 3 ? 0.05 : 0.03;
@@ -3511,6 +3512,7 @@ function showSettings(inGame = false) {
     </div></div>
     <label class="set-row">글자 크게<input id="set-big" type="checkbox" ${prefs.bigText ? 'checked' : ''}></label>
     <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
+    <label class="set-row">큰 족보 연출 <small>암전 · 슬로모션</small><input id="set-drama" type="checkbox" ${prefs.drama !== false ? 'checked' : ''}></label>
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${adsOn() ? `<label class="set-row">맞춤형 광고 <small>끄면 관심사와 상관없는 광고</small><input id="set-adp" type="checkbox" ${prefs.adsPersonal ? 'checked' : ''}></label>` : ''}
@@ -4359,6 +4361,11 @@ document.addEventListener('input', e => {
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') { setAudio({ vibrate: e.target.checked }); buzz(80); }   // 켜면 바로 한 번 떨어서 확인
   if (id === 'set-shake') setShake(e.target.checked, e.target);
+  if (id === 'set-drama') {             // 큰 족보 연출 (마지막 주사위 슬로모션 · 암전 · 큰 한 방 화면 당김)
+    prefs.drama = e.target.checked; store.set(KEYS.prefs, prefs);
+    if (tray) tray.slowmo = prefs.drama;
+    if (!prefs.drama) { slowFx(false); document.body.classList.remove('bighit'); }
+  }
   if (id === 'set-adp') { prefs.adsPersonal = e.target.checked; store.set(KEYS.prefs, prefs); Ads.setPersonalized(prefs.adsPersonal); }
   if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
