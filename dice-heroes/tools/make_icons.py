@@ -189,7 +189,80 @@ def c6():
     fg.alpha_composite(h, (0, S - h.height - 2))
     return bg, fg
 
-CANDS = [c1, c2, c3, c4, c5, c6]
+# ── 7~10: KYBORIA 로고(assets/logo/logo.webp · 타이틀 화면과 같은 그림)가 들어간 안 ──
+def logo(scale):
+    im = Image.open(os.path.join(ROOT, 'assets', 'logo', 'logo.webp')).convert('RGBA')
+    return im.resize((im.width * scale, im.height * scale), Image.NEAREST)
+
+def place_logo(fg, scale, cy, halo=True):
+    lg = logo(scale); x = (S - lg.width) // 2; y = cy - lg.height // 2
+    if halo:   # 뒤에 어두운 번짐 (배경 위에서 글자가 또렷하게)
+        sh = Image.new('RGBA', fg.size, (0, 0, 0, 0)); a = Image.new('L', fg.size, 0); a.paste(lg.split()[3], (x, y))
+        a = a.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(v * .75))
+        sh.paste((10, 4, 34, 255), (0, 0), a); fg.alpha_composite(sh)
+    fg.alpha_composite(lg, (x, y))
+    return fg
+
+def night(top=(10, 6, 34), low=(70, 40, 140)):
+    bg = grid(); d = ImageDraw.Draw(bg)
+    for y in range(G):
+        t = y / G; d.line([0, y, G, y], fill=tuple(int(a + (b - a) * t) for a, b in zip(top, low)))
+    r = random.Random(5)
+    for _ in range(26): d.point((r.randrange(G), r.randrange(int(G * .7))), fill=(200, 190, 255))
+    return bg
+
+def c7():
+    """왕관 로고 + 금빛 햇살: 보라 햇살 가운데 로고, 위아래로 굴러가는 주사위"""
+    bg = grid(); rays(bg, 32, 34, (52, 26, 116), (78, 42, 156), 14, 0.12)
+    bg = up(bg); bg = glow(bg, 256, 270, 210, (255, 196, 70), 150)
+    fg = grid(); d = ImageDraw.Draw(fg)
+    die(d, 6, 6, 13, 5, depth=3); die(d, 45, 44, 13, 6, depth=3)
+    sparkles(d, [(54, 10, 2), (10, 52, 2), (40, 6, 1), (24, 56, 1)])
+    fg = up(fg)
+    return bg, place_logo(fg, 5, 262)
+
+def c8():
+    """영웅들과 로고: 전사 · 마법사 · 춤꾼이 뒤에 서고 앞에 로고 띠"""
+    bg = night(); bg = up(bg); bg = glow(bg, 256, 230, 230, (150, 110, 255), 110)
+    fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    for name, h, x in [('mage', 250, 10), ('dancer', 250, 262), ('warrior', 300, 106)]:
+        im = outline(hero(name, h), 6); fg.alpha_composite(im, (x if name != 'dancer' else S - im.width - 8, 300 - im.height + 20))
+    band = Image.new('RGBA', (S, S), (0, 0, 0, 0)); bd = ImageDraw.Draw(band)
+    bd.rectangle([0, 312, S, 452], fill=INK); bd.rectangle([0, 320, S, 444], fill=(40, 24, 96, 255)); bd.rectangle([0, 320, S, 326], fill=(92, 52, 196, 255))
+    fg.alpha_composite(band)
+    return bg, place_logo(fg, 5, 384, halo=False)
+
+def c9():
+    """타이틀 화면 그대로: 밤하늘 · 달 · 성 실루엣 위에 로고"""
+    bg = night((8, 5, 30), (100, 56, 150)); d = ImageDraw.Draw(bg)
+    d.ellipse([8, 8, 20, 20], fill=(255, 238, 180)); d.ellipse([11, 10, 15, 13], fill=(240, 214, 150))
+    d.polygon([(0, 50), (10, 45), (20, 49), (32, 44), (44, 48), (56, 44), (64, 47), (64, 64), (0, 64)], fill=(34, 22, 80))
+    cx = 50   # 성: 오른쪽 아래, 로고 아래로 비켜서
+    d.rectangle([cx - 5, 44, cx + 5, 56], fill=(20, 14, 52)); d.rectangle([cx - 7, 47, cx - 5, 56], fill=(20, 14, 52)); d.rectangle([cx + 5, 47, cx + 7, 56], fill=(20, 14, 52))
+    for k in (-5, -1, 3): d.rectangle([cx + k, 42, cx + k + 1, 44], fill=(20, 14, 52))
+    d.rectangle([cx, 38, cx, 42], fill=(20, 14, 52)); d.rectangle([cx + 1, 38, cx + 3, 39], fill=(232, 67, 90))
+    d.point((cx - 2, 49), fill=(255, 200, 61)); d.point((cx + 2, 49), fill=(255, 200, 61)); d.rectangle([cx - 1, 53, cx + 1, 56], fill=(255, 170, 50))
+    d.rectangle([0, 56, 64, 64], fill=(22, 50, 40))
+    bg = up(bg); bg = glow(bg, 112, 112, 80, (255, 230, 150), 110); bg = glow(bg, 400, 400, 60, (255, 180, 60), 90)
+    fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    return bg, place_logo(fg, 5, 236)
+
+def c10():
+    """요트! 다섯 주사위: 위에 로고, 아래에 6 다섯 개가 활처럼 (가운데는 금빛)"""
+    bg = grid(); d = ImageDraw.Draw(bg)
+    for y in range(G):
+        t = y / G; d.line([0, y, G, y], fill=(int(30 + 30 * t), int(16 + 16 * t), int(80 + 60 * t)))
+    bg = up(bg); bg = glow(bg, 256, 330, 200, (255, 200, 70), 130)
+    fg = grid(); d = ImageDraw.Draw(fg)
+    pos = [(7, 42), (18, 38), (29, 36), (40, 38), (51, 42)]
+    for i in (0, 4, 1, 3, 2):   # 가운데(금빛)를 맨 위에
+        x, y = pos[i]
+        die(d, x - 5, y, 11, 6, depth=2, face=(255, 222, 110) if i == 2 else (250, 246, 255), side=(220, 140, 30) if i == 2 else (214, 200, 232), pipc=(200, 40, 70) if i == 2 else (60, 30, 140))
+    sparkles(d, [(8, 30, 2), (56, 30, 2), (32, 58, 1)])
+    fg = up(fg)
+    return bg, place_logo(fg, 5, 176)
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
@@ -208,7 +281,8 @@ if __name__ == '__main__':
     if mode == 'sheet':
         FONT = sys.argv[2]
         tiles = []
-        for i, c in enumerate(CANDS):
+        pick = [int(v) for v in sys.argv[4].split(',')] if len(sys.argv) > 4 else list(range(1, len(CANDS) + 1))
+        for i, c in [(k - 1, CANDS[k - 1]) for k in pick]:
             bg, fg = c(); big = compose(bg, fg, round_mask=True)
             tile = Image.new('RGBA', (560, 700), (245, 242, 250, 255))
             tile.alpha_composite(big, (24, 24))
@@ -216,8 +290,8 @@ if __name__ == '__main__':
                 tile.alpha_composite(big.resize((px, px), Image.LANCZOS), (24 + j * 130, 560))
             ImageDraw.Draw(tile).text((540, 680), str(i + 1), font=ImageFont.truetype(FONT, 48), fill=(40, 30, 80), anchor='rd')
             tiles.append(tile)
-        W = Image.new('RGBA', (560 * 3, 700 * 2), (245, 242, 250, 255))
-        for i, t in enumerate(tiles): W.alpha_composite(t, ((i % 3) * 560, (i // 3) * 700))
+        W = Image.new('RGBA', (560 * min(len(tiles), 4), 700 * ((len(tiles) + 3) // 4)), (245, 242, 250, 255))
+        for i, t in enumerate(tiles): W.alpha_composite(t, ((i % 4) * 560, (i // 4) * 700))
         W.convert('RGB').save(sys.argv[3])
     elif mode == 'build':
         FONT = sys.argv[3] if len(sys.argv) > 3 else FONT
