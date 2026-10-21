@@ -92,6 +92,9 @@ export function rumble(v = 5) {
 export const canVibrate = () => typeof navigator.vibrate === 'function';
 
 let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
+// 배경음악은 따로 된 오디오(mctx · 넉넉한 버퍼 'playback')로 튼다. 효과음과 한 오디오를 쓰면 주사위가 부딪힐 때
+// 효과음이 몰려 오디오가 잠깐 밀리면서 음악이 0.1 ~ 0.2초 '늘어지는' 일이 있었다. 효과음은 반응이 빠른 ctx 그대로
+let mctx = null;
 const waves = {};
 
 // 브라우저는 사용자 조작 전 소리를 막는다 — 오디오는 첫 터치(손을 뗄 때 · 클릭 · 키) 순간에 만든다.
@@ -116,8 +119,10 @@ export function unlock() {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     master.connect(comp).connect(ctx.destination);
-    duckGain = ctx.createGain(); duckGain.connect(master);
-    bgmGain = ctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(duckGain);
+    try { const AC = window.AudioContext || window.webkitAudioContext; mctx = new AC({ latencyHint: 'playback' }); } catch { mctx = ctx; }   // 못 만들면 한 오디오로
+    const mmaster = mctx.createGain(); mmaster.gain.value = 0.9; mmaster.connect(mctx.destination);
+    duckGain = mctx.createGain(); duckGain.connect(mmaster);
+    bgmGain = mctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(duckGain);
     sfxGain = ctx.createGain(); sfxGain.gain.value = settings.sfx * SFX_LEVEL; sfxGain.connect(master);
     waves.p12 = pulseWave(0.125);
     waves.p25 = pulseWave(0.25);
@@ -127,6 +132,7 @@ export function unlock() {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (mctx && mctx !== ctx && mctx.state === 'suspended' && !adPause && !document.hidden) mctx.resume().catch(() => {});
   return ctx;
 }
 
@@ -137,6 +143,7 @@ const wake = e => {
   if (e?.isTrusted && e.type !== 'pointerdown') activated = true;   // 터치는 손을 뗄 때(touchend · pointerup) 허락된다
   if (!ctx && pendingBgm && hasGesture()) { const n = pendingBgm; pendingBgm = null; playBgm(n); return; }
   if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+  if (mctx && mctx.state !== 'running') mctx.resume().catch(() => {});
 };
 ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
 
@@ -144,8 +151,9 @@ const wake = e => {
 // · 아주 짧은 소리(주사위 부딪힘 · 틱 등 0.1초 미만)는 낮추지 않는다 — 연달아 나면 음악이 오르내려 '끊기는' 것처럼 들렸다
 // · 예약을 지울 때 지금 음량을 붙잡아 둔다 (cancelScheduledValues 만 하면 음량이 순간 튀어 '툭' 소리가 났다)
 let duckUntil = 0;
-function duck(t, dur) {
-  if (dur < 0.1) return;
+function duck(t0, dur) {
+  if (dur < 0.1 || !mctx) return;
+  const t = Math.max(mctx.currentTime, mctx.currentTime + (t0 - ctx.currentTime));   // 효과음 시각 → 음악 오디오 시각
   const g = duckGain.gain, end = Math.max(duckUntil, t + dur);
   if (t < duckUntil - 0.02) {            // 이미 낮춘 중: 되돌리는 예약만 뒤로 미룬다 (낮춘 음량은 그대로)
     const prev = duckUntil;
@@ -160,11 +168,14 @@ function duck(t, dur) {
 }
 
 // 듀티비 있는 펄스파 (푸리에 급수)
-function pulseWave(duty) {
+function pulseWave(duty, c = ctx) {
   const n = 64, re = new Float32Array(n), im = new Float32Array(n);
   for (let k = 1; k < n; k++) im[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
-  return ctx.createPeriodicWave(re, im);
+  return c.createPeriodicWave(re, im);
 }
+// 오디오마다 펄스파 (효과음 ctx 는 waves, 음악 mctx 의 칩튠 곡은 따로 만들어 둔다)
+const mwaves = {};
+const waveOf = (c, type) => (c === ctx ? waves[type] : (mwaves[type] ||= pulseWave({ p12: 0.125, p25: 0.25, p50: 0.5 }[type], c)));
 
 const NOTE = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
 function freq(name) {
@@ -175,8 +186,9 @@ function freq(name) {
 }
 
 function voice(dest, { type = 'p25', f, t, dur, vol = 0.2, slide = null, vib = 0 }) {
+  const ctx = dest.context;                     // 음악(mctx) · 효과음(ctx) 어느 쪽에 그리는지
   const o = ctx.createOscillator(), g = ctx.createGain();
-  if (type === 'tri') o.type = 'triangle'; else o.setPeriodicWave(waves[type]);
+  if (type === 'tri') o.type = 'triangle'; else o.setPeriodicWave(waveOf(ctx, type));
   o.frequency.setValueAtTime(f, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
   if (vib) {
@@ -197,6 +209,7 @@ function voice(dest, { type = 'p25', f, t, dur, vol = 0.2, slide = null, vib = 0
 }
 
 function noise(dest, { t, dur, vol = 0.2, hp = 800, lp = 12000 }) {
+  const ctx = dest.context;
   const s = ctx.createBufferSource(), g = ctx.createGain();
   const hpf = ctx.createBiquadFilter(), lpf = ctx.createBiquadFilter();
   s.buffer = noiseBuf;
@@ -211,8 +224,9 @@ function noise(dest, { t, dur, vol = 0.2, hp = 800, lp = 12000 }) {
 
 // 맑게 울리고 서서히 사라지는 소리 (방울·유리·금화·별빛). 칩튠 엔벨로프 대신 지수 감쇠
 function ping(dest, { f, t, dur = 0.3, vol = 0.1, type = 'sine', slide = null }) {
+  const ctx = dest.context;
   const o = ctx.createOscillator(), g = ctx.createGain();
-  if (type === 'sine' || type === 'square' || type === 'triangle') o.type = type; else o.setPeriodicWave(waves[type]);
+  if (type === 'sine' || type === 'square' || type === 'triangle') o.type = type; else o.setPeriodicWave(waveOf(ctx, type));
   o.frequency.setValueAtTime(f, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + Math.min(dur, 0.12));
   g.gain.setValueAtTime(0.0001, t);
@@ -503,9 +517,9 @@ export function preloadBgm(name) {
 function fadeOutAudible(dur = 0.3) {
   const a = audible;
   audible = null;
-  if (!a || !ctx) return;
+  if (!a || !mctx) return;
   try {
-    const now = ctx.currentTime;
+    const now = mctx.currentTime;
     a.g.gain.cancelScheduledValues(now);
     a.g.gain.setValueAtTime(a.g.gain.value, now);
     a.g.gain.linearRampToValueAtTime(0, now + dur);
@@ -534,9 +548,9 @@ export function playBgm(name) {
       if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
       const fade = !!audible;
       fadeOutAudible(0.35);
-      const src = ctx.createBufferSource(), g = ctx.createGain();
+      const src = mctx.createBufferSource(), g = mctx.createGain();
       src.buffer = buf; src.loop = true;
-      if (fade) { const now = ctx.currentTime; g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(FILE_VOL, now + 0.3); } else g.gain.value = FILE_VOL;
+      if (fade) { const now = mctx.currentTime; g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(FILE_VOL, now + 0.3); } else g.gain.value = FILE_VOL;
       if (BGM_LOOP[name] < buf.duration) { src.loopStart = BGM_LOOP[name]; src.loopEnd = buf.duration; }
       if (BGM_LOOP_END[name] < buf.duration) { src.loopStart = BGM_LOOP[name] || 0; src.loopEnd = BGM_LOOP_END[name]; }
       src.connect(g).connect(bgmGain);
@@ -557,11 +571,11 @@ export function playBgm(name) {
   };
   const len = tracks.lead.length;
   const step = 60 / song.bpm / 2;   // 8분음표 길이
-  const state = { name, step: 0, next: ctx.currentTime + 0.08 };
+  const state = { name, step: 0, next: mctx.currentTime + 0.08 };
   // 늘임표(.)를 미리 계산해 두면 음 길이를 한 번에 스케줄할 수 있다
   const durOf = (arr, i) => { let n = 1; while (arr[(i + n) % len] === '.' && n < len) n++; return n; };
   const tick = () => {
-    while (state.next < ctx.currentTime + 0.15) {
+    while (state.next < mctx.currentTime + 0.25) {   // 음악 오디오는 버퍼가 넉넉해서 조금 더 앞서 예약한다
       const i = state.step % len, t = state.next;
       const lead = tracks.lead[i], harm = tracks.harm[i], bass = tracks.bass[i], dr = tracks.drums[i];
       if (freq(lead)) voice(bgmGain, { type: 'p25', f: freq(lead), t, dur: step * durOf(tracks.lead, i) * 0.95, vol: 0.16, vib: durOf(tracks.lead, i) > 2 ? 1 : 0 });
@@ -590,13 +604,11 @@ let adPause = false;
 export function pauseAudio(on) {
   adPause = !!on;
   if (!ctx) return;
-  if (adPause) ctx.suspend().catch(() => {});
-  else if (!document.hidden) ctx.resume().catch(() => {});
+  for (const c of new Set([ctx, mctx])) { if (!c) continue; if (adPause) c.suspend().catch(() => {}); else if (!document.hidden) c.resume().catch(() => {}); }
 }
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
-  if (document.hidden) ctx.suspend().catch(() => {});
-  else if (!adPause) ctx.resume().catch(() => {});
+  for (const c of new Set([ctx, mctx])) { if (!c) continue; if (document.hidden) c.suspend().catch(() => {}); else if (!adPause) c.resume().catch(() => {}); }
 });
 
 // ── 효과음 ───────────────────────────────────────────────────────────────────
@@ -650,6 +662,10 @@ export const sfx = {
   hit(style, v = 5) {
     if (!unlock()) return;
     const t = ctx.currentTime, k = Math.min(1, v / 14), r = Math.random();
+    // 주사위 다섯 개가 부딪히는 소리는 한꺼번에 몰리면 오디오가 밀린다 — 25ms 안에 또 오면 약한 것은 건너뛰고, 1초에 최대 약 30번
+    if (t - (this.hitT || 0) < 0.025 && v < (this.hitV || 0) + 2) return;
+    if (t - (this.hitT || 0) < 0.012) return;
+    this.hitT = t; this.hitV = v;
     switch (style) {
       case 'silver': {      // 오픈하츠: 은 장신구끼리 부딪히는 '찰캉' — 밝은 금속 타격 + 비화성 배음, 세게 부딪히면 체인처럼 잘게 한 번 더
         if (t - (this.svT || 0) < 0.03) break;
