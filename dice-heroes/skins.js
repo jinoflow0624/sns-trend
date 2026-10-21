@@ -598,6 +598,16 @@ const THUMBS = new Map();
 const memo = (key, f) => THUMBS.get(key) ?? THUMBS.set(key, f()).get(key);
 export const diceThumb = id => memo('d:' + id, () => drawDiceThumb(id));
 export const trayThumb = id => memo('t:' + id, () => drawTrayThumb(id));
+// 주사위 한 면 그림 (1~6) — 그림 주사위는 그 그림, 아니면 캔버스로 그린 면 (일일 보상 등 2D 화면용)
+export const dieFaceURL = (id, v) => memo(`f:${id}:${v}`, () => {
+  if (dieImage(id, v)) return dieImage(id, v);
+  const big = drawDieFace(document.createElement('canvas'), v, id);
+  const c = document.createElement('canvas'); c.width = c.height = 96;
+  const g = c.getContext('2d'); g.beginPath(); g.roundRect(4, 4, 88, 88, 18); g.clip();
+  if (id === 'clear') { g.fillStyle = '#2E8F6E'; g.fillRect(4, 4, 88, 88); }
+  g.drawImage(big, 4, 4, 88, 88);
+  return c.toDataURL();
+});
 function drawDiceThumb(id) {
   if (dieImage(id, 5)) return dieImage(id, 5);
   const big = drawDieFace(document.createElement('canvas'), 5, id);

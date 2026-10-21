@@ -181,6 +181,7 @@
 
 /* ── 손패 카드 ────────────────────────────────────────────────────────── */
 .hand { position: relative; z-index: 20; height: 128px; touch-action: none; }
+.run-combat .hand { margin-bottom: 14px; }   /* 부채꼴 손패의 아래 끝이 아래 직업 칸에 가려지지 않게 */
 .hand .rc { position: absolute; left: 0; top: 0; will-change: transform; touch-action: none; cursor: grab; }
 .rc { --cw: 80px; --ch: 112px; width: var(--cw); height: var(--ch); }
 .rc-in {
