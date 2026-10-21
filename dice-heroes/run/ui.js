@@ -107,8 +107,9 @@ export function classTip(id) {
   if (!ci) return '';
   return `<b style="color:${c.color}">${c.ko}</b> <small>${ico('heart', 'xs')}${ci.hp} · ${ico('flip', 'xs')}${ci.flip} · ${ico('nudge', 'xs')}${ci.nudge}</small><p><b>${ico('star', 'xs')} ${ci.skill}</b> ${esc(ci.desc)}</p>`;
 }
-export function open() {
+export async function open() {
   warm();
+  await Promise.race([selectReady, wait(1500)]);   // 덱 더미 · 카드 그림이 다 받아진 뒤에 연다 (보통은 시작 화면에서 이미 받아 둠)
   ui.view = 'select'; X.setScreen('run'); paintSelect();
   Prog.refresh().then(() => ui.view === 'select' && !R && !X.layer.innerHTML && paintSelect());   // 배포판: 서버 기록 새로 받기
 }
@@ -133,10 +134,17 @@ const loadImg = url => imgJobs.get(url) || (imgJobs.set(url, new Promise(res => 
 const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_${k + 1}.webp?v=${RUN_ART_VER}`);
 // 미리 받기 (규칙: 그림 · 음악은 사람이 누르기 전에 이미 받아져 있어야 한다 — CLAUDE.md)
 // 시작 화면에 원정 버튼이 보이면 app.js 가 부른다. 화면에 바로 쓰일 것(승천 문장 등)부터, 나머지는 천천히 뒤에서
-let warming = null;
+// 직업 고르기 화면에 바로 보이는 그림 (모든 직업의 카드 뒷면 · 대표 카드 앞면 · 설명 아이콘) — 화면 글을 만들어 그 안의 주소를 모은다.
+// 새로 설치한 기기에서 이것들이 뒤에 받아지면 덱 더미가 바탕색(예전엔 빨강)으로 비어 보였다
+const selectURLs = () => {
+  const html = Run.RUN_ORDER.map(id => `${classInfoHTML(id, best())}${cardFace(startDeck(id).at(-1))}url(${cardBackURL(id)})`).join('') + `url(${cardBackURL()})`;
+  return [...new Set([...html.matchAll(/(?:src="|url\()([^")]+\.(?:webp|png)[^")]*)/g)].map(m => m[1].replace(/&amp;/g, '&')))];
+};
+let warming = null, selectReady = null;
 export function warm() {
+  selectReady ||= Promise.all([...ascURLs(), ...selectURLs()].map(loadImg));
   return (warming ||= (async () => {
-    await Promise.all(ascURLs().map(loadImg));
+    await selectReady;
     const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
     const jobs = [...runAssetURLs(bosses), ...relicURLs()].map(u => () => loadImg(u));
     const go = async () => { while (jobs.length) await jobs.shift()(); };
