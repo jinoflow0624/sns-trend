@@ -35,20 +35,6 @@ export const JESTER_DODGE = 0.3;           // 카드 공격을 30% 확률로 피
 export const JESTER_DARE = 1.5;            // 광대 카드로 공격하면 피해 ×1.5
 export const JESTER_SHUFFLE = 0.4;         // 턴마다 이 확률로 몰래 손패를 섞는다 (첫 · 두 번째 굴림 뒤 중 하나)
 export const jesterPrize = act => ({ stars: 50 + (act - 1) * 25, gems: 50 + (act - 1) * 25 });
-// 광대의 말 (이 세계에서 말을 하는 건 광대뿐). 성격: 비열하고 자기밖에 모르는 자유로운 영혼 — 남 일엔 관심 없고, 재미와 제 기분이 전부
-export const JESTER_SAY = {
-  intro: ['운이 나쁘군. 오늘 내 기분은 최악이거든.', '지도? 그런 건 겁쟁이들이나 보는 거야.', '용사 놀이 중이었나. 잠깐 빌려 쓰지, 네 시간.', '누가 보냈냐고? 아무도. 난 내가 가고 싶은 데로 가.'],
-  shuffle: ['그 패, 마음에 안 들더라. 내가.', '규칙은 지키는 놈이 손해 보게 돼 있어.', '계획 세우는 얼굴, 꽤 볼만했어. 처음부터 다시 해.', '공정? 그 단어는 내 시대에 이미 없어졌어.'],
-  dodge: ['그게 전력이야? 실망인데.', '빗나간 게 아니야. 내가 비켜 준 거지.', '너무 정직하게 치는군. 그래서 안 맞는 거야.', '같은 수가 두 번 통할 거라 생각했어?'],
-  dare: ['선택지를 주지. 내 카드를 쓰든가, 반쪽짜리로 싸우든가.', '이 족보, 네 실력이면 무리겠지만.'],
-  bomb: ['폭탄은 들고 있는 놈 거야. 그게 세상 이치지.', '남의 손에 쥐여 주고 구경하는 게 제일 재밌어.'],
-  boom: ['경고는 했어. 들을지 말지는 네 몫이었고.', '꽤 크게 터졌네. 다음엔 손이 좀 빨라지겠지.'],
-  facedown: ['모르는 채로 걸어 봐. 인생이 원래 그래.', '패는 내가 다 봤어. 넌 감으로나 해.'],
-  hurt: ['…지금 건 좀 거슬렸어.', '흥, 한 대 맞혔다고 들뜨지 마.', '그 운, 오래 안 가.'],
-  rage: ['가면에 금을 내? 값은 비싸게 치르게 해 주지.', '장난은 여기까지. 이제부턴 재미 같은 거 없어.'],
-  win: ['…흥이 식었어. 이건 수고비다. 받든가 말든가.', '착각하지 마. 진 게 아니라 질린 거야.', '오늘은 여기까지. 다음엔 네 운도 바닥날 거야.'],
-  lose: ['역시 이 정도였군. 가 봐, 네 길 남았잖아.', '시간 낭비였어. 나 말고, 너한테.', '쓰러진 김에 기억해 둬. 세상은 네 편이 아니야.'],
-};
 
 // ── 난수 (상태에 들어 있는 시드로 돈다) ─────────────────────────────────────
 export function rand(R) {
@@ -740,7 +726,7 @@ export const enterNode = act('enterNode', function enterNode(R, id) {
   R.path.push(id);
   R.stats.floors++;
   fx(R, { type: 'enter', node: id, kind: n.type });
-  if (jesterNow(R, n)) { R.jester = { met: true, then: id }; fx(R, { type: 'jesterIn', say: pick(R, JESTER_SAY.intro) }); return startCombat(R, 'jester'); }
+  if (jesterNow(R, n)) { R.jester = { met: true, then: id }; fx(R, { type: 'jesterIn' }); return startCombat(R, 'jester'); }
   doNode(R, n);
 });
 // 깜짝 보스가 끼어드는가 (한 원정에 한 번). 예전 원정(runNo 없음) · 3번째 원정 전에는 난수를 뽑지 않는다 (같은 시드의 원정이 그대로 돌게)
@@ -945,14 +931,14 @@ function startTurn(R) {
     }
     if (C.hex.t === 'facedown') {
       C.hidden = shuffle(R, C.hand.map(c => c.u)).slice(0, C.hex.n);
-      fx(R, { type: 'facedown', us: C.hidden.slice(), say: pick(R, JESTER_SAY.facedown) });
+      fx(R, { type: 'facedown', us: C.hidden.slice() });
     }
     if (C.hex.t === 'dare' || C.hex.t === 'bomb') {
       // 광대 카드: 큰 족보 하나 (이번 턴만 · 내면 사라진다)
       const c = { ...mkCard(R, pick(R, ['full', 'sstr', 'four', 'lstr', 'choice'])), temp: true, jest: C.hex.t };
       C.hand.push(c);
       C.jest = { kind: C.hex.t, u: c.u };
-      fx(R, { type: 'jestCard', u: c.u, cat: c.cat, kind: C.hex.t, say: pick(R, JESTER_SAY[C.hex.t]) });
+      fx(R, { type: 'jestCard', u: c.u, cat: c.cat, kind: C.hex.t });
     }
   }
   // 시공 광대: 몰래 손패를 섞을 굴림 (예고 없음)
@@ -984,7 +970,7 @@ function jesterShuffle(R) {
   C.discard.push(...out.filter(c => !c.temp));
   C.gazed = C.gazed.filter(u => C.hand.some(c => c.u === u)); C.hidden = C.hidden.filter(u => C.hand.some(c => c.u === u));
   const got = drawCards(R, out.length);
-  fx(R, { type: 'jestShuffle', out: out.map(c => c.u), in: got, say: pick(R, JESTER_SAY.shuffle) });
+  fx(R, { type: 'jestShuffle', out: out.map(c => c.u), in: got });
   syncRent(R);
 }
 
@@ -1490,7 +1476,6 @@ function resolvePlay(R, hi, target, gold = 0) {
     const r = hitEnemy(R, p.dmg, { pierce: p.pierce, why: 'card', quiet: true });
     ev.dmg = r.dmg; ev.blocked = r.blocked;
     if (r.dodge) ev.dodge = true;
-    else if (ENEMIES[C.e.id].talk && r.dmg >= 20 && rand(R) < 0.5) fx(R, { type: 'say', say: pick(R, JESTER_SAY.hurt) });
     R.stats.maxHit = Math.max(R.stats.maxHit, p.dmg);
     R.stats.atkSum += p.dmg; R.stats.atkN++;
     // 세머리 용: 한 장으로 HYDRA_CUT 이상이면 이번 턴 머리가 잘려 그 숨결은 나가지 않는다
@@ -1589,7 +1574,7 @@ function afterPlay(R, card, p, ev) {
 function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
   // 시공 광대: 카드 공격을 JESTER_DODGE 확률로 피한다
   if (why === 'card' && amount > 0 && ENEMIES[R.C.e.id].talk && rand(R) < JESTER_DODGE) {
-    fx(R, { type: 'dodge', say: pick(R, JESTER_SAY.dodge) });
+    fx(R, { type: 'dodge' });
     return { dmg: 0, blocked: 0, dodge: true };
   }
   const e = R.C.e;
@@ -1610,7 +1595,7 @@ function checkRage(R) {
   if ((def.kind !== 'boss' && def.kind !== 'special') || e.raged || e.hp <= 0 || e.hp * 2 >= e.maxHp) return;
   e.raged = true;
   e.str += 2;
-  fx(R, { type: 'rage', foe: e.id, say: def.talk ? pick(R, JESTER_SAY.rage) : undefined });
+  fx(R, { type: 'rage', foe: e.id });
   log(R, `${def.ko} 분노!`);
   // 세머리 용: 잘린 머리 하나가 다시 자란다
   if (def.ai === 'heads') {
@@ -1649,7 +1634,7 @@ function enemyTurn(R) {
   const bomb = C.jest?.kind === 'bomb' && !C.pure && !C.paused && C.hand.some(c => c.u === C.jest.u);
   if (bomb) {
     const r = hurtHero(R, atkOf(R, 7 + R.act * 3), 'bomb');
-    fx(R, { type: 'boom', u: C.jest.u, dmg: r.dmg, blocked: r.blocked, say: pick(R, JESTER_SAY.boom) });
+    fx(R, { type: 'boom', u: C.jest.u, dmg: r.dmg, blocked: r.blocked });
   }
   // 남은 손패는 버린 더미로
   // 남은 손패는 버린 더미로 (보존 카드는 손패에 남는다)
@@ -1721,7 +1706,7 @@ function enemyTurn(R) {
 function jesterLeaves(R) {
   R.hp = Math.max(1, Math.ceil(R.maxHp / 2));
   R.C.phase = 'lost';
-  fx(R, { type: 'jesterOut', won: false, hp: R.hp, say: pick(R, JESTER_SAY.lose) });
+  fx(R, { type: 'jesterOut', won: false, hp: R.hp });
   log(R, '시공 광대가 웃으며 사라졌다…');
   jesterResume(R);
 }
@@ -1767,7 +1752,7 @@ function winCombat(R) {
   if (hasRelic(R, 'lotus')) healHero(R, 6, 'lotus');
   if (def.kind === 'boss' && R.act >= ACTS && !R.sbFight) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
   R.phase = 'reward';
-  if (def.kind === 'special') { fx(R, { type: 'jesterOut', won: true, say: pick(R, JESTER_SAY.win) }); R.reward = jesterReward(R); return; }
+  if (def.kind === 'special') { fx(R, { type: 'jesterOut', won: true }); R.reward = jesterReward(R); return; }
   R.reward = genReward(R, def.kind);
 }
 
