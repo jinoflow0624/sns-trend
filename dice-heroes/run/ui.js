@@ -190,21 +190,6 @@ function enterView(fresh = false) {
 }
 
 // ── 직업 고르기 ──────────────────────────────────────────────────────────────
-// 원정 대사: 직업 그림을 누르면 스킬에 맞는 한마디 (대전 직업 대사는 app.js CLASS_LINES)
-// 원정 대사: 영화 · 애니 명대사를 스킬에 맞게 비튼 오마주 (대전 대사는 app.js CLASS_LINES)
-const RUN_LINES = {
-  gambler: ['묻고 더블로 가!', '쫄리면 뒈지시든가.', '쇼 미 더 머니!'],
-  monk: ['어제는 역사, 내일은 미스터리, 오늘은 선물이다.', '하거나, 안 하거나. 해 본다는 건 없다.', '물이 되어라, 친구여.'],
-  rogue: ['왜 럼은 늘 없는 거지?', '진실은 없다. 모든 것이 허용된다.', '잭 스패로 선장이 왔다는 걸 기억해라.'],
-  warrior: ['This is Sparta!', '즐겁지 아니한가!', "I'll be back."],
-  bard: ['음유시인에게 동전을 던져라~', '다 잊어~ 다 잊어~', '쇼는 계속되어야 한다!'],
-  mage: ['너는 지나갈 수 없다!', '마법사는 늦지 않는다. 카드 한 장 더 보고 올 뿐', '손패가 곧 마나다. 윙가르디움 레비-오사!'],
-  dancer: ['댄싱 퀸~ 춤사위 쌓는 중', '흔들어 주세요, 모든 주사위 +1!', '이 무대는 내가 찢는다'],
-  outlaw: ['자, 쏴 봐. 내 하루를 완성시켜 줘', '정오의 결투. 첫 굴림이면 충분해', '빠르게 쏘고, 남은 굴림으로 막는다'],
-  sharper: ['싸늘하다. 가슴에 비수가 날아와 꽂힌다.', '손은 눈보다 빠르다.', '동작 그만. 밑장 빼기냐?'],
-};
-const runLine = id => { const l = RUN_LINES[id] || ['…']; return l[runLineK++ % l.length]; };
-let runLineK = 0;
 // 시작 덱 9장 (기본 8장 + 대표 카드). 화면 보기용 (u 는 음수)
 // 시작 덱 미리보기 (마지막 장 = 대표 카드). 직업 특별 카드(sp)는 대표 카드 바로 앞
 const startDeck = cls => { const ci = Run.RUN_CLASSES[cls]; return [...Run.BASE_DECK.map((cat, k) => ({ u: -1 - k, cat, up: 0, kw: null })), { u: -98, cat: ci.sp, up: 0, kw: null }, { u: -99, cat: ci.sig.cat, up: 0, kw: ci.sig.kw || null }]; };
@@ -2278,13 +2263,9 @@ export function onAct(act, t) {
   if (act === 'run-cls') {
     sfx.tap(); ui.cls = t.dataset.id; ui.spin = { d: Number(t.dataset.d) || 0, t: Date.now() }; X.store.set('diceheroes.runCls', ui.cls);
     paintSelect();
-    // 가운데 온 캐릭터가 한마디 (다이얼이 다 돈 뒤)
-    const id = ui.cls;
-    clearTimeout(ui.lineT);
-    ui.lineT = setTimeout(() => { const el = X.app.querySelector('.rs-dial .dial-hero.d0'); if (el && ui.cls === id) X.speak(el, runLine(id), true); }, 280);   // 넘기는 소리 한 번만
     return;
   }
-  if (act === 'run-talk') return X.speak(t, runLine(t.dataset.id));
+  if (act === 'run-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
   // 원정 떠나기: 하드모드가 열렸으면 단계를 고르는 창, 아니면 바로 출발
   if (act === 'run-unlock') {          // 보석으로 원정 직업 사기 (app.js 의 buy 가 받는다)
     const id = t.dataset.id, price = X.runPrice(id), c = classInfo(id);
