@@ -64,12 +64,7 @@ export const syncAch = () => Prog.syncAch();
 export const reloadProgress = () => { Prog.reload(); if (ui.view === 'select' && !R) paintSelect(); };
 export const refreshSelect = () => { if (ui.view === 'select' && !R) paintSelect(); };
 // 원정 직업이 열렸나: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석으로 산 직업
-function runOpen(id, b = best()) {
-  const u = Run.RUN_UNLOCK[id];
-  if (u?.free) return true;
-  if (u?.feat) return b.feats.includes(u.feat);
-  return X.ownsRun(id);
-}
+function runOpen(id, b = best()) { return Run.runClassOpen(id, b.feats, X.ownsRun); }   // 서버 xStart 와 같은 규칙
 // 잠긴 직업을 여는 방법 (한 줄)
 function unlockHow(id) {
   const u = Run.RUN_UNLOCK[id];
