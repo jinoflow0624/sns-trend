@@ -5,7 +5,7 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
-import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
+import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
@@ -435,8 +435,12 @@ const MAP_ROW = 74, MAP_PAD = 46;
 function showMap(again = false) {
   playBgm('run_map');
   tour('map', 600);
-  preloadBgm(bossSong(R.boss));          // 이번 막 보스 곡 · 전투 곡을 미리 받아 둔다 (전투에 들어가자마자 나오게)
-  preloadBgm('run_battle');
+  // 다음 화면 미리 준비: 지금 갈 수 있는 칸의 곡은 풀어 두고(전투 · 엘리트 · 보스), 나머지 곡은 파일만 받아 둔다
+  // (풀어 둔 곡은 최근 3개만 메모리에 두므로 다 풀면 서로 밀어낸다). 트레이 · 주사위 그림도 함께
+  const SONG = { fight: 'run_battle', elite: 'run_elite', boss: bossSong(R.boss) };
+  const want = new Set(Run.nextNodes(R).map(id => SONG[Run.mapNode(R, id).type]).filter(Boolean));
+  Object.values(SONG).forEach(s => (want.has(s) ? preloadBgm(s) : prefetchBgm(s)));
+  if (want.size) X.stageReady();
   const nodes = R.map.nodes;
   const next = new Set(Run.nextNodes(R));
   // 층 간격: 지도 칸 높이에 맞춰 한 화면에 다 보이게 (너무 좁으면 스크롤)
