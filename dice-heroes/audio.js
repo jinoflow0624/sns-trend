@@ -34,6 +34,8 @@ export const BGM_FILES = {
 // 파일 끝 0.04초는 루프 시작 직전 소리로 미리 섞어 두어 이음매가 매끄럽다
 export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 13.181708, boss_archdemon: 32.741604,
   run_map: 24.676896, run_battle: 3.528, run_elite: 3.314792, boss_jester: 49.401708 };
+// 반복이 끝나는 지점 (초). 곡 끝에 무음 꼬리가 있는 곡 — 그대로 반복하면 0.5초쯤 조용했다가 다시 시작했다. 마디 수 × 박자로 맞춘다
+export const BGM_LOOP_END = { run_win: 15 * 4 * 60 / 135, run_lose: 17 * 4 * 60 / 91 };
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 // 강화 보스는 자기 곡이 없으면 원래 보스 곡을 쓴다
 const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich', archdemon: 'demon' };
@@ -465,10 +467,13 @@ function fetchBytes(url) {
     return pump();
   });
 }
+// 곡 풀기는 한 번에 하나씩 — 화면이 바뀔 때 여러 곡을 한꺼번에 풀면 폰 CPU 가 몰려 나오던 음악이 끊길 수 있다
+let decodeQ = Promise.resolve();
+const decodeOne = b => { const run = decodeQ.then(() => decoder().decodeAudioData(b.slice(0))); decodeQ = run.catch(() => {}); return run; };
 const loadBuffer = url => {
   keepBuffer(url);
   return (buffers[url] ||= (bytes[url] ||= fetchBytes(url).catch(err => { delete bytes[url]; throw err; }))
-    .then(b => decoder().decodeAudioData(b.slice(0)))      // 푸는 동안 원본이 비워지므로 사본을 넘긴다 (터치 전이면 오프라인 오디오로 푼다)
+    .then(b => decodeOne(b))      // 푸는 동안 원본이 비워지므로 사본을 넘긴다 (터치 전이면 오프라인 오디오로 푼다)
     .then(buf => { progress[url] = 1; done.add(url); return buf; })
     .catch(err => { delete buffers[url]; done.add(url); throw err; }));   // 못 받아도 "끝남" — 시작 화면이 계속 기다리지 않게
 };
@@ -509,6 +514,13 @@ function fadeOutAudible(dur = 0.3) {
 }
 export function playBgm(name) {
   if (playing?.name === name) return playing.ready || Promise.resolve();
+  // 지금 소리 나는 곡을 다시 부르면 그대로 둔다. 예전엔 같은 순간 B → A 로 불리면(화면이 두 번 그려질 때 등)
+  // 나오던 A 를 0.35초 줄여 끄고 A 를 처음부터 다시 틀어서 음악이 0.3 ~ 0.5초 끊겼다가 다시 시작됐다
+  if (audible?.name === name && audible.state) {
+    if (playing?.timer) clearInterval(playing.timer);
+    playing = audible.state; pendingBgm = null;
+    return playing.ready || Promise.resolve();
+  }
   // 앞 곡은 다음 곡이 준비될 때까지 그대로 둔다 (예전엔 바로 끊겨서 받는 · 푸는 동안 조용했다). 칩튠 곡만 바로 멈춘다
   if (playing?.timer) clearInterval(playing.timer);
   playing = null;
@@ -526,10 +538,11 @@ export function playBgm(name) {
       src.buffer = buf; src.loop = true;
       if (fade) { const now = ctx.currentTime; g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(FILE_VOL, now + 0.3); } else g.gain.value = FILE_VOL;
       if (BGM_LOOP[name] < buf.duration) { src.loopStart = BGM_LOOP[name]; src.loopEnd = buf.duration; }
+      if (BGM_LOOP_END[name] < buf.duration) { src.loopStart = BGM_LOOP[name] || 0; src.loopEnd = BGM_LOOP_END[name]; }
       src.connect(g).connect(bgmGain);
       src.start();
       state.src = src;
-      audible = { src, g };
+      audible = { src, g, name, state };
     }).catch(() => {
       badFiles.add(url);
       if (playing === state) { playing = null; fadeOutAudible(0.1); if (SONGS[name]) playBgm(name); }
