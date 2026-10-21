@@ -1,4 +1,4 @@
-# 🎲⚔️ 요트 히어로즈 (옛 이름: 다이스 히어로즈)
+# 🎲⚔️ KYBORIA 키보리아 (옛 이름: 요트 히어로즈 · 다이스 히어로즈)
 
 - 접속 주소 (GitHub Pages): `https://jinoflow0624.github.io/sns-trend/dice-heroes/`
 - 초대 링크: `…/dice-heroes/?room=방코드` — 링크를 누르면 바로 그 방 대기실로 들어갑니다.

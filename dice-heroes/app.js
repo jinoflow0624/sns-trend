@@ -23,7 +23,7 @@ import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, prelo
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
 const coachEl = document.getElementById('coach');
-document.title = GAME.name;
+document.title = `${GAME.en} · ${GAME.sub}`;
 
 const KEYS = { save: 'diceheroes.game', setup: 'diceheroes.setup', opts: 'diceheroes.opts', seen: 'diceheroes.seen', name: 'diceheroes.name', lastRoom: 'diceheroes.lastRoom', profile: 'diceheroes.profile', prefs: 'diceheroes.prefs' };
 const store = {
@@ -162,9 +162,10 @@ function showTitle() {
     <div class="title-ui">
       ${unlocked ? `<div class="title-top">${dailyBtn()}<button class="gem-chip" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button></div>` : ''}
       <div class="logo">
-        <span class="logo-sub">운명의 주사위 RPG</span>
-        <h1 class="logo-main">${esc(GAME.name)}</h1>
-        <span class="logo-en">${esc(GAME.en)}</span>
+        <span class="logo-crown" aria-hidden="true">${ico('crown', 'lg')}</span>
+        <h1 class="logo-main" data-text="${esc(GAME.en)}">${esc(GAME.en)}</h1>
+        <span class="logo-ko">${esc(GAME.name)}</span>
+        <span class="logo-sub">${esc(GAME.sub)}</span>
       </div>
       ${unlocked ? `
       <nav class="menu">
@@ -2793,7 +2794,7 @@ function turnAlert() {
   buzz(60);
   if (document.hidden) {
     const base = document.title;
-    document.title = '▶ 내 차례! · ' + GAME.name;
+    document.title = '▶ 내 차례! · ' + GAME.en;
     const back = () => { if (!document.hidden) { document.title = base; document.removeEventListener('visibilitychange', back); } };
     document.addEventListener('visibilitychange', back);
   }
@@ -3625,7 +3626,7 @@ async function rollDaily() {
 function showCredits() {
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame credits" data-act="noop">
     <h2>크레딧</h2>
-    <p><b>${esc(GAME.name)}</b> v${GAME.version}<br>기획 · 개발 ${esc(GAME.studio)}</p>
+    <p><b>${esc(GAME.en)}</b> ${esc(GAME.name)} v${GAME.version}<br>기획 · 개발 ${esc(GAME.studio)}</p>
     <p>음악 · 효과음 · 도트 그림<br>이 게임을 위해 새로 만든 것 (WebAudio 칩튠 합성)</p>
     <p>픽셀 서체 <b>Galmuri</b> © Lee Minseo · SIL Open Font License 1.1<br>
        3D <b>three.js</b> · MIT License<br>
