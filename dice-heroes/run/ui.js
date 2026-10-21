@@ -7,7 +7,7 @@ import { ico } from '../icons.js';
 import { spriteURL, isImgSprite } from '../pixel.js';
 import { sfx, playBgm, preloadBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL } from './art.js';
+import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -26,11 +26,11 @@ const wait = ms => X.wait(ms);
 const $ = id => document.getElementById(id);
 const center = el => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height } : { x: innerWidth / 2, y: innerHeight / 2, w: 0, h: 0 }; };
 const hero = cls => `<img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${spriteURL(cls, 4)}" alt="">`;
-const FOE_COLOR = { slime: '#3EE6B4', goblin: '#7CC24A', bat: '#8A5CC8', wolf: '#9AA4B8', shaman: '#B36BFF', mimic: '#FFC83D',
+const FOE_COLOR = { jester: '#3EE6E0', slime: '#3EE6B4', goblin: '#7CC24A', bat: '#8A5CC8', wolf: '#9AA4B8', shaman: '#B36BFF', mimic: '#FFC83D',
   skeleton: '#EEE6D0', ghost: '#7CA8D8', wisp: '#7CE0FF', knight: '#6A6A9A', golem: '#A8A090', imp: '#E8435A', hound: '#FF8A1A',
   gargoyle: '#8A8FA8', shade: '#9A6AFF', champion: '#C21E56' };
 const foeColor = id => bossInfo(id)?.color || FOE_COLOR[id] || '#9486FF';
-const KIND_KO = { normal: '', elite: '엘리트', boss: '보스' };
+const KIND_KO = { normal: '', elite: '엘리트', boss: '보스', special: '깜짝 보스' };
 
 // ── 시작 · 저장 ──────────────────────────────────────────────────────────────
 // 원정 스타일(run.css)을 다 받은 뒤에 화면을 그린다 — 먼저 그리면 꾸밈 없는 화면이 잠깐 보인다 (최대 3초 기다림)
@@ -368,24 +368,41 @@ function heroStrip() {
       <div class="rh-gold" id="r-gold" ${X.tipAttr('골드', '상점에서 써요')}>${ico('coins', 'xs')}<b>${R.gold}</b></div>
       <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(`방어도 ${blk}`, '적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요')}>${ico('shield', 'xs')}<b>${blk}</b></div>
     </div>
-    <div class="rh-relics">${R.relics.map(id => { const r = Run.relicInfo(id); return `<button class="relic r${r.r}" data-act="run-relic" data-id="${id}" aria-label="${r.ko}">${relicIco(r)}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
+    <div class="rh-relics">${[...R.relics, ...(R.phase === 'combat' ? R.C?.rent || [] : [])].map((id, k) => { const r = Run.relicInfo(id), rent = k >= R.relics.length; return `<button class="relic r${r.r}${rent ? ' rent' : ''}" data-act="run-relic" data-id="${id}" aria-label="${r.ko}${rent ? ' (대여)' : ''}">${relicIco(r)}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
   </section>`;
 }
 
 // ── 카드 그림 ────────────────────────────────────────────────────────────────
 const PATTERN = { ones: [1, 1, 1], twos: [2, 2, 2], threes: [3, 3, 3], fours: [4, 4, 4], fives: [5, 5, 5], sixes: [6, 6, 6], four: [5, 5, 5, 5], full: [3, 3, 3, 5, 5], sstr: [1, 2, 3, 4], lstr: [1, 2, 3, 4, 5], yacht: [6, 6, 6, 6, 6] };
 export function cardFace(c, { score = null, cls = '' } = {}) {
+  // 시공 광대 「뒷면 카드」: 무슨 족보인지 · 점수 · 공격 · 수비 모두 ??? (정화 물약이면 보인다)
+  if (R?.phase === 'combat' && R.C?.hidden?.includes(c.u) && !R.C.pure) return `<div class="rc-in rc-hidden${cls}"><b class="rc-name">???</b><div class="rc-pat"><span class="rc-q">?</span></div><small class="rc-rule">광대가 뒤집어 놓았다</small><span class="rc-kw none"></span>${score != null ? '<em class="rc-pts wait">?</em>' : ''}<i class="rc-sheen"></i></div>`;
+  if (Run.isFuture(c.cat)) return futureFace(c, score, cls);
   const r = Run.cardRarity(c);
   const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
   const sl = c.seal && Run.sealInfo(c.seal);
-  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>
+  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${c.jest ? ` jest j-${c.jest}` : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>${c.jest ? `<i class="rc-jest">${c.jest === 'bomb' ? '시한폭탄' : '광대 카드'}</i>` : ''}
     ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')}${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
     <div class="rc-pat">${pat}</div>
     <small class="rc-rule">${ruleOf(c)}</small>
     ${ks.length > 1 ? `<span class="rc-gems n${ks.length}">${Array.from({ length: Run.KW_MAX }, (_, i) => ks[i] ? `<i class="gem" style="--kc:${Run.KEYWORDS[ks[i]].color}" title="${Run.KEYWORDS[ks[i]].ko}">${runIco('kw', ks[i], Run.KEYWORDS[ks[i]].icon, 'xs')}</i>` : '<i class="gem empty"></i>').join('')}</span>`
       : kw ? `<span class="rc-kw">${runIco('kw', ks[0], kw.icon, 'xs')}${kw.ko}</span>` : '<span class="rc-kw none"></span>'}
+    ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
+    <i class="rc-sheen"></i>
+  </div>`;
+}
+// 미래 카드: 홀로그램 테두리 · 무지개 결이 흐른다 (전설 카드와 다른 '미래' 느낌). 가운데 그림이 없으면 아이콘
+function futureFace(c, score, cls) {
+  const f = Run.FUTURE[c.cat], url = futureIconURL(c.cat), sl = c.seal && Run.sealInfo(c.seal);
+  return `<div class="rc-in r4 future f-${c.cat}${cls}">
+    ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}
+    <i class="rc-holo" aria-hidden="true"></i><i class="rc-scan" aria-hidden="true"></i>
+    <b class="rc-name">${f.ko}</b><small class="rc-en">${f.en}</small>
+    <div class="rc-pat">${url ? `<img class="rc-fimg" src="${url}" alt="">` : `<span class="rc-fico">${ico(f.icon)}</span>`}</div>
+    <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
+    <span class="rc-kw fut">FUTURE</span>
     ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
     <i class="rc-sheen"></i>
   </div>`;
@@ -405,7 +422,7 @@ function longPress(el, fn, ms = 450) {
 }
 // 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
 const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
-const cardTip = c => `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`;
+const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b><p>광대가 뒤집어 놓은 카드. 내 보기 전엔 알 수 없다</p>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)} <small>${Run.FUTURE[c.cat].en}</small></b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">미래 카드 · 강화할 수 없다 (인장은 붙는다)</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>빌린 유물: ${R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · ')}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.jest ? `<p>${c.jest === 'bomb' ? '시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5' : '광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5'}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -517,7 +534,7 @@ function showOmens() {
 function showCombat(fresh) {
   const C = R.C;
   const kind = Run.ENEMIES[C.e.id].kind;
-  playBgm(kind === 'boss' ? bossSong(C.e.id) : kind === 'elite' ? 'run_elite' : 'run_battle');
+  playBgm(kind === 'boss' ? bossSong(C.e.id) : kind === 'elite' || kind === 'special' ? 'run_elite' : 'run_battle');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-combat" id="rc">
@@ -562,7 +579,7 @@ function showCombat(fresh) {
 }
 const canAct = () => R?.phase === 'combat' && R.C?.phase === 'roll' && !ui.busy;
 // 굴리는 동안(주사위가 다 멈추기 전)은 '?' — 점수는 주사위가 멈춘 뒤에 드러난다
-const cardScore = c => (ui.rolling ? '?' : R.C.rolled ? Run.scoreCard(R, c).total : null);
+const cardScore = c => (ui.rolling || (R.C.hidden?.includes(c.u) && !R.C.pure) ? (R.C.rolled || ui.rolling ? '?' : null) : R.C.rolled ? (c.cat === 'xpar' ? Run.parallelSet(R, c.u).reduce((a, o) => a + o.s, 0) : Run.scoreCard(R, c).total) : null);
 
 const shownHTML = new WeakMap();
 const setHTML = (el, html) => { if (el && shownHTML.get(el) !== html) { el.innerHTML = html; shownHTML.set(el, html); } };
@@ -628,7 +645,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${foeURL(e.id)}" alt=""></div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt="">${def.talk && ui.jsay ? `<div class="jest-say">${esc(ui.jsay)}</div>` : ''}</div>
     <div class="foe-main">
       <div class="foe-name"><b>${esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
@@ -668,6 +685,8 @@ function paintTray() {
 // 카드에 손가락을 올렸을 때 공격 · 방어 미리보기 (길게 누르기)
 function playTip(c) {
   if (!R.C.rolled) return '';
+  if (R.C.hidden?.includes(c.u) && !R.C.pure) return `<p>${ico('sword', 'xs')} 공격 ??? &nbsp; ${ico('shield', 'xs')} 수비 ???</p>`;
+  if (c.cat === 'xpar') { const set = Run.parallelSet(R, c.u); return `<p>${ico('card', 'xs')} 함께 낼 카드 ${set.length}장 · 점수 합 ${set.reduce((a, o) => a + o.s, 0)}</p>`; }
   const hi = R.C.hand.findIndex(x => x.u === c.u);
   const a = Run.preview(R, hi, 'enemy'), d = Run.preview(R, hi, 'self');
   if (Run.hasRelic(R, 'madscale') && !(Run.isTrinity(c) && !Run.prismOn(R, c))) {
@@ -745,6 +764,19 @@ function doBet(u) {
 // 프리즘이 있으면 점수 3배(S)를 공격(빨강) · 골드(노랑) · 방어(파랑)로 나눈다 (prism) — 골드 막대가 하나 더 생긴다.
 function openSplit(u) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u), card = C.hand[hi];
+  // 뒷면 카드 · 미래 카드: 나누기 막대 없이 버튼만 (뒷면은 숫자를 보여 주지 않는다)
+  const hidden = C.hidden?.includes(u) && !C.pure;
+  if (hidden || Run.isFuture(card.cat)) {
+    ui.sel = u; ui.split = null;
+    const go = (t, label, cls = '') => `<button class="pbtn sp-go${cls}" data-act="run-play" data-u="${u}" data-t="${t}">${label}</button>`;
+    let body;
+    if (hidden) body = `<p class="sp-info">무슨 카드일지 몰라요. 공격할지 수비할지만 고르세요</p><div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 공격 ???`, ' gold')}${go('self', `${ico('shield', 'xs')} 수비 ???`)}</div>`;
+    else if (card.cat === 'xpar') { const set = Run.parallelSet(R, u), S = set.reduce((a, o) => a + o.s, 0); body = `<p class="sp-info">${ico('card', 'xs')} 점수가 나는 카드 ${set.length}장을 함께 낸다 · 합 <b>${S}</b></p><div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 전부 공격`, ' gold')}${go('self', `${ico('shield', 'xs')} 전부 수비`)}</div>`; }
+    else body = `<p class="sp-info">${esc(Run.FUTURE[card.cat].desc)}</p><div class="sp-row">${go('self', card.cat === 'xpause' ? '일시정지!' : '내기 (0점)', ' gold')}</div>`;
+    hand.select(u, `<div class="split simple fut" id="split">${body}</div>`, { wide: true });
+    hand.el(u)?.classList.add('splitting');
+    return;
+  }
   const S = Run.splitPool(R, card, Run.scoreCard(R, card).total);
   ui.sel = u;
   // 기본은 '딱 막기' (다음 공격을 다 막을 만큼만 방어 · 나머지 공격). 막을 공격이 없으면 전부 공격.
@@ -987,10 +1019,24 @@ async function doPlay(u, target, gold = 0) {
   const r = await act(() => Run.playCard(R, hi, target, gold));
   if (!r) { hand.select(null); hand.layout(); return; }
   ui.busy = true;
-  await playFx(r.list, r.before);
+  // 시공 광대가 떠나면(진 경우) 곧바로 원래 칸으로 간다 — 그 뒤의 연출은 새 화면에서
+  const k = r.list.findIndex(f => f.type === 'jesterOut');
+  await playFx(k >= 0 ? r.list.slice(0, k + 1) : r.list, r.before);
   ui.busy = false;
   save();
+  if (k >= 0 && R.phase !== 'reward') return enterAfterJester(r.list.slice(k + 1));
   afterAction();
+}
+// 광대전 뒤 원래 가려던 칸으로: 전투 칸이면 곡 · 트레이를 준비하고 등장 연출부터
+function enterAfterJester(list = []) {
+  const opening = list.filter(f => f.type === 'hex' || f.type === 'gaze');
+  if (R.phase === 'combat') {
+    if (opening.length) { ui.openFx = opening; ui.hideGaze = true; }
+    const kind = Run.ENEMIES[R.C.e.id].kind;
+    const song = kind === 'boss' ? bossSong(R.boss) : kind === 'elite' ? 'run_elite' : 'run_battle';
+    return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady()]).then(() => enterView(true));
+  }
+  return enterView();
 }
 async function doSwap(hi) {
   ui.tool = null;
@@ -1278,6 +1324,26 @@ function hurtFlash(big) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 560);
 }
+// 시공 광대의 말: 머리 위 말풍선 + 비아냥 그림 (잠깐). 말을 하는 건 이 세계에서 광대뿐
+async function jSay(text, mode = 'taunt', ms = 2300) {
+  if (!text) return;
+  ui.jsay = text; ui.jmode = mode;
+  const art = $('foe-art'), img = art?.querySelector('.foe-img');
+  if (img) img.src = jesterURL(mode || (R.C?.e?.raged ? 'rage' : ''));
+  art?.querySelector('.jest-say')?.remove();
+  art?.insertAdjacentHTML('beforeend', `<div class="jest-say">${esc(text)}</div>`);
+  sfx.giggle?.() || sfx.tap?.();
+  const mine = ui.jsayN = (ui.jsayN || 0) + 1;
+  setTimeout(() => {
+    if (ui.jsayN !== mine) return;
+    ui.jsay = null; ui.jmode = null;
+    const a = $('foe-art'), im = a?.querySelector('.foe-img');
+    a?.querySelector('.jest-say')?.classList.add('out');
+    setTimeout(() => a?.querySelector('.jest-say.out')?.remove(), 300);
+    if (im && R?.C?.e) im.src = jesterURL(R.C.e.raged ? 'rage' : '');
+  }, ms);
+  await wait(Math.min(900, ms));
+}
 async function playFx(list, before) {
   ui.show = { ...before };
   for (const f of list) {
@@ -1356,6 +1422,7 @@ async function playOne(f) {
       const e = foeAt(), h = heroAt();
       const art = $('foe-art');
       if (f.behead) { floatAt(e.x, e.y - 30, '숨결이 끊겼다!', 'mint'); await wait(500); return; }
+      if (f.paused) { skillCall(`${ico('hourglass')} 일시정지 — 적의 행동 무효`); if (fxOn) FX().flash('#3EE6E0', 400, 0.3); floatAt(e.x, e.y - 30, '⏸ 정지!', 'sky big'); sfx.seal?.(); await wait(900); return; }
       if (f.hits.length) {
         // 적이 달려든다 → 할퀸 자국 · 붉은 번쩍임 · 체력바가 깎이며 흰 띠가 따라 줄어든다. 막으면 방패가 '쨍'
         art?.classList.remove('lunge'); void art?.offsetWidth; art?.classList.add('lunge');
@@ -1415,6 +1482,7 @@ async function playOne(f) {
       floatAt(e.x, e.y - 50, '분노!', 'dmg big');
       shake($('rc'), 2);
       await wait(700);
+      if (f.say) await jSay(f.say, 'rage');
       return;
     }
     case 'regrow': { const e = foeAt(); floatAt(e.x, e.y - 40, '머리가 다시 자란다!', 'dmg'); if (fxOn) FX().regrow?.(e); await wait(600); return; }
@@ -1556,6 +1624,79 @@ async function playOne(f) {
     }
     case 'phoenix': { const h = heroAt(); if (fxOn) { FX().burst(h.x, h.y, { n: 60, pal: PALETTES.fire, grav: -160 }); FX().flash('#FFD24A', 400, 0.4); } floatAt(h.x, h.y - 40, '불사조의 부활!', 'gold big'); sfx.levelup?.(); setShow({ hp: f.hp }); repaintBars(); await wait(900); return; }
     case 'runWon': return;
+    // ── 시공 광대 ──
+    case 'jesterIn': await jSay(f.say, 'taunt', 2600); return;
+    case 'say': await jSay(f.say, 'taunt'); return;
+    case 'dodge': {
+      const e = foeAt(), art = $('foe-art');
+      art?.classList.remove('dodge'); void art?.offsetWidth; art?.classList.add('dodge');
+      sfx.whoosh?.();
+      floatAt(e.x, e.y - 40, '회피!', 'sky big');
+      if (fxOn) FX().burst(e.x, e.y, { n: 16, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [80, 220], life: [0.2, 0.5] });
+      await jSay(f.say, 'taunt');
+      return;
+    }
+    case 'facedown': {
+      skillCall(`${ico('card')} 뒷면 카드`);
+      f.us.forEach(u => { const el = hand.el(u); el?.classList.remove('flipback'); void el?.offsetWidth; el?.classList.add('flipback'); });
+      sfx.card();
+      hand.refresh();
+      await jSay(f.say, 'taunt');
+      return;
+    }
+    case 'jestCard': {
+      skillCall(`${ico(f.kind === 'bomb' ? 'fire' : 'anger')} ${f.kind === 'bomb' ? '시한폭탄' : '광대의 도전장'}`);
+      const c = R.C?.hand.find(x => x.u === f.u);
+      if (c) await hand.draw([c]);
+      await jSay(f.say, 'taunt');
+      return;
+    }
+    case 'jestShuffle': {
+      await jSay(f.say, 'taunt', 2000);
+      if (fxOn) FX().flash('#FF4FD8', 260, 0.25);
+      await hand.discardAll(f.out);
+      const cards = f.in.map(u => R.C?.hand.find(c => c.u === u)).filter(Boolean);
+      await hand.draw(cards);
+      hand.refresh();
+      return;
+    }
+    case 'boom': {
+      const h = heroAt(), el = hand.el(f.u);
+      const r = el?.getBoundingClientRect(), p = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : h;
+      sfx.boom?.(1.6); buzz(160);
+      if (fxOn) { FX().burst(p.x, p.y, { n: 60, pal: PALETTES.fire, speed: [120, 380] }); FX().flash('#FF7A1A', 300, 0.35); hurtFlash(true); }
+      shake($('rc'), 1.8);
+      if (f.dmg) floatAt(h.x, h.y - 12, `-${f.dmg}`, 'dmg big');
+      if (f.blocked) floatAt(h.x + 34, h.y - 26, `${ico('shield', 'xs')}-${f.blocked}`, 'sky');
+      setShow({ blk: Math.max(0, ui.show.blk - f.blocked), hp: Math.max(0, ui.show.hp - f.dmg) });
+      updHero(f.dmg > 0);
+      await jSay(f.say, 'taunt');
+      return;
+    }
+    case 'parallel': {
+      skillCall(`${ico('card')} 병렬 연산 · 합 ${f.score}`);
+      f.us.forEach(u => hand.el(u)?.classList.add('par-glow'));
+      sfx.levelup?.();
+      await wait(700);
+      return;
+    }
+    case 'rent': {
+      const h = heroAt(), add = f.ids.filter(id => !f.from.includes(id));
+      setHTML($('r-hud'), hud());
+      if ($('r-hero')) setHTML($('r-hero'), heroStrip());
+      if (add.length) { floatAt(h.x, h.y - 60, `${ico('gem', 'xs')} 대여: ${add.map(id => Run.relicInfo(id).ko).join(' · ')}`, 'gold'); sfx.select(); await wait(300); }
+      return;
+    }
+    case 'jesterOut': {
+      const art = $('foe-art');
+      await jSay(f.say, f.won ? '' : 'taunt', 2400);
+      art?.classList.add('warp');
+      sfx.whoosh?.();
+      if (fxOn) { const e = foeAt(); FX().burst(e.x, e.y, { n: 50, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [100, 360] }); }
+      if (!f.won) { const h = heroAt(); floatAt(h.x, h.y - 40, `체력 절반(${f.hp})으로 일어났다`, 'mint big'); setShow({ hp: f.hp }); updHero(false); }
+      await wait(900);
+      return;
+    }
     default: return;
   }
 }
@@ -1585,6 +1726,21 @@ async function introFoe() {
     const p = foeAt();
     floatAt(p.x, p.y - 60, '엘리트!', 'dmg big');
     sfx.haki?.();
+  } else if (def.kind === 'special') {
+    // 깜짝 보스: 화면이 지지직 깨지며 홀로그램 띠 + "깜짝 보스!" — 지도에 없던 적
+    ui.busy = true;
+    X.layer.innerHTML = `<div class="overlay boss-intro run-intro jest-intro" data-act="run-skip" style="--c:#3EE6E0">
+      <div class="bi-band"><i></i></div><div class="bi-band thin"></div>
+      <img class="bi-boss px" src="${jesterURL('taunt')}" alt="">
+      <div class="bi-name"><small>깜짝 보스 · 미래에서 온 광대</small><b>${esc(def.ko.split(' ').slice(-1)[0])}</b></div>
+      <div class="bi-flash"></div><div class="glitch" aria-hidden="true"></div></div>`;
+    sfx.slash?.();
+    setTimeout(() => { sfx.boom?.(1.4); shake(X.layer.firstElementChild, 2); }, 430);
+    await Promise.race([wait(2400), new Promise(r => (ui.skipIntro = r))]);
+    ui.skipIntro = null;
+    X.layer.innerHTML = '';
+    ui.busy = false;
+    paint();
   }
 }
 
@@ -1608,7 +1764,7 @@ function showReward() {
   if (rw) tour('reward', 900);
   if (!rw) { R.phase = 'map'; return showMap(); }
   playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'run_map');
-  const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : '승리!';
+  const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : rw.kind === 'special' ? '시공 광대 격파!' : '승리!';
   X.layer.innerHTML = '';
   const again = !!rw.cheered;
   X.app.innerHTML = `
@@ -1620,7 +1776,8 @@ function showReward() {
       <div class="rw-items">
         ${rw.items.map((it, k) => rewardRow(it, k)).join('')}
       </div>
-      <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? '다음 막으로' : rw.kind === 'start' ? '출발' : '지도로'}</button>
+      ${rw.kind === 'special' ? `<div class="chest jest-prize"><img class="run-scene" src="${jesterURL('taunt')}" alt=""></div>` : ''}
+      <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? '다음 막으로' : rw.kind === 'start' ? '출발' : rw.kind === 'special' ? '가던 길로' : '지도로'}</button>
     </div>
     ${heroStrip()}
   </div>`;
@@ -1631,18 +1788,21 @@ function showReward() {
   if (auto >= 0) setTimeout(() => R?.reward === rw && takeItem(auto), rw.cheered === 'auto' ? 220 : 520);
   rw.cheered = rw.cheered && 'auto';
 }
-const autoTakes = it => !it.done && (it.t === 'gold' || (it.t === 'potion' && R.potions.length < Run.POTION_SLOTS));
+const autoTakes = it => !it.done && (it.t === 'gold' || it.t === 'stars' || it.t === 'gems' || (it.t === 'potion' && R.potions.length < Run.POTION_SLOTS));
 // 보상 칸: 가로세로가 비슷한 타일. 저절로 받는 것(골드 · 물약)은 「받음」, 직접 고르는 것은 「고르기」 · 「받기」 표시
 function rewardRow(it, k) {
   const done = it.done ? ' done' : '';
   const full = it.t === 'potion' && !it.done && R.potions.length >= Run.POTION_SLOTS;
   const tag = it.done ? '<em class="rw-tag ok">받음</em>' : full ? '<em class="rw-tag warn">물약 칸 가득</em>'
-    : ['card', 'relicPick'].includes(it.t) ? '<em class="rw-tag pick">고르기 ▸</em>' : it.t === 'gold' || it.t === 'potion' ? '' : '<em class="rw-tag pick">받기</em>';
+    : ['card', 'relicPick'].includes(it.t) ? '<em class="rw-tag pick">고르기 ▸</em>' : ['gold', 'potion', 'stars', 'gems'].includes(it.t) ? '' : '<em class="rw-tag pick">받기</em>';
   if (it.t === 'gold') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('coins')}<b>골드 ${it.n}</b>${tag}</button>`;
   if (it.t === 'potion') { const p = Run.potionInfo(it.id); return `<button class="rw${done}${full ? ' full' : ''}" data-act="run-take" data-k="${k}" style="--pc:${p.color}">${runIco('potion', p.id, p.icon)}<b>${p.ko}</b><small>${p.desc}</small>${tag}</button>`; }
   if (it.t === 'relic') { const r = Run.relicInfo(it.id); return `<button class="rw relic-row r${r.r}${done}" data-act="run-take" data-k="${k}">${relicIco(r)}<b>${r.ko}</b><small>${r.desc}</small>${tag}</button>`; }
   if (it.t === 'relicPick') return `<button class="rw boss-relic${done}" data-act="run-relicpick" data-k="${k}">${ico('crown')}<b>${it.kind === 'boss' ? '보스 유물' : '유물'}</b><small>${it.opts.length}개 중 1개</small>${tag}</button>`;
   if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b>${tag}</button>`;
+  if (it.t === 'stars') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${starIco('')}<b>별조각 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
+  if (it.t === 'gems') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('gem')}<b>보석 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
+  if (it.t === 'card' && it.future) return `<button class="rw card-row future-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>미래 카드</b><small>${it.opts.length}장 중 1장 · 여기서만 얻는다</small>${tag}</button>`;
   if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
   return '';
 }
@@ -1655,6 +1815,7 @@ async function takeItem(k) {
   const p = center(el);
   if (it.t === 'gold') { sfx.coin(); FX().coins(p, center($('r-gold')), 12); }
   else if (it.t === 'relic') { sfx.legend(); FX().burst(p.x, p.y, { n: 40, pal: PALETTES.gold }); }
+  else if (it.t === 'stars' || it.t === 'gems') { sfx.stars?.(Math.min(10, it.n / 10)) || sfx.coin(); FX().burst(p.x, p.y, { n: 36, pal: it.t === 'gems' ? PALETTES.arcane : PALETTES.gold }); }
   else { sfx.card(); FX().burst(p.x, p.y, { n: 20, pal: PALETTES.heal }); }
   save();
   setTimeout(() => R.phase === 'reward' && showReward(), 260);
@@ -1664,10 +1825,11 @@ function cardPick(k) {
   if (!it || it.done) return;
   ui.cardPick = k;
   sfx.card();
-  X.layer.innerHTML = `<div class="overlay run-pick" data-act="noop"><div class="pick-box">
-    <h2>보상</h2>
+  X.layer.innerHTML = `<div class="overlay run-pick${it.future ? ' future-pick' : ''}" data-act="noop"><div class="pick-box">
+    <h2>${it.future ? '미래 카드 — 하나만 가져갈 수 있다' : '보상'}</h2>
     <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}</button>`).join('')}</div>
-    <div class="pick-actions">${rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
+    ${it.future ? `<div class="fut-descs">${it.opts.map(c => `<p><b>${esc(Run.FUTURE[c.cat].ko)}</b> ${esc(Run.FUTURE[c.cat].desc)}</p>`).join('')}</div>` : ''}
+    <div class="pick-actions">${it.future ? '' : rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
   </div></div>`;  // 카드를 길게 누르면 설명 (누르면 바로 가져간다)
   X.layer.querySelectorAll('.pick-cards .rc').forEach((el, i) => longPress(el, () => X.popover(el, cardTip(it.opts[i]), { afterRelease: true })));
 }
@@ -1920,7 +2082,7 @@ function showSandbox() {
     body = `<p class="dim">눌러서 넣고 빼기 · 가진 유물 ${R.relics.length}개</p>${grp.map(([r, ko]) => `<h3>${ko}</h3><div class="sb-grid">${Run.RELICS.filter(x => x.r === r).map(x => `<button class="sb-relic${Run.hasRelic(R, x.id) ? ' on' : ''}" data-act="run-sbrelic" data-v="${x.id}" title="${esc(x.desc)}">${relicIco(x, 'xs')}<span>${esc(x.ko)}</span></button>`).join('')}</div>`).join('')}`;
   } else if (sb.tab === 'card') {
     const preview = { u: -7, cat: sb.cat, up: sb.up, kws: sb.kws, seal: sb.seal || null };
-    body = `<h3>족보</h3><div class="sb-row">${Run.SAME_CATS_ALL.map(c => chip('run-sbcat', c, sb.cat === c, esc(Run.cardTitle(c)))).join('')}</div>
+    body = `<h3>족보</h3><div class="sb-row">${[...Run.SAME_CATS_ALL, ...Run.FUTURE_CATS].map(c => chip('run-sbcat', c, sb.cat === c, esc(Run.cardTitle(c)))).join('')}</div>
       <h3>효과 <small>3개까지</small></h3><div class="sb-row">${Run.KW_IDS.map(k => chip('run-sbkw', k, sb.kws.includes(k), `${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')}${Run.KEYWORDS[k].ko}`)).join('')}</div>
       <h3>강화 · 인장</h3><div class="sb-row">${chip('run-sbup', 1, sb.up, '강화 +')}${chip('run-sbseal', '', !sb.seal, '인장 없음')}${Run.SEAL_IDS.map(id => chip('run-sbseal', id, sb.seal === id, `${sealIco(id)}${Run.sealInfo(id).ko}`)).join('')}</div>
       <div class="sb-make"><div class="rc rc-static">${cardFace(preview)}</div><div class="sb-col">
@@ -1933,10 +2095,10 @@ function showSandbox() {
       <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}${chip('run-sbx', 'rrshop', false, `${ico('recycle', 'xs')}상점 새로고침 +1 (${Run.rrOf(R).shop})`)}${chip('run-sbx', 'rrpick', false, `${ico('recycle', 'xs')}카드 · 유물 새로고침 +1 (${Run.rrOf(R).pick})`)}</div>
       <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
   } else if (sb.tab === 'foe') {
-    const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스']];
+    const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스'], ['special', '깜짝 보스']];
     body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
       <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
-      ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act}막</small></button>`).join('')}</div>`).join('')}`;
+      ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act ? `${e.act}막` : "1 · 2막"}</small></button>`).join('')}</div>`).join('')}`;
   } else if (sb.tab === 'event') {
     body = `<p class="dim">눌러서 그 이벤트로 바로 가기</p><div class="sb-grid events">${Run.EVENTS.map(e => `<button class="sb-ev" data-act="run-sbevent" data-v="${e.id}">${sceneURL(e.id) ? `<img src="${sceneURL(e.id)}" alt="">` : ico(e.art, 'lg')}<span>${esc(e.ko)}</span></button>`).join('')}</div>`;
   } else if (sb.tab === 'omen') {
@@ -1995,7 +2157,10 @@ function sbAct(act, t) {
     X.layer.innerHTML = '';
     ui.sb.tab = 'score';
     const kind = Run.ENEMIES[v].kind;
-    const song = kind === 'boss' ? bossSong(v) : kind === 'elite' ? 'run_elite' : 'run_battle';
+    const song = kind === 'boss' ? bossSong(v) : kind === 'elite' || kind === 'special' ? 'run_elite' : 'run_battle';
+    const opening = drain().filter(f => ['hex', 'gaze', 'facedown', 'jestCard', 'rent'].includes(f.type));
+    if (kind === 'special') opening.unshift({ type: 'jesterIn', say: Run.JESTER_SAY.intro[0] });
+    if (opening.length) { ui.openFx = opening; ui.hideGaze = true; }
     return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady()]).then(() => enterView(true));
   }
 }
@@ -2025,7 +2190,7 @@ function paintEnd(arrived) {
   const stars = !out ? `<p class="end-stars wait">${starIco()} 별조각 계산 중…</p>`
     : out.error ? `<p class="end-stars off">${ico('warn', 'xs')} 기록을 저장하지 못했어요</p>`
     : out.offline ? `<p class="end-stars off">${starIco()} 오프라인 원정 · 별조각 없음</p>`
-    : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b></p>`;
+    : `<p class="end-stars">${starIco()} 별조각 <b>+${out.stars || 0}</b>${out.gems ? ` &nbsp; ${ico('gem', 'xs')} 보석 <b>+${out.gems}</b>` : ''}</p>`;
   const st = R.stats;
   X.layer.innerHTML = '';
   X.app.innerHTML = `
@@ -2165,12 +2330,12 @@ export function onAct(act, t) {
     sfx.start();
     try { Run.enterNode(R, id); } catch (e) { return X.toast(ico('warn'), '갈 수 없어요', e.message, 1400); }
     // 첫 턴 방해(응시 등)는 전투 화면이 뜨고 적이 등장한 뒤에 연출한다 (예전엔 여기서 버려져 손패에 응시만 덩그러니 걸려 있었다)
-    const opening = drain().filter(f => f.type === 'hex' || f.type === 'gaze');
+    const opening = drain().filter(f => ['hex', 'gaze', 'jesterIn', 'facedown', 'jestCard', 'rent'].includes(f.type));
     if (R.phase === 'combat' && opening.length) { ui.openFx = opening; ui.hideGaze = true; }
     save();
     t.classList.add('go');
-    // 전투 칸: 그 곡이 준비될 때까지 (최대 3초) 기다렸다가 들어간다
-    const ty = Run.mapNode(R, id).type;
+    // 전투 칸: 그 곡이 준비될 때까지 (최대 3초) 기다렸다가 들어간다 (시공 광대가 끼어들면 엘리트 곡)
+    const ty = R.phase === 'combat' && R.C?.e.id === 'jester' ? 'elite' : Run.mapNode(R, id).type;
     const song = ty === 'boss' ? bossSong(R.boss) : ty === 'elite' ? 'run_elite' : ty === 'fight' ? 'run_battle' : null;
     const ready = song ? Promise.race([preloadBgm(song), wait(3000)]) : null;
     return Promise.all([ready, wait(260), song && X.stageReady()]).then(() => enterView(true));
@@ -2209,10 +2374,11 @@ export function onAct(act, t) {
     const left = R.reward?.items.filter(it => !it.done && (it.t === 'card' || it.t === 'relicPick' || it.t === 'relic')).length;
     if (left && !t.dataset.sure) { t.dataset.sure = '1'; t.textContent = '받지 않은 보상이 있어요 · 한 번 더 누르면 떠나요'; sfx.select(); return; }
     sfx.start();
-    const boss = R.reward?.kind === 'boss';
+    const boss = R.reward?.kind === 'boss', jest = R.reward?.kind === 'special';
     Run.leaveReward(R);
     const fx = drain();
     save();
+    if (jest) return enterAfterJester(fx);
     if (boss && R.phase === 'map') return actBanner(fx.find(f => f.type === 'act'));
     return enterView();
   }

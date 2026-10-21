@@ -26,7 +26,29 @@ export const BURN_TURNS = 3;
 export const GUARD_MUL = 0.5;     // 수호: 방어로 돌린 점수의 보호막 +50%
 export const HYDRA_CUT = 30;      // 세머리 용: 카드 한 장으로 이만큼 피해를 주면 이번 턴의 머리가 잘린다
 // 격앙: 전투가 길어지면 적이 턴마다 힘을 얻는다 (막기만 하며 버티는 것을 막는다). from 턴부터 적의 턴이 끝날 때마다 힘 +str
-export const FURY = { normal: { from: 5, str: 1 }, elite: { from: 6, str: 2 }, boss: { from: 8, str: 2 } };
+export const FURY = { normal: { from: 5, str: 1 }, elite: { from: 6, str: 2 }, boss: { from: 8, str: 2 }, special: { from: 7, str: 2 } };
+// ── 깜짝 보스 「시공 광대」 (지도에 없다. 칸에 들어갈 때 끼어든다 — 이긴 뒤 · 쓰러진 뒤 원래 가려던 칸으로) ──
+//   3번째 원정부터 1 · 2막에서 칸에 들어갈 때마다 JESTER_P 확률, 4번째 원정은 2막 중간(JESTER_ROW 층 이상)에서 한 번 반드시.
+//   한 원정에 한 번만. 져도 원정은 끝나지 않는다 — 체력 절반으로 일어나 보상 없이 원래 칸으로
+export const JESTER_P = 0.005, JESTER_FROM = 3, JESTER_FIXED = 4, JESTER_ROW = 4;
+export const JESTER_DODGE = 0.3;           // 카드 공격을 30% 확률로 피한다
+export const JESTER_DARE = 1.5;            // 광대 카드로 공격하면 피해 ×1.5
+export const JESTER_SHUFFLE = 0.4;         // 턴마다 이 확률로 몰래 손패를 섞는다 (첫 · 두 번째 굴림 뒤 중 하나)
+export const jesterPrize = act => ({ stars: 50 + (act - 1) * 25, gems: 50 + (act - 1) * 25 });
+// 광대의 말 (이 세계에서 말을 하는 건 광대뿐)
+export const JESTER_SAY = {
+  intro: ['안녕~? 미래에서 놀러 왔어. 잠깐만 놀아 줄래?', '짜잔! 지도에 내가 없었지? 원래 없어~', '시간 여행은 심심하거든. 너로 정했다!'],
+  shuffle: ['어머, 카드가 섞였네? 내 탓 아니야~', '손패 바꿔치기! 미래에선 이게 유행이야.', '방금 그 카드, 좋았지? 이제 없어~ 키키킥', '눈 깜짝할 새! 다시 생각해 봐~'],
+  dodge: ['어이쿠~ 빗나갔네?', '미래에서 본 공격이야. 다 알아~', '너무 느려! 내 시간은 0.3초 빨라.', '헛스윙~ 한 번 더 해 볼래?'],
+  dare: ['내 카드 받아! 안 내면 나머진 반토막이야~', '이 족보로 와 봐. 못 하겠지?'],
+  bomb: ['선물이야! 턴 끝날 때까지 들고 있으면… 펑!', '째깍째깍~ 이거 빨리 버리는 게 좋을걸?'],
+  boom: ['펑! 그러게 내가 뭐랬어~', '쾅! 선물 맘에 들었어?'],
+  facedown: ['무슨 카드일까~? 맞혀 봐!', '쉿, 뒷면은 비밀이야.'],
+  hurt: ['아야! 반칙이야, 반칙!', '오, 제법인데?', '흥, 운이 좋았을 뿐이야.'],
+  rage: ['좋아, 이제 진짜로 놀아 줄게!', '가면에 금이 갔잖아… 용서 못 해!'],
+  win: ['…재밌었어. 미래에서 또 보자! 이거 받아~', '내가 졌다고? 이번만 봐준 거야. 선물이다!'],
+  lose: ['에이, 벌써 끝? 쉬었다 와~ 다음에 또 놀자!', '키키킥! 시간 낭비시켜서 미안~ 길은 그대로야.'],
+};
 
 // ── 난수 (상태에 들어 있는 시드로 돈다) ─────────────────────────────────────
 export function rand(R) {
@@ -148,11 +170,12 @@ export const KEYWORDS = {
 export const KW_IDS = Object.keys(KEYWORDS);
 export const CAT_SHORT = { ones: '1', twos: '2', threes: '3', fours: '4', fives: '5', sixes: '6' };
 // 카드 앞면에 쓰는 이름 (줄이지 않는다. 긴 이름은 카드 안에서 두 줄로 나뉜다)
-export const cardTitle = cat => catInfo(cat).ko;
+export const cardTitle = cat => FUTURE[cat]?.ko || catInfo(cat).ko;
 export const CAT_RULE = {
   ones: '1의 개수 + 성장', twos: '2 하나마다 점수 두 배', threes: '3의 개수 × 3', fours: '4의 개수 × 4', fives: '5의 개수 × 5', sixes: '6의 개수 × 6',
   choice: '주사위 5개 합', four: '같은 눈 4개 → 5개 합', full: '3개 + 2개 → 5개 합',
   sstr: '연속 4개 → 20', lstr: '연속 5개 → 30', yacht: '5개 모두 같음 → 50',
+  xpar: '조건 맞는 족보를 모두 함께', xpause: '이번 적의 행동 무효', xrent: '손패에 있으면 유물 2개',
 };
 // 에이스 · 듀스 · 트레이: 원정에서는 실버 등급의 특별 카드 (시작 덱에 직업마다 정해진 1장 — RUN_CLASSES 의 sp, 보상은 실버 이상에서만)
 export const SPECIAL = {
@@ -161,12 +184,22 @@ export const SPECIAL = {
   threes: { ko: '삼위일체', icon: 'star', desc: '점수만큼 공격 · 방어 · 골드를 모두 얻는다 (공격 · 방어를 나눌 수 없다)' },
 };
 export const SPECIAL_CATS = Object.keys(SPECIAL);
+// 미래 카드 (시공 광대를 이겨야만 얻는다): 기본 점수 0 · 강화 불가 (인장은 붙는다) · 홀로그램 등급
+export const FUTURE = {
+  xpar:   { ko: '병렬 연산', en: 'PARALLEL', icon: 'card',    desc: '기본 점수 0. 내면 손패에서 지금 점수가 나는 족보 카드를 모두 함께 낸다 (점수는 합, 인장 · 효과는 카드마다)' },
+  xpause: { ko: '일시정지',  en: 'PAUSE',    icon: 'hourglass', desc: '기본 점수 0. 내면 이번 적의 행동(공격 · 방어 · 스킬)이 모두 무효가 된다' },
+  xrent:  { ko: '유물 대여', en: 'RENTAL',   icon: 'gem',     desc: '기본 점수 0. 손패에 있는 동안 무작위 유물 2개를 빌린다 (손패에서 나가면 돌려준다)' },
+};
+export const FUTURE_CATS = Object.keys(FUTURE);
+export const isFuture = cat => !!FUTURE[cat];
+// 유물 대여로 빌리는 유물: 전투 중에만 힘을 쓰는 것 (얻을 때 · 전투 시작 때 효과가 있는 것은 뺀다)
+const RENT_POOL = ['basic', 'choice', 'insure', 'whet', 'full', 'straight', 'fourk', 'small', 'quad', 'reso', 'parity', 'seven', 'miser', 'beast', 'echodrum', 'pairring', 'combo', 'horn', 'fang', 'scale', 'counter', 'thorn', 'lucky', 'magnet', 'hourglass', 'kaleido'];
 export const isSpecial = cat => SPECIAL_CATS.includes(cat);
 export const HERO_GROW = 2;       // 주인공: 낼 때마다 기본 점수 +2 (회귀자의 망토면 +3)
 export const heroGrow = R => HERO_GROW + (hasRelic(R, 'cape') ? 1 : 0);
 // 두배: 2가 n개면 2^n (세포배양관이면 2^(n+1))
 export const twoScore = (R, n) => (n > 0 ? 2 ** (n + (hasRelic(R, 'culture') ? 1 : 0)) : 0);
-export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${catInfo(c.cat).ko}${c.up ? '+' : ''}`;
+export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${cardTitle(c.cat)}${c.up ? '+' : ''}`;
 // 희귀도: 1 일반(키워드 없음) · 2 희귀(키워드) · 3 전설(키워드 + 강화, 또는 강화 요트)
 export const KW_MAX = 3;                 // 카드 한 장에 붙는 효과는 3개까지 (강화로 하나씩 새긴다)
 export const kwsOf = c => c.kws || (c.kw ? [c.kw] : []);
@@ -174,12 +207,13 @@ export const hasKw = (c, k) => kwsOf(c).includes(k);
 // 초이스(아무 때나 낼 수 있는 족보) · 에이스 · 듀스 · 트레이(특별 카드)는 그 자체로 실버(2) — 효과가 하나 붙으면 골드(3)
 export const silverCat = cat => cat === 'choice' || isSpecial(cat);
 export const cardRarity = c => {
+  if (isFuture(c.cat)) return 4;
   const n = kwsOf(c).length, base = silverCat(c.cat);
   return n >= 2 || (n && (c.up || base)) || (c.cat === 'yacht' && c.up) ? 3 : n || base ? 2 : 1;
 };
 function mkCard(R, cat, up = 0, kws = []) { return { u: ++R.uid, cat, up: up ? 1 : 0, kws: [kws].flat().filter(Boolean) }; }
 // 강화할 수 있는 카드: 아직 +30% 강화를 안 했거나, 효과 칸이 남았다
-export const canUpgrade = c => !c.up || kwsOf(c).length < KW_MAX;
+export const canUpgrade = c => !isFuture(c.cat) && (!c.up || kwsOf(c).length < KW_MAX);
 
 // ── 원정 성장 (게임 밖 성장) ─────────────────────────────────────────────
 // 원정이 끝날 때마다 별조각(✦)을 얻고, 원정 준비에서 영구 강화 · 주사위 세트를 산다. 쌓일수록 원정이 쉬워진다.
@@ -200,7 +234,7 @@ const OLD_DIE_COST = { gold: 80, heavy: 100, twin: 120, stair: 120 }, OLD_SLOT_C
 // 보물 지도: 직업마다 정해진 출발 유물
 export const START_RELIC = { gambler: 'purse', monk: 'nudge', rogue: 'flip', warrior: 'basic', bard: 'lotus', mage: 'choice', dancer: 'drum', outlaw: 'whet', sharper: 'yacht' };
 // 원정이 끝나면 얻는 별조각(✦): 지난 층 2 · 엘리트 4 · 보스 10 · 클리어 20, 승천 1단계마다 +10%
-export const starsOf = R => Math.round((R.stats.floors * 2 + R.stats.elites * 4 + R.stats.bosses * 10 + (R.won ? 20 : 0)) * (1 + (R.asc || 0) * 0.1));
+export const starsOf = R => Math.round((R.stats.floors * 2 + R.stats.elites * 4 + R.stats.bosses * 10 + (R.won ? 20 : 0)) * (1 + (R.asc || 0) * 0.1)) + (R.bonusStars || 0);
 
 // 원정 기록 · 별조각 (서버 지갑 wallets/<uid>/run 과 테스트판 기기 저장이 같은 모양 · 같은 규칙)
 //   { stars, lv: { 강화 id: 단계 }, best: { runs, wins, top, cls, asc, feats } }
@@ -215,7 +249,7 @@ export function fixProgress(p) {
   const b = p.best; b.runs ||= 0; b.wins ||= 0; b.top ||= 0; b.cls ||= {}; b.asc ||= {}; b.feats ||= [];
   return p;
 }
-export const progressMeta = p => ({ lv: { ...p.lv } });
+export const progressMeta = p => ({ lv: { ...p.lv }, runs: p.best?.runs || 0 });
 // 끝난 원정을 기록에 더한다 (서버는 행동 기록을 다시 돌린 R 로 부른다)
 export function recordRun(p, R) {
   fixProgress(p);
@@ -232,7 +266,7 @@ export function recordRun(p, R) {
   const fresh = [...new Set(feats)].filter(f => !b.feats.includes(f));
   b.feats.push(...fresh);
   p.stars += stars;
-  return { stars, won: !!R.won, opened, fresh };
+  return { stars, won: !!R.won, opened, fresh, gems: R.gems || 0 };
 }
 // 원정 준비에서 사기 · 주사위 넣기. 안 되면 이유 문자열
 export function buyProgress(p, kind, id) {
@@ -444,7 +478,7 @@ export function synergy(R) {
   return { num: NUM_RELICS.filter(id => hasRelic(R, id)).length + (R.cls === 'warrior' ? 1 : 0), str: STR_RELICS.filter(id => hasRelic(R, id)).length };
 }
 export const relicInfo = id => RELICS.find(r => r.id === id);
-export const hasRelic = (R, id) => R.relics.includes(id);
+export const hasRelic = (R, id) => R.relics.includes(id) || !!R.C?.rent?.includes(id);   // rent: 유물 대여 카드로 빌린 유물 (이번 전투 · 손패에 있는 동안)
 
 // ── 물약 (3칸, 내 턴에 언제든 한 번 쓰고 사라진다) ──────────────────────────
 export const POTIONS = [
@@ -472,6 +506,10 @@ export const HEX = {
   gaze:    { ko: '응시',       icon: 'eye',    desc: n => `손패 ${n}장을 노려본다. 노려본 카드는 점수 0` },
   haki:    { ko: '패기',       icon: 'anger',  desc: () => '이번 턴 뒤집기 · 조정 · 춤사위 · 밑장빼기 금지' },
   poison:  { ko: '독 안개',    icon: 'toxic',  desc: () => '이번 턴 15점 이하 공격은 피해 절반' },
+  // 시공 광대
+  facedown: { ko: '뒷면 카드', icon: 'card',   desc: n => `손패 ${n}장이 뒷면이 된다 (무슨 족보인지 알 수 없다)` },
+  dare:    { ko: '광대의 도전장', icon: 'anger', desc: () => '손패에 광대 카드가 생긴다. 그 카드를 내지 않으면 이번 턴 피해 절반, 내서 공격하면 피해 ×1.5' },
+  bomb:    { ko: '시한폭탄',   icon: 'fire',   desc: () => '손패에 폭탄 카드가 생긴다. 턴이 끝날 때 손패에 남아 있으면 터져 피해를 받는다. 내서 공격하면 피해 ×1.5' },
 };
 const H = (t, n = 1) => ({ t, n });
 const MV = (ko, o = {}) => ({ ko, ...o });
@@ -535,6 +573,11 @@ export const ENEMIES = {
     MV('봉인', { atk: 13, hex: H('seal') }), MV('패기', { atk: 16, hex: H('haki') }), MV('봉인의 춤', { atk: 7, hits: 3, hex: H('seal') }), MV('패왕의 기세', { block: 24, str: 2, hex: H('haki') })],
     rage: [MV('이중 봉인', { atk: 14, hex: H('seal', 2) }), MV('패기', { atk: 18, hex: H('haki') }), MV('봉인의 춤', { atk: 8, hits: 3, hex: H('seal', 2) }), MV('종말', { atk: 26, hex: H('haki') })] },
 };
+// ── 깜짝 보스: 시공 광대 (지도에 없다 · JESTER_P) — 막마다 TUNE.hp/atk.special 로 체력 · 공격을 맞춘다
+ENEMIES.jester = { ko: '시공 광대 크로노', act: 0, kind: 'special', hp: [150, 150], ai: 'random', talk: true, moves: [
+  MV('저글링 칼', { atk: 5, hits: 3 }), MV('카드 장난', { atk: 8, hex: H('facedown', 2) }), MV('광대의 도전장', { atk: 9, hex: H('dare') }),
+  MV('시한폭탄', { atk: 6, hex: H('bomb') }), MV('웃음 가스', { block: 14, str: 1, hex: H('facedown', 1) })],
+  rage: [MV('난도질 저글링', { atk: 6, hits: 3 }), MV('카드 장난', { atk: 10, hex: H('facedown', 3) }), MV('광대의 도전장', { atk: 11, hex: H('dare') }), MV('시한폭탄', { atk: 8, hex: H('bomb') })] };
 export const enemyInfo = id => ENEMIES[id];
 export const ACT_INFO = {
   1: { ko: '어둠의 숲',     normal: ['slime', 'goblin', 'bat', 'wolf'], elite: ['shaman', 'mimic'], boss: ['dragon', 'orc', 'lich'] },
@@ -543,8 +586,8 @@ export const ACT_INFO = {
 };
 // 밸런스 조절용 배율 [1막, 2막, 3막] — 적 종류별 (sim/run.mjs 가 바꿔 가며 잰다)
 export const TUNE = {
-  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.9, 1.08, 2.3] },
-  atk: { normal: [2.1, 2.17, 2.4], elite: [1.92, 2.03, 2.0], boss: [2.04, 2.07, 3.2] },
+  hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.9, 1.08, 2.3], special: [0.73, 1.18, 1.9] },
+  atk: { normal: [2.1, 2.17, 2.4], elite: [1.92, 2.03, 2.0], boss: [2.04, 2.07, 3.2], special: [1.9, 2.05, 2.3] },
   cap: 0.45,       // 적 한 턴 공격 상한 (영웅 최대 체력 대비) — atkOf
   capRef: 72,      // 상한을 잴 때 최대 체력은 적어도 이만큼으로 본다 (체력이 낮을수록 보스 공격이 더 깎여 오히려 유리해지지 않게)
 };
@@ -630,6 +673,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
     removes: 0, fx: [], log: [],
     stats: { fights: 0, elites: 0, bosses: 0, dmg: 0, maxHit: 0, taken: 0, healed: 0, turns: 0, cards: 0, gold: 0, floors: 0, atkSum: 0, atkN: 0 },
     ended: false, won: false, last: null,
+    runNo: Math.max(0, Math.floor(Number(meta?.runs) || 0)) + 1,   // 몇 번째 원정인지 (깜짝 보스 등장 조건)
   };
   for (const cat of BASE_DECK) R.deck.push(mkCard(R, cat));
   R.deck.push(mkCard(R, ci.sp));      // 직업 특별 카드 1장 (에이스 · 듀스 · 트레이 중 직업에 어울리는 것)
@@ -696,6 +740,24 @@ export const enterNode = act('enterNode', function enterNode(R, id) {
   R.path.push(id);
   R.stats.floors++;
   fx(R, { type: 'enter', node: id, kind: n.type });
+  if (jesterNow(R, n)) { R.jester = { met: true, then: id }; fx(R, { type: 'jesterIn', say: pick(R, JESTER_SAY.intro) }); return startCombat(R, 'jester'); }
+  doNode(R, n);
+});
+// 깜짝 보스가 끼어드는가 (한 원정에 한 번). 예전 원정(runNo 없음) · 3번째 원정 전에는 난수를 뽑지 않는다 (같은 시드의 원정이 그대로 돌게)
+function jesterNow(R, n) {
+  if (R.jester?.met || R.trial || R.sbFight || R.act > 2 || n.type === 'boss' || !(R.runNo >= JESTER_FROM)) return false;
+  if (R.runNo === JESTER_FIXED && R.act === 2 && n.row >= JESTER_ROW) return true;
+  return rand(R) < JESTER_P;
+}
+// 광대전이 끝나면 원래 가려던 칸으로
+function jesterResume(R) {
+  const id = R.jester?.then;
+  R.C = null; R.reward = null; R.sbFight = false;
+  if (id == null) { R.phase = 'map'; return; }
+  R.jester.then = null;
+  doNode(R, mapNode(R, id));
+}
+function doNode(R, n) {
   if (n.type === 'fight') return startCombat(R, pickFoe(R, 'normal'));
   if (n.type === 'elite') return startCombat(R, pickFoe(R, 'elite'));
   if (n.type === 'boss') return startCombat(R, R.boss);
@@ -710,7 +772,8 @@ export const enterNode = act('enterNode', function enterNode(R, id) {
     return;
   }
   if (n.type === 'event') return startEvent(R);
-});
+  R.phase = 'map';
+}
 function pickFoe(R, kind) {
   const pool = ACT_INFO[R.act][kind].filter(id => id !== R.lastFoe);
   const id = pick(R, pool);
@@ -749,6 +812,7 @@ export function startCombat(R, foeId) {
     hex: null, sealed: [], frozen: [], gazed: [], pure: false, power: false, extraRolls: 0,
     dealt: 0, taken: 0,
     lastCat: null, chainN: 0, kal: 0, plays: 0, played: {}, swapUsed: 0, bank: 0,
+    hidden: [], jest: null, jshuf: 0, rentMap: {}, rent: [],
   };
   R.phase = 'combat';
   R.stats.fights += def.kind === 'normal' ? 1 : 0;
@@ -879,7 +943,49 @@ function startTurn(R) {
       C.gazed = shuffle(R, C.hand.map(c => c.u)).slice(0, C.hex.n);
       fx(R, { type: 'gaze', us: C.gazed.slice() });
     }
+    if (C.hex.t === 'facedown') {
+      C.hidden = shuffle(R, C.hand.map(c => c.u)).slice(0, C.hex.n);
+      fx(R, { type: 'facedown', us: C.hidden.slice(), say: pick(R, JESTER_SAY.facedown) });
+    }
+    if (C.hex.t === 'dare' || C.hex.t === 'bomb') {
+      // 광대 카드: 큰 족보 하나 (이번 턴만 · 내면 사라진다)
+      const c = { ...mkCard(R, pick(R, ['full', 'sstr', 'four', 'lstr', 'choice'])), temp: true, jest: C.hex.t };
+      C.hand.push(c);
+      C.jest = { kind: C.hex.t, u: c.u };
+      fx(R, { type: 'jestCard', u: c.u, cat: c.cat, kind: C.hex.t, say: pick(R, JESTER_SAY[C.hex.t]) });
+    }
   }
+  // 시공 광대: 몰래 손패를 섞을 굴림 (예고 없음)
+  if (ENEMIES[C.e.id].talk) C.jshuf = rand(R) < JESTER_SHUFFLE ? 1 + Math.floor(rand(R) * 2) : 0;
+  syncRent(R);
+}
+// 유물 대여: 손패에 있는 대여 카드마다 유물 2개 (손패에 들어올 때 정하고, 나가면 돌려준다)
+function syncRent(R) {
+  const C = R.C;
+  if (!C) return;
+  const inHand = new Set(C.hand.filter(c => c.cat === 'xrent').map(c => c.u));
+  const before = C.rent.slice();
+  for (const u of Object.keys(C.rentMap)) if (!inHand.has(Number(u))) delete C.rentMap[u];
+  for (const u of inHand) if (!C.rentMap[u]) {
+    const own = new Set([...R.relics, ...Object.values(C.rentMap).flat()]);
+    const pool = RENT_POOL.filter(id => RELICS.some(r => r.id === id) && !own.has(id));
+    const a = pick(R, pool), b = pick(R, pool.filter(x => x !== a));
+    C.rentMap[u] = [a, b].filter(Boolean);
+  }
+  C.rent = Object.values(C.rentMap).flat();
+  if (C.rent.join() !== before.join()) fx(R, { type: 'rent', ids: C.rent.slice(), from: before });
+}
+// 시공 광대가 손패를 몰래 섞는다: 광대 카드 · 보존 카드 말고 모두 버리고 같은 수만큼 새로 뽑는다
+function jesterShuffle(R) {
+  const C = R.C;
+  const out = C.hand.filter(c => !c.jest && !hasKw(c, 'keep') && C.bet !== c.u);
+  if (!out.length) return;
+  C.hand = C.hand.filter(c => !out.includes(c));
+  C.discard.push(...out.filter(c => !c.temp));
+  C.gazed = C.gazed.filter(u => C.hand.some(c => c.u === u)); C.hidden = C.hidden.filter(u => C.hand.some(c => c.u === u));
+  const got = drawCards(R, out.length);
+  fx(R, { type: 'jestShuffle', out: out.map(c => c.u), in: got, say: pick(R, JESTER_SAY.shuffle) });
+  syncRent(R);
 }
 
 function drawCards(R, n) {
@@ -924,6 +1030,7 @@ export const roll = act('roll', function roll(R) {
   }
   if (hasRelic(R, 'magnet') && !C.magnet) magnetDice(R);
   afterRollHex(R);
+  if (C.jshuf && C.jshuf === C.rollNo && !C.pure) { C.jshuf = 0; jesterShuffle(R); }
 });
 
 // 자석 주사위: 같은 눈이 MAGNET_N 개 이상이면 (많은 쪽, 같으면 큰 눈) 다른 주사위 1개를 그 눈으로
@@ -1030,6 +1137,8 @@ export const swapCard = act('swapCard', function swapCard(R, hi) {
   // 새 카드를 같은 자리에
   if (got.length) { const nc = C.hand.pop(); C.hand.splice(hi, 0, nc); }
   fx(R, { type: 'swap', out: c.u, in: got[0] ?? null });
+  C.hidden = C.hidden.filter(u => u !== c.u);
+  syncRent(R);
 });
 
 export const placeBet = act('placeBet', function placeBet(R, hi) {
@@ -1132,6 +1241,7 @@ function upN(R, cat, base) {
 // 곱연산은 카드 자신의 것만: 강화(+30%) · 속공(×1.5). 응시 · 약화는 마지막에.
 export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   const C = R.C;
+  if (isFuture(card.cat)) return { base: 0, parts: [], total: 0, notes: [] };
   let base = dice.length && !dice.includes(0) ? bestBase(R, card.cat, dice) : 0;
   const parts = [];
   const notes0 = [];
@@ -1266,6 +1376,11 @@ function splitOut(R, card, sc, want, gwant = 0) {
     if (hasRelic(R, 'combo') && (card.cat === 'sstr' || card.cat === 'lstr')) { d = Math.round(d * RT.comboMul); out.combo = true; }
     if (hasRelic(R, 'horn') && isBossKind(e)) { d = Math.round(d * 1.25); out.horn = true; }
     if (hexActive(R, 'poison') && d <= 15) { d = Math.floor(d / 2); out.poison = true; }
+    // 시공 광대 카드: 그 카드로 공격하면 ×1.5, 도전장을 무시하고 다른 카드를 내면 피해 절반
+    if (C.jest && !C.pure) {
+      if (card.u === C.jest.u) { d = Math.round(d * JESTER_DARE); out.dare = 'up'; }
+      else if (C.jest.kind === 'dare' && !C.multi?.includes(C.jest.u)) { d = Math.floor(d / 2); out.dare = 'down'; }
+    }
     out.dmg = d;
     out.pierce = hasKw(card, 'pierce') || (R.cls === 'rogue' && C.flipped);
     const through = out.pierce ? d : Math.max(0, d - e.block);
@@ -1324,6 +1439,38 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   const card = C.hand[hi];
   if (!card) fail('없는 카드예요.');
   if (target !== 'enemy' && target !== 'self' && !(typeof target === 'number' && Number.isFinite(target))) fail('공격할지 방어할지 골라 주세요.');
+  // 병렬 연산: 점수가 나는 손패 카드를 모두 함께 (공격 몫은 카드 점수 비율대로 나눈다)
+  if (card.cat === 'xpar') {
+    const others = parallelSet(R, card.u);
+    const S = others.reduce((a, o) => a + o.s, 0);
+    const want = splitAtk(S, target) ?? S;
+    C.multi = others.map(o => o.c.u);
+    fx(R, { type: 'parallel', us: C.multi.slice(), score: S });
+    let left = want;
+    for (let k = 0; k < others.length; k++) {
+      const o = others[k], share = k === others.length - 1 ? left : Math.min(left, Math.round(want * o.s / (S || 1)));
+      left -= share;
+      const i = C.hand.findIndex(c => c.u === o.c.u);
+      if (i < 0) continue;
+      if (resolvePlay(R, i, share >= o.s ? 'enemy' : share <= 0 ? 'self' : share, 0) === 'won') { C.multi = null; return winCombat(R); }
+    }
+    C.multi = null;
+    const j = C.hand.findIndex(c => c.u === card.u);
+    if (resolvePlay(R, j, 'self', 0) === 'won') return winCombat(R);
+    return enemyTurn(R);
+  }
+  if (card.cat === 'xpause') C.paused = true;     // 일시정지: 이번 적의 행동 무효
+  if (resolvePlay(R, hi, target, gold) === 'won') return winCombat(R);
+  enemyTurn(R);
+});
+// 병렬 연산이 함께 낼 카드: 지금 점수가 나는 손패 족보 카드 (미래 카드 빼고)
+export function parallelSet(R, u) {
+  const C = R.C;
+  return C.hand.filter(c => c.u !== u && !isFuture(c.cat)).map(c => ({ c, s: splitPool(R, c, scoreCard(R, c).total) })).filter(o => o.s > 0);
+}
+// 카드 한 장을 낸다 (적의 턴은 부르지 않는다). 적이 쓰러지면 'won'
+function resolvePlay(R, hi, target, gold = 0) {
+  const C = R.C, card = C.hand[hi];
   // 동전 던지기 · 광기의 저울: 낼 때 정해진다 (같은 난수라 다시 돌려도 같다)
   const coin = hasRelic(R, 'coin') ? (rand(R) < 0.5 ? 1 : -1) : 0;
   const sc = scoreCard(R, card, C.dice, { coin });
@@ -1342,6 +1489,8 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   if (p.atk > 0 && p.dmg > 0) {
     const r = hitEnemy(R, p.dmg, { pierce: p.pierce, why: 'card', quiet: true });
     ev.dmg = r.dmg; ev.blocked = r.blocked;
+    if (r.dodge) ev.dodge = true;
+    else if (ENEMIES[C.e.id].talk && r.dmg >= 20 && rand(R) < 0.5) fx(R, { type: 'say', say: pick(R, JESTER_SAY.hurt) });
     R.stats.maxHit = Math.max(R.stats.maxHit, p.dmg);
     R.stats.atkSum += p.dmg; R.stats.atkN++;
     // 세머리 용: 한 장으로 HYDRA_CUT 이상이면 이번 턴 머리가 잘려 그 숨결은 나가지 않는다
@@ -1381,9 +1530,12 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   if (!card.temp) (hasKw(card, 'echo') ? C.top : C.discard).push(card);
   checkFeats(R);
   log(R, `${cardName(card)} ${[p.atk > 0 ? `공격 ${p.dmg}` : '', p.block ? `방어 ${p.block}` : ''].filter(Boolean).join(' · ') || '0점'}`);
-  if (C.e.hp <= 0) return winCombat(R);
-  enemyTurn(R);
-});
+  C.hidden = C.hidden.filter(x => x !== card.u);
+  if (card.jest && C.jest?.u === card.u) C.jest = { ...C.jest, played: true };
+  syncRent(R);
+  if (C.e.hp <= 0) return 'won';
+  return '';
+}
 
 // 덱의 원래 카드 (전투 중 카드는 사본이라 영구 변화는 둘 다에 적는다)
 const deckCard = (R, u) => R.deck.find(c => c.u === u);
@@ -1435,6 +1587,11 @@ function afterPlay(R, card, p, ev) {
 
 // 적에게 피해. 보호막이 먼저 깎인다 (관통은 무시)
 function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
+  // 시공 광대: 카드 공격을 JESTER_DODGE 확률로 피한다
+  if (why === 'card' && amount > 0 && ENEMIES[R.C.e.id].talk && rand(R) < JESTER_DODGE) {
+    fx(R, { type: 'dodge', say: pick(R, JESTER_SAY.dodge) });
+    return { dmg: 0, blocked: 0, dodge: true };
+  }
   const e = R.C.e;
   let left = Math.max(0, Math.round(amount));
   const blocked = pierce ? 0 : Math.min(e.block, left);
@@ -1450,10 +1607,10 @@ function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
 }
 function checkRage(R) {
   const e = R.C.e, def = ENEMIES[e.id];
-  if (def.kind !== 'boss' || e.raged || e.hp <= 0 || e.hp * 2 >= e.maxHp) return;
+  if ((def.kind !== 'boss' && def.kind !== 'special') || e.raged || e.hp <= 0 || e.hp * 2 >= e.maxHp) return;
   e.raged = true;
   e.str += 2;
-  fx(R, { type: 'rage', foe: e.id });
+  fx(R, { type: 'rage', foe: e.id, say: def.talk ? pick(R, JESTER_SAY.rage) : undefined });
   log(R, `${def.ko} 분노!`);
   // 세머리 용: 잘린 머리 하나가 다시 자란다
   if (def.ai === 'heads') {
@@ -1488,6 +1645,12 @@ function hurtHero(R, amount, why) {
 function enemyTurn(R) {
   const C = R.C, e = C.e;
   C.phase = 'enemy';
+  // 시한폭탄: 턴이 끝날 때 폭탄 카드가 손패에 남아 있으면 터진다 (일시정지 · 정화 물약이면 안 터진다)
+  const bomb = C.jest?.kind === 'bomb' && !C.pure && !C.paused && C.hand.some(c => c.u === C.jest.u);
+  if (bomb) {
+    const r = hurtHero(R, atkOf(R, 7 + R.act * 3), 'bomb');
+    fx(R, { type: 'boom', u: C.jest.u, dmg: r.dmg, blocked: r.blocked, say: pick(R, JESTER_SAY.boom) });
+  }
   // 남은 손패는 버린 더미로
   // 남은 손패는 버린 더미로 (보존 카드는 손패에 남는다)
   const out = C.hand.filter(c => !hasKw(c, 'keep'));
@@ -1499,12 +1662,14 @@ function enemyTurn(R) {
   if (hasRelic(R, 'sandbank')) C.bank = Math.min(2, C.rollsLeft);
   if (out.length) { fx(R, { type: 'discard', us: out.map(c => c.u) }); C.discard.push(...out.filter(c => !c.temp)); }
   C.hand = C.hand.filter(c => hasKw(c, 'keep'));
-  C.sealed = []; C.frozen = []; C.gazed = [];
+  C.sealed = []; C.frozen = []; C.gazed = []; C.hidden = []; C.jest = null;
+  syncRent(R);
   e.block = 0;                        // 적 보호막은 적의 턴이 시작될 때 사라진다
   if (C.weak > 0) C.weak--;            // 영웅 약화는 영웅 턴 수로 센다
   const fury = furyOf(R);
-  const m = e.intent;
-  const act = { type: 'enemy', ko: m?.ko || '', hits: [], block: 0, str: 0, heal: 0, steal: 0, weak: 0, behead: !m };
+  const paused = C.paused; C.paused = false;
+  const m = paused ? null : e.intent;          // 일시정지: 이번 적의 행동(공격 · 방어 · 힘 · 회복 · 스킬)이 모두 없던 일로
+  const act = { type: 'enemy', ko: m?.ko || '', hits: [], block: 0, str: 0, heal: 0, steal: 0, weak: 0, behead: !m && !paused, paused: paused || undefined };
   if (m) {
     if (m.atk) {
       const per = atkOf(R, m.atk, m.hits || 1);
@@ -1532,6 +1697,7 @@ function enemyTurn(R) {
     if (m.weak) { C.weak = Math.max(C.weak, m.weak); act.weak = m.weak; }
   }
   fx(R, act);
+  if (R.hp <= 0 && ENEMIES[e.id].talk) return jesterLeaves(R);
   if (R.hp <= 0 && !revive(R)) return loseRun(R);
   if (e.hp <= 0) return winCombat(R);     // 가시 갑옷으로 쓰러짐
   // 화상
@@ -1551,6 +1717,14 @@ function enemyTurn(R) {
   startTurn(R);
 }
 
+// 시공 광대에게 쓰러지면: 원정은 이어진다. 체력 절반으로 일어나 보상 없이 원래 가려던 칸으로
+function jesterLeaves(R) {
+  R.hp = Math.max(1, Math.ceil(R.maxHp / 2));
+  R.C.phase = 'lost';
+  fx(R, { type: 'jesterOut', won: false, hp: R.hp, say: pick(R, JESTER_SAY.lose) });
+  log(R, '시공 광대가 웃으며 사라졌다…');
+  jesterResume(R);
+}
 function revive(R) {
   if (!hasRelic(R, 'phoenix')) return false;
   R.relics = R.relics.filter(x => x !== 'phoenix');
@@ -1593,6 +1767,7 @@ function winCombat(R) {
   if (hasRelic(R, 'lotus')) healHero(R, 6, 'lotus');
   if (def.kind === 'boss' && R.act >= ACTS && !R.sbFight) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
   R.phase = 'reward';
+  if (def.kind === 'special') { fx(R, { type: 'jesterOut', won: true, say: pick(R, JESTER_SAY.win) }); R.reward = jesterReward(R); return; }
   R.reward = genReward(R, def.kind);
 }
 
@@ -1673,6 +1848,14 @@ function genReward(R, kind) {
   return { kind, items: items.filter(it => it.t !== 'relic' || it.id) };
 }
 
+// 시공 광대를 이기면: 별조각 · 보석 (막마다 늘어난다) · 그 막 일반 전투의 두 배 골드 · 미래 카드 3장 중 1장 (유물 없음)
+function jesterReward(R) {
+  const pz = jesterPrize(R.act);
+  const g = 2 * (int(R, 12, 18) + R.act * 4);
+  R.stats.jester = (R.stats.jester || 0) + 1;
+  return { kind: 'special', items: [{ t: 'gold', n: Math.round(g * goldMul(R)) }, { t: 'stars', n: pz.stars }, { t: 'gems', n: pz.gems },
+    { t: 'card', opts: shuffle(R, FUTURE_CATS).map(cat => mkCard(R, cat)), future: true }] };
+}
 // 새로고침 남은 횟수 (예전 저장 판은 0)
 export const rrOf = R => ({ shop: R.rr?.shop || 0, pick: R.rr?.pick || 0 });
 // 상점 새로고침: 팔던 물건(카드 · 인장 · 유물 · 물약)을 새로 깐다. 도구 · 대장장이 · 카드 제거는 그대로
@@ -1690,7 +1873,7 @@ export const rerollShop = act('rerollShop', function rerollShop(R) {
 export const rerollPick = act('rerollPick', function rerollPick(R, idx) {
   const rw = inReward(R);
   const it = rw.items[idx];
-  if (!it || it.done || (it.t !== 'card' && it.t !== 'relicPick')) fail('새로고침할 수 없는 보상이에요.');
+  if (!it || it.done || (it.t !== 'card' && it.t !== 'relicPick') || it.future) fail('새로고침할 수 없는 보상이에요.');
   if (rrOf(R).pick <= 0) fail('카드 · 유물 새로고침이 남지 않았어요.');
   if (it.t === 'card') it.opts = cardOffer(R, rw.kind);
   else {
@@ -1715,6 +1898,8 @@ export const takeReward = act('takeReward', function takeReward(R, idx, choice =
   const it = rw.items[idx];
   if (!it || it.done) fail('이미 받은 보상이에요.');
   if (it.t === 'gold') { R.gold += it.n; R.stats.gold += it.n; }
+  if (it.t === 'stars') R.bonusStars = (R.bonusStars || 0) + it.n;     // 원정이 끝날 때 별조각에 더한다
+  if (it.t === 'gems') R.gems = (R.gems || 0) + it.n;                   // 원정이 끝날 때 지갑에 넣는다
   if (it.t === 'relic') gainRelic(R, it.id);
   if (it.t === 'relicPick') { if (choice >= 0) gainRelic(R, it.opts[choice]); }
   if (it.t === 'potion') {
@@ -1743,6 +1928,7 @@ export const leaveReward = act('leaveReward', function leaveReward(R) {
   const rw = inReward(R);
   R.reward = null;
   R.C = null;
+  if (rw.kind === 'special') return jesterResume(R);
   if (R.sbFight) { R.sbFight = false; R.phase = 'map'; return; }   // 시험 원정에서 고른 싸움: 막 · 층은 그대로
   if (rw.kind === 'boss') {
     if (R.act >= ACTS) { R.phase = 'won'; R.ended = true; R.won = true; fx(R, { type: 'runWon' }); return; }
@@ -2068,7 +2254,7 @@ function prepHand(R, rollNo) {
   const first = rollNo === 1;
   return C.hand.map(card => {
     let mul = 1;
-    const up = card.cat;
+    const up = isFuture(card.cat) ? 'choice' : card.cat;      // 미래 카드: 주사위 계획에서는 0점 카드로 본다
     if (hasRelic(R, 'basic') && isUpper(up)) mul += 0.3;
     if (hasRelic(R, 'choice') && up === 'choice') mul += RT.choice;
     if (hasRelic(R, 'full') && up === 'full') mul += 0.5;
@@ -2099,7 +2285,7 @@ function prepHand(R, rollNo) {
       two: up === 'twos' ? (hasRelic(R, 'culture') ? 1 : 0) : null, tri: isTrinity(card), pairs: hasRelic(R, 'pairs'),
       quad: hasRelic(R, 'quad') ? (C.weak > 0 ? 0.75 : 1) : 0, reso: hasRelic(R, 'reso') && RESO_CATS.includes(up), flow: hasRelic(R, 'flow') && (up === 'sstr' || up === 'lstr'),
       combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), crutch: up === 'lstr' && hasRelic(R, 'crutch'),
-      house: (up === 'full' || up === 'four') && hasRelic(R, 'emptyhouse'), zero: C.gazed.includes(card.u) && !C.pure,
+      house: (up === 'full' || up === 'four') && hasRelic(R, 'emptyhouse'), zero: (C.gazed.includes(card.u) && !C.pure) || isFuture(card.cat),
       flat: (R.cls === 'mage' ? (C.hand.length - 1) * CLASS_TUNE.mageBonus : 0) + (hasRelic(R, 'whet') ? 3 : 0),
       horn: hasRelic(R, 'horn') && isBossKind(C.e), poison: hexActive(R, 'poison'),
       pierce: hasKw(card, 'pierce') || (R.cls === 'rogue' && C.flipped),
@@ -2389,7 +2575,23 @@ export function botCombat(R, rng = Math.random, samples = 12) {
       return { type: 'reroll', hold: hold.map((h, i) => h && !isSealed(R, i) && !isFrozen(R, i)) };
   }
   const b = bestPlay(R);
+  const fut = botFuture(R, b);
+  if (fut) return fut;
   return { type: 'play', hi: b.hi, target: b.atk };
+}
+// 봇의 미래 카드: 병렬 연산은 함께 낼 점수가 한 장보다 넉넉히 크면, 일시정지는 맞으면 위험할 때
+function botFuture(R, b) {
+  const C = R.C;
+  const bestS = C.hand[b.hi] ? splitPool(R, C.hand[b.hi], scoreCard(R, C.hand[b.hi]).total) : 0;
+  const need = Math.max(0, incoming(R) - C.block);
+  const pi = C.hand.findIndex(c => c.cat === 'xpar');
+  if (pi >= 0) {
+    const set = parallelSet(R, C.hand[pi].u), S = set.reduce((a, o) => a + o.s, 0);
+    if (set.length >= 2 && S > bestS * 1.2 + 4) return { type: 'play', hi: pi, target: need >= R.hp * 0.5 ? Math.max(0, S - need) : need > R.hp * 0.25 ? Math.max(0, S - Math.round(need * 0.6)) : 'enemy' };
+  }
+  const qi = C.hand.findIndex(c => c.cat === 'xpause');
+  if (qi >= 0 && (need >= R.hp * 0.45 || (C.jest?.kind === 'bomb' && need >= R.hp * 0.25)) && bestS < need) return { type: 'play', hi: qi, target: 'self' };
+  return null;
 }
 export function applyCombat(R, a) {
   switch (a.type) {
@@ -2410,6 +2612,7 @@ export function applyCombat(R, a) {
 const CARD_EV = { choice: 23, four: 9, full: 10, sstr: 11, lstr: 10, yacht: 6, sixes: 12.6, fives: 10.5, fours: 8.4, threes: 14, twos: 7, ones: 8 };   // 특별 카드: 자람 · 두 배 · 삼위일체를 대충 친다
 const KW_V = { guard: 4, vamp: 5, burn: 6, pierce: 3, quick: 4, lucky: 3, weak: 3, gold: 2, echo: 3, keep: 4 };
 export function botCardValue(R, c) {
+  if (isFuture(c.cat)) return { xpar: 30, xpause: 22, xrent: 16 }[c.cat];
   let v = CARD_EV[c.cat] * (c.up ? 1 + UP_MUL : 1);
   if (R.cls === 'warrior' && isUpper(c.cat)) v *= 1.5;
   const sy = synergy(R);
@@ -2446,12 +2649,13 @@ export const sandbox = {
   // spec: { cat, up, kws, seal }, toHand: 전투 중이면 손패에도 바로
   card(R, spec, toHand = false) {
     sbOn(R);
-    if (!CAT_IDS.includes(spec.cat)) fail('없는 족보예요.');
-    const c = mkCard(R, spec.cat, spec.up ? 1 : 0, (spec.kws || []).filter(k => KEYWORDS[k]).slice(0, KW_MAX));
+    if (!CAT_IDS.includes(spec.cat) && !isFuture(spec.cat)) fail('없는 족보예요.');
+    const fut = isFuture(spec.cat);
+    const c = mkCard(R, spec.cat, spec.up && !fut ? 1 : 0, fut ? [] : (spec.kws || []).filter(k => KEYWORDS[k]).slice(0, KW_MAX));
     if (spec.seal && SEALS[spec.seal]) c.seal = spec.seal;
     if (spec.grow) c.grow = Math.max(0, Math.round(spec.grow));
     R.deck.push(c);
-    if (toHand && R.C) R.C.hand.push({ ...c });
+    if (toHand && R.C) { R.C.hand.push({ ...c }); syncRent(R); }
     return c;
   },
   removeCard(R, u) {

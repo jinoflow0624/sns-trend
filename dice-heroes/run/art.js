@@ -6,7 +6,7 @@ import { ico } from '../icons.js';
 
 // 원정 그림 주소의 버전 — 게임 버전이 아니다 (게임 버전으로 하면 업데이트마다 원정 그림 전부를 다시 받아 느려지고 검게 빈다).
 // assets/run/ 의 그림 파일을 바꾸거나 더하면 이것을 올린다 (CLAUDE.md)
-export const RUN_ART_VER = 'r3';
+export const RUN_ART_VER = 'r4';
 const AV = `?v=${RUN_ART_VER}`;
 // 그림 파일이 생긴 적 (예: ['slime', 'goblin'])
 const FILES = ['slime', 'goblin', 'bat', 'wolf', 'shaman', 'mimic', 'skeleton', 'ghost', 'wisp', 'knight', 'golem', 'imp', 'hound', 'gargoyle', 'shade', 'champion'];
@@ -302,14 +302,21 @@ function draw(id, scale) {
   return c.toDataURL();
 }
 // 적 그림 주소: 보스는 협동 보스 그림, 그림 파일이 생긴 적은 그 파일, 나머지는 위 도트
+// 깜짝 보스 「시공 광대」: 평소 · 비아냥 · 분노 (임시 도트 그림 — 디자인 세션 그림이 오면 같은 이름으로 바꾼다)
+export const JESTER_ART = ['jester', 'jester_taunt', 'jester_rage'];
+export const jesterURL = (mode = '') => `assets/run/jester/${JESTER_ART.includes(`jester_${mode}`) ? `jester_${mode}` : 'jester'}.webp${AV}`;
+// 미래 카드 가운데 그림 (assets/run/jester/icon_<id>.webp — 그림이 오면 id 를 적는다)
+export const FUTURE_ICON = [];
+export const futureIconURL = id => (FUTURE_ICON.includes(id) ? `assets/run/jester/icon_${id}.webp${AV}` : null);
 export function foeURL(id, scale = 6) {
+  if (id === 'jester') return jesterURL();
   if (!MON[id]) return spriteURL(id, 4);
   if (FILES.includes(id)) return `assets/run/${id}.webp${AV}`;
   const key = `${id}:${scale}`;
   if (!cache.has(key)) cache.set(key, draw(id, scale));
   return cache.get(key);
 }
-export const isPixelFoe = id => !!MON[id] && !FILES.includes(id);
+export const isPixelFoe = id => id === 'jester' || (!!MON[id] && !FILES.includes(id));
 
 // 원정 전용 아이콘 그림 (assets/run/ui/<kind>_<id>.webp, 128px). 그림이 없으면 공용 12×12 아이콘
 const UI = {
@@ -355,6 +362,7 @@ export function runAssetURLs(bosses = []) {
     ...['card_common', 'card_rare', 'card_legend'].map(n => `assets/run/ui/${n}.webp`),
     ...['claw', 'bite', 'star'].map(n => `assets/run/fx/${n}.webp`),
     ...bosses.map(id => foeURL(id)),
+    ...JESTER_ART.map(n => `assets/run/jester/${n}.webp${AV}`),
   ];
   return [...new Set(out)];
 }
