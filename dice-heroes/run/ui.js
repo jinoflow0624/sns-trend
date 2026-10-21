@@ -30,7 +30,7 @@ const FOE_COLOR = { jester: '#3EE6E0', slime: '#3EE6B4', goblin: '#7CC24A', bat:
   skeleton: '#EEE6D0', ghost: '#7CA8D8', wisp: '#7CE0FF', knight: '#6A6A9A', golem: '#A8A090', imp: '#E8435A', hound: '#FF8A1A',
   gargoyle: '#8A8FA8', shade: '#9A6AFF', champion: '#C21E56' };
 const foeColor = id => bossInfo(id)?.color || FOE_COLOR[id] || '#9486FF';
-const KIND_KO = { normal: '', elite: '엘리트', boss: '보스', special: '깜짝 보스' };
+const KIND_KO = { normal: '', elite: '엘리트', boss: '보스', special: '' };   // 시공 광대는 정체를 알리지 않는다 (이름도 ???)
 
 // ── 시작 · 저장 ──────────────────────────────────────────────────────────────
 // 원정 스타일(run.css)을 다 받은 뒤에 화면을 그린다 — 먼저 그리면 꾸밈 없는 화면이 잠깐 보인다 (최대 3초 기다림)
@@ -402,7 +402,7 @@ function futureFace(c, score, cls) {
     <b class="rc-name">${f.ko}</b><small class="rc-en">${f.en}</small>
     <div class="rc-pat">${url ? `<img class="rc-fimg" src="${url}" alt="">` : `<span class="rc-fico">${ico(f.icon)}</span>`}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
-    <span class="rc-kw fut">FUTURE</span>
+    <span class="rc-kw none"></span>
     ${score === '?' ? '<em class="rc-pts wait">?</em>' : score != null ? `<em class="rc-pts">${score > 0 ? score : '·'}</em>` : ''}
     <i class="rc-sheen"></i>
   </div>`;
@@ -647,7 +647,7 @@ function foePanel() {
   return `
     <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt="">${def.talk && ui.jsay ? `<div class="jest-say">${esc(ui.jsay)}</div>` : ''}</div>
     <div class="foe-main">
-      <div class="foe-name"><b>${esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
+      <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
       <div class="foe-st">${st.join('')}</div>
     </div>
@@ -1727,12 +1727,12 @@ async function introFoe() {
     floatAt(p.x, p.y - 60, '엘리트!', 'dmg big');
     sfx.haki?.();
   } else if (def.kind === 'special') {
-    // 깜짝 보스: 화면이 지지직 깨지며 홀로그램 띠 + "깜짝 보스!" — 지도에 없던 적
+    // 시공 광대: 화면이 지지직 깨지며 홀로그램 띠 — 정체는 알리지 않는다 (??? · 지도에 없던 적)
     ui.busy = true;
     X.layer.innerHTML = `<div class="overlay boss-intro run-intro jest-intro" data-act="run-skip" style="--c:#3EE6E0">
       <div class="bi-band"><i></i></div><div class="bi-band thin"></div>
       <img class="bi-boss px" src="${jesterURL('taunt')}" alt="">
-      <div class="bi-name"><small>깜짝 보스 · 미래에서 온 광대</small><b>${esc(def.ko.split(' ').slice(-1)[0])}</b></div>
+      <div class="bi-name"><small>? ? ?</small><b>???</b></div>
       <div class="bi-flash"></div><div class="glitch" aria-hidden="true"></div></div>`;
     sfx.slash?.();
     setTimeout(() => { sfx.boom?.(1.4); shake(X.layer.firstElementChild, 2); }, 430);
@@ -1764,7 +1764,7 @@ function showReward() {
   if (rw) tour('reward', 900);
   if (!rw) { R.phase = 'map'; return showMap(); }
   playBgm(R.C && Run.ENEMIES[R.C.e.id]?.kind === 'boss' ? 'victory' : 'run_map');
-  const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : rw.kind === 'special' ? '시공 광대 격파!' : '승리!';
+  const title = rw.kind === 'start' ? '출발 준비!' : rw.kind === 'treasure' ? '보물 상자!' : rw.kind === 'boss' ? '보스 토벌!' : rw.kind === 'elite' ? '엘리트 처치!' : rw.kind === 'special' ? '승리!' : '승리!';
   X.layer.innerHTML = '';
   const again = !!rw.cheered;
   X.app.innerHTML = `
