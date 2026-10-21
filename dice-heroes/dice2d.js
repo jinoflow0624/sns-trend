@@ -1,6 +1,7 @@
 // 2D 주사위 트레이 — 3D(WebGL)를 쓸 수 없는 기기용 대체 화면.
 // dice3d.js 의 DiceTray 와 같은 방식으로 부른다 (attach · show · setHeld · setTarget · roll · morph · screenPos …).
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+import { t as TR } from './i18n.js';
 import { die2dColors } from './skins.js';
 const face = v => [...Array(9)].map((_, i) => `<i class="${v && PIPS[v].includes(i) ? 'on' : ''}"></i>`).join('');
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -55,7 +56,7 @@ export class DiceTray2D {
 
   draw(rolling = []) {
     this.el.innerHTML = this.values.map((v, i) =>
-      `<button class="d2${v === 1 ? ' one' : ''}${this.frozen?.has(i) && v ? ' frozen' : ''}${this.held[i] ? ' held' : ''}${!v ? ' blank' : ''}${rolling[i] ? ' rolling' : ''}${this.target && v ? ' target' : ''}" data-i="${i}" aria-label="주사위 ${v || '-'}">${face(v)}</button>`).join('');
+      `<button class="d2${v === 1 ? ' one' : ''}${this.frozen?.has(i) && v ? ' frozen' : ''}${this.held[i] ? ' held' : ''}${!v ? ' blank' : ''}${rolling[i] ? ' rolling' : ''}${this.target && v ? ' target' : ''}" data-i="${i}" aria-label="${TR('주사위 {0}', v || '-')}">${face(v)}</button>`).join('');
     this.dice = this.values.map((v, i) => ({ value: v, el: this.el.children[i] }));
   }
 

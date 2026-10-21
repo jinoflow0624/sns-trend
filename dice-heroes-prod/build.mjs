@@ -54,7 +54,7 @@ if (existsSync(links)) {
 const shared = join(here, 'functions', 'shared');
 rmSync(shared, { recursive: true, force: true });
 mkdirSync(shared, { recursive: true });
-for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js']) cpSync(join(src, f), join(shared, f));
+for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js', 'i18n.js']) cpSync(join(src, f), join(shared, f));   // i18n.js: 서버에서는 언제나 한국어
 // 원정 규칙: 서버가 행동 기록을 다시 돌려 결과를 계산한다 (배포판 화면에는 원정이 없어도 서버 쪽은 준비해 둔다)
 mkdirSync(join(shared, 'run'), { recursive: true });
 cpSync(join(src, 'run', 'rules.js'), join(shared, 'run', 'rules.js'));

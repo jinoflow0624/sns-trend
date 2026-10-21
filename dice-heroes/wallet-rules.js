@@ -1,3 +1,4 @@
+import { t as TR } from './i18n.js';
 // 보석 가격 · 보상 규칙 — 게임(wallet.js)과 서버(dice-heroes-prod/functions)가 같은 파일을 쓴다.
 // 서버 쪽 사본은 dice-heroes-prod/build.mjs 가 functions/shared/ 로 복사한다 (여기만 고치면 된다).
 
@@ -30,24 +31,24 @@ export function rewardFor(info) {
   if (info.mode === 'versus') {
     if (info.win) {
       const vsHuman = info.online && info.humans > 1;
-      if (info.vsLeft > 0) parts.push({ id: 'win', ko: vsHuman ? '대전 승리' : '대전 승리 (봇 상대)', gems: vsHuman ? VS_WIN : VS_WIN_BOT, vs: true });
-      else parts.push({ id: 'win', ko: `대전 승리 (오늘 ${VS_DAILY}회 다 받음)`, gems: 0, vs: false });
+      if (info.vsLeft > 0) parts.push({ id: 'win', ko: vsHuman ? TR('대전 승리') : TR('대전 승리 (봇 상대)'), gems: vsHuman ? VS_WIN : VS_WIN_BOT, vs: true });
+      else parts.push({ id: 'win', ko: TR('대전 승리 (오늘 {0}회 다 받음)', VS_DAILY), gems: 0, vs: false });
     }
     const left = Math.floor(((info.flip || 0) + (info.nudge || 0)) / 3) * LEFTOVER_PER_3;
-    if (left) parts.push({ id: 'left', ko: `남은 기술 ${(info.flip || 0) + (info.nudge || 0)}개`, gems: left });
+    if (left) parts.push({ id: 'left', ko: TR('남은 기술 {0}개', (info.flip || 0) + (info.nudge || 0)), gems: left });
   } else if (info.win) {
     const base = Math.round(BOSS_WIN[info.diff] * (BOSS_MUL[info.boss] || 1));
-    parts.push({ id: 'boss', ko: info.firstClear ? '보스 토벌 (첫 클리어 ×3)' : '보스 토벌', gems: base * (info.firstClear ? FIRST_CLEAR_MUL : 1) });
+    parts.push({ id: 'boss', ko: info.firstClear ? TR('보스 토벌 (첫 클리어 ×3)') : TR('보스 토벌'), gems: base * (info.firstClear ? FIRST_CLEAR_MUL : 1) });
   }
   const sc = Math.floor(Math.max(0, info.score) / 100) * SCORE_PER_100;
-  if (sc) parts.push({ id: 'score', ko: `점수 ${info.score}`, gems: sc });
+  if (sc) parts.push({ id: 'score', ko: TR('점수 {0}', info.score), gems: sc });
   return { parts, total: parts.reduce((a, p) => a + p.gems, 0) };
 }
 
 // 일일 보상: 하루 한 번 주사위 5개를 굴려 눈의 합만큼 보석
 //   요트(5개 모두 같음) 합 ×10 · 고급 족보(라지 스트레이트 · 포카인드 · 풀하우스 · 스몰 스트레이트) 합 ×5
 export const DAILY_YACHT_MUL = 10, DAILY_COMBO_MUL = 5;
-export const DAILY_COMBO_KO = { yacht: '요트', lstr: '라지 스트레이트', four: '포카인드', full: '풀하우스', sstr: '스몰 스트레이트' };
+export const DAILY_COMBO_KO = { yacht: TR('요트'), lstr: TR('라지 스트레이트'), four: TR('포카인드'), full: TR('풀하우스'), sstr: TR('스몰 스트레이트') };
 export function dailyCombo(dice) {
   if (dice.length !== 5) return null;
   const c = [0, 0, 0, 0, 0, 0, 0]; dice.forEach(d => c[d]++);
