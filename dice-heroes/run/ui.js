@@ -30,7 +30,12 @@ const FOE_COLOR = { jester: '#3EE6E0', slime: '#3EE6B4', goblin: '#7CC24A', bat:
   skeleton: '#EEE6D0', ghost: '#7CA8D8', wisp: '#7CE0FF', knight: '#6A6A9A', golem: '#A8A090', imp: '#E8435A', hound: '#FF8A1A',
   gargoyle: '#8A8FA8', shade: '#9A6AFF', champion: '#C21E56' };
 const foeColor = id => bossInfo(id)?.color || FOE_COLOR[id] || '#9486FF';
-const KIND_KO = { normal: '', elite: '엘리트', boss: '보스', special: '' };   // 시공 광대는 정체를 알리지 않는다 (이름도 ???)
+const KIND_KO = { normal: '', elite: '엘리트', boss: '보스', special: '' };
+// 시공 광대의 스킬은 한 번 이기기 전까지 ??? (이긴 기록은 이 사람의 원정 기록 best.jester)
+const jKnown = () => (Prog.progress()?.best?.jester || 0) > 0 || (R?.stats?.jester || 0) > 0;
+const jMask = () => R?.C?.e?.id === 'jester' && !jKnown();
+const hexKo = t => (jMask() ? '???' : Run.HEX[t].ko);
+const hexDesc = (t, n) => (jMask() ? '???' : Run.HEX[t].desc(n));   // 시공 광대는 정체를 알리지 않는다 (이름도 ???)
 
 // ── 시작 · 저장 ──────────────────────────────────────────────────────────────
 // 원정 스타일(run.css)을 다 받은 뒤에 화면을 그린다 — 먼저 그리면 꾸밈 없는 화면이 잠깐 보인다 (최대 3초 기다림)
@@ -376,13 +381,13 @@ function heroStrip() {
 const PATTERN = { ones: [1, 1, 1], twos: [2, 2, 2], threes: [3, 3, 3], fours: [4, 4, 4], fives: [5, 5, 5], sixes: [6, 6, 6], four: [5, 5, 5, 5], full: [3, 3, 3, 5, 5], sstr: [1, 2, 3, 4], lstr: [1, 2, 3, 4, 5], yacht: [6, 6, 6, 6, 6] };
 export function cardFace(c, { score = null, cls = '' } = {}) {
   // 시공 광대 「뒷면 카드」: 무슨 족보인지 · 점수 · 공격 · 수비 모두 ??? (정화 물약이면 보인다)
-  if (R?.phase === 'combat' && R.C?.hidden?.includes(c.u) && !R.C.pure) return `<div class="rc-in rc-hidden${cls}"><b class="rc-name">???</b><div class="rc-pat"><span class="rc-q">?</span></div><small class="rc-rule">광대가 뒤집어 놓았다</small><span class="rc-kw none"></span>${score != null ? '<em class="rc-pts wait">?</em>' : ''}<i class="rc-sheen"></i></div>`;
+  if (R?.phase === 'combat' && R.C?.hidden?.includes(c.u) && !R.C.pure) return `<div class="rc-in rc-hidden${cls}"><b class="rc-name">???</b><div class="rc-pat"><span class="rc-q">?</span></div><small class="rc-rule"></small><span class="rc-kw none"></span>${score != null ? '<em class="rc-pts wait">?</em>' : ''}<i class="rc-sheen"></i></div>`;
   if (Run.isFuture(c.cat)) return futureFace(c, score, cls);
   const r = Run.cardRarity(c);
   const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
   const pat = c.cat === 'choice' ? '<span class="rc-sum">∑</span>' : `<span class="mds">${PATTERN[c.cat].map(miniDie).join('')}</span>`;
   const sl = c.seal && Run.sealInfo(c.seal);
-  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${c.jest ? ` jest j-${c.jest}` : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>${c.jest ? `<i class="rc-jest">${c.jest === 'bomb' ? '시한폭탄' : '광대 카드'}</i>` : ''}
+  return `<div class="rc-in r${r}${c.up ? ' up' : ''}${ks.length >= 3 ? ' k3' : ''}${c.temp ? ' temp' : ''}${c.jest ? ` jest j-${c.jest}` : ''}${cls}"${kw ? ` style="--kc:${kw.color}"` : ''}>${c.jest ? `<i class="rc-jest">${jMask() ? '???' : c.jest === 'bomb' ? '시한폭탄' : '광대 카드'}</i>` : ''}
     ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}${c.temp ? '<i class="rc-moon" title="달빛 복사본 · 한 번 쓰면 사라진다"></i>' : ''}
     <b class="rc-name">${c.up ? Run.cardTitle(c.cat).replace(/\S+$/, w => `<span class="nw">${w}<i class="rc-plus">+</i></span>`) : Run.cardTitle(c.cat)}${Run.isSpecial(c.cat) ? `<i class="rc-spec">${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')}${Run.SPECIAL[c.cat].ko}</i>` : ''}</b>
     <div class="rc-pat">${pat}</div>
@@ -422,7 +427,7 @@ function longPress(el, fn, ms = 450) {
 }
 // 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
 const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
-const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b><p>광대가 뒤집어 놓은 카드. 내 보기 전엔 알 수 없다</p>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)} <small>${Run.FUTURE[c.cat].en}</small></b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">미래 카드 · 강화할 수 없다 (인장은 붙는다)</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>빌린 유물: ${R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · ')}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.jest ? `<p>${c.jest === 'bomb' ? '시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5' : '광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5'}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
+const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)} <small>${Run.FUTURE[c.cat].en}</small></b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">미래 카드 · 강화할 수 없다 (인장은 붙는다)</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>빌린 유물: ${R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · ')}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.jest ? `<p>${jMask() ? '???' : c.jest === 'bomb' ? '시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5' : '광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5'}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -601,7 +606,7 @@ function paint() {
     <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? '사용 중' : '뒤집기'}<b>${R.flip}</b></button>
     <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? '사용 중' : '조정'}<b>${R.nudge}</b></button>
     <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? '카드 고르기' : '교체'}<b>${C.swaps}</b></button>`;
-  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure && !Run.omen(R, 'fog') ? `<button class="hex-badge" data-act="run-hex">${runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${Run.HEX[C.hex.t].ko}</button>` : ''}`;
+  $('tray-btns').innerHTML = `${my && Run.canDance(R) ? `<button class="encore-btn dance-btn" data-act="run-dance">${ico('sparkle', 'xs')} 춤사위 ×${R.dance} <small>모든 주사위 +1</small></button>` : ''}${my && Run.canDeal(R) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="run-tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? '취소' : `밑장빼기 ${R.C.deals}`}</button>` : ''}${C.hex && !C.pure && !Run.omen(R, 'fog') ? `<button class="hex-badge" data-act="run-hex">${jMask() ? '' : runIco('hex', C.hex.t, Run.HEX[C.hex.t].icon, 'xs')} ${hexKo(C.hex.t)}</button>` : ''}`;
   $('rtip').innerHTML = tipText(needBet);
   hand?.refresh();
   // 도박사: 배팅할 때 손패가 반짝인다, 배팅한 카드는 금빛
@@ -641,7 +646,7 @@ function foePanel() {
     if (p.k === 'heal') return `<span class="it heal">${ico('heart', 'xs')}<b>${p.n}</b></span>`;
     if (p.k === 'steal') return `<span class="it steal">${ico('coins', 'xs')}<b>${p.n}</b></span>`;
     if (p.k === 'weak') return `<span class="it weak">${ico('snow', 'xs')}<b>${p.n}</b></span>`;
-    if (p.k === 'hex') return `<span class="it hex">${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')}<b>${Run.HEX[p.t].ko}</b></span>`;
+    if (p.k === 'hex') return `<span class="it hex">${jMask() ? '' : runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')}<b>${hexKo(p.t)}</b></span>`;
     return '';
   }).join('');
   return `
@@ -770,7 +775,7 @@ function openSplit(u) {
     ui.sel = u; ui.split = null;
     const go = (t, label, cls = '') => `<button class="pbtn sp-go${cls}" data-act="run-play" data-u="${u}" data-t="${t}">${label}</button>`;
     let body;
-    if (hidden) body = `<p class="sp-info">무슨 카드일지 몰라요. 공격할지 수비할지만 고르세요</p><div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 공격 ???`, ' gold')}${go('self', `${ico('shield', 'xs')} 수비 ???`)}</div>`;
+    if (hidden) body = `<div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 공격 ???`, ' gold')}${go('self', `${ico('shield', 'xs')} 수비 ???`)}</div>`;
     else if (card.cat === 'xpar') { const set = Run.parallelSet(R, u), S = set.reduce((a, o) => a + o.s, 0); body = `<p class="sp-info">${ico('card', 'xs')} 점수가 나는 카드 ${set.length}장을 함께 낸다 · 합 <b>${S}</b></p><div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 전부 공격`, ' gold')}${go('self', `${ico('shield', 'xs')} 전부 수비`)}</div>`; }
     else body = `<p class="sp-info">${esc(Run.FUTURE[card.cat].desc)}</p><div class="sp-row">${go('self', card.cat === 'xpause' ? '일시정지!' : '내기 (0점)', ' gold')}</div>`;
     hand.select(u, `<div class="split simple fut" id="split">${body}</div>`, { wide: true });
@@ -1325,6 +1330,17 @@ function hurtFlash(big) {
   setTimeout(() => el.remove(), 560);
 }
 // 시공 광대의 표정: 비아냥 · 분노 그림으로 잠깐 바뀐다 (말은 하지 않는다)
+// 광대 연출 글씨: 트레이 한가운데 크게 (회피 · 손패 섞기)
+function jBanner(html, kind = '') {
+  const r = $('tray')?.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = `jest-banner ${kind}`;
+  el.innerHTML = html;
+  el.style.left = `${r ? r.left + r.width / 2 : innerWidth / 2}px`;
+  el.style.top = `${r ? r.top + r.height / 2 : innerHeight * 0.4}px`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
 async function jSay(_text, mode = 'taunt', ms = 1600) {
   ui.jmode = mode;
   const img = $('foe-art')?.querySelector('.foe-img');
@@ -1508,7 +1524,7 @@ async function playOne(f) {
       if (f.when !== 'turn') return;
       const e = foeAt(), h = Run.HEX[f.t], fx = FX(), rc = $('rc');
       const trayC = center($('tray'));
-      if (!Run.omen(R, 'fog')) skillCall(`${runIco('hex', f.t, h.icon)} ${h.ko}`);   // 보스 · 적 방해 이름: 트레이 위쪽에 크게 (짙은 안개면 알리지 않는다)
+      if (!Run.omen(R, 'fog')) skillCall(jMask() ? '???' : `${runIco('hex', f.t, h.icon)} ${h.ko}`);   // 보스 · 적 방해 이름: 트레이 위쪽에 크게 (짙은 안개면 알리지 않는다)
       if (!fxOn) { await wait(380); return; }
       if (f.t === 'drums') {                     // 전쟁의 북: 쿵쿵쿵 — 주사위가 튀고 충격파
         for (let k = 0; k < 3; k++) {
@@ -1624,13 +1640,13 @@ async function playOne(f) {
       const e = foeAt(), art = $('foe-art');
       art?.classList.remove('dodge'); void art?.offsetWidth; art?.classList.add('dodge');
       sfx.whoosh?.();
-      floatAt(e.x, e.y - 40, '회피!', 'sky big');
+      jBanner('회피!', 'dodge');
       if (fxOn) FX().burst(e.x, e.y, { n: 16, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [80, 220], life: [0.2, 0.5] });
       await jSay(f.say, 'taunt');
       return;
     }
     case 'facedown': {
-      skillCall(`${ico('card')} 뒷면 카드`);
+      skillCall(jMask() ? '???' : `${ico('card')} 뒷면 카드`);
       f.us.forEach(u => { const el = hand.el(u); el?.classList.remove('flipback'); void el?.offsetWidth; el?.classList.add('flipback'); });
       sfx.card();
       hand.refresh();
@@ -1638,13 +1654,14 @@ async function playOne(f) {
       return;
     }
     case 'jestCard': {
-      skillCall(`${ico(f.kind === 'bomb' ? 'fire' : 'anger')} ${f.kind === 'bomb' ? '시한폭탄' : '광대의 도전장'}`);
+      skillCall(jMask() ? '???' : `${ico(f.kind === 'bomb' ? 'fire' : 'anger')} ${f.kind === 'bomb' ? '시한폭탄' : '광대의 도전장'}`);
       const c = R.C?.hand.find(x => x.u === f.u);
       if (c) await hand.draw([c]);
       await jSay(f.say, 'taunt');
       return;
     }
     case 'jestShuffle': {
+      jBanner(`${ico('card')} 손패 섞기!`, 'shuffle');
       await jSay(f.say, 'taunt', 2000);
       if (fxOn) FX().flash('#FF4FD8', 260, 0.25);
       await hand.discardAll(f.out);
@@ -2488,7 +2505,7 @@ export function onAct(act, t) {
   if (R.phase !== 'combat') return;
   if (act === 'run-skip') return ui.skipIntro?.();
   if (act === 'run-intent') return intentInfo(t);
-  if (act === 'run-hex') { const h = R.C.hex; sfx.tap(); return X.popover(t, `<b>${runIco('hex', h.t, Run.HEX[h.t].icon, 'xs')} ${Run.HEX[h.t].ko}</b><p>${Run.HEX[h.t].desc(h.n)}</p>`); }
+  if (act === 'run-hex') { const h = R.C.hex; sfx.tap(); return X.popover(t, `<b>${jMask() ? '' : runIco('hex', h.t, Run.HEX[h.t].icon, 'xs')} ${hexKo(h.t)}</b><p>${hexDesc(h.t, h.n)}</p>`); }
   if (!canAct()) return;
   if (act === 'run-roll') return doRoll();
   if (act === 'run-tool') {
@@ -2597,12 +2614,12 @@ function intentInfo(t) {
     if (p.k === 'heal') return `${ico('heart', 'xs')} 체력 ${p.n} 회복`;
     if (p.k === 'steal') return `${ico('coins', 'xs')} 골드 ${p.n} 훔치기${parts0.some(q => q.k === 'atk') ? ' (공격을 다 막으면 못 훔친다)' : ''}`;
     if (p.k === 'weak') return `${ico('snow', 'xs')} 약화 ${p.n}턴 (내 카드 점수 ×0.75)`;
-    if (p.k === 'hex') return `${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>: ${Run.HEX[p.t].desc(p.n)} (이번 턴)`;
+    if (p.k === 'hex') return jMask() ? '<b>???</b>' : `${runIco('hex', p.t, Run.HEX[p.t].icon, 'xs')} <b>${Run.HEX[p.t].ko}</b>: ${Run.HEX[p.t].desc(p.n)} (이번 턴)`;
     return '';
   });
   const fury = Run.furyOf(R);
   sfx.tap();
-  X.popover(t, `<b>${esc(m.ko)}</b>${parts.map(x => `<p>${x}</p>`).join('')}<small>${fury.from}턴부터 격앙: 적의 턴마다 힘 +${fury.str}</small>`);
+  X.popover(t, `<b>${jMask() ? '???' : esc(m.ko)}</b>${parts.map(x => `<p>${x}</p>`).join('')}<small>${fury.from}턴부터 격앙: 적의 턴마다 힘 +${fury.str}</small>`);
 }
 function potionMenu(k, t) {
   const id = R.potions[k];

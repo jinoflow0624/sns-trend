@@ -242,6 +242,7 @@ export function recordRun(p, R) {
   const b = p.best, stars = starsOf(R);
   b.runs++;
   if (R.won) b.wins++;
+  if (R.stats.jester) b.jester = (b.jester || 0) + R.stats.jester;   // 시공 광대를 이긴 적이 있으면 그 스킬 설명이 보인다
   b.top = Math.max(b.top, R.won ? ACTS * (ROWS + 1) : (R.act - 1) * (ROWS + 1) + Math.min(ROWS + 1, floorOf(R)));
   const c = (b.cls[R.cls] ||= { runs: 0, wins: 0 });
   c.runs++;
