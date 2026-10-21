@@ -33,6 +33,15 @@ test('회복 물약은 전투 밖에서도 마실 수 있다 (다른 물약은 �
   assert.deepEqual(R.potions, ['heal']);
 });
 
+test('동전 던지기: 기본 반반, 뒷면이 2번 이어지면 앞면 확률이 차례로 오른다 (최대 90%) · 앞면이면 초기화', () => {
+  const R = mk({ cls: 'warrior', seed: 3 });
+  assert.equal(Run.coinHeadP(R), 0.5);
+  R.coinTails = 1; assert.equal(Run.coinHeadP(R), 0.5);
+  R.coinTails = 2; assert.equal(Run.coinHeadP(R), 0.6);
+  R.coinTails = 3; assert.ok(Math.abs(Run.coinHeadP(R) - 0.7) < 1e-9);
+  R.coinTails = 9; assert.equal(Run.coinHeadP(R), 0.9);
+});
+
 test('직업마다 시작 덱 9장 · 체력 · 도구', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {
     const R = run(cls);
