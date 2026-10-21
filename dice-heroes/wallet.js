@@ -99,7 +99,7 @@ function changeLocal(mutate) {
 
 // 일일 보상: 오늘(서버 시간 · 한국 자정 기준) 아직 안 받았나
 export const dailyGemsOf = dice => R.dailyGems(dice);
-export const DAILY_YACHT_MUL = R.DAILY_YACHT_MUL;
+export const DAILY_YACHT_MUL = R.DAILY_YACHT_MUL, DAILY_COMBO_MUL = R.DAILY_COMBO_MUL;
 export const dailyReady = () => !!W && W.bonus?.day !== today();
 // 일일 보상 받기 — 배포판은 서버가 주사위를 굴린다
 export async function claimDaily() {
