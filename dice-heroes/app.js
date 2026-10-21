@@ -151,8 +151,8 @@ function showTitle() {
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
   warmStage(1500);               // 메뉴에 있는 동안 트레이까지 만들어 둔다 (첫 판을 바로 시작하게)
-  // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게, 테스트판만)
-  if (!PROD) setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
+  // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게)
+  setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;
@@ -226,11 +226,11 @@ function showSolo() {
     <h2>${TR('혼자 플레이')}</h2>
     ${modeTile('versus', 'new', TR('대전'), TR('봇과 점수 대결 · 12라운드'), vs)}
     ${modeTile('coop', 'new', TR('보스전'), TR('봇과 함께 보스 토벌'), boss)}
-    ${PROD ? '' : runMenu()}
+    ${runMenu()}
     <div class="modal-actions"><button class="pbtn small" data-act="close">${TR('닫기')}</button></div>
   </div></div>`;
 }
-const runSaved = () => { if (PROD) return false; const s = store.get('diceheroes.run'); return !!(s && s.v === 1 && !s.ended); };
+const runSaved = () => { const s = store.get('diceheroes.run'); return !!(s && s.v === 1 && !s.ended); };
 function runMenu() {
   const s = store.get('diceheroes.run');
   const can = s && s.v === 1 && !s.ended;
@@ -252,7 +252,6 @@ function loadRun() {
   }).catch(err => { runLoading = null; throw err; }));
 }
 function runAct(act, t) {
-  if (PROD) return;
   loadRun().then(m => (act === 'die' ? m.onDie(Number(t.dataset.i)) : m.onAct(act, t)))
     .catch(err => {
       noteErr(err);
@@ -3001,7 +3000,7 @@ function showAchievements() {
   </div>`;
 }
 // 비밀 도전과제가 열렸나: 마왕은 봉인이 풀린 뒤에만 보인다
-const achOpen = () => ({ run: !PROD, demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()), archdemon: upgradeOpen('archdemon') });
+const achOpen = () => ({ run: true, demon: demonOpen() || AC.achDone(AC.achInfo('unseal'), Wal.ach()), archdemon: upgradeOpen('archdemon') });
 async function claimAchUI(id, btn) {
   if (btn) btn.disabled = true;
   const r = await Wal.claimAch(id);

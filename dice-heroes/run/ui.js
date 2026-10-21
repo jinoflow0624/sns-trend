@@ -12,6 +12,7 @@ import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, 
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
+import { PROD } from '../fire.js';
 import { initTour, tour, replayTours, tourForced, tourRunEnded } from './tour.js';
 
 const SAVE = 'diceheroes.run';
@@ -247,7 +248,7 @@ function paintSelect() {
       ${runOpen(sel, bb) ? `<button class="pbtn gold big" data-act="run-go">${TR('원정 떠나기')}</button>`
         : Run.RUN_UNLOCK[sel]?.feat ? `<p class="rs-lockhow">${unlockHow(sel)}</p>`
         : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${TR('{0} {1}에 해금', ico('gem', 'xs'), X.runPrice(sel).toLocaleString())}</button>`}
-      <button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>
+      ${PROD ? '' : `<button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>`}
     </div>
   </div>`;
   // 덱 더미를 길게 누르면 시작 덱 9장
@@ -2350,6 +2351,7 @@ export function onAct(act, t) {
   if (act === 'run-metaitem') return metaItemTip(t, t.dataset.id);
   if (act === 'run-metaclose') { sfx.back(); return X.closePopover(); }
   if (act === 'run-metabuy') { X.closePopover?.(); return metaAct(act, t.dataset.id); }
+  if (act === 'run-trial' && PROD) return;   // 시험 원정(샌드박스)은 테스트판만
   if (act === 'run-start' || act === 'run-again' || act === 'run-trial') {
     sfx.start();
     const trial = act === 'run-trial' || (act === 'run-again' && R?.trial);
