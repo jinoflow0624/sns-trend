@@ -645,7 +645,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt="">${def.talk && ui.jsay ? `<div class="jest-say">${esc(ui.jsay)}</div>` : ''}</div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="보호막">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
@@ -1324,25 +1324,19 @@ function hurtFlash(big) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 560);
 }
-// 시공 광대의 말: 머리 위 말풍선 + 비아냥 그림 (잠깐). 말을 하는 건 이 세계에서 광대뿐
-async function jSay(text, mode = 'taunt', ms = 2300) {
-  if (!text) return;
-  ui.jsay = text; ui.jmode = mode;
-  const art = $('foe-art'), img = art?.querySelector('.foe-img');
+// 시공 광대의 표정: 비아냥 · 분노 그림으로 잠깐 바뀐다 (말은 하지 않는다)
+async function jSay(_text, mode = 'taunt', ms = 1600) {
+  ui.jmode = mode;
+  const img = $('foe-art')?.querySelector('.foe-img');
   if (img) img.src = jesterURL(mode || (R.C?.e?.raged ? 'rage' : ''));
-  art?.querySelector('.jest-say')?.remove();
-  art?.insertAdjacentHTML('beforeend', `<div class="jest-say">${esc(text)}</div>`);
-  sfx.giggle?.() || sfx.tap?.();
   const mine = ui.jsayN = (ui.jsayN || 0) + 1;
   setTimeout(() => {
     if (ui.jsayN !== mine) return;
-    ui.jsay = null; ui.jmode = null;
-    const a = $('foe-art'), im = a?.querySelector('.foe-img');
-    a?.querySelector('.jest-say')?.classList.add('out');
-    setTimeout(() => a?.querySelector('.jest-say.out')?.remove(), 300);
+    ui.jmode = null;
+    const im = $('foe-art')?.querySelector('.foe-img');
     if (im && R?.C?.e) im.src = jesterURL(R.C.e.raged ? 'rage' : '');
   }, ms);
-  await wait(Math.min(900, ms));
+  await wait(Math.min(500, ms));
 }
 async function playFx(list, before) {
   ui.show = { ...before };
@@ -1482,7 +1476,7 @@ async function playOne(f) {
       floatAt(e.x, e.y - 50, '분노!', 'dmg big');
       shake($('rc'), 2);
       await wait(700);
-      if (f.say) await jSay(f.say, 'rage');
+      if (Run.ENEMIES[f.foe]?.talk) await jSay('', 'rage');
       return;
     }
     case 'regrow': { const e = foeAt(); floatAt(e.x, e.y - 40, '머리가 다시 자란다!', 'dmg'); if (fxOn) FX().regrow?.(e); await wait(600); return; }
@@ -1626,7 +1620,6 @@ async function playOne(f) {
     case 'runWon': return;
     // ── 시공 광대 ──
     case 'jesterIn': await jSay(f.say, 'taunt', 2600); return;
-    case 'say': await jSay(f.say, 'taunt'); return;
     case 'dodge': {
       const e = foeAt(), art = $('foe-art');
       art?.classList.remove('dodge'); void art?.offsetWidth; art?.classList.add('dodge');
@@ -1731,7 +1724,7 @@ async function introFoe() {
     ui.busy = true;
     X.layer.innerHTML = `<div class="overlay boss-intro run-intro jest-intro" data-act="run-skip" style="--c:#3EE6E0">
       <div class="bi-band"><i></i></div><div class="bi-band thin"></div>
-      <img class="bi-boss px" src="${jesterURL('taunt')}" alt="">
+      <img class="spr bi-boss spr-hi" src="${jesterURL('taunt')}" alt="">
       <div class="bi-name"><small>? ? ?</small><b>???</b></div>
       <div class="bi-flash"></div><div class="glitch" aria-hidden="true"></div></div>`;
     sfx.slash?.();
@@ -2159,7 +2152,7 @@ function sbAct(act, t) {
     const kind = Run.ENEMIES[v].kind;
     const song = kind === 'boss' ? bossSong(v) : kind === 'elite' || kind === 'special' ? 'run_elite' : 'run_battle';
     const opening = drain().filter(f => ['hex', 'gaze', 'facedown', 'jestCard', 'rent'].includes(f.type));
-    if (kind === 'special') opening.unshift({ type: 'jesterIn', say: Run.JESTER_SAY.intro[0] });
+    if (kind === 'special') opening.unshift({ type: 'jesterIn' });
     if (opening.length) { ui.openFx = opening; ui.hideGaze = true; }
     return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady()]).then(() => enterView(true));
   }
