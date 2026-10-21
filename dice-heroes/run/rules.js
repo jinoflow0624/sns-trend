@@ -969,9 +969,13 @@ function jesterShuffle(R) {
   if (!out.length) return;
   C.hand = C.hand.filter(c => !out.includes(c));
   C.discard.push(...out.filter(c => !c.temp));
+  // 뒷면 카드는 뒷면인 채로 섞인다: 버린 뒷면 카드 수만큼 새로 뽑은 카드도 뒷면
+  const hidOld = out.filter(c => C.hidden.includes(c.u)).map(c => c.u);
   C.gazed = C.gazed.filter(u => C.hand.some(c => c.u === u)); C.hidden = C.hidden.filter(u => C.hand.some(c => c.u === u));
   const got = drawCards(R, out.length);
-  fx(R, { type: 'jestShuffle', out: out.map(c => c.u), in: got });
+  const hidNew = got.slice(0, hidOld.length);
+  C.hidden.push(...hidNew);
+  fx(R, { type: 'jestShuffle', out: out.map(c => c.u), in: got, hidOld, hidNew });
   syncRent(R);
 }
 
