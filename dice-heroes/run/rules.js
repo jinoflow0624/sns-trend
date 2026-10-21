@@ -27,7 +27,7 @@ export const GUARD_MUL = 0.5;     // 수호: 방어로 돌린 점수의 보호�
 export const HYDRA_CUT = 30;      // 세머리 용: 카드 한 장으로 이만큼 피해를 주면 이번 턴의 머리가 잘린다
 // 격앙: 전투가 길어지면 적이 턴마다 힘을 얻는다 (막기만 하며 버티는 것을 막는다). from 턴부터 적의 턴이 끝날 때마다 힘 +str
 export const FURY = { normal: { from: 5, str: 1 }, elite: { from: 6, str: 2 }, boss: { from: 8, str: 2 }, special: { from: 7, str: 2 } };
-// ── 깜짝 보스 「시공 광대」 (지도에 없다. 칸에 들어갈 때 끼어든다 — 이긴 뒤 · 쓰러진 뒤 원래 가려던 칸으로) ──
+// ── 히든 보스 「시공 광대」 (지도에 없다. 칸에 들어갈 때 끼어든다 — 이긴 뒤 · 쓰러진 뒤 원래 가려던 칸으로) ──
 //   3번째 원정부터 1 · 2막에서 칸에 들어갈 때마다 JESTER_P 확률, 4번째 원정은 2막 중간(JESTER_ROW 층 이상)에서 한 번 반드시.
 //   한 원정에 한 번만. 져도 원정은 끝나지 않는다 — 체력 절반으로 일어나 보상 없이 원래 칸으로
 export const JESTER_P = 0.005, JESTER_FROM = 3, JESTER_FIXED = 4, JESTER_ROW = 4;
@@ -560,7 +560,7 @@ export const ENEMIES = {
     MV('봉인', { atk: 13, hex: H('seal') }), MV('패기', { atk: 16, hex: H('haki') }), MV('봉인의 춤', { atk: 7, hits: 3, hex: H('seal') }), MV('패왕의 기세', { block: 24, str: 2, hex: H('haki') })],
     rage: [MV('이중 봉인', { atk: 14, hex: H('seal', 2) }), MV('패기', { atk: 18, hex: H('haki') }), MV('봉인의 춤', { atk: 8, hits: 3, hex: H('seal', 2) }), MV('종말', { atk: 26, hex: H('haki') })] },
 };
-// ── 깜짝 보스: 시공 광대 (지도에 없다 · JESTER_P) — 막마다 TUNE.hp/atk.special 로 체력 · 공격을 맞춘다
+// ── 히든 보스: 시공 광대 (지도에 없다 · JESTER_P) — 막마다 TUNE.hp/atk.special 로 체력 · 공격을 맞춘다
 ENEMIES.jester = { ko: '시공 광대 크로노', act: 0, kind: 'special', hp: [150, 150], ai: 'random', talk: true, moves: [
   MV('저글링 칼', { atk: 5, hits: 3 }), MV('카드 장난', { atk: 8, hex: H('facedown', 2) }), MV('광대의 도전장', { atk: 9, hex: H('dare') }),
   MV('시한폭탄', { atk: 6, hex: H('bomb') }), MV('웃음 가스', { block: 14, str: 1, hex: H('facedown', 1) })],
@@ -660,7 +660,7 @@ export function createRun({ cls = 'gambler', seed = (Math.random() * 2 ** 32) >>
     removes: 0, fx: [], log: [],
     stats: { fights: 0, elites: 0, bosses: 0, dmg: 0, maxHit: 0, taken: 0, healed: 0, turns: 0, cards: 0, gold: 0, floors: 0, atkSum: 0, atkN: 0 },
     ended: false, won: false, last: null,
-    runNo: Math.max(0, Math.floor(Number(meta?.runs) || 0)) + 1,   // 몇 번째 원정인지 (깜짝 보스 등장 조건)
+    runNo: Math.max(0, Math.floor(Number(meta?.runs) || 0)) + 1,   // 몇 번째 원정인지 (히든 보스 등장 조건)
   };
   for (const cat of BASE_DECK) R.deck.push(mkCard(R, cat));
   R.deck.push(mkCard(R, ci.sp));      // 직업 특별 카드 1장 (에이스 · 듀스 · 트레이 중 직업에 어울리는 것)
@@ -730,7 +730,7 @@ export const enterNode = act('enterNode', function enterNode(R, id) {
   if (jesterNow(R, n)) { R.jester = { met: true, then: id }; fx(R, { type: 'jesterIn' }); return startCombat(R, 'jester'); }
   doNode(R, n);
 });
-// 깜짝 보스가 끼어드는가 (한 원정에 한 번). 예전 원정(runNo 없음) · 3번째 원정 전에는 난수를 뽑지 않는다 (같은 시드의 원정이 그대로 돌게)
+// 히든 보스가 끼어드는가 (한 원정에 한 번). 예전 원정(runNo 없음) · 3번째 원정 전에는 난수를 뽑지 않는다 (같은 시드의 원정이 그대로 돌게)
 function jesterNow(R, n) {
   if (R.jester?.met || R.trial || R.sbFight || R.act > 2 || n.type === 'boss' || !(R.runNo >= JESTER_FROM)) return false;
   if (R.runNo === JESTER_FIXED && R.act === 2 && n.row >= JESTER_ROW) return true;

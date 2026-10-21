@@ -1270,7 +1270,7 @@ body:has(.run-sb) .popover { z-index: 310; }
 .skill-call .ico { width: 26px; height: 26px; }
 @keyframes skillCall { 0% { opacity: 0; transform: translateX(-50%) scale(1.6); } 12% { opacity: 1; transform: translateX(-50%) scale(.95); } 20% { transform: translateX(-50%) scale(1.04); } 28%, 80% { transform: translateX(-50%) scale(1); opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
 
-/* ── 깜짝 보스 「시공 광대」 · 미래 카드 ─────────────────────────────────────── */
+/* ── 히든 보스 「시공 광대」 · 미래 카드 ─────────────────────────────────────── */
 .foe.k-special { box-shadow: inset 0 0 0 2px #3EE6E0, 0 0 16px rgba(255,79,216,.35); }
 .foe.k-special .foe-art, .foe.k-special .foe-art .foe-img { width: 96px; height: 96px; }
 .kind-chip.k-special { background: linear-gradient(90deg, #3EE6E0, #FF4FD8); color: #10082A; }
@@ -1280,7 +1280,7 @@ body:has(.run-sb) .popover { z-index: 310; }
 @keyframes jestDodge { 30% { transform: translateX(26px) skewX(-12deg); opacity: .55; filter: hue-rotate(90deg); } 60% { transform: translateX(-8px); opacity: 1; } }
 .foe-art.warp .foe-img { animation: jestWarp .8s ease-in forwards; }
 @keyframes jestWarp { 40% { transform: scaleX(.2) scaleY(1.3); filter: brightness(3) hue-rotate(60deg); } 100% { transform: scaleX(0) scaleY(2); opacity: 0; } }
-/* 깜짝 보스 등장: 홀로그램 지지직 */
+/* 히든 보스 등장: 홀로그램 지지직 */
 .jest-intro .glitch { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
   background: repeating-linear-gradient(0deg, rgba(62,230,224,.16) 0 2px, transparent 2px 6px); animation: glitchY .18s steps(2) infinite; }
 @keyframes glitchY { 50% { transform: translateY(3px); filter: hue-rotate(80deg); } }
@@ -1344,3 +1344,17 @@ body:has(.run-sb) .popover { z-index: 310; }
 .jest-banner.shuffle { font-size: 34px; padding: 6px 18px; background: rgba(16, 8, 42, .82); border: 3px solid #FF4FD8; box-shadow: 0 0 22px rgba(255,79,216,.6), 0 3px 0 var(--ink); }
 .jest-banner .ico { width: 30px; height: 30px; }
 @keyframes jBanner { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 18% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } 30% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -62%) scale(1); opacity: 0; } }
+/* 홀로그램 일렁임 (히든 보스 진입 · 쓰러져 원래 세계로 돌아올 때) */
+.holo-warp { position: fixed; inset: 0; z-index: 96; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+  background: linear-gradient(115deg, rgba(62,230,224,.0) 0%, rgba(62,230,224,.45) 25%, rgba(154,123,255,.4) 45%, rgba(255,79,216,.45) 65%, rgba(62,230,224,.0) 100%);
+  background-size: 300% 300%; animation: hwIn var(--d, 1.3s) ease-in-out forwards, hwFlow .9s linear infinite; }
+.holo-warp .hw-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,.22) 0 2px, transparent 2px 5px); animation: glitchY .14s steps(2) infinite; }
+.holo-warp .hw-band { position: absolute; left: 0; right: 0; height: 14%; top: -14%; background: linear-gradient(180deg, transparent, rgba(255,255,255,.55), transparent); animation: hwBand var(--d, 1.3s) linear forwards; }
+@keyframes hwIn { 0% { opacity: 0; } 25% { opacity: .9; } 75% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes hwFlow { to { background-position: 300% 50%; } }
+@keyframes hwBand { to { top: 110%; } }
+#app.holo-wobble { animation: holoWobble var(--d, 1.3s) ease-in-out; }
+@keyframes holoWobble { 0%, 100% { transform: none; filter: none; } 20% { transform: skewX(4deg) scaleY(1.02); filter: hue-rotate(60deg) saturate(1.6) blur(.6px); }
+  40% { transform: skewX(-5deg) translateX(6px); filter: hue-rotate(160deg) saturate(1.8) blur(1px); } 60% { transform: skewX(3deg) translateX(-5px) scaleX(1.02); filter: hue-rotate(260deg) saturate(1.6) blur(.6px); }
+  80% { transform: skewX(-1deg); filter: hue-rotate(330deg); } }
+@media (prefers-reduced-motion: reduce) { .holo-warp, #app.holo-wobble { animation-duration: .01s !important; } }

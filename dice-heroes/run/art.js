@@ -302,7 +302,7 @@ function draw(id, scale) {
   return c.toDataURL();
 }
 // 적 그림 주소: 보스는 협동 보스 그림, 그림 파일이 생긴 적은 그 파일, 나머지는 위 도트
-// 깜짝 보스 「시공 광대」: 평소 · 비아냥 · 분노 (디자인 세션 그림, 512px)
+// 히든 보스 「시공 광대」: 평소 · 비아냥 · 분노 (디자인 세션 그림, 512px)
 export const JESTER_ART = ['jester', 'jester_taunt', 'jester_rage'];
 export const jesterURL = (mode = '') => `assets/run/jester/${JESTER_ART.includes(`jester_${mode}`) ? `jester_${mode}` : 'jester'}.webp${AV}`;
 // 미래 카드 가운데 그림 (assets/run/jester/icon_<id>.webp — 그림이 오면 id 를 적는다)
