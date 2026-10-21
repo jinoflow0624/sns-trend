@@ -1406,6 +1406,9 @@ html.color-assist .d2.held::after, html.color-assist .member.turn::after { conte
 .daily.yacht .dd-die { border-color: var(--gold); box-shadow: inset -3px -3px 0 #FFE27A, 0 0 14px 3px rgba(255, 200, 61, .8); animation: ddLand .3s, ddBob .6s .3s ease-in-out infinite alternate; }
 .daily.yacht .dd-die:nth-child(2) { animation-delay: 0s, .4s; } .daily.yacht .dd-die:nth-child(3) { animation-delay: 0s, .5s; }
 .daily.yacht .dd-die:nth-child(4) { animation-delay: 0s, .6s; } .daily.yacht .dd-die:nth-child(5) { animation-delay: 0s, .7s; }
+.daily-yacht.combo { font-size: 26px; letter-spacing: 2px; }
+.daily.combo .dd-die { border-color: var(--gold); box-shadow: inset -3px -3px 0 #FFE27A, 0 0 10px 2px rgba(255, 200, 61, .6); }
+.daily-rule small { font-size: 11px; opacity: .8; }
 .daily-out { min-height: 44px; font-size: 15px; line-height: 1.5; }
 .daily-out b { color: var(--gold); font-size: 22px; }
 .daily-out .warn { color: var(--ruby); }
@@ -1598,6 +1601,9 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 .dial-hero.locked img, .dial-hero.locked canvas { filter: brightness(0) drop-shadow(0 0 1px rgba(201,162,255,.9)) drop-shadow(0 0 4px rgba(122,75,255,.6)); }   /* 사지 않은 직업: 어두운 실루엣 */
 .dial-price { position: absolute; left: 50%; bottom: -8px; translate: -50% 0; display: inline-flex; align-items: center; gap: 1px; padding: 0 3px; font-size: 9px; font-weight: 700;
   color: #fff; background: #3A1E6A; border: 1px solid var(--ink); white-space: nowrap; }
+.dial-hero.d0.locked .dial-price { font-size: 7px; bottom: 0; padding: 0 3px; }
+.cls-lockhint { margin: 2px 0 0; text-align: center; font-size: 11px; font-weight: 700; color: #FFE27A; animation: lockHint 1.6s ease-in-out infinite; }
+@keyframes lockHint { 50% { opacity: .6; } }
 .spin-r .dial-track { animation: dialSpinR .26s ease-out; }
 .spin-l .dial-track { animation: dialSpinL .26s ease-out; }
 @keyframes dialSpinR { from { transform: translateX(60px); opacity: .5; } }
