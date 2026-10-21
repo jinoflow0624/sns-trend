@@ -426,6 +426,8 @@ function showMap(again = false) {
   const want = new Set(Run.nextNodes(R).map(id => SONG[Run.mapNode(R, id).type]).filter(Boolean));
   Object.values(SONG).forEach(s => (want.has(s) ? preloadBgm(s) : prefetchBgm(s)));
   if (want.size) X.stageReady();
+  // 히든 보스가 끼어들 수 있는 원정이면 광대 곡 파일도 받아 둔다 (칸에 들어갈 때 홀로그램 연출 동안 풀린다)
+  if (R.runNo >= Run.JESTER_FROM && R.act <= 2 && !R.jester?.met && !R.trial) prefetchBgm('boss_jester');
   const nodes = R.map.nodes;
   const next = new Set(Run.nextNodes(R));
   // 층 간격: 지도 칸 높이에 맞춰 한 화면에 다 보이게 (너무 좁으면 스크롤)
@@ -528,7 +530,7 @@ function showOmens() {
 function showCombat(fresh) {
   const C = R.C;
   const kind = Run.ENEMIES[C.e.id].kind;
-  playBgm(kind === 'boss' ? bossSong(C.e.id) : kind === 'elite' || kind === 'special' ? 'run_elite' : 'run_battle');
+  playBgm(kind === 'boss' ? bossSong(C.e.id) : kind === 'special' ? 'boss_jester' : kind === 'elite' ? 'run_elite' : 'run_battle');
   X.layer.innerHTML = '';
   X.app.innerHTML = `
   <div class="screen run-combat" id="rc">
@@ -2120,6 +2122,7 @@ function showSandbox() {
       <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}${chip('run-sbx', 'rrshop', false, `${ico('recycle', 'xs')}상점 새로고침 +1 (${Run.rrOf(R).shop})`)}${chip('run-sbx', 'rrpick', false, `${ico('recycle', 'xs')}카드 · 유물 새로고침 +1 (${Run.rrOf(R).pick})`)}</div>
       <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
   } else if (sb.tab === 'foe') {
+    prefetchBgm('boss_jester');   // 히든 보스 곡 (고르기 전에 받아 둔다)
     const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스'], ['special', '히든 보스']];
     body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
       <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
@@ -2182,7 +2185,7 @@ function sbAct(act, t) {
     X.layer.innerHTML = '';
     ui.sb.tab = 'score';
     const kind = Run.ENEMIES[v].kind;
-    const song = kind === 'boss' ? bossSong(v) : kind === 'elite' || kind === 'special' ? 'run_elite' : 'run_battle';
+    const song = kind === 'boss' ? bossSong(v) : kind === 'special' ? 'boss_jester' : kind === 'elite' ? 'run_elite' : 'run_battle';
     const opening = drain().filter(f => ['hex', 'gaze', 'facedown', 'jestCard', 'rent'].includes(f.type));
     if (kind === 'special') opening.unshift({ type: 'jesterIn' });
     if (opening.length) { ui.openFx = opening; ui.hideGaze = true; }
@@ -2355,9 +2358,9 @@ export function onAct(act, t) {
     if (R.phase === 'combat' && opening.length) { ui.openFx = opening; ui.hideGaze = true; }
     save();
     t.classList.add('go');
-    // 전투 칸: 그 곡이 준비될 때까지 (최대 3초) 기다렸다가 들어간다 (시공 광대가 끼어들면 엘리트 곡)
-    const ty = R.phase === 'combat' && R.C?.e.id === 'jester' ? 'elite' : Run.mapNode(R, id).type;
-    const song = ty === 'boss' ? bossSong(R.boss) : ty === 'elite' ? 'run_elite' : ty === 'fight' ? 'run_battle' : null;
+    // 전투 칸: 그 곡이 준비될 때까지 (최대 3초) 기다렸다가 들어간다 (시공 광대가 끼어들면 광대 곡)
+    const ty = R.phase === 'combat' && R.C?.e.id === 'jester' ? 'jester' : Run.mapNode(R, id).type;
+    const song = ty === 'boss' ? bossSong(R.boss) : ty === 'jester' ? 'boss_jester' : ty === 'elite' ? 'run_elite' : ty === 'fight' ? 'run_battle' : null;
     const ready = song ? Promise.race([preloadBgm(song), wait(3000)]) : null;
     const jest = R.phase === 'combat' && R.C?.e.id === 'jester';   // 히든 보스: 화면이 홀로그램으로 일렁인 뒤 보스전으로
     return Promise.all([ready, wait(260), song && X.stageReady(), jest && holoWarp(1400)]).then(() => enterView(true));
