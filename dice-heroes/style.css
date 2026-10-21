@@ -111,30 +111,18 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
   padding: calc(28px + env(safe-area-inset-top, 0px)) 16px calc(14px + env(safe-area-inset-bottom, 0px));
 }
 .logo { align-self: start; display: grid; justify-items: center; gap: 0; margin-top: 3vh; animation: drop .8s cubic-bezier(.2,1.4,.4,1) both; }
-/* 왕관 — 로고 위에서 은은하게 빛난다 */
-.logo-crown { display: block; line-height: 0; margin-bottom: -2px; filter: drop-shadow(0 3px 0 #2A0F00) drop-shadow(0 0 14px rgba(255, 200, 60, .75)); animation: crown-glow 3.2s ease-in-out infinite; }
-.logo-crown .ico.lg { width: 40px; height: 40px; }
-@keyframes crown-glow { 50% { filter: drop-shadow(0 3px 0 #2A0F00) drop-shadow(0 0 22px rgba(255, 224, 120, 1)); } }
-/* 로고 — 금박 그라데이션 + 도트 외곽선. 아래 글자(단색 + 외곽선) 위에 같은 글자를 금빛으로 한 겹 더 얹는다 */
-.logo-main {
-  position: relative; margin: 2px 0 0; font-weight: 700; font-size: clamp(42px, 13.4vw, 70px); line-height: 1; letter-spacing: .06em; white-space: nowrap;
-  padding-left: .06em;
-  color: #FFD76A;
-  text-shadow:
-    3px 0 0 #5A2200, -3px 0 0 #5A2200, 0 3px 0 #5A2200, 0 -3px 0 #5A2200,
-    3px 3px 0 #5A2200, -3px 3px 0 #5A2200, 3px -3px 0 #5A2200, -3px -3px 0 #5A2200,
-    0 8px 0 #1F0A00, 0 0 30px rgba(255, 170, 50, .5);
-}
+/* 로고 — 도트로 그린 그림(assets/logo/logo.webp, tools/make_logo.py)을 정수배 가깝게 키운다.
+   위로 금빛 줄이 지나가는 반짝임은 같은 그림을 가면으로 씌운 층으로 */
+.logo-main { position: relative; margin: 0; line-height: 0; --lw: min(282px, calc(100vw - 48px)); filter: drop-shadow(0 4px 0 rgba(8, 4, 30, .55)) drop-shadow(0 0 18px rgba(255, 190, 70, .28)); }
+.logo-main img { display: block; width: var(--lw); height: auto; image-rendering: pixelated; -webkit-user-drag: none; user-select: none; }
 .logo-main::after {
-  content: attr(data-text); position: absolute; inset: 0; padding-left: .06em; pointer-events: none;
-  color: transparent; text-shadow: none;
-  background:
-    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .95) 49%, rgba(255, 244, 190, .8) 52%, transparent 62%) -160% 0 / 60% 100% no-repeat,
-    linear-gradient(180deg, #FFFBE0 0%, #FFE98A 30%, #FFC13A 58%, #E8821A 82%, #B85A0A 100%);
-  -webkit-background-clip: text; background-clip: text;
-  animation: logo-shine 5.5s ease-in-out 1.2s infinite;
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask: url(assets/logo/logo.webp?v=l1) center / 100% 100% no-repeat; mask: url(assets/logo/logo.webp?v=l1) center / 100% 100% no-repeat;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .7) 49%, rgba(255, 248, 210, .5) 52%, transparent 60%) -160% 0 / 55% 100% no-repeat;
+  mix-blend-mode: screen; animation: logo-shine 5.5s ease-in-out 1.2s infinite;
 }
-@keyframes logo-shine { 0%, 55% { background-position: -160% 0, 0 0; } 85%, 100% { background-position: 260% 0, 0 0; } }
+@media (min-width: 520px) { .logo-main { --lw: 376px; } }
+@keyframes logo-shine { 0%, 55% { background-position: -160% 0; } 85%, 100% { background-position: 260% 0; } }
 .logo-ko { font-size: 15px; font-weight: 700; letter-spacing: .7em; padding-left: .7em; color: #D9D0FF; text-shadow: 0 2px 0 var(--ink), 0 0 12px rgba(150, 130, 255, .6); margin-top: 14px; }
 /* 부제 — 금빛 가는 선과 마름모로 감싼다 */
 .logo-sub {

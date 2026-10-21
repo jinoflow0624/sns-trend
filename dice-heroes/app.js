@@ -24,6 +24,8 @@ const app = document.getElementById('app');
 const layer = document.getElementById('layer');
 const coachEl = document.getElementById('coach');
 document.title = `${GAME.en} · ${GAME.sub}`;
+// 타이틀 로고 그림 (tools/make_logo.py 로 그린 도트 · 1배 크기). 그림을 바꾸면 ?v= 를 올린다 (index.html 의 preload · sw.js 도 같이)
+const LOGO_URL = 'assets/logo/logo.webp?v=l1';
 
 const KEYS = { save: 'diceheroes.game', setup: 'diceheroes.setup', opts: 'diceheroes.opts', seen: 'diceheroes.seen', name: 'diceheroes.name', lastRoom: 'diceheroes.lastRoom', profile: 'diceheroes.profile', prefs: 'diceheroes.prefs' };
 const store = {
@@ -162,8 +164,7 @@ function showTitle() {
     <div class="title-ui">
       ${unlocked ? `<div class="title-top">${dailyBtn()}<button class="gem-chip" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button></div>` : ''}
       <div class="logo">
-        <span class="logo-crown" aria-hidden="true">${ico('crown', 'lg')}</span>
-        <h1 class="logo-main" data-text="${esc(GAME.en)}">${esc(GAME.en)}</h1>
+        <h1 class="logo-main" aria-label="${esc(GAME.en)}"><img src="${LOGO_URL}" alt="" width="92" height="27" draggable="false"></h1>
         <span class="logo-ko">${esc(GAME.name)}</span>
         <span class="logo-sub">${esc(GAME.sub)}</span>
       </div>
