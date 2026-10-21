@@ -215,7 +215,7 @@ let runMod = null, runLoading = null;
 //   대전: 초록 펠트 위에서 마주 선 두 영웅 + VS / 보스전: 붉은 하늘의 화염룡 / 원정: 원정 숲 지도 · 지도 칸
 // 그림은 모두 이미 받아 둔 것 (직업 · 보스 그림은 시작할 때, 원정 그림은 warm() 이 시작 화면에서)
 const modeTile = (mode, act, title, sub, art, v = mode, on = false) =>
-  `<button class="mode-tile mt-${mode}${on ? ' on' : ''}" data-act="${act}"${v ? ` data-v="${v}"` : ''}>${art}<span class="mt-txt"><b>${title}</b><small>${sub}</small></span></button>`;
+  `<button class="mode-tile mt-${mode}${on ? ' on' : ''}" data-act="${act}"${v ? ` data-v="${v}"` : ''}>${art}<span class="mt-txt"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
 const VS_ART = () => `<span class="mt-art" aria-hidden="true"><img class="mt-h l" src="${heroPoseURL('warrior')}" alt=""><i class="mt-vs">VS</i><img class="mt-h r" src="${heroPoseURL('gambler')}" alt=""></span>`;
 const BOSS_ART = () => `<span class="mt-art" aria-hidden="true"><img class="mt-boss" src="${spriteURL('dragon')}" alt=""></span>`;
 // 클래식 야추: 펠트 위 주사위 다섯 개 (내 주사위 스킨) — 직업 · 의뢰 없이 주사위만
@@ -236,7 +236,7 @@ function runMenu() {
   const can = s && s.v === 1 && !s.ended;
   const a = runMod?.menuArt?.();   // 원정 모듈이 아직이면 그림 없이 (바탕색 그라데이션)
   const art = `<span class="mt-art" aria-hidden="true">${a ? `<i class="mt-nodes">${a.nodes.map(u => `<img src="${u}" alt="">`).join('')}</i>` : ''}<img class="mt-h run" src="${heroPoseURL(s?.cls && can ? s.cls : 'outlaw')}" alt=""></span>`;
-  const tile = modeTile('run', can ? 'run-resume' : 'run-open', can ? TR('원정 이어하기') : TR('원정'), can ? TR('{0}막 · 체력 {1}/{2}', s.act, s.hp, s.maxHp) : TR('로그라이크 · 3막 돌파'), art, '');
+  const tile = modeTile('run', can ? 'run-resume' : 'run-open', can ? TR('원정 이어하기') : TR('원정'), can ? TR('{0}막 · 체력 {1}/{2}', s.act, s.hp, s.maxHp) : '', art, '');
   return `<div class="run-menu"${a ? ` style="--mt-bg:url(${a.bg})"` : ''}>${tile}${can ? `<button class="pbtn small" data-act="run-open">${TR('새 원정')}</button>` : ''}</div>`;
 }
 function loadRun() {

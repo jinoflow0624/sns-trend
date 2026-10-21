@@ -201,6 +201,9 @@ img.spr.spr-hi { image-rendering: auto; }   /* 마왕: 촘촘한 도트 그림�
   .solo-pick .mt-nodes { right: 66px; } .solo-pick .mt-nodes img:first-child { display: none; } .solo-pick .mt-h.run { height: 64px; }
   .solo-pick .mt-txt { max-width: 52%; } .solo-pick .mt-txt small { font-size: 10px; }
 }
+/* 영어 · 일본어: 원정 이름이 길어 지도 칸과 겹치지 않게 */
+html:not(:lang(ko)) .solo-pick .mt-run .mt-txt b { font-size: 20px; }
+html:not(:lang(ko)) .solo-pick .mt-run .mt-nodes img:first-child { display: none; }
 /* 원정 이어하기: 새 원정 버튼은 옆에 작게 */
 .run-menu { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: stretch; }
 .run-menu > :only-child { grid-column: 1 / -1; }
