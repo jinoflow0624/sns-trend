@@ -79,6 +79,7 @@ function log(R, text) {
 // 규칙이 결정적(난수는 R.rng 하나)이라, 서버는 시드 · 직업 · 승천 · 원정 준비 + 행동 기록만으로 판을 처음부터 다시 돌려
 // 결과(승패 · 층 · 보스 · 도전과제 · 별조각)를 직접 계산한다 — 기기에서 숫자를 고쳐도 소용없다.
 const ACTIONS = {};
+export const ACTION_LIST = ACTIONS;   // 시험 · 점검용 (행동 이름 → 함수)
 let depth = 0;
 function act(name, fn) {
   ACTIONS[name] = fn;
@@ -307,6 +308,13 @@ export const FEATS = [
 // 원정 직업 해금: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석(wallet-rules RUN_CLASS_PRICE)
 // RUN_ORDER: 직업 고르기 다이얼 순서 (기본 → 도전과제 → 보석 싼 순)
 export const RUN_UNLOCK = { warrior: { free: true }, rogue: { free: true }, mage: { free: true }, bard: { feat: 'bulwark' }, monk: { feat: 'ascetic' } };
+// 원정 직업이 열렸나 (게임 · 서버 xStart 공용). feats: 원정 기록의 도전과제 목록, ownsRun: 보석으로 산 원정 직업인가
+export function runClassOpen(cls, feats = [], ownsRun = () => false) {
+  const u = RUN_UNLOCK[cls];
+  if (u?.free) return true;
+  if (u?.feat) return feats.includes(u.feat);
+  return !!ownsRun(cls);
+}
 export const RUN_ORDER = ['warrior', 'rogue', 'mage', 'bard', 'monk', 'gambler', 'outlaw', 'sharper', 'dancer'];
 function feat(R, id) {
   const f = (R.feats ||= []);
@@ -1878,7 +1886,7 @@ function jesterReward(R) {
   const g = 2 * (int(R, 12, 18) + R.act * 4);
   R.stats.jester = (R.stats.jester || 0) + 1;
   return { kind: 'special', items: [{ t: 'gold', n: Math.round(g * goldMul(R)) }, { t: 'stars', n: pz.stars }, { t: 'gems', n: pz.gems },
-    { t: 'card', opts: [mkCard(R, shuffle(R, FUTURE_CATS)[0])], future: true, fixed: true }] };   // 히든 족보 카드 3장 중 1장을 무작위로 (고르지 않는다)
+    { t: 'card', opts: [mkCard(R, shuffle(R, FUTURE_CATS.slice())[0])], future: true, fixed: true }] };   // 히든 족보 카드 3장 중 1장을 무작위로 (고르지 않는다)
 }
 // 새로고침 남은 횟수 (예전 저장 판은 0)
 export const rrOf = R => ({ shop: R.rr?.shop || 0, pick: R.rr?.pick || 0 });

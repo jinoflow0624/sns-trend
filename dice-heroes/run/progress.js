@@ -9,7 +9,7 @@
 // 테스트판: 서버 함수가 없으니 이 기기(localStorage)에 둔다. 규칙은 같은 함수(recordRun · buyProgress).
 import { PROD, callServer } from '../fire.js';
 import * as Run from './rules.js';
-import { syncRunAch } from '../wallet.js';
+import { syncRunAch, reloadWallet } from '../wallet.js';
 
 const LOCAL = 'diceheroes.runBest';
 let store = null;
@@ -61,7 +61,8 @@ export async function finishRun(R) {
   try {
     const r = await callServer('xFinish', { id: R.xid, acts: R.acts || [] });
     P = Run.fixProgress(r.run);
-    return { stars: r.stars, won: r.won, opened: r.opened, fresh: r.fresh || [] };
+    if (r.gems > 0) reloadWallet().catch(() => {});   // 광대 보상 보석이 들어간 지갑을 다시 받는다
+    return { stars: r.stars, won: r.won, opened: r.opened, fresh: r.fresh || [], gems: r.gems || 0 };
   } catch (e) {
     console.warn('[run finish]', e);
     return { stars: 0, won: !!R.won, opened: false, fresh: [], error: String(e?.message || e) };

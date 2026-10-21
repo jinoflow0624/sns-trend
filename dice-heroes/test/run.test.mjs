@@ -42,6 +42,23 @@ test('동전 던지기: 기본 반반, 뒷면이 2번 이어지면 앞면 확률
   R.coinTails = 9; assert.equal(Run.coinHeadP(R), 0.9);
 });
 
+test('다시 돌리기: 광대가 나오는 원정을 같은 프로세스에서 여러 번 돌려도 서버 결과가 같다 (공용 목록을 섞지 않는다)', () => {
+  const classes = Object.keys(Run.RUN_CLASSES);
+  for (let k = 0; k < 6; k++) {
+    const cls = classes[k % classes.length], seed = 5000 + k * 31, meta = { ...Run.progressMeta(Run.blankProgress()), runs: 3 };
+    const R = Run.createRun({ cls, seed, meta, name: '' });
+    for (let n = 0; !R.ended && n < 20000; n++) { if (R.phase === 'combat') Run.applyCombat(R, Run.botCombat(R, Math.random, 4)); else Run.botRunStep(R); R.fx.length = 0; }
+    const X = Run.replay({ seed, cls, meta, acts: R.acts });
+    assert.deepEqual([X.won, X.act, Run.floorOf(X), X.hp, X.gold, Run.starsOf(X), X.gems || 0], [R.won, R.act, Run.floorOf(R), R.hp, R.gold, Run.starsOf(R), R.gems || 0], `${cls} ${seed}`);
+  }
+});
+test('원정 직업 해금 규칙 (게임 · 서버 공용): 기본 3 · 도전과제 2 · 원정 구매', () => {
+  assert.ok(Run.runClassOpen('warrior') && Run.runClassOpen('rogue') && Run.runClassOpen('mage'));
+  assert.ok(!Run.runClassOpen('bard') && Run.runClassOpen('bard', ['bulwark']));
+  assert.ok(!Run.runClassOpen('monk') && Run.runClassOpen('monk', ['ascetic']));
+  assert.ok(!Run.runClassOpen('dancer') && Run.runClassOpen('dancer', [], id => id === 'dancer'));
+});
+
 test('직업마다 시작 덱 9장 · 체력 · 도구', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {
     const R = run(cls);

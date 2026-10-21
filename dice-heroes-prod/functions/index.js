@@ -222,7 +222,8 @@ export const xStart = onCall(async req => {
   const a = Math.floor(Number(asc) || 0);
   const open = Math.min(X.ASC_MAX, (p.best.asc[cls] ?? -1) + 1);
   if (a < 0 || a > open) fail('아직 열리지 않은 승천이에요.');
-  if (R.priceOf('cls', cls) && !w.owned?.cls?.[cls]) fail('아직 해금하지 않은 직업이에요.');
+  // 원정 직업 해금은 대전 직업과 따로: 기본 · 원정 도전과제 · 원정 직업 구매 (run/rules.js runClassOpen — 게임과 같은 규칙)
+  if (!X.runClassOpen(cls, p.best.feats, id => !!w.owned?.run?.[id])) fail('아직 해금하지 않은 직업이에요.');
   const seed = randomInt(1, 2 ** 31);
   const id = `${Date.now().toString(36)}${randomInt(1e6).toString(36)}`;
   const meta = X.progressMeta(p);
@@ -241,9 +242,15 @@ export const xFinish = onCall(async req => {
   try { Rx = X.replay({ seed: live.seed, cls: live.cls, asc: live.asc, meta: live.meta, acts }); }
   catch (e) { fail(`행동 기록을 다시 돌리지 못했어요 (${e.message}).`, 'invalid-argument'); }
   if (!Rx.ended) fail('아직 끝나지 않은 원정이에요.');
-  const { wallet, out } = await change(uid, w => { const o = X.recordRun(xOf(w), Rx); AC.syncRunAch((w.ach ||= {}), w.run); return o; });   // 원정 도전과제 진행도도 서버 기록으로
+  const { wallet, out } = await change(uid, w => {
+    const o = X.recordRun(xOf(w), Rx);
+    AC.syncRunAch((w.ach ||= {}), w.run);   // 원정 도전과제 진행도도 서버 기록으로
+    // 시공 광대 보상 보석: 서버가 다시 돌린 판에서 나온 값만 지갑에 넣는다 (한 원정에 많아야 광대 1번 · 안전 상한 500)
+    if (o.gems > 0) w.gems = (w.gems || 0) + Math.min(500, Math.floor(o.gems));
+    return o;
+  });
   await db().ref(`xruns/${uid}`).remove();
-  return { run: wallet.run, ...out };
+  return { run: wallet.run, wallet, ...out };
 });
 
 export const xBuy = onCall(async req => {
