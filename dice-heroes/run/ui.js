@@ -12,6 +12,7 @@ import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, 
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
+import { PROD } from '../fire.js';
 import { initTour, tour, replayTours, tourForced, tourRunEnded } from './tour.js';
 
 const SAVE = 'diceheroes.run';
@@ -247,7 +248,7 @@ function paintSelect() {
       ${runOpen(sel, bb) ? `<button class="pbtn gold big" data-act="run-go">${TR('원정 떠나기')}</button>`
         : Run.RUN_UNLOCK[sel]?.feat ? `<p class="rs-lockhow">${unlockHow(sel)}</p>`
         : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${TR('{0} {1}에 해금', ico('gem', 'xs'), X.runPrice(sel).toLocaleString())}</button>`}
-      <button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>
+      ${PROD ? '' : `<button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>`}
     </div>
   </div>`;
   // 덱 더미를 길게 누르면 시작 덱 9장
@@ -298,11 +299,7 @@ function showMeta() {
     <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>${TR('출정 채비')}</h2><small>${TR('영구 강화 · 원정을 떠날 때마다 적용')}</small></div></div>
     <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>${TR('보유 별조각')}</small><b>${m.stars}</b></span></span></div>
     <div class="shop-stall meta-stall">${rows.map(shelf).join('')}</div>
-<<<<<<< HEAD
-    <div class="pick-actions"><button class="pbtn small" data-act="close">닫기</button></div>`;
-=======
-    <div class="pick-actions"><button class="pbtn small gold" data-act="close">${TR('닫기')}</button></div>`;
->>>>>>> origin/main
+    <div class="pick-actions"><button class="pbtn small" data-act="close">${TR('닫기')}</button></div>`;
   // 이미 열려 있으면(물건을 산 뒤) 창은 그대로 두고 안만 바꾼다 — 창을 지우고 다시 열면 깜빡였다
   const box = X.layer.querySelector('.run-meta .meta-store');
   if (box) box.innerHTML = inner;
@@ -366,11 +363,7 @@ function showFeats() {
   X.layer.innerHTML = `<div class="overlay run-feats" data-act="close-bg"><div class="deck-box" data-act="noop">
     <h2>${TR('{0} 원정 도전과제 {1}/{2}', runIco('feat', 'clear', 'trophy'), b.feats.length, Run.FEATS.length)}</h2>
     <div class="feat-list">${Run.FEATS.map(f => { const ok = b.feats.includes(f.id); return `<div class="feat${ok ? ' ok' : ''}">${runIco('feat', f.id, ok ? f.icon : 'lock')}<span><b>${f.ko}</b><small>${f.desc}</small></span></div>`; }).join('')}</div>
-<<<<<<< HEAD
-    <div class="pick-actions"><button class="pbtn small" data-act="close">닫기</button></div>
-=======
-    <div class="pick-actions"><button class="pbtn small gold" data-act="close">${TR('닫기')}</button></div>
->>>>>>> origin/main
+    <div class="pick-actions"><button class="pbtn small" data-act="close">${TR('닫기')}</button></div>
   </div></div>`;
 }
 
@@ -2131,17 +2124,10 @@ function showDeck() {
   const C = R.phase === 'combat' ? R.C : null;
   const sec = (title, cards) => `<h3>${title} <small>${TR('{0}장', cards.length)}</small></h3><div class="deck-grid">${cards.map(c => `<div class="rc rc-static mini">${cardFace(c)}</div>`).join('') || `<p class="dim">${TR('없음')}</p>`}</div>`;
   X.layer.innerHTML = `<div class="overlay run-deckview" data-act="close-bg"><div class="deck-box" data-act="noop">
-<<<<<<< HEAD
-    <h2>${runIco('ui', 'deck', 'card')} 내 덱 ${R.deck.length}장</h2>
-    ${C ? sec('뽑을 카드', C.draw.slice().sort((a, b) => a.cat.localeCompare(b.cat))) + sec('버린 카드', C.discard) : sec('전체', Run.deckCards(R))}
-    ${Object.keys(R.dfaces || {}).length ? `<h3>깎은 주사위</h3><div class="carve-dice">${Object.keys(R.dfaces).map(i => `<div class="carve-row"><b>${Number(i) + 1}</b>${Run.facesOf(R, Number(i)).map(v => `<span class="cface">${miniDie(v)}</span>`).join('')}</div>`).join('')}</div>` : ''}
-    <div class="pick-actions"><button class="pbtn small" data-act="close">닫기</button></div>
-=======
     <h2>${TR('{0} 내 덱 {1}장', runIco('ui', 'deck', 'card'), R.deck.length)}</h2>
     ${C ? sec(TR('뽑을 카드'), C.draw.slice().sort((a, b) => a.cat.localeCompare(b.cat))) + sec(TR('버린 카드'), C.discard) : sec(TR('전체'), Run.deckCards(R))}
     ${Object.keys(R.dfaces || {}).length ? `<h3>${TR('깎은 주사위')}</h3><div class="carve-dice">${Object.keys(R.dfaces).map(i => `<div class="carve-row"><b>${Number(i) + 1}</b>${Run.facesOf(R, Number(i)).map(v => `<span class="cface">${miniDie(v)}</span>`).join('')}</div>`).join('')}</div>` : ''}
-    <div class="pick-actions"><button class="pbtn small gold" data-act="close">${TR('닫기')}</button></div>
->>>>>>> origin/main
+    <div class="pick-actions"><button class="pbtn small" data-act="close">${TR('닫기')}</button></div>
   </div></div>`;
 }
 
@@ -2201,11 +2187,7 @@ function showSandbox() {
     <h2>${TR('시험 원정 · 샌드박스')}</h2>
     <div class="sb-tabs">${SB_TABS.map(([id, ko]) => `<button class="sb-tab${sb.tab === id ? ' on' : ''}" data-act="run-sbtab" data-v="${id}">${ko}</button>`).join('')}</div>
     <div class="sb-body">${body}</div>
-<<<<<<< HEAD
-    <div class="pick-actions"><button class="pbtn small" data-act="run-sbclose">닫기</button></div>
-=======
-    <div class="pick-actions"><button class="pbtn small gold" data-act="run-sbclose">${TR('닫기')}</button></div>
->>>>>>> origin/main
+    <div class="pick-actions"><button class="pbtn small" data-act="run-sbclose">${TR('닫기')}</button></div>
   </div></div>`;  // 유물을 길게 누르면 설명 (짧게 누르면 넣고 빼기)
   X.layer.querySelectorAll('.sb-relic').forEach(el => longPress(el, () => { const x = Run.relicInfo(el.dataset.v); X.popover(el, `<b>${relicIco(x, 'xs')} ${esc(x.ko)}</b> <small>${['', TR('일반'), TR('희귀'), TR('보스')][x.r] || ''}</small><p>${esc(x.desc)}</p>`, { afterRelease: true }); }));
 }
@@ -2369,6 +2351,7 @@ export function onAct(act, t) {
   if (act === 'run-metaitem') return metaItemTip(t, t.dataset.id);
   if (act === 'run-metaclose') { sfx.back(); return X.closePopover(); }
   if (act === 'run-metabuy') { X.closePopover?.(); return metaAct(act, t.dataset.id); }
+  if (act === 'run-trial' && PROD) return;   // 시험 원정(샌드박스)은 테스트판만
   if (act === 'run-start' || act === 'run-again' || act === 'run-trial') {
     sfx.start();
     const trial = act === 'run-trial' || (act === 'run-again' && R?.trial);

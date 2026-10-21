@@ -27,13 +27,11 @@ if (conf.includes('REPLACE_ME')) {
   conf = conf.replaceAll('REPLACE_ME', 'demo-diceheroes').replace(/databaseURL: '[^']*'/, "databaseURL: 'http://127.0.0.1:9100?ns=demo-diceheroes-default-rtdb'");
 }
 
-// run/ = 원정(로그라이크) 모드 — 아직 테스트판 전용이라 배포판에는 넣지 않는다 (게임도 배포판에서는 원정 버튼을 그리지 않는다)
-const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'DESIGN-HANDOFF.md', 'package.json', 'package-lock.json', 'run']);
+// run/ = 원정(로그라이크) 모드 — 배포판에도 넣는다 (서버 xStart · xFinish 가 기록 · 별조각을 지킨다)
+const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'DESIGN-HANDOFF.md', 'package.json', 'package-lock.json']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-// 원정 전용 곡(assets/bgm/run_*.ogg) · 그림(assets/run/)도 배포판에는 넣지 않는다
-const runOnly = rel => /^assets[\\/](bgm[\\/]run_|run([\\/]|$))/.test(rel);
-cpSync(src, out, { recursive: true, filter: p => { const rel = p.slice(src.length + 1); return !SKIP.has(rel.split(/[\\/]/)[0]) && !runOnly(rel); } });
+cpSync(src, out, { recursive: true, filter: p => { const rel = p.slice(src.length + 1); return !SKIP.has(rel.split(/[\\/]/)[0]) && !/^run[\\/].*\.md$/.test(rel); } });
 
 writeFileSync(join(out, 'env.js'), "// 배포판 빌드 (dice-heroes-prod/build.mjs 가 만든 파일)\nexport const ENV = 'prod';\n");
 writeFileSync(join(out, 'fireconfig.js'), conf);
@@ -55,7 +53,7 @@ const shared = join(here, 'functions', 'shared');
 rmSync(shared, { recursive: true, force: true });
 mkdirSync(shared, { recursive: true });
 for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js', 'i18n.js']) cpSync(join(src, f), join(shared, f));   // i18n.js: 서버에서는 언제나 한국어
-// 원정 규칙: 서버가 행동 기록을 다시 돌려 결과를 계산한다 (배포판 화면에는 원정이 없어도 서버 쪽은 준비해 둔다)
+// 원정 규칙: 서버가 행동 기록을 다시 돌려 결과를 계산한다 (xStart · xFinish)
 mkdirSync(join(shared, 'run'), { recursive: true });
 cpSync(join(src, 'run', 'rules.js'), join(shared, 'run', 'rules.js'));
 writeFileSync(join(shared, 'package.json'), '{ "type": "module" }\n');
