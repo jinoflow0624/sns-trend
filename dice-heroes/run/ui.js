@@ -1370,8 +1370,14 @@ async function playOne(f) {
       const e = foeAt(), h = heroAt();
       const tgt = f.target === 'enemy' ? e : h;
       if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −25% (공격 · 방어 모두)
+      // 시공 광대가 피하는 카드: 카드가 닿기 직전에 몸을 빼고, 닿는 순간 '회피!' (맞는 연출 없이)
+      if (f.dodge) setTimeout(() => { const a = $('foe-art'); a?.classList.remove('dodge'); void a?.offsetWidth; a?.classList.add('dodge'); sfx.whoosh?.(); }, 150);
       await hand.launch(f.u, tgt, f.target);           // 카드가 날아가 꽂힌다
-      if (f.target === 'enemy') {
+      if (f.target === 'enemy' && f.dodge) {
+        jBanner('회피!', 'dodge');
+        if (fxOn) FX().burst(e.x + 20, e.y, { n: 18, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [80, 240], life: [0.2, 0.5] });
+        sfx.zero?.();
+      } else if (f.target === 'enemy') {
         const pal = f.score >= 40 ? PALETTES.rainbow : f.score >= 28 ? PALETTES.arcane : f.score >= 18 ? PALETTES.gold : PALETTES.fire;
         const power = f.score >= 40 ? 3 : f.score >= 28 ? 2.2 : f.score >= 18 ? 1.6 : 1.1;
         if (f.dmg > 0 || f.blocked > 0) {
@@ -1636,15 +1642,7 @@ async function playOne(f) {
     case 'runWon': return;
     // ── 시공 광대 ──
     case 'jesterIn': await jSay(f.say, 'taunt', 2600); return;
-    case 'dodge': {
-      const e = foeAt(), art = $('foe-art');
-      art?.classList.remove('dodge'); void art?.offsetWidth; art?.classList.add('dodge');
-      sfx.whoosh?.();
-      jBanner('회피!', 'dodge');
-      if (fxOn) FX().burst(e.x, e.y, { n: 16, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [80, 220], life: [0.2, 0.5] });
-      await jSay(f.say, 'taunt');
-      return;
-    }
+    case 'dodge': await jSay('', 'taunt'); return;      // 몸 빼기 · '회피!' 는 카드가 닿을 때 (play) 함께
     case 'facedown': {
       skillCall(jMask() ? '???' : `${ico('card')} 뒷면 카드`);
       f.us.forEach(u => { const el = hand.el(u); el?.classList.remove('flipback'); void el?.offsetWidth; el?.classList.add('flipback'); });
@@ -1671,16 +1669,18 @@ async function playOne(f) {
       return;
     }
     case 'boom': {
-      const h = heroAt(), el = hand.el(f.u);
-      const r = el?.getBoundingClientRect(), p = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : h;
+      // 시한폭탄: 폭탄 카드가 영웅에게 날아가 닿는 순간 터지며 피해가 함께 들어간다
+      const h = heroAt();
+      if (hand.find(f.u)) await hand.launch(f.u, h, 'self');
       sfx.boom?.(1.6); buzz(160);
-      if (fxOn) { FX().burst(p.x, p.y, { n: 60, pal: PALETTES.fire, speed: [120, 380] }); FX().flash('#FF7A1A', 300, 0.35); hurtFlash(true); }
-      shake($('rc'), 1.8);
-      if (f.dmg) floatAt(h.x, h.y - 12, `-${f.dmg}`, 'dmg big');
-      if (f.blocked) floatAt(h.x + 34, h.y - 26, `${ico('shield', 'xs')}-${f.blocked}`, 'sky');
+      if (fxOn) { FX().burst(h.x, h.y, { n: 70, pal: PALETTES.fire, speed: [120, 400] }); FX().ring(h.x, h.y, { color: '#FF7A1A', r1: 120, dur: 420, width: 8 }); FX().flash('#FF7A1A', 300, 0.35); hurtFlash(true); clawAt(center($('rhero')), true); }
+      shake($('rc'), 2);
+      if (f.blocked) { floatAt(h.x + 34, h.y - 26, `${ico('shield', 'xs')}-${f.blocked}`, 'sky'); popBlk(); }
+      if (f.dmg) { floatAt(h.x, h.y - 12, `-${f.dmg}`, 'dmg big huge'); sfx.hurt?.(2); }
       setShow({ blk: Math.max(0, ui.show.blk - f.blocked), hp: Math.max(0, ui.show.hp - f.dmg) });
       updHero(f.dmg > 0);
-      await jSay(f.say, 'taunt');
+      jSay('', 'taunt');
+      await wait(650);
       return;
     }
     case 'parallel': {
