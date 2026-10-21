@@ -30,8 +30,9 @@ if (LANG !== 'ko') {
 if (typeof document !== 'undefined') document.documentElement.lang = LANG;
 
 // 번역: 없으면 원문 그대로. {n} 자리에 값
+// 같은 한국어가 뜻이 둘이면 원문 끝에 ⟪문맥⟫ 을 붙여 열쇠를 나눈다 (예: '트레이⟪족보⟫' = 3 족보, '트레이' = 주사위 트레이). 화면엔 안 보인다
 export function t(s, ...a) {
-  let o = (dict && dict[s]) ?? s;
+  let o = (dict && dict[s]) ?? (s.includes('⟪') ? s.replace(/⟪[^⟫]*⟫/g, '') : s);
   if (a.length) o = o.replace(/\{(\d+)\}/g, (m, i) => { const v = a[i]; return v == null ? '' : String(v); });
   return o;
 }
