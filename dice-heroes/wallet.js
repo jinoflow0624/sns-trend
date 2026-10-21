@@ -9,6 +9,7 @@
 //
 // 보석은 인터넷이 연결돼 있을 때만 받는다 (오프라인 판은 보석 없음).
 // 가격 · 보상 규칙은 wallet-rules.js (서버와 같은 파일)
+import { t as TR } from './i18n.js';
 import { PROD, fireApp, myUid, callServer } from './fire.js';
 import * as R from './wallet-rules.js';
 import * as AC from './achievements.js';
@@ -86,7 +87,7 @@ export function owns(kind, id) {
 }
 
 // 서버 함수 오류를 한 줄 안내로
-const why = err => (!navigator.onLine ? '인터넷 연결이 필요해요.' : err?.message?.replace(/^.*?:\s*/, '') || '서버 오류');
+const why = err => (!navigator.onLine ? TR('인터넷 연결이 필요해요.') : err?.message?.replace(/^.*?:\s*/, '') || TR('서버 오류'));
 
 // 테스트판: 이 기기 사본을 바꾼다 (mutate 가 문자열을 돌려주면 그 이유로 취소)
 function changeLocal(mutate) {
@@ -103,7 +104,7 @@ export const DAILY_YACHT_MUL = R.DAILY_YACHT_MUL, DAILY_COMBO_MUL = R.DAILY_COMB
 export const dailyReady = () => !!W && W.bonus?.day !== today();
 // 일일 보상 받기 — 배포판은 서버가 주사위를 굴린다
 export async function claimDaily() {
-  try { await loadWallet(); } catch { return { ok: false, why: '인터넷 연결이 필요해요.' }; }
+  try { await loadWallet(); } catch { return { ok: false, why: TR('인터넷 연결이 필요해요.') }; }
   if (PROD) {
     try {
       const r = await callServer('dailyRoll');
@@ -112,7 +113,7 @@ export async function claimDaily() {
     } catch (err) { return { ok: false, why: why(err) }; }
   }
   const r = changeLocal(w => {
-    if (w.bonus?.day === today()) return '오늘 보상은 이미 받았어요. 내일 다시 와 주세요!';
+    if (w.bonus?.day === today()) return TR('오늘 보상은 이미 받았어요. 내일 다시 와 주세요!');
     const dice = Array.from({ length: 5 }, () => 1 + Math.floor(Math.random() * 6));
     const out = R.dailyGems(dice);
     w.gems += out.gems;
@@ -124,7 +125,7 @@ export async function claimDaily() {
 
 // 테스트판 전용: 산 것을 다시 잠근다 (kind: 'cls' 직업 · 'dice' · 'tray'). 쓴 보석은 돌려준다
 export function relockLocal(kinds = ['cls']) {
-  if (PROD) return { ok: false, why: '테스트판에서만 할 수 있어요.' };
+  if (PROD) return { ok: false, why: TR('테스트판에서만 할 수 있어요.') };
   return changeLocal(w => {
     let back = 0, n = 0;
     for (const kind of kinds) for (const id of Object.keys(w.owned[kind] || {})) { back += R.priceOf(kind, id) || 0; n++; }
@@ -151,8 +152,8 @@ export async function buy(kind, id) {
   }
   const price = R.priceOf(kind, id);
   return changeLocal(w => {
-    if (w.owned?.[kind]?.[id]) return '이미 가지고 있어요.';
-    if (w.gems < price) return `보석이 ${price - w.gems}개 모자라요.`;
+    if (w.owned?.[kind]?.[id]) return TR('이미 가지고 있어요.');
+    if (w.gems < price) return TR('보석이 {0}개 모자라요.', price - w.gems);
     w.gems -= price;
     (w.owned[kind] ||= {})[id] = true;
   });
@@ -174,11 +175,11 @@ export async function earn(info) {
   if (PROD) {
     const rid = run?.rid;
     run = null;
-    if (!info.room && !rid) return { ok: false, why: '판 시작 기록이 없어요 (시작할 때 인터넷이 끊겼거나 이어하기한 판).', parts: [], total: 0 };
+    if (!info.room && !rid) return { ok: false, why: TR('판 시작 기록이 없어요 (시작할 때 인터넷이 끊겼거나 이어하기한 판).'), parts: [], total: 0 };
     try {
       const r = await callServer('claimRun', info.room ? { room: info.room } : { rid, win: info.win, score: info.score, flip: info.flip, nudge: info.nudge, st: info.st });
       set(r.wallet);
-      if (r.capped) return { ok: false, why: `오프라인 판 보상은 하루 ${R.UNVERIFIED_DAILY}판까지예요.`, parts: [], total: 0 };
+      if (r.capped) return { ok: false, why: TR('오프라인 판 보상은 하루 {0}판까지예요.', R.UNVERIFIED_DAILY), parts: [], total: 0 };
       return { ok: true, parts: r.parts, total: r.total };
     } catch (err) { return { ok: false, why: why(err), parts: [], total: 0 }; }
   }
@@ -206,7 +207,7 @@ export function syncRunAch(p) {
 }
 export const achClaimable = open => AC.achClaimable(W?.ach, open);
 export async function claimAch(id) {
-  try { await loadWallet(); } catch { return { ok: false, why: '인터넷 연결이 필요해요.' }; }
+  try { await loadWallet(); } catch { return { ok: false, why: TR('인터넷 연결이 필요해요.') }; }
   if (PROD) {
     try { const r = await callServer('claimAch', { id }); set(r.wallet); return { ok: true, gems: r.gems }; }
     catch (err) { return { ok: false, why: why(err) }; }
@@ -214,9 +215,9 @@ export async function claimAch(id) {
   const a = AC.achInfo(id);
   const r = changeLocal(w => {
     w.ach ||= {}; w.ach.got ||= {};
-    if (!a) return '없는 도전과제예요.';
-    if (w.ach.got[id]) return '이미 받은 보상이에요.';
-    if (!AC.achDone(a, w.ach)) return '아직 달성하지 못했어요.';
+    if (!a) return TR('없는 도전과제예요.');
+    if (w.ach.got[id]) return TR('이미 받은 보상이에요.');
+    if (!AC.achDone(a, w.ach)) return TR('아직 달성하지 못했어요.');
     w.gems += AC.achGems(a);
     w.ach.got[id] = Date.now();
     return { gems: AC.achGems(a) };

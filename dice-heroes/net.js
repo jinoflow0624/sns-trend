@@ -11,6 +11,7 @@
 // 배포판(env.js 'prod')은 전용 Firebase 에 익명 로그인하고, 보안 규칙(dice-heroes-prod/database.rules.json)이
 // 방 구성원만 게임 상태를 바꿀 수 있게 막는다. 그래서 방을 만들 때 meta(방장·시작 여부)와 members(구성원)를
 // 함께 쓰고, 들어갈 때 먼저 members 에 자기 이름을 올린다. 식별 토큰은 로그인 번호(uid)다.
+import { t as TR } from './i18n.js';
 import { PROD, fireApp, signIn, myUid } from './fire.js';
 
 
@@ -81,7 +82,7 @@ class LocalBackend {
   async create(code, room) { this.write(code, room); this.emit(code); }
   async txn(code, mutate) {
     const room = this.read(code);
-    if (!room) return { ok: false, failure: '방이 사라졌습니다.' };
+    if (!room) return { ok: false, failure: TR('방이 사라졌습니다.') };
     let failure = null;
     const next = mutate(room, m => { failure = m; });
     if (failure) return { ok: false, failure };
@@ -145,7 +146,7 @@ class FirebaseBackend {
   async join(code, token) {
     try { await this.fb.set(this.ref(code, `/members/${token}`), true); return { ok: true }; }
     catch (err) {
-      if (explain(err).reason === 'permission') return { ok: false, failure: '이미 시작한 방입니다.' };
+      if (explain(err).reason === 'permission') return { ok: false, failure: TR('이미 시작한 방입니다.') };
       return { ok: false, failure: explain(err).text };
     }
   }
@@ -180,7 +181,7 @@ class FirebaseBackend {
     const first = new Promise(resolve => { unsub = this.fb.onValue(ref, snap => resolve(snap), () => resolve(null)); });
     try {
       const snap = await Promise.race([first, new Promise(r => setTimeout(() => r(undefined), 10000))]);
-      if (snap === null || (snap && !snap.exists())) return { ok: false, failure: '방이 사라졌습니다.' };
+      if (snap === null || (snap && !snap.exists())) return { ok: false, failure: TR('방이 사라졌습니다.') };
       for (let i = 0; i < 6; i++) {
         let sawNull = false, failure = null;
         const res = await this.fb.runTransaction(ref, str => {
@@ -195,7 +196,7 @@ class FirebaseBackend {
         if (!sawNull) return { ok: true };   // 바꿀 것이 없었음
         await new Promise(r => setTimeout(r, 150 * (i + 1)));
       }
-      return { ok: false, failure: '서버가 바빠 적용하지 못했습니다. 다시 시도해 주세요.' };
+      return { ok: false, failure: TR('서버가 바빠 적용하지 못했습니다. 다시 시도해 주세요.') };
     } finally {
       unsub?.();
     }
@@ -244,15 +245,15 @@ export function explain(err) {
   const msg = String(err?.message || err || '');
   const code = String(err?.code || '');
   if (/permission|PERMISSION_DENIED/i.test(msg + code)) {
-    return { reason: 'permission', text: PROD ? '서버가 요청을 거부했습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.' : '서버가 접근을 거부했습니다. Firebase 데이터베이스 규칙에 rooms 경로가 열려 있는지 확인해 주세요.' };
+    return { reason: 'permission', text: PROD ? TR('서버가 요청을 거부했습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.') : TR('서버가 접근을 거부했습니다. Firebase 데이터베이스 규칙에 rooms 경로가 열려 있는지 확인해 주세요.') };
   }
   if (/timeout/i.test(msg)) {
-    return { reason: 'timeout', text: '서버 응답이 늦습니다. 네트워크 상태를 확인하고 다시 눌러 주세요.' };
+    return { reason: 'timeout', text: TR('서버 응답이 늦습니다. 네트워크 상태를 확인하고 다시 눌러 주세요.') };
   }
   if (/import|module|Failed to fetch|dynamically/i.test(msg)) {
-    return { reason: 'load', text: '온라인 모듈을 불러오지 못했습니다. 페이지를 새로고침해 주세요.' };
+    return { reason: 'load', text: TR('온라인 모듈을 불러오지 못했습니다. 페이지를 새로고침해 주세요.') };
   }
-  return { reason: 'network', text: '서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.' };
+  return { reason: 'network', text: TR('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.') };
 }
 
 // claude.ai 미리보기 같은 샌드박스에서는 외부 서버 연결이 막혀 있다
@@ -263,7 +264,7 @@ export async function getBackend() {
   const want = new URLSearchParams(location.search).get('net');
   if (want === 'local') return (backend = new LocalBackend());
   if (inPreview()) {
-    const e = new Error('미리보기 화면에서는 온라인 방을 쓸 수 없습니다. 배포된 주소(GitHub Pages)나 설치한 앱에서 열어 주세요.');
+    const e = new Error(TR('미리보기 화면에서는 온라인 방을 쓸 수 없습니다. 배포된 주소(GitHub Pages)나 설치한 앱에서 열어 주세요.'));
     e.reason = 'preview';
     throw e;
   }

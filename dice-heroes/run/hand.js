@@ -1,3 +1,4 @@
+import { t as TR } from '../i18n.js';
 // 원정 손패 — 카드마다 스프링 물리로 움직인다.
 // 펼쳐진 부채꼴, 누르면 들리고, 끌면 손가락을 바짝 따라오며 속도만큼 기울고,
 // 적(위)에 놓으면 전부 공격 · 영웅(아래)에 놓으면 전부 방어, 위로 튕겨 올려도 공격. 놓친 카드는 출렁이며 제자리로.
@@ -131,7 +132,7 @@ export class Hand {
     it.el.classList.toggle('bet', !!bet);
     it.el.classList.toggle('gazed', !!gaze);
     if (gaze) it.el.insertAdjacentHTML('beforeend', '<i class="rc-gaze"></i>');
-    if (bet) it.el.insertAdjacentHTML('beforeend', '<i class="rc-bet">배팅</i>');
+    if (bet) it.el.insertAdjacentHTML('beforeend', `<i class="rc-bet">${TR('배팅')}</i>`);
     if (!force && sc != null && prev != null && sc !== prev) {
       const em = it.el.querySelector('.rc-pts');
       if (typeof sc === 'number' && typeof prev === 'number') em?.classList.add(sc > prev ? 'up' : 'down');
