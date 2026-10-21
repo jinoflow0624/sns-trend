@@ -634,16 +634,20 @@ const classicPick = () => { const o = pick?.for === 'room' ? online?.room?.opts 
 let dialSpin = null;
 // (dialSpin: 방금 돌린 다이얼 — 그 다이얼만 도는 연출)
 const dialDirOf = t => (t.closest('.cls-dial') ? Math.sign([...t.closest('.cls-dial').querySelectorAll('[data-cls]')].indexOf(t) - 3) : 0);
+// 다이얼로 잠긴 직업까지 넘겨 볼 수 있다 (보기만). 가운데 온 잠긴 직업을 눌러야 사기 창이 뜬다
+// (예전엔 잠긴 직업 쪽으로 넘기면 바로 사기 창이 떠서 그 너머로 넘길 수 없었다). 자리마다 지금 보는 직업
+const dialView = {};
+const viewCls = (pl, i) => { const v = dialView[i]; return v && v !== pl.cls && !pl.bot && !Wal.owns('cls', v) ? v : pl.cls; };
 function clsDial(pl, i) {
-  const ids = E.CLASSES.map(k => k.id), k = Math.max(0, ids.indexOf(pl.cls));
+  const ids = E.CLASSES.map(k => k.id), k = Math.max(0, ids.indexOf(viewCls(pl, i)));
   const at = d => ids[(k + d + ids.length * 2) % ids.length];
   const slot = d => {
     const id = at(d), c = E.classInfo(id), lock = !pl.bot && !Wal.owns('cls', id);
-    const act = d === 0 ? 'cls-talk' : lock ? 'cls-buy' : 'cls';
-    return `<button class="dial-hero d${d}${lock ? ' locked' : ''}" style="--c:${c.color}" data-act="${act}" data-i="${i}" data-cls="${id}" aria-label="${c.ko}">
-      ${portrait(id, d ? 'mini' : '')}${lock && d ? `<span class="dial-price">${ico('gem', 'xs')}${Wal.priceOf('cls', id).toLocaleString()}</span>` : ''}</button>`;
+    const act = d === 0 ? (lock ? 'cls-buy' : 'cls-talk') : lock ? 'cls-view' : 'cls';
+    return `<button class="dial-hero d${d}${lock ? ' locked' : ''}" style="--c:${c.color}" data-act="${act}" data-i="${i}" data-cls="${id}" aria-label="${c.ko}${lock ? ' (잠김)' : ''}">
+      ${portrait(id, d ? 'mini' : '')}${lock ? `<span class="dial-price">${ico('gem', 'xs')}${Wal.priceOf('cls', id).toLocaleString()}</span>` : ''}</button>`;
   };
-  const step = d => { const id = at(d), lock = !pl.bot && !Wal.owns('cls', id); return `data-act="${lock ? 'cls-buy' : 'cls'}" data-i="${i}" data-cls="${id}"`; };
+  const step = d => { const id = at(d), lock = !pl.bot && !Wal.owns('cls', id); return `data-act="${lock ? 'cls-view' : 'cls'}" data-i="${i}" data-cls="${id}"`; };
   const spin = dialSpin && dialSpin.i === i && Date.now() - dialSpin.t < 400 ? (dialSpin.d > 0 ? ' spin-r' : ' spin-l') : '';
   return `<div class="cls-dial${spin}" data-i="${i}">
     <button class="dial-arrow" ${step(-1)} aria-label="이전 직업">◀</button>
@@ -668,7 +672,7 @@ function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
       ${removable ? `<button class="x" data-act="remove" data-i="${i}" aria-label="빼기">✕</button>` : ''}
     </div>
     ${editable ? clsDial(pl, i) : ''}
-    <p class="cls-desc"><b style="color:${c.color}">${c.ko}</b> ${classicPick() ? '겉모습만' : c.desc}</p>
+    ${(() => { const v = editable ? viewCls(pl, i) : pl.cls, vc = E.classInfo(v); return `${v !== pl.cls ? `<p class="cls-lockhint">${ico('lock', 'xs')} 가운데 캐릭터를 누르면 해금 · ${ico('gem', 'xs')}${Wal.priceOf('cls', v).toLocaleString()}</p>` : ''}<p class="cls-desc"><b style="color:${vc.color}">${vc.ko}</b> ${classicPick() ? '겉모습만' : vc.desc}</p>`; })()}
   </section>`;
 }
 
@@ -689,11 +693,12 @@ function onSetupAct(act, t) {
     return act === 'mode' || act === 'rule' ? pickNext() : showSetup();
   }
   if (pick.for !== 'local') return;
-  if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; store.set(KEYS.setup, setup); showSetup(); });
+  if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; delete dialView[i]; store.set(KEYS.setup, setup); showSetup(); });
+  if (act === 'cls-view') { sfx.select(); dialView[i] = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; return showSetup(); }   // 잠긴 직업: 보기만
   if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
   if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
-  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
+  if (act === 'cls') { setup[i].cls = t.dataset.cls; delete dialView[i]; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
   if (act === 'remove') setup.splice(i, 1);
   if (act === 'add' && setup.length < 4) {
     const used = new Set(setup.map(p => p.cls));
@@ -962,12 +967,13 @@ function onLobbyAct(act, t) {
   if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
   if (act === 'cls-buy') {
     const i = Number(t.dataset.i);
-    return classBuyDialog(t.dataset.cls, id => lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = id; }));
+    return classBuyDialog(t.dataset.cls, id => { delete dialView[i]; return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = id; }); });
   }
+  if (act === 'cls-view') { sfx.select(); const i = Number(t.dataset.i); dialView[i] = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; return showLobby(); }   // 잠긴 직업: 보기만
   if (act === 'cls') {
     sfx.select();
     const i = Number(t.dataset.i);
-    dialSpin = { i, d: dialDirOf(t), t: Date.now() };
+    dialSpin = { i, d: dialDirOf(t), t: Date.now() }; delete dialView[i];
     return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = t.dataset.cls; });
   }
   if (act === 'lobby-bot' && isHost()) {
@@ -1282,6 +1288,7 @@ async function makeTray() {
     tray = new DiceTray(trayHost(), trayOpts());
     tray.onTrail = (i, p, sp) => diceTrail(tray, p, sp);
     tray.onSlow = (i, on) => slowFx(on);
+    tray.slowmo = prefs.drama !== false;          // 설정 「큰 족보 연출」: 마지막 주사위 슬로모션 · 암전
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -3260,7 +3267,7 @@ function tintOf(t, tr) {
 }
 // 큰 한 방 (요트 · 30점 이상): 0.1초 멈칫(히트스톱) → 화면이 확 당겨졌다 튕겨 나오고, 가장자리가 어두워졌다 밝아진다
 function bigHit(power = 3) {
-  if (prefs.fx === 'min') return;
+  if (prefs.fx === 'min' || prefs.drama === false) return;     // 설정 「큰 족보 연출」을 끄면 없음
   FX().hold(power >= 3 ? 120 : 80);
   document.body.classList.remove('bighit'); void document.body.offsetWidth; document.body.classList.add('bighit');
   const k = power >= 3 ? 0.05 : 0.03;
@@ -3511,6 +3518,7 @@ function showSettings(inGame = false) {
     </div></div>
     <label class="set-row">글자 크게<input id="set-big" type="checkbox" ${prefs.bigText ? 'checked' : ''}></label>
     <label class="set-row">색약 보조 표시<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
+    <label class="set-row">큰 족보 연출 <small>암전 · 슬로모션</small><input id="set-drama" type="checkbox" ${prefs.drama !== false ? 'checked' : ''}></label>
     <label class="set-row">그래픽 절약 <small>배터리·발열↓</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">흔들어 굴리기 <small>폰을 흔들면 굴림</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${adsOn() ? `<label class="set-row">맞춤형 광고 <small>끄면 관심사와 상관없는 광고</small><input id="set-adp" type="checkbox" ${prefs.adsPersonal ? 'checked' : ''}></label>` : ''}
@@ -3550,7 +3558,7 @@ async function paintAccount() {
   } catch { el.innerHTML = '계정 <small>인터넷 연결이 필요해요</small>'; }
 }
 
-// ── 일일 보상: 주사위 5개를 한 번 굴려 눈의 합만큼 보석 (요트면 10배) ──────────
+// ── 일일 보상: 주사위 5개를 한 번 굴려 눈의 합만큼 보석 (요트 10배 · 고급 족보 5배) ──
 const pipsOf = v => Array.from({ length: 9 }, (_, k) => `<b${PIPS[v]?.includes(k) ? ' class="on"' : ''}></b>`).join('');
 const dieFace = v => `<i class="dd-die" data-v="${v}">${pipsOf(v)}</i>`;
 function showDaily() {
@@ -3559,9 +3567,9 @@ function showDaily() {
   const got = !ready && last?.dice ? Wal.dailyGemsOf(last.dice) : null;
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame daily" data-act="noop">
     <h2>${ico('gem')} 일일 보상</h2>
-    <p class="daily-rule">${ico('gem', 'xs')} = <b>눈의 합</b> · <b class="y">요트 ×10</b></p>
+    <p class="daily-rule">${ico('gem', 'xs')} = <b>눈의 합</b> · <b class="y">요트 ×${Wal.DAILY_YACHT_MUL}</b> · <b class="y">고급 족보 ×${Wal.DAILY_COMBO_MUL}</b><br><small>고급 족보: 라지 · 스몰 스트레이트, 포카인드, 풀하우스</small></p>
     <div class="daily-dice${ready ? '' : ' done'}">${shown.map(dieFace).join('')}</div>
-    <p class="daily-out">${got ? `오늘 받은 보석 <b>${got.gems}</b>${got.yacht ? ' · 요트!' : ''}` : ''}</p>
+    <p class="daily-out">${got ? `오늘 받은 보석 <b>${got.gems}</b>${got.combo ? ` · ${got.comboKo}!` : ''}` : ''}</p>
     ${ready ? '<button class="pbtn gold" data-act="daily-roll">굴리기!</button>' : '<button class="pbtn" data-act="close">닫기</button>'}
   </div></div>`;
 }
@@ -3590,7 +3598,7 @@ async function rollDaily() {
     sfx.clack();
   }
   clearInterval(spin);
-  track('daily_claim', { gems: r.gems, yacht: r.yacht ? 1 : 0 });   // 순위 지표: 일일 보상 수령률 (재방문)
+  track('daily_claim', { gems: r.gems, yacht: r.yacht ? 1 : 0, combo: r.combo || '' });   // 순위 지표: 일일 보상 수령률 (재방문)
   const out = box.querySelector('.daily-out');
   if (r.yacht) {
     box.classList.add('yacht');
@@ -3599,6 +3607,12 @@ async function rollDaily() {
     FX().burst(rc.left + rc.width / 2, rc.top + rc.height * 0.45, { n: 70, speed: [120, 420], size: [3, 6], life: [0.5, 1.1], grav: 300 });
     FX().ring?.(rc.left + rc.width / 2, rc.top + rc.height * 0.45);
     out.innerHTML = `<span class="daily-yacht">요트!</span><br>${r.sum} × ${Wal.DAILY_YACHT_MUL} = <b>${r.gems}</b> 보석`;
+  } else if (r.combo) {             // 고급 족보: 합 ×5
+    box.classList.add('combo');
+    sfx.quest?.(); sfx.coin();
+    const rc = box.getBoundingClientRect();
+    FX().burst(rc.left + rc.width / 2, rc.top + rc.height * 0.45, { n: 40, speed: [100, 320], size: [3, 5], life: [0.4, 0.9], grav: 300 });
+    out.innerHTML = `<span class="daily-yacht combo">${r.comboKo}!</span><br>${r.sum} × ${r.mul} = <b>${r.gems}</b> 보석`;
   } else {
     sfx.coin();
     out.innerHTML = `${r.dice.join(' + ')} = <b>${r.gems}</b> 보석`;
@@ -4359,6 +4373,11 @@ document.addEventListener('input', e => {
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') { setAudio({ vibrate: e.target.checked }); buzz(80); }   // 켜면 바로 한 번 떨어서 확인
   if (id === 'set-shake') setShake(e.target.checked, e.target);
+  if (id === 'set-drama') {             // 큰 족보 연출 (마지막 주사위 슬로모션 · 암전 · 큰 한 방 화면 당김)
+    prefs.drama = e.target.checked; store.set(KEYS.prefs, prefs);
+    if (tray) tray.slowmo = prefs.drama;
+    if (!prefs.drama) { slowFx(false); document.body.classList.remove('bighit'); }
+  }
   if (id === 'set-adp') { prefs.adsPersonal = e.target.checked; store.set(KEYS.prefs, prefs); Ads.setPersonalized(prefs.adsPersonal); }
   if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {

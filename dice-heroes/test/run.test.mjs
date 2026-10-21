@@ -984,7 +984,7 @@ test('광대에게 지면: 원정은 이어지고 체력 절반 · 보상 없이
   assert.notEqual(F.reward?.kind, 'special');
   assert.notEqual(F.C?.e.id, 'jester');
 });
-test('광대를 이기면: 별조각 · 보석 · 골드 · 미래 카드 3장 중 1장 (유물 없음)', () => {
+test('광대를 이기면: 별조각 · 보석 · 골드 · 미래 카드 3장 중 무작위 1장 (유물 없음)', () => {
   const R = run('warrior', 3);
   intoFight(R);
   Run.startCombat(R, 'jester');
@@ -997,7 +997,8 @@ test('광대를 이기면: 별조각 · 보석 · 골드 · 미래 카드 3장 �
   const t = R.reward.items.map(i => i.t);
   assert.deepEqual(t, ['gold', 'stars', 'gems', 'card']);
   assert.ok(!t.includes('relicPick'));
-  assert.deepEqual(R.reward.items[3].opts.map(c => c.cat).sort(), ['xpar', 'xpause', 'xrent']);
+  assert.equal(R.reward.items[3].opts.length, 1);                    // 히든 족보 카드 3장 중 무작위 1장 (고르지 않는다)
+  assert.ok(['xpar', 'xpause', 'xrent'].includes(R.reward.items[3].opts[0].cat) && R.reward.items[3].fixed);
   R.reward.items.forEach((it, i) => Run.takeReward(R, i, 0));
   assert.equal(R.gems, Run.jesterPrize(R.act).gems);
   assert.ok(Run.starsOf(R) >= Run.jesterPrize(R.act).stars);
@@ -1036,6 +1037,24 @@ test('미래 카드: 병렬 연산은 점수 나는 카드를 모두 함께 · �
   assert.equal(Q.C.rent.length, 2);
   const id = Q.C.rent[0];
   assert.ok(Run.hasRelic(Q, id) && !Q.relics.includes(id));
+  // 유물 대여는 낼 수 없다 (손패가 모두 유물 대여일 때만 턴을 넘기려고 낸다)
+  Run.roll(Q);
+  assert.throws(() => Run.playCard(Q, Q.C.hand.findIndex(c => c.cat === 'xrent'), 'enemy'), /유물 대여/);
+  assert.equal(Run.canPlayCard(Q, { cat: 'xrent' }), false);
+});
+test('병렬 연산: 공격 · 방어를 막대로 나눠 낼 수 있다 (미리보기 = 실제)', () => {
+  const R = run('warrior', 5);
+  const C = intoFight(R);
+  C.hand.push({ u: 911, cat: 'xpar', up: 0, kws: [] });
+  Run.roll(R);
+  C.dice = [6, 6, 6, 5, 5]; C.e.intent = { ko: '때리기', atk: 0 }; C.block = 0;
+  const hi = C.hand.findIndex(c => c.u === 911), S = Run.parallelScore(R, 911);
+  assert.ok(S > 0);
+  const half = Math.floor(S / 2), p = Run.preview(R, hi, half);
+  assert.equal(p.atk, half); assert.equal(p.def, S - half);
+  C.e.hp = 999;
+  Run.playCard(R, hi, half);
+  assert.ok(R.C.block > 0 || R.C.turn > 1);
 });
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);

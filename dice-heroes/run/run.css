@@ -1321,8 +1321,18 @@ body:has(.run-sb) .popover { z-index: 310; }
 .rc-in.j-bomb .rc-jest { background: #FF7A1A; }
 .rc.par-glow .rc-in { box-shadow: 0 0 0 2px #3EE6E0, 0 0 18px #3EE6E0; }
 /* 빌린 유물 (유물 대여) */
-.rh-relics .relic.rent { border-color: #3EE6E0; box-shadow: 0 0 6px #3EE6E0, inset 0 0 6px rgba(255,79,216,.5); animation: rentPulse 1.6s ease-in-out infinite; }
-@keyframes rentPulse { 50% { box-shadow: 0 0 12px #FF4FD8, inset 0 0 6px rgba(62,230,224,.6); } }
+/* 무지갯빛이 테두리를 따라 도는 홀로그램 테두리 + 빛이 스쳐 지나간다 (내 유물과 구분 · 미래 카드와 같은 홀로그램 느낌) */
+@property --holo { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.rh-relics .relic.rent { position: relative; border: 0; padding: 2px; isolation: isolate; overflow: hidden;
+  background: conic-gradient(from var(--holo), #3EE6E0, #B98CFF, #FF4FD8, #FFE27A, #7CFFB2, #3EE6E0);
+  box-shadow: 0 0 6px rgba(62,230,224,.75); animation: holoSpin 2.2s linear infinite; }
+.rh-relics .relic.rent::before { content: ''; position: absolute; inset: 2px; z-index: -1; background: #0E0A2C; }
+.rh-relics .relic.rent::after { content: ''; position: absolute; inset: 2px; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.5) 45%, rgba(62,230,224,.3) 52%, transparent 65%); background-size: 260% 100%; animation: holoSheen 1.8s ease-in-out infinite; }
+@keyframes holoSpin { to { --holo: 360deg; } }
+@keyframes holoSheen { 0% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+.rent-note { color: #3EE6E0; font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .rh-relics .relic.rent, .rh-relics .relic.rent::after { animation: none; } }
 /* 버튼만 있는 나누기 창 (뒷면 · 미래 카드) */
 .split.simple { gap: 6px; }
 .split.simple .sp-row { display: flex; gap: 6px; justify-content: center; }
@@ -1358,3 +1368,10 @@ body:has(.run-sb) .popover { z-index: 310; }
   40% { transform: skewX(-5deg) translateX(6px); filter: hue-rotate(160deg) saturate(1.8) blur(1px); } 60% { transform: skewX(3deg) translateX(-5px) scaleX(1.02); filter: hue-rotate(260deg) saturate(1.6) blur(.6px); }
   80% { transform: skewX(-1deg); filter: hue-rotate(330deg); } }
 @media (prefers-reduced-motion: reduce) { .holo-warp, #app.holo-wobble { animation-duration: .01s !important; } }
+
+/* 출정 채비 구매 연출: 물건 아이콘을 크게 (unlock-fx 는 app 의 주사위 · 트레이 획득 연출) */
+.unlock-fx .uf-art.uf-meta { display: grid; place-items: center; width: 140px; height: 140px; }
+.unlock-fx .uf-art.uf-meta .run-ico, .unlock-fx .uf-art.uf-meta img, .unlock-fx .uf-art.uf-meta .ico { width: 120px; height: 120px; image-rendering: pixelated; }
+.unlock-fx.k-meta .uf-txt span { font-size: 12px; max-width: 280px; text-align: center; }
+.unlock-fx .uf-art.uf-meta .uf-gold .ico { width: 110px; height: 110px; filter: drop-shadow(0 0 14px rgba(255,210,74,.8)); }
+.unlock-fx.k-gold .uf-txt b { color: #FFE27A; }

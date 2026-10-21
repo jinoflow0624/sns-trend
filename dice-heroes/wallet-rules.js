@@ -44,12 +44,26 @@ export function rewardFor(info) {
   return { parts, total: parts.reduce((a, p) => a + p.gems, 0) };
 }
 
-// 일일 보상: 하루 한 번 주사위 5개를 굴려 눈의 합만큼 보석 (5개가 모두 같으면 = 요트, 합의 10배)
-export const DAILY_YACHT_MUL = 10;
+// 일일 보상: 하루 한 번 주사위 5개를 굴려 눈의 합만큼 보석
+//   요트(5개 모두 같음) 합 ×10 · 고급 족보(라지 스트레이트 · 포카인드 · 풀하우스 · 스몰 스트레이트) 합 ×5
+export const DAILY_YACHT_MUL = 10, DAILY_COMBO_MUL = 5;
+export const DAILY_COMBO_KO = { yacht: '요트', lstr: '라지 스트레이트', four: '포카인드', full: '풀하우스', sstr: '스몰 스트레이트' };
+export function dailyCombo(dice) {
+  if (dice.length !== 5) return null;
+  const c = [0, 0, 0, 0, 0, 0, 0]; dice.forEach(d => c[d]++);
+  const n = c.slice(1).filter(Boolean).sort((a, b) => b - a), run = k => [1, 2, 3].some(s => s + k - 1 <= 6 && Array.from({ length: k }, (_, i) => c[s + i]).every(Boolean));
+  if (n[0] === 5) return 'yacht';
+  if (run(5)) return 'lstr';
+  if (n[0] === 4) return 'four';
+  if (n[0] === 3 && n[1] === 2) return 'full';
+  if (run(4)) return 'sstr';
+  return null;
+}
 export function dailyGems(dice) {
   const sum = dice.reduce((a, d) => a + d, 0);
-  const yacht = dice.length === 5 && dice.every(d => d === dice[0]);
-  return { sum, yacht, gems: yacht ? sum * DAILY_YACHT_MUL : sum };
+  const combo = dailyCombo(dice), yacht = combo === 'yacht';
+  const mul = yacht ? DAILY_YACHT_MUL : combo ? DAILY_COMBO_MUL : 1;
+  return { sum, yacht, combo, comboKo: combo ? DAILY_COMBO_KO[combo] : '', mul, gems: sum * mul };
 }
 
 // 오늘 = 한국 시간 자정 기준 날짜 번호
