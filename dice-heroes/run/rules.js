@@ -563,8 +563,7 @@ export const ENEMIES = {
 // ── 히든 보스: 시공 광대 (지도에 없다 · JESTER_P) — 막마다 TUNE.hp/atk.special 로 체력 · 공격을 맞춘다
 ENEMIES.jester = { ko: '시공 광대 크로노', act: 0, kind: 'special', hp: [150, 150], ai: 'random', talk: true, moves: [
   MV('저글링 칼', { atk: 5, hits: 3 }), MV('카드 장난', { atk: 8, hex: H('facedown', 2) }), MV('광대의 도전장', { atk: 9, hex: H('dare') }),
-  MV('시한폭탄', { atk: 6, hex: H('bomb') }), MV('웃음 가스', { block: 14, str: 1, hex: H('facedown', 1) })],
-  rage: [MV('난도질 저글링', { atk: 6, hits: 3 }), MV('카드 장난', { atk: 10, hex: H('facedown', 3) }), MV('광대의 도전장', { atk: 11, hex: H('dare') }), MV('시한폭탄', { atk: 8, hex: H('bomb') })] };
+  MV('시한폭탄', { atk: 6, hex: H('bomb') }), MV('웃음 가스', { block: 14, str: 1, hex: H('facedown', 1) })] };   // 분노 변신 없음 (사용자 결정)
 export const enemyInfo = id => ENEMIES[id];
 export const ACT_INFO = {
   1: { ko: '어둠의 숲',     normal: ['slime', 'goblin', 'bat', 'wolf'], elite: ['shaman', 'mimic'], boss: ['dragon', 'orc', 'lich'] },
@@ -574,7 +573,7 @@ export const ACT_INFO = {
 // 밸런스 조절용 배율 [1막, 2막, 3막] — 적 종류별 (sim/run.mjs 가 바꿔 가며 잰다)
 export const TUNE = {
   hp:  { normal: [0.92, 0.95, 0.93], elite: [0.75, 0.8, 0.88], boss: [0.9, 1.08, 2.3], special: [0.73, 1.18, 1.9] },
-  atk: { normal: [2.1, 2.17, 2.4], elite: [1.92, 2.03, 2.0], boss: [2.04, 2.07, 3.2], special: [1.9, 2.05, 2.3] },
+  atk: { normal: [2.1, 2.17, 2.4], elite: [1.92, 2.03, 2.0], boss: [2.04, 2.07, 3.2], special: [2.3, 2.35, 2.3] },   // 광대 분노 변신을 빼고 공격을 올렸다
   cap: 0.45,       // 적 한 턴 공격 상한 (영웅 최대 체력 대비) — atkOf
   capRef: 72,      // 상한을 잴 때 최대 체력은 적어도 이만큼으로 본다 (체력이 낮을수록 보스 공격이 더 깎여 오히려 유리해지지 않게)
 };
@@ -1340,7 +1339,31 @@ export const prismOn = (R, card) => isTrinity(card) && hasRelic(R, 'prism');
 export const splitPool = (R, card, S) => (prismOn(R, card) ? S * 3 : S);
 export function preview(R, hi, want = 'enemy', sc = null, gold = 0) {
   const C = R.C, card = C.hand[hi];
+  if (card?.cat === 'xpar') return parallelPreview(R, card, want);
   return splitOut(R, card, sc || scoreCard(R, card), want, gold);
+}
+// 병렬 연산 미리보기: 함께 낼 카드마다 공격 몫을 점수 비율대로 나눠(playCard 와 같은 규칙) 결과를 더한다
+// → 병렬 연산도 공격 · 방어 막대로 나눠 낼 수 있다
+export const parallelScore = (R, u) => parallelSet(R, u).reduce((a, o) => a + o.s, 0);
+function parallelPreview(R, card, want) {
+  const set = parallelSet(R, card.u), S = set.reduce((a, o) => a + o.s, 0), e = R.C.e;
+  const w = splitAtk(S, want) ?? S;
+  const out = { score: S, pool: S, atk: 0, def: 0, dmg: 0, pierce: false, block: 0, heal: 0, gold: 0, burn: 0, weak: false, kill: false,
+    whet: 0, arcane: 0, combo: false, horn: false, poison: false, defMul: 1, wblk: 0, always: 0, tri: 0, through: 0,
+    sc: { base: 0, parts: set.map(o => ({ ko: cardName(o.c), amt: o.s })), total: S, notes: [] } };
+  let left = w;
+  set.forEach((o, k) => {
+    const share = k === set.length - 1 ? left : Math.min(left, Math.round(w * o.s / (S || 1)));
+    left -= share;
+    const p = splitOut(R, o.c, scoreCard(R, o.c), share >= o.s ? 'enemy' : share <= 0 ? 'self' : share);
+    for (const f of ['atk', 'def', 'dmg', 'block', 'heal', 'gold', 'burn', 'whet', 'arcane', 'tri', 'always']) out[f] += p[f] || 0;
+    for (const f of ['pierce', 'weak', 'horn', 'poison', 'combo']) out[f] ||= !!p[f];
+    out.through += p.pierce ? p.dmg : Math.max(0, p.dmg - e.block);
+  });
+  const own = splitOut(R, card, { base: 0, parts: [], total: 0, notes: [] }, 'self');   // 병렬 연산 카드 자신 (인장 · 늘 붙는 보호막)
+  out.block += own.block; out.gold += own.gold;
+  out.kill = out.through >= e.hp;
+  return out;
 }
 function splitOut(R, card, sc, want, gwant = 0) {
   const C = R.C, e = C.e;
@@ -1412,6 +1435,10 @@ export const takenAfter = (R, p) => Math.max(0, incomingAfter(R, p.weak) - R.C.b
 // 프리즘 삼위일체: 막고 남은 몫을 공격 · 골드에 똑같이 나눈다 (gold)
 export function coverAtk(R, hi, sc = null) {
   const card = R.C.hand[hi];
+  if (card.cat === 'xpar') {
+    for (let a = parallelScore(R, card.u); a >= 0; a--) if (!takenAfter(R, preview(R, hi, a))) return { atk: a, gold: 0, full: true };
+    return { atk: 0, gold: 0, full: false };
+  }
   sc ||= scoreCard(R, card);
   if (isTrinity(card) && !prismOn(R, card)) return { atk: sc.total, gold: sc.total, full: !takenAfter(R, splitOut(R, card, sc, 'enemy')) };
   const T = splitPool(R, card, sc.total);
@@ -1430,6 +1457,7 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   const card = C.hand[hi];
   if (!card) fail('없는 카드예요.');
   if (target !== 'enemy' && target !== 'self' && !(typeof target === 'number' && Number.isFinite(target))) fail('공격할지 방어할지 골라 주세요.');
+  if (!canPlayCard(R, card)) fail('유물 대여는 낼 수 없어요. 손패에 있는 동안 유물을 빌려 줘요.');
   // 병렬 연산: 점수가 나는 손패 카드를 모두 함께 (공격 몫은 카드 점수 비율대로 나눈다)
   if (card.cat === 'xpar') {
     const others = parallelSet(R, card.u);
@@ -1454,6 +1482,8 @@ export const playCard = act('playCard', function playCard(R, hi, target, gold = 
   if (resolvePlay(R, hi, target, gold) === 'won') return winCombat(R);
   enemyTurn(R);
 });
+// 유물 대여는 낼 수 없다 (손패에 들고 있는 카드). 손패가 모두 유물 대여일 때만 0점으로 내서 턴을 넘긴다
+export const canPlayCard = (R, card) => card?.cat !== 'xrent' || R.C.hand.every(c => c.cat === 'xrent');
 // 병렬 연산이 함께 낼 카드: 지금 점수가 나는 손패 족보 카드 (미래 카드 빼고)
 export function parallelSet(R, u) {
   const C = R.C;
@@ -1597,7 +1627,7 @@ function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
 }
 function checkRage(R) {
   const e = R.C.e, def = ENEMIES[e.id];
-  if ((def.kind !== 'boss' && def.kind !== 'special') || e.raged || e.hp <= 0 || e.hp * 2 >= e.maxHp) return;
+  if (def.kind !== 'boss' || e.raged || e.hp <= 0 || e.hp * 2 >= e.maxHp) return;
   e.raged = true;
   e.str += 2;
   fx(R, { type: 'rage', foe: e.id });
@@ -1838,13 +1868,13 @@ function genReward(R, kind) {
   return { kind, items: items.filter(it => it.t !== 'relic' || it.id) };
 }
 
-// 시공 광대를 이기면: 별조각 · 보석 (막마다 늘어난다) · 그 막 일반 전투의 두 배 골드 · 미래 카드 3장 중 1장 (유물 없음)
+// 시공 광대를 이기면: 별조각 · 보석 (막마다 늘어난다) · 그 막 일반 전투의 두 배 골드 · 미래 카드 3장 중 무작위 1장 (유물 없음)
 function jesterReward(R) {
   const pz = jesterPrize(R.act);
   const g = 2 * (int(R, 12, 18) + R.act * 4);
   R.stats.jester = (R.stats.jester || 0) + 1;
   return { kind: 'special', items: [{ t: 'gold', n: Math.round(g * goldMul(R)) }, { t: 'stars', n: pz.stars }, { t: 'gems', n: pz.gems },
-    { t: 'card', opts: shuffle(R, FUTURE_CATS).map(cat => mkCard(R, cat)), future: true }] };
+    { t: 'card', opts: [mkCard(R, shuffle(R, FUTURE_CATS)[0])], future: true, fixed: true }] };   // 히든 족보 카드 3장 중 1장을 무작위로 (고르지 않는다)
 }
 // 새로고침 남은 횟수 (예전 저장 판은 0)
 export const rrOf = R => ({ shop: R.rr?.shop || 0, pick: R.rr?.pick || 0 });
@@ -1897,6 +1927,7 @@ export const takeReward = act('takeReward', function takeReward(R, idx, choice =
     R.potions.push(it.id);
   }
   if (it.t === 'flip' || it.t === 'nudge') { if (!addTool(R, it.t, it.n)) fail(`${it.t === 'flip' ? '뒤집기' : '조정'}를 더 들 수 없어요 (최대 ${TOOL_CAP}).`); }
+  if (it.t === 'card' && it.fixed) choice = 0;      // 정해진 카드(광대 보상)는 고르거나 건너뛸 수 없다
   if (it.t === 'card') { if (choice >= 0) { const c = it.opts[choice]; if (!c) fail('없는 카드예요.'); R.deck.push({ ...c }); fx(R, { type: 'gainCard', u: c.u }); } }
   it.done = true;
   checkFeats(R);
@@ -2373,7 +2404,8 @@ function bestPlay(R) {
   const C = R.C, ctx = botCtx(R);
   let best = { v: -Infinity, hi: 0, atk: 'enemy' };
   C.hand.forEach((card, hi) => {
-    const sc = scoreCard(R, card), S = splitPool(R, card, sc.total);
+    if (!canPlayCard(R, card)) return;
+    const sc = scoreCard(R, card), S = card.cat === 'xpar' ? parallelScore(R, card.u) : splitPool(R, card, sc.total);
     for (const a of new Set([S, 0, Math.ceil(S / 2), coverAtk(R, hi, sc).atk])) {
       const v = playValue(R, preview(R, hi, a, sc), ctx);
       if (v > best.v + 1e-9) best = { v, hi, atk: a };
