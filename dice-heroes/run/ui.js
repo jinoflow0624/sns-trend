@@ -303,15 +303,19 @@ function showMeta() {
 function metaReveal(id) {
   const u = Run.META.find(x => x.id === id);
   if (!u) return;
-  document.querySelector('.unlock-fx')?.remove();
   const n = mlv(best(), id);
+  bigReveal({ cls: 'k-meta', art: runIco('meta', u.id, u.icon, 'lg'), small: `출정 채비 ${n >= u.max ? '완성!' : `${n}단계!`}`, name: u.ko, sub: u.desc(n) });
+}
+// 획득 연출 (공용): 화면 가운데에 크게 떠오르며 빛줄기 · 후광 · 불꽃. 누르거나 3.6초 뒤 닫힌다
+function bigReveal({ cls = '', art, small, name, sub = '', color = '#FFD24A' }) {
+  document.querySelector('.unlock-fx')?.remove();
   const sparks = Array.from({ length: 18 }, (_, i) => `<i class="uf-sp" style="--a:${(i * 20 + Math.random() * 10).toFixed(0)}deg;--d:${(90 + Math.random() * 70).toFixed(0)}px;--s:${(3 + Math.random() * 4).toFixed(1)}px"></i>`).join('');
   const el = document.createElement('div');
-  el.className = 'unlock-fx is-skin k-meta';
-  el.style.setProperty('--c', '#FFD24A');
+  el.className = `unlock-fx is-skin ${cls}`;
+  el.style.setProperty('--c', color);
   el.innerHTML = `<div class="uf-stage"><div class="uf-rays"></div><div class="uf-glow"></div>
-      <div class="uf-art uf-meta">${runIco('meta', u.id, u.icon, 'lg')}</div><div class="uf-flash"></div>${sparks}</div>
-    <div class="uf-txt"><small>출정 채비 ${n >= u.max ? '완성!' : `${n}단계!`}</small><b>${esc(u.ko)}</b><span>${u.desc(n)}</span></div>
+      <div class="uf-art uf-meta">${art}</div><div class="uf-flash"></div>${sparks}</div>
+    <div class="uf-txt"><small>${small}</small><b>${esc(name)}</b>${sub ? `<span>${sub}</span>` : ''}</div>
     <p class="uf-tap">화면을 눌러 계속</p>`;
   document.body.appendChild(el);
   sfx.quest?.();
@@ -374,6 +378,8 @@ function hud() {
     <button class="pile" data-act="run-deck" aria-label="덱 보기">${runIco('ui', 'deck', 'card', 'xs')}<b>${C && R.phase === 'combat' ? `${C.draw.length}·${C.discard.length}` : R.deck.length}</b></button>
   </header>`;
 }
+// 유물 대여 카드로 빌린 유물 (전투 중 · 손패에 있는 동안). 유물 줄은 한 줄만 보이므로 맨 앞에 둔다 (예전엔 끝에 붙어 유물이 많으면 가려졌다)
+const rentRelics = () => (R.phase === 'combat' && R.C?.rent ? R.C.rent.filter(id => Run.relicInfo(id) && !R.relics.includes(id)) : []);
 function heroStrip() {
   const info = classInfo(R.cls), ci = Run.RUN_CLASSES[R.cls];
   const hp = shownHp(), blk = R.phase === 'combat' ? shownBlk() : 0;
@@ -388,7 +394,7 @@ function heroStrip() {
       <div class="rh-gold" id="r-gold" ${X.tipAttr('골드', '상점에서 써요')}>${ico('coins', 'xs')}<b>${R.gold}</b></div>
       <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(`방어도 ${blk}`, '적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요')}>${ico('shield', 'xs')}<b>${blk}</b></div>
     </div>
-    <div class="rh-relics">${[...R.relics, ...(R.phase === 'combat' ? R.C?.rent || [] : [])].map((id, k) => { const r = Run.relicInfo(id), rent = k >= R.relics.length; return `<button class="relic r${r.r}${rent ? ' rent' : ''}" data-act="run-relic" data-id="${id}" aria-label="${r.ko}${rent ? ' (대여)' : ''}">${relicIco(r)}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
+    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; return `<button class="relic r${r.r}${rent ? ' rent' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ' (대여)' : ''}">${relicIco(r)}</button>`; }).join('') || '<span class="dim">유물 없음</span>'}</div>
   </section>`;
 }
 
@@ -2058,6 +2064,13 @@ async function rollEventDice(before) {
   if (R !== r0) return;
   if (R.phase === 'lost') return showEnd();
   showEvent(true);
+  // 주사위로 골드를 땄으면(고블린 도박사 · 신전): 주사위 · 출정 채비를 샀을 때처럼 가운데에 크게 「골드 획득!」
+  const net = R.gold - before.gold, got = Number(/(\d+)\s*골드를 받았다/.exec(R.event?.result || '')?.[1]) || net;   // 받은 골드 (건 돈을 빼기 전, 결과 문구와 같게)
+  const won = net > 0 ? got : 0;
+  if (won > 0) {
+    sfx.coin(); FX().coins(center(X.app.querySelector('.ev-dice')), center($('r-gold')), 14);
+    bigReveal({ cls: 'k-gold', art: `<span class="uf-gold">${ico('coins')}</span>`, small: '골드 획득!', name: `+${won} 골드`, sub: `가진 골드 ${R.gold}` });
+  }
 }
 
 // ── 덱 고르기 (강화 · 제거 · 복제) / 덱 보기 ─────────────────────────────────
@@ -2365,7 +2378,7 @@ export function onAct(act, t) {
   }
   if (act === 'run-deck') { sfx.select(); return showDeck(); }
   if (act === 'run-skill') { const ci = Run.RUN_CLASSES[R.cls]; sfx.tap(); return X.popover(t, `<b>${ico('star', 'xs')} ${ci.skill}</b><p>${esc(ci.desc)}</p>`); }
-  if (act === 'run-relic') { const r = Run.relicInfo(t.dataset.id); sfx.tap(); return X.popover(t, `<b>${relicIco(r, 'xs')} ${r.ko}</b> <small>${['', '일반', '희귀', '보스'][r.r]}</small><p>${r.desc}</p>`); }
+  if (act === 'run-relic') { const r = Run.relicInfo(t.dataset.id); sfx.tap(); return X.popover(t, `<b>${relicIco(r, 'xs')} ${r.ko}</b> <small>${['', '일반', '희귀', '보스'][r.r]}</small><p>${r.desc}</p>${t.dataset.rent ? '<p class="rent-note">유물 대여 중 · 대여 카드가 손패를 떠나면 돌려준다</p>' : ''}`); }
   if (act === 'run-pot') return potionMenu(Number(t.dataset.k), t);
   if (act === 'run-potuse') return usePotion(Number(t.dataset.k));
   if (act === 'run-potdrop') { X.closePopover(); Run.dropPotion(R, Number(t.dataset.k)); save(); sfx.back(); return R.phase === 'combat' ? paint() : enterView(); }
