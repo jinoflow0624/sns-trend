@@ -480,6 +480,12 @@ export function bgmState(name) {
 
 // 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악, 보스 · 모드를 고르는 동안 그 판의 곡 —
 // 예전엔 판이 시작되는 순간에 받기 시작해서 폰에서는 라운드가 시작된 뒤에야 음악이 나왔다)
+// 곡 파일만 받아 둔다 (풀지 않아 메모리를 거의 안 쓴다). 틀 때 내려받기 없이 바로 푼다 — '다다음' 화면 곡용
+export function prefetchBgm(name) {
+  const url = BGM_FILES[name];
+  if (!url || badFiles.has(url) || bytes[url]) return Promise.resolve();
+  return (bytes[url] = fetchBytes(url).catch(err => { delete bytes[url]; throw err; })).then(() => {}, () => {});
+}
 export function preloadBgm(name) {
   const url = BGM_FILES[name];
   if (url && !badFiles.has(url) && (unlock() || decoder())) return loadBuffer(url).then(() => {}, () => {});

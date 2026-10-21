@@ -146,6 +146,7 @@ function showTitle() {
   Wal.loadWallet().then(syncOwned, () => {});
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
+  warmStage(1500);               // 메뉴에 있는 동안 트레이까지 만들어 둔다 (첫 판을 바로 시작하게)
   // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게, 테스트판만)
   if (!PROD) setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
   layer.innerHTML = '';
@@ -575,6 +576,7 @@ function showSetup() {
   playBgm('title');
   pick.o ||= opts;
   preloadBgm(optsSong(pick.o));   // 고른 모드 · 보스의 곡을 미리 받아 둔다 (시작하자마자 음악이 나오게)
+  warmStage();
   const steps = pickSteps();
   if (!steps.includes(pick.step)) pick.step = steps[steps.length - 1];
   const n = steps.indexOf(pick.step);
@@ -3131,6 +3133,16 @@ const skinsOf = g => [mySkin(), ...(g?.players || []).map(p => p.skin).filter(Bo
 function stageReady(skins = [mySkin()]) {
   const imgs = skins.flatMap(sk => [preloadDice(diceSkin(sk.dice).id), preloadTray(traySkin(sk.tray).id)]);
   return Promise.race([Promise.all([ensureTray(), ...imgs].map(p => p.catch(() => {}))), sleep(8000)]);
+}
+// 다음 화면 미리 준비: 메뉴 · 고르기 화면에 머무는 동안 3D 트레이를 만들어 두고 내 주사위 · 트레이 그림을 받아 둔다
+// → 「시작」을 누르면 stageReady 가 바로 끝나 기다림 없이 싸움 화면이 열린다. 화면이 한가할 때(idle) 한 번만
+var warming = null;   // var: 모듈이 다 읽히기 전에 불려도 되게
+function warmStage(delay = 0) {
+  if (tray || warming || !unlocked) return;
+  warming = setTimeout(() => {
+    const go = () => stageReady().finally(() => { warming = null; });
+    if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 1500 }); else go();
+  }, delay);
 }
 // 지금 차례인 사람의 스킨으로 트레이를 바꾼다 (친구 차례엔 친구 것, 내 차례·봇·한 기기에선 내 것)
 function turnSkin(t) {
