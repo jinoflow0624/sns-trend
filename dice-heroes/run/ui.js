@@ -381,7 +381,7 @@ function heroStrip() {
 const PATTERN = { ones: [1, 1, 1], twos: [2, 2, 2], threes: [3, 3, 3], fours: [4, 4, 4], fives: [5, 5, 5], sixes: [6, 6, 6], four: [5, 5, 5, 5], full: [3, 3, 3, 5, 5], sstr: [1, 2, 3, 4], lstr: [1, 2, 3, 4, 5], yacht: [6, 6, 6, 6, 6] };
 export function cardFace(c, { score = null, cls = '' } = {}) {
   // 시공 광대 「뒷면 카드」: 무슨 족보인지 · 점수 · 공격 · 수비 모두 ??? (정화 물약이면 보인다)
-  if (R?.phase === 'combat' && R.C?.hidden?.includes(c.u) && !R.C.pure) return `<div class="rc-in rc-hidden${cls}"><b class="rc-name">???</b><div class="rc-pat"><span class="rc-q">?</span></div><small class="rc-rule"></small><span class="rc-kw none"></span>${score != null ? '<em class="rc-pts wait">?</em>' : ''}<i class="rc-sheen"></i></div>`;
+  if (R?.phase === 'combat' && (R.C?.hidden?.includes(c.u) || ui.hidTmp?.has(c.u)) && !R.C.pure) return `<div class="rc-in rc-hidden${cls}"><b class="rc-name">???</b><div class="rc-pat"><span class="rc-q">?</span></div><small class="rc-rule"></small><span class="rc-kw none"></span>${score != null ? '<em class="rc-pts wait">?</em>' : ''}<i class="rc-sheen"></i></div>`;
   if (Run.isFuture(c.cat)) return futureFace(c, score, cls);
   const r = Run.cardRarity(c);
   const ks = Run.kwsOf(c), kw = ks.length ? Run.KEYWORDS[ks[0]] : null;
@@ -1675,7 +1675,9 @@ async function playOne(f) {
       jBanner(`${ico('card')} 손패 섞기!`, 'shuffle');
       await jSay(f.say, 'taunt', 2000);
       if (fxOn) FX().flash('#FF4FD8', 260, 0.25);
+      ui.hidTmp = new Set(f.hidOld || []);            // 섞여 나가는 뒷면 카드는 끝까지 뒷면으로
       await hand.discardAll(f.out);
+      ui.hidTmp = null;
       const cards = f.in.map(u => R.C?.hand.find(c => c.u === u)).filter(Boolean);
       await hand.draw(cards);
       hand.refresh();
