@@ -1,4 +1,4 @@
-"""앱 아이콘 — 요트 히어로즈.
+"""앱 아이콘 — 키보리아.
 
   python3 tools/make_icons.py sheet <폰트.ttf> <출력.png>   # 후보 모아 보기
   python3 tools/make_icons.py build <후보번호>              # icons/ 에 192 · 512 · maskable-512 쓰기
@@ -160,7 +160,7 @@ def c4():
     return bg, fg
 
 def c5():
-    """요트 히어로즈 로고형: '요트' 큰 글자 + 주사위 두 개 + 무희·전사"""
+    """키보리아 로고형: '요트' 큰 글자 + 주사위 두 개 + 무희·전사"""
     bg = grid(); rays(bg, 32, 30, (40, 30, 110), (60, 46, 150), 18, 0.0)
     bg = up(bg); bg = glow(bg, 256, 200, 220, (120, 200, 255), 90)
     fg = grid(); d = ImageDraw.Draw(fg)
