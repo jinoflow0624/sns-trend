@@ -109,26 +109,114 @@ function ground(g, w, h, y) {
 }
 
 // ── 타이틀 ───────────────────────────────────────────────────────────────────
+// 타이틀 전용 꾸밈 — 도트 느낌은 그대로, 빛과 깊이만 더한다.
+// 달 둘레의 은은한 번짐 (겹겹의 반투명 원)
+function moonHalo(g, x, y, t) {
+  const pulse = 0.85 + 0.15 * Math.sin(t * 1.2);
+  for (const [r, a] of [[26, .035], [20, .05], [15, .07], [11, .1]]) {
+    g.fillStyle = `rgba(255, 236, 170, ${(a * pulse).toFixed(3)})`;
+    for (let dy = -r; dy <= r; dy++) {
+      const half = Math.floor(Math.sqrt(r * r - dy * dy));
+      g.fillRect(x - half, y + dy, half * 2 + 1, 1);
+    }
+  }
+}
+// 금색 · 푸른 반짝이 별 (십자 모양, 천천히 깜빡임)
+function sparkStars(g, w, h, t) {
+  const r = rng(21);
+  for (let i = 0; i < 9; i++) {
+    const x = 6 + Math.floor(r() * (w - 12)), y = 4 + Math.floor(r() * h * 0.42), p = r() * 6.28;
+    const k = (Math.sin(t * 1.4 + p) + 1) / 2;
+    if (k < 0.35) continue;
+    g.fillStyle = i % 3 === 0 ? '#FFE9A8' : '#BFD2FF';
+    g.fillRect(x, y, 1, 1);
+    if (k > 0.7) { g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5); }
+    else { g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3); }
+  }
+}
+// 가끔 지나가는 별똥별
+function shootingStar(g, w, h, t) {
+  const T = 9, c = (t % T) / T;
+  if (c > 0.13) return;
+  const k = c / 0.13, n = Math.floor(t / T);
+  const x0 = 20 + ((n * 53) % Math.max(20, w - 60)), y0 = 6 + ((n * 17) % 22);
+  const x = x0 + k * 46, y = y0 + k * 22;
+  for (let i = 0; i < 10; i++) {
+    g.fillStyle = `rgba(255, 244, 205, ${(1 - i / 10) * (1 - k * 0.5)})`;
+    g.fillRect(Math.round(x - i * 2), Math.round(y - i), 2, 1);
+  }
+  g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(x), Math.round(y), 2, 2);
+}
+// 지평선 쪽 보랏빛 안개 띠
+function mist(g, w, y, t) {
+  for (let i = 0; i < 5; i++) {
+    const a = 0.05 + i * 0.012;
+    g.fillStyle = `rgba(190, 150, 255, ${a.toFixed(3)})`;
+    const off = Math.floor(Math.sin(t * 0.25 + i) * 6);
+    g.fillRect(off - 8, y - 14 + i * 3, w + 16, 3);
+  }
+}
+// 성 뒤의 따뜻한 빛, 창문 깜빡임
+function castleGlow(g, x, y, t) {
+  const f = 0.9 + 0.1 * Math.sin(t * 2.1);
+  for (const [r, a] of [[30, .025], [22, .035], [14, .05]]) {
+    g.fillStyle = `rgba(255, 190, 80, ${(a * f).toFixed(3)})`;
+    for (let dy = -r; dy <= r; dy++) {
+      const half = Math.floor(Math.sqrt(r * r - dy * dy) * 1.1);
+      g.fillRect(x - half, y + dy, half * 2 + 1, 1);
+    }
+  }
+}
+// 떠오르는 금빛 먼지
+function motes(g, w, h, t) {
+  const r = rng(99);
+  for (let i = 0; i < 26; i++) {
+    const bx = r() * w, sp = 0.012 + r() * 0.02, ph = r() * 6.28, sz = r() > 0.8 ? 2 : 1;
+    const cyc = (t * sp + r()) % 1;
+    const x = Math.floor(bx + Math.sin(t * 0.8 + ph) * 4), y = Math.floor(h * 0.86 - cyc * h * 0.7);
+    const a = Math.sin(cyc * Math.PI) * (0.5 + 0.5 * Math.sin(t * 3 + ph)) * 0.9;
+    if (a < 0.1) continue;
+    g.fillStyle = `rgba(255, 214, 110, ${a.toFixed(2)})`;
+    g.fillRect(x, y, sz, sz);
+  }
+}
+// 가장자리를 어둡게 눌러 시선을 가운데로
+function vignette(g, w, h) {
+  const grad = g.createRadialGradient(w / 2, h * 0.45, Math.min(w, h) * 0.35, w / 2, h * 0.5, Math.max(w, h) * 0.78);
+  grad.addColorStop(0, 'rgba(6, 4, 26, 0)'); grad.addColorStop(1, 'rgba(6, 4, 26, .62)');
+  g.fillStyle = grad; g.fillRect(0, 0, w, h);
+}
+
 export function titleScene(canvas) {
   return new PixelStage(canvas, (g, w, h, t) => {
-    sky(g, w, h);
+    sky(g, w, h, '#070520', '#241761', '#6A3A8C');
     stars(g, w, h, t);
-    moon(g, Math.floor(w * 0.8), Math.floor(h * 0.4));
+    sparkStars(g, w, h, t);
+    const mx = Math.floor(w * 0.8), my = Math.floor(h * 0.4);
+    moonHalo(g, mx, my, t);
+    moon(g, mx, my);
+    shootingStar(g, w, h, t);
     const gy = Math.floor(h * 0.78);
     ridge(g, w, gy - 18, 34, 6, '#35246E', 11, t * 2);
-    castle(g, Math.floor(w * 0.62), gy - 12);
+    castleGlow(g, Math.floor(w * 0.62) + 17, gy - 30, t);
+    castle(g, Math.floor(w * 0.62), gy - 12, '#150F33', Math.sin(t * 7) > -0.92 ? '#FFC83D' : '#FF9A1F');
     ridge(g, w, gy - 4, 18, 4, '#24184F', 5, t * 5);
+    mist(g, w, gy, t);
     ground(g, w, h, gy);
-    // 하늘에서 떨어지는 운명의 주사위
-    for (let i = 0; i < 5; i++) {
-      const cyc = (t * 0.35 + i * 0.2) % 1;
-      const x = Math.floor(((i * 37 + 13) % 100) / 100 * (w - 12)) + 2;
+    // 하늘에서 천천히 내려오는 운명의 주사위 (금빛 꼬리)
+    for (let i = 0; i < 4; i++) {
+      const cyc = (t * 0.26 + i * 0.25) % 1;
+      const x = Math.floor(((i * 41 + 13) % 100) / 100 * (w - 12)) + 2;
       const y = Math.floor(-12 + cyc * (gy * 0.7));
-      const v = 1 + (Math.floor(t * 6 + i * 2) % 6);
+      const v = 1 + (Math.floor(t * 5 + i * 2) % 6);
+      for (let k = 1; k <= 4; k++) {
+        g.fillStyle = `rgba(255, 200, 61, ${(0.42 - k * 0.09).toFixed(2)})`;
+        g.fillRect(x + 4, y - 3 - k * 3, 1, 2);
+      }
       pixelDie(g, x, y, v, Math.abs(Math.cos(t * 3 + i)));
-      g.fillStyle = 'rgba(255, 200, 61, .5)';
-      g.fillRect(x + 4, y - 6, 1, 4);
     }
+    motes(g, w, h, t);
+    vignette(g, w, h);
   });
 }
 

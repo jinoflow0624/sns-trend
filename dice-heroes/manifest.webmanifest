@@ -1,7 +1,7 @@
 {
-  "name": "요트 히어로즈",
-  "short_name": "요트히어로즈",
-  "description": "요트 주사위로 영웅을 키우는 도트 RPG 보드게임",
+  "name": "KYBORIA",
+  "short_name": "KYBORIA",
+  "description": "KYBORIA(키보리아) — 요트 주사위 RPG. 요트 주사위로 영웅을 키우는 도트 RPG",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
