@@ -18,7 +18,7 @@ import { webglOK, DiceTray2D } from './dice2d.js';
 import * as Wal from './wallet.js';
 import * as AC from './achievements.js';
 import * as Ads from './ads.js';
-import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, preloadDice, preloadTray } from './skins.js';
+import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, dieFaceURL, preloadDice, preloadTray } from './skins.js';
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -164,7 +164,7 @@ function showTitle() {
     <div class="title-ui">
       ${unlocked ? `<div class="title-top">${dailyBtn()}<button class="gem-chip" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button></div>` : ''}
       <div class="logo">
-        <h1 class="logo-main" aria-label="${esc(GAME.en)}"><img src="${LOGO_URL}" alt="" width="92" height="27" draggable="false"></h1>
+        <h1 class="logo-main" aria-label="${esc(GAME.en)}"><img src="${LOGO_URL}" alt="" width="92" height="27" draggable="false" crossorigin="anonymous"></h1>
         <span class="logo-ko">${esc(GAME.name)}</span>
         <span class="logo-sub">${esc(GAME.sub)}</span>
       </div>
@@ -209,12 +209,21 @@ function waitBoot() {
 // ── 원정 (로그라이크, 테스트판 전용) ────────────────────────────────────────
 // 화면 · 규칙은 run/ 폴더에 따로 있고, 처음 누를 때 불러온다. 배포판 빌드에는 run/ 폴더가 없다.
 let runMod = null, runLoading = null;
-// 혼자 플레이: 대전(봇) · 보스전 · 원정(테스트판) 중 하나
+// 혼자 플레이: 대전(봇) · 보스전 · 원정(테스트판) 중 하나 — 모드마다 그 특색이 보이는 그림 카드
+//   대전: 초록 펠트 위에서 마주 선 두 영웅 + VS / 보스전: 붉은 하늘의 화염룡 / 원정: 원정 숲 지도 · 지도 칸
+// 그림은 모두 이미 받아 둔 것 (직업 · 보스 그림은 시작할 때, 원정 그림은 warm() 이 시작 화면에서)
+const modeTile = (mode, act, title, sub, art, v = mode, on = false) =>
+  `<button class="mode-tile mt-${mode}${on ? ' on' : ''}" data-act="${act}"${v ? ` data-v="${v}"` : ''}>${art}<span class="mt-txt"><b>${title}</b><small>${sub}</small></span></button>`;
+const VS_ART = () => `<span class="mt-art" aria-hidden="true"><img class="mt-h l" src="${heroPoseURL('warrior')}" alt=""><i class="mt-vs">VS</i><img class="mt-h r" src="${heroPoseURL('gambler')}" alt=""></span>`;
+const BOSS_ART = () => `<span class="mt-art" aria-hidden="true"><img class="mt-boss" src="${spriteURL('dragon')}" alt=""></span>`;
+// 클래식 야추: 펠트 위 주사위 다섯 개 (내 주사위 스킨) — 직업 · 의뢰 없이 주사위만
+const CLASSIC_ART = () => `<span class="mt-art" aria-hidden="true"><i class="mt-dice">${[6, 6, 6, 6, 6].map(v => `<img src="${dieFaceURL(diceSkin(prefs.diceSkin).id, v)}" alt="">`).join('')}</i></span>`;
 function showSolo() {
+  const vs = VS_ART(), boss = BOSS_ART();
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame solo-pick" data-act="noop">
     <h2>혼자 플레이</h2>
-    <button class="pbtn gold" data-act="new" data-v="versus">${ico('swords', 'xs')} 대전 <small>봇</small></button>
-    <button class="pbtn gold" data-act="new" data-v="coop">${ico('crown', 'xs')} 보스전</button>
+    ${modeTile('versus', 'new', '대전', '봇과 점수 대결 · 12라운드', vs)}
+    ${modeTile('coop', 'new', '보스전', '봇과 함께 보스 토벌', boss)}
     ${PROD ? '' : runMenu()}
     <div class="modal-actions"><button class="pbtn small" data-act="close">닫기</button></div>
   </div></div>`;
@@ -223,7 +232,10 @@ const runSaved = () => { if (PROD) return false; const s = store.get('diceheroes
 function runMenu() {
   const s = store.get('diceheroes.run');
   const can = s && s.v === 1 && !s.ended;
-  return `<div class="run-menu"><button class="pbtn${can ? ' gold' : ''}" data-act="${can ? 'run-resume' : 'run-open'}">원정${can ? ' 이어하기' : ''}${can ? ` <small>${s.act}막 · 체력 ${s.hp}/${s.maxHp}</small>` : ''}</button>${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
+  const a = runMod?.menuArt?.();   // 원정 모듈이 아직이면 그림 없이 (바탕색 그라데이션)
+  const art = `<span class="mt-art" aria-hidden="true">${a ? `<i class="mt-nodes">${a.nodes.map(u => `<img src="${u}" alt="">`).join('')}</i>` : ''}<img class="mt-h run" src="${heroPoseURL(s?.cls && can ? s.cls : 'outlaw')}" alt=""></span>`;
+  const tile = modeTile('run', can ? 'run-resume' : 'run-open', can ? '원정 이어하기' : '원정', can ? `${s.act}막 · 체력 ${s.hp}/${s.maxHp}` : '로그라이크 · 3막 돌파', art, '');
+  return `<div class="run-menu"${a ? ` style="--mt-bg:url(${a.bg})"` : ''}>${tile}${can ? '<button class="pbtn small" data-act="run-open">새 원정</button>' : ''}</div>`;
 }
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
@@ -427,24 +439,16 @@ function beginPick(kind, o, fixed = false) {
 function ruleCards(o) {
   return `
   <div class="mode-cards">
-    <button class="mode-card${o.rule !== 'classic' ? ' on' : ''}" data-act="rule" data-v="normal">
-      ${ico('swords')}<b>일반 대전</b><small>직업 · 의뢰 · 레벨업</small>
-    </button>
-    <button class="mode-card${o.rule === 'classic' ? ' on' : ''}" data-act="rule" data-v="classic">
-      ${ico('sheet')}<b>클래식 야추</b><small>순수 야추</small>
-    </button>
+    ${modeTile('versus', 'rule', '일반 대전', '직업 능력 · 의뢰 게시판 · 레벨업', VS_ART(), 'normal', o.rule !== 'classic')}
+    ${modeTile('classic', 'rule', '클래식 야추', '주사위만으로 겨루는 순수 야추', CLASSIC_ART(), 'classic', o.rule === 'classic')}
   </div>`;
 }
 
 function modeCards(o) {
   return `
   <div class="mode-cards">
-    <button class="mode-card${o.mode === 'versus' ? ' on' : ''}" data-act="mode" data-v="versus">
-      ${ico('swords')}<b>대전</b><small>12라운드 · 최고 점수</small>
-    </button>
-    <button class="mode-card${o.mode === 'coop' ? ' on' : ''}" data-act="mode" data-v="coop">
-      ${ico('shield')}<b>협동</b><small>함께 보스 토벌 · 점수 = 피해</small>
-    </button>
+    ${modeTile('versus', 'mode', '대전', '12라운드 · 최고 점수', VS_ART(), 'versus', o.mode === 'versus')}
+    ${modeTile('coop', 'mode', '협동', '함께 보스 토벌 · 점수 = 피해', BOSS_ART(), 'coop', o.mode === 'coop')}
   </div>`;
 }
 
@@ -601,7 +605,7 @@ function showSetup() {
     <header class="page-head">
       <button class="icon-btn" data-act="pick-back" aria-label="뒤로">◀</button>
       <h2>${STEP_TITLE[pick.step]}</h2>
-      <span class="count">${pick.step === 'party' ? `${setup.length} / 4` : ''}</span>
+      <span class="count">${pick.step === 'party' ? `인원 ${setup.length}/4` : ''}</span>
     </header>
     <div class="steps" aria-hidden="true">${shown.map((k, j) => `<span class="${j < n ? 'done' : j === n ? 'now' : ''}">${STEP_TITLE[k].replace(' 선택', '')}</span>`).join('')}</div>
     <div class="wrap">${body}</div>
@@ -647,7 +651,7 @@ function clsDial(pl, i) {
     const id = at(d), c = E.classInfo(id), lock = !pl.bot && !Wal.owns('cls', id);
     const act = d === 0 ? (lock ? 'cls-buy' : 'cls-talk') : lock ? 'cls-view' : 'cls';
     return `<button class="dial-hero d${d}${lock ? ' locked' : ''}" style="--c:${c.color}" data-act="${act}" data-i="${i}" data-cls="${id}" aria-label="${c.ko}${lock ? ' (잠김)' : ''}">
-      ${portrait(id, d ? 'mini' : '')}${lock ? `<span class="dial-price">${ico('gem', 'xs')}${Wal.priceOf('cls', id).toLocaleString()}</span>` : ''}</button>`;
+      ${portrait(id, d ? 'mini' : '')}${lock ? (d ? `<span class="dial-lock">${ico('lock', 'xs')}</span>` : `<span class="dial-price">${ico('gem', 'xs')}${Wal.priceOf('cls', id).toLocaleString()}</span>`) : ''}</button>`;   // 옆 칸은 자물쇠만 (가격표가 실루엣 발을 가렸다)
   };
   const step = d => { const id = at(d), lock = !pl.bot && !Wal.owns('cls', id); return `data-act="${lock ? 'cls-view' : 'cls'}" data-i="${i}" data-cls="${id}"`; };
   const spin = dialSpin && dialSpin.i === i && Date.now() - dialSpin.t < 400 ? (dialSpin.d > 0 ? ' spin-r' : ' spin-l') : '';
@@ -1773,7 +1777,7 @@ function showCatHelp() {
       ${E.CATS.map(c => `<div class="ch-row"><b>${c.ko}</b><span>${CAT_HELP[c.id].rule}</span>${miniDice(CAT_HELP[c.id].ex)}<em>${CAT_HELP[c.id].pts}점</em></div>`).join('')}
     </div>
     <p class="hint">에이스~식스 합이 63점 이상이면 보너스 +35 (전사는 50점). 조건이 안 맞는 칸에 적으면 0점.</p>
-    <button class="pbtn gold" data-act="close">닫기</button>
+    <button class="pbtn" data-act="close">닫기</button>
   </div></div>`;
 }
 
@@ -3072,17 +3076,17 @@ function showDashboard() {
       <section class="dash-stats">
         <div class="frame"><small>플레이</small><b>${prof.games}</b></div>
         <div class="frame"><small>승리</small><b>${prof.wins}</b></div>
-        <div class="frame"><small>승률</small><b>${prof.games ? Math.round((prof.wins / prof.games) * 100) : 0}%</b></div>
+        <div class="frame"><small>승률</small><b>${prof.games ? `${Math.round((prof.wins / prof.games) * 100)}%` : '-'}</b></div>
         <div class="frame gold"><small>최고 점수</small><b>${prof.best?.score ?? '-'}</b></div>
       </section>
       ${prof.best ? `<p class="hint">최고 점수 ${prof.best.score}점 · ${E.classInfo(prof.best.cls).ko} · ${prof.best.mode === 'coop' ? '협동' : '대전'} · ${date(prof.best.date)}</p>` : ''}
 
       <section class="frame">
         <h3 class="dash-h">직업</h3>
-        <div class="dash-cls">
+        ${prof.games ? `<div class="dash-cls">
           ${E.CLASSES.map(c => `<div class="dc-row" style="--c:${c.color}">${portrait(c.id, 'mini')}<span>${c.ko}</span>
             <div class="bar"><i style="width:${((prof.classes[c.id] || 0) / maxCls) * 100}%"></i></div><b>${prof.classes[c.id] || 0}</b></div>`).join('')}
-        </div>
+        </div>` : `<div class="dash-empty"><div class="de-row">${E.CLASSES.map(c => portrait(c.id, 'mini')).join('')}</div><p>첫 판을 끝내면 직업별 기록이 쌓여요</p></div>`}
       </section>
 
       <section class="frame">
@@ -3368,7 +3372,7 @@ async function showSkins(tab = 'dice') {
     </div>
     <div class="buy-slot">${buyBar()}</div>
     <div class="skin-grid" data-tab="${tab}">${cards}</div>
-    <button class="pbtn gold" data-act="close">닫기</button>
+    <button class="pbtn" data-act="close">닫기</button>
   </div></div>`;
   const host = layer.querySelector('.skin-preview');
   try {
@@ -3532,7 +3536,7 @@ function showSettings(inGame = false) {
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>1분 안에 돌아오면 이어서' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
-        '<button class="pbtn" data-act="tutorial">튜토리얼</button><button class="pbtn" data-act="credits">크레딧</button><button class="pbtn gold" data-act="close">닫기</button>'}
+        '<div class="set-more"><button class="pbtn small" data-act="tutorial">튜토리얼</button><button class="pbtn small" data-act="credits">크레딧</button></div><button class="pbtn" data-act="close">닫기</button>'}
     </div>
   </div></div>`;
 }
@@ -3561,7 +3565,8 @@ async function paintAccount() {
 }
 
 // ── 일일 보상: 주사위 5개를 한 번 굴려 눈의 합만큼 보석 (요트 10배 · 고급 족보 5배) ──
-const pipsOf = v => Array.from({ length: 9 }, (_, k) => `<b${PIPS[v]?.includes(k) ? ' class="on"' : ''}></b>`).join('');
+// 주사위는 내가 고른 주사위 스킨의 면 그림 (게임 속 주사위와 같은 모양)
+const pipsOf = v => `<img src="${dieFaceURL(diceSkin(prefs.diceSkin).id, v)}" alt="${v}" draggable="false">`;
 const dieFace = v => `<i class="dd-die" data-v="${v}">${pipsOf(v)}</i>`;
 function showDaily() {
   const ready = Wal.dailyReady(), last = Wal.wallet()?.bonus;
@@ -3635,7 +3640,7 @@ function showCredits() {
        온라인 <b>Firebase</b></p>
     <p>기반 규칙 <b>요트(Yacht)</b> 주사위 게임</p>
     <p class="thanks">SPECIAL THANKS TO<br><b>HAYEONG</b></p>
-    <button class="pbtn gold" data-act="close">닫기</button>
+    <button class="pbtn" data-act="close">닫기</button>
   </div></div>`;
 }
 

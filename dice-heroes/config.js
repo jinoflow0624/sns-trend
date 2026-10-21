@@ -5,6 +5,6 @@ export const GAME = {
   sub: '요트 주사위 RPG',
   subEn: 'YACHT DICE RPG',
   studio: 'HAHAHOHO COMPANY',
-  version: '0.39.55',
+  version: '0.39.56',
   year: 2026,
 };
