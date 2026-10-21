@@ -1744,3 +1744,9 @@ body.bighit::after { animation: bigHitVig .8s ease-out; }
   100% { filter: brightness(1) drop-shadow(0 0 2px rgba(255,255,255,.6)) drop-shadow(0 0 16px var(--c)); } }
 @keyframes ufBounce { 0% { transform: scale(1.05); } 40% { transform: scale(1.18); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .unlock-fx *, .unlock-fx { animation-duration: .01s !important; animation-delay: 0s !important; } .is-cls .uf-art { filter: none; } }
+
+/* 다국어: CSS 안의 글자 (영어 · 일본어) */
+html:lang(en) .quest.ok::after { content: 'Done!'; }
+html:lang(ja) .quest.ok::after { content: '達成！'; }
+html:lang(en) .skin-preview.flat::after { content: '3D preview not available on this device'; }
+html:lang(ja) .skin-preview.flat::after { content: 'この端末では3Dプレビューを使えません'; }

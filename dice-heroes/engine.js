@@ -20,7 +20,7 @@ export const xpToNext = level => 25 + 15 * (level - 1);
 export const CATS = [
   { id: 'ones',   ko: TR('에이스'),       up: 1 },
   { id: 'twos',   ko: TR('듀스'),         up: 2 },
-  { id: 'threes', ko: TR('트레이'),       up: 3 },
+  { id: 'threes', ko: TR('트레이⟪족보⟫'),       up: 3 },
   { id: 'fours',  ko: TR('포'),           up: 4 },
   { id: 'fives',  ko: TR('파이브'),       up: 5 },
   { id: 'sixes',  ko: TR('식스'),         up: 6 },

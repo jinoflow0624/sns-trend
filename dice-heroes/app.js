@@ -2,7 +2,7 @@
 //   메뉴 → 파티 편성(대전/협동) → 게임 → 결과
 //   메뉴 → 온라인 방(만들기/참가) → 로비 → 게임 → 결과
 // 룰은 engine.js, 온라인은 net.js, 3D 주사위는 dice3d.js, 소리는 audio.js, 도트 그림은 pixel.js · scenes.js.
-import { t as TR, LANGS, langPref, setLang } from './i18n.js';
+import { t as TR, LANG, LANGS, langPref, setLang } from './i18n.js';
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
@@ -36,6 +36,7 @@ const store = {
 };
 const seen = store.get(KEYS.seen) || {};
 // 화면·조작 설정: 연출 속도(normal·fast·min), 그래픽 절약, 글자 크게, 색약 보조
+if (LANG !== 'ko') document.title = TR('KYBORIA · 요트 주사위 RPG');   // 창 제목 (index.html 은 한국어)
 const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, adsPersonal: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
 preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
 preloadTray(traySkin(prefs.traySkin).id).catch(() => {});
