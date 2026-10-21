@@ -1337,3 +1337,10 @@ body:has(.run-sb) .popover { z-index: 310; }
 .jest-prize img { width: 140px; height: 140px; object-fit: contain; }
 .fut-tip small { color: #9FF8FF; letter-spacing: .15em; font-size: 9px; }
 @media (prefers-reduced-motion: reduce) { .rc-in.future .rc-holo, .jest-intro .glitch, .rc-in.rc-hidden .rc-q, .rc-in.jest.j-bomb { animation: none; } }
+/* 광대 연출 글씨 (회피 · 손패 섞기): 트레이 한가운데 크게 */
+.jest-banner { position: fixed; z-index: 62; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px;
+  font-size: 44px; font-weight: 700; color: #FFFFFF; letter-spacing: .04em;
+  text-shadow: 3px 3px 0 var(--ink), -2px 0 0 #FF4FD8, 2px 0 0 #3EE6E0; animation: jBanner 1.4s cubic-bezier(.2,1.4,.4,1) forwards; }
+.jest-banner.shuffle { font-size: 34px; padding: 6px 18px; background: rgba(16, 8, 42, .82); border: 3px solid #FF4FD8; box-shadow: 0 0 22px rgba(255,79,216,.6), 0 3px 0 var(--ink); }
+.jest-banner .ico { width: 30px; height: 30px; }
+@keyframes jBanner { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 18% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } 30% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -62%) scale(1); opacity: 0; } }
