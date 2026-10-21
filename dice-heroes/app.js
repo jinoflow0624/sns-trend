@@ -226,7 +226,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, speak, toast, nopeDie, tipAttr, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(), runPrice: id => Wal.priceOf('run', id),
       name: () => myName, sealSigil: SEAL_SIGIL,
@@ -632,13 +632,7 @@ function pickBack() {
 const classicPick = () => { const o = pick?.for === 'room' ? online?.room?.opts || pick.o : pick?.o || opts; return o?.mode === 'versus' && o?.rule === 'classic'; };
 // 직업 다이얼: 가운데가 지금 직업, 양옆으로 돌린다 (◀ ▶ · 옆 그림 누르기 · 밀기). 잠긴 직업은 옆에 보석 값이 보이고, 그쪽으로 돌리면 사기 창
 let dialSpin = null;
-// 다이얼을 돌려 가운데 온 캐릭터가 한마디 (다시 그린 뒤)
-function speakDial(i, ms, want) {
-  setTimeout(() => {
-    const el = document.querySelector(`.cls-dial[data-i="${i}"] .dial-hero.d0`);
-    if (el && (!want || el.dataset.cls === want)) speak(el, classLine(el.dataset.cls), true);
-  }, ms);
-}      // 방금 돌린 다이얼 (그 다이얼만 도는 연출)
+// (dialSpin: 방금 돌린 다이얼 — 그 다이얼만 도는 연출)
 const dialDirOf = t => (t.closest('.cls-dial') ? Math.sign([...t.closest('.cls-dial').querySelectorAll('[data-cls]')].indexOf(t) - 3) : 0);
 function clsDial(pl, i) {
   const ids = E.CLASSES.map(k => k.id), k = Math.max(0, ids.indexOf(pl.cls));
@@ -698,8 +692,8 @@ function onSetupAct(act, t) {
   if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; store.set(KEYS.setup, setup); showSetup(); });
   if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
-  if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
-  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; speakDial(i, 280); }
+  if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
+  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
   if (act === 'remove') setup.splice(i, 1);
   if (act === 'add' && setup.length < 4) {
     const used = new Set(setup.map(p => p.cls));
@@ -965,7 +959,7 @@ function onLobbyAct(act, t) {
     me?.ready ? sfx.back() : sfx.start();
     return lobbyTxn(r => { const s = r.seats.find(x => x.token === online.token); if (s) s.ready = !s.ready; });
   }
-  if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
+  if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
   if (act === 'cls-buy') {
     const i = Number(t.dataset.i);
     return classBuyDialog(t.dataset.cls, id => lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = id; }));
@@ -974,7 +968,6 @@ function onLobbyAct(act, t) {
     sfx.select();
     const i = Number(t.dataset.i);
     dialSpin = { i, d: dialDirOf(t), t: Date.now() };
-    speakDial(i, 650, t.dataset.cls);       // 방 상태가 돌아와 다시 그린 뒤
     return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = t.dataset.cls; });
   }
   if (act === 'lobby-bot' && isHost()) {
@@ -3532,39 +3525,6 @@ function showSettings(inGame = false) {
         '<button class="pbtn" data-act="tutorial">튜토리얼</button><button class="pbtn" data-act="credits">크레딧</button><button class="pbtn gold" data-act="close">닫기</button>'}
     </div>
   </div></div>`;
-}
-// 캐릭터를 누르면 하는 한마디 (스킬 특징에 맞게). 원정 직업 대사는 run/ui.js
-// 영화 · 애니 명대사를 직업 스킬에 맞게 비틀어 쓴 오마주
-const CLASS_LINES = {
-  warrior: ['This is Sparta!', '즐겁지 아니한가!', "I'll be back."],
-  rogue: ['왜 럼은 늘 없는 거지?', '진실은 없다. 모든 것이 허용된다.', '잭 스패로 선장이 왔다는 걸 기억해라.'],
-  mage: ['너는 지나갈 수 없다! …경험치 없이는', '마법사는 늦지 않는다. 정확히 레벨 업할 때 온다', '윙가르디움 레비-오사! 레벨아 떠올라라'],
-  bard: ['음유시인에게 동전을 던져라~', '다 잊어~ 다 잊어~', '쇼는 계속되어야 한다!'],
-  gambler: ['묻고 더블로 가!', '쫄리면 뒈지시든가.', '쇼 미 더 머니!'],
-  monk: ['어제는 역사, 내일은 미스터리, 오늘은 선물이다.', '하거나, 안 하거나. 해 본다는 건 없다.', '물이 되어라, 친구여.'],
-  dancer: ['댄싱 퀸~ 주사위 눈이 하나씩 업!', '흔들어 주세요, 모두 +1!', '오늘 이 무대는 내가 접수한다'],
-  outlaw: ['자, 쏴 봐. 내 하루를 완성시켜 줘', '정오의 결투다. 첫 굴림에 끝낸다', '내 장화 속에 주사위가 있어!'],
-  sharper: ['싸늘하다. 가슴에 비수가 날아와 꽂힌다.', '손은 눈보다 빠르다.', '동작 그만. 밑장 빼기냐?'],
-};
-let lineK = 0;
-const classLine = id => { const l = CLASS_LINES[id] || ['…']; return l[lineK++ % l.length]; };
-// 말풍선: 그림 위에 잠깐 떴다가 사라진다 (원정도 X.speak 로 쓴다)
-function speak(el, text, quiet = false) {   // quiet: 다이얼을 돌려 저절로 말할 때 (넘기는 소리와 겹치지 않게)
-  if (!el || !text) return;
-  document.querySelectorAll('.speech').forEach(b => b.remove());
-  const r = el.getBoundingClientRect();
-  const b = document.createElement('div');
-  b.className = 'speech';
-  b.textContent = text;
-  document.body.appendChild(b);
-  const w = b.offsetWidth;
-  b.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  b.style.top = `${Math.max(8, r.top - b.offsetHeight - 10)}px`;
-  b.style.setProperty('--ax', `${Math.max(12, Math.min(w - 12, r.left + r.width / 2 - parseFloat(b.style.left)))}px`);
-  if (!quiet) sfx.tap();
-  el.classList.remove('talk'); void el.offsetWidth; el.classList.add('talk');
-  setTimeout(() => b.classList.add('out'), 2000);
-  setTimeout(() => b.remove(), 2350);
 }
 // 직업 한 줄 요령 (캐릭터를 길게 누르면 스킬과 함께 보인다)
 const CLASS_TIP = {
