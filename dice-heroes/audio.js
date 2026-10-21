@@ -42,7 +42,7 @@ const SETTINGS_KEY = 'diceheroes.audio';
 const settings = { bgm: 0.55, sfx: 0.8, vibrate: true };
 // 채널 음량: 슬라이더가 같은 값이면 효과음이 배경음악보다 또렷하게(약 6dB) 크게 들리도록 맞춘 비율.
 // 효과음이 날 때는 배경음악을 잠깐 DUCK 만큼 낮춰(더킹) 효과음이 묻히지 않게 한다.
-const BGM_LEVEL = 0.42, SFX_LEVEL = 3.1, DUCK = 0.6;
+const BGM_LEVEL = 0.42, SFX_LEVEL = 3.1, DUCK = 0.72;
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* 저장 불가 */ }
 export const audioSettings = () => ({ ...settings });
 export function setAudio(patch) {
@@ -91,10 +91,22 @@ export const canVibrate = () => typeof navigator.vibrate === 'function';
 let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
 const waves = {};
 
-// 브라우저는 사용자 조작 전 소리를 막는다 — 첫 터치 때 연다
+// 브라우저는 사용자 조작 전 소리를 막는다 — 오디오는 첫 터치(손을 뗄 때 · 클릭 · 키) 순간에 만든다.
+// 예전엔 시작 화면이 뜨자마자 만들어 두고 터치 때 깨웠는데, 일부 폰(설치한 앱)에서 미리 만든 오디오가
+// '멈춤'에 갇혀 터치해도 깨지 않아 음악 · 효과음이 안 나오다가 앱을 몇 번 다시 켜야 나왔다.
+// 터치 순간에 만든 오디오는 처음부터 켜진 채로 시작한다. 그 전에는 곡을 받아 풀어만 둔다 (decoder)
+let activated = false;
+const hasGesture = () => activated || !!navigator.userActivation?.hasBeenActive;
+let offline = null;
+const decoder = () => ctx || (offline ||= (() => {
+  const O = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  try { return O ? new O(2, 1, 48000) : null; } catch { return null; }
+})());
 export function unlock() {
   if (!ctx) {
-    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+    if (!hasGesture()) return null;
+    // latencyHint 'balanced': 오디오 버퍼를 조금 여유 있게 — 3D · 입자 그리기로 바쁠 때 소리가 미세하게 끊기던(언더런) 것을 줄인다
+    try { const AC = window.AudioContext || window.webkitAudioContext; try { ctx = new AC({ latencyHint: 'balanced' }); } catch { ctx = new AC(); } } catch { return null; }
     master = ctx.createGain();
     master.gain.value = 0.9;
     // 살짝 눌러 주는 컴프레서 — 채널이 겹쳐도 찢어지지 않게
@@ -117,16 +129,30 @@ export function unlock() {
 
 // 브라우저는 첫 터치 전엔 소리를 막는다(오디오가 '멈춤' 상태로 시작). 메뉴 음악은 시작 화면이 뜨자마자 걸어 두고,
 // 허락되는 첫 순간(아무 곳이나 터치·클릭·키) 바로 들리게 한다. 전화·다른 앱 때문에 멈췄을 때도 다음 터치로 다시 켠다
-const wake = () => { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); };
-['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
+let pendingBgm = null;    // 터치 전에 튼 곡 — 첫 터치 때 바로 튼다
+const wake = e => {
+  if (e?.isTrusted && e.type !== 'pointerdown') activated = true;   // 터치는 손을 뗄 때(touchend · pointerup) 허락된다
+  if (!ctx && pendingBgm && hasGesture()) { const n = pendingBgm; pendingBgm = null; playBgm(n); return; }
+  if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+};
+['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, wake, { capture: true, passive: true }));
 
 // 효과음이 울리는 동안 배경음악을 살짝 내렸다가 끝나면 부드럽게 되돌린다
+// · 아주 짧은 소리(주사위 부딪힘 · 틱 등 0.1초 미만)는 낮추지 않는다 — 연달아 나면 음악이 오르내려 '끊기는' 것처럼 들렸다
+// · 예약을 지울 때 지금 음량을 붙잡아 둔다 (cancelScheduledValues 만 하면 음량이 순간 튀어 '툭' 소리가 났다)
 let duckUntil = 0;
 function duck(t, dur) {
-  duckUntil = Math.max(duckUntil, t + dur);
-  const g = duckGain.gain;
-  g.cancelScheduledValues(t);
-  g.setTargetAtTime(DUCK, t, 0.015);
+  if (dur < 0.1) return;
+  const g = duckGain.gain, end = Math.max(duckUntil, t + dur);
+  if (t < duckUntil - 0.02) {            // 이미 낮춘 중: 되돌리는 예약만 뒤로 미룬다 (낮춘 음량은 그대로)
+    const prev = duckUntil;
+    duckUntil = end;
+    if (end > prev) { g.cancelScheduledValues(prev + 0.01); g.setTargetAtTime(1, duckUntil + 0.05, 0.15); }
+    return;
+  }
+  duckUntil = end;
+  if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t); else { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); }
+  g.setTargetAtTime(DUCK, t, 0.03);
   g.setTargetAtTime(1, duckUntil + 0.05, 0.15);
 }
 
@@ -407,7 +433,10 @@ const FILE_VOL = 0.9;
 const buffers = {};
 const badFiles = new Set();   // 못 받았거나 못 푼 파일(구형 iOS 의 OGG 등)은 칩튠 곡으로 대신한다
 // 풀어 둔 곡은 최근 것 몇 개만 메모리에 둔다 (3분짜리 곡 하나를 풀면 수십 MB). 지금 나오는 곡은 지우지 않는다
-const BUF_KEEP = 4;
+const BUF_KEEP = 3;
+// 받은 곡 파일(압축된 그대로, 곡당 1MB 안팎)은 모두 둔다 → 풀어 둔 곡을 지웠다가 다시 틀 때 내려받지 않고 바로 다시 푼다
+const bytes = {};
+let audible = null;       // 지금 소리가 나는 음원 { src, g } — 다음 곡이 준비될 때까지 끊지 않고 이어 틀다가 겹쳐 바꾼다
 const recent = [];
 function keepBuffer(url) {
   const i = recent.indexOf(url);
@@ -437,8 +466,8 @@ function fetchBytes(url) {
 }
 const loadBuffer = url => {
   keepBuffer(url);
-  return (buffers[url] ||= fetchBytes(url)
-    .then(b => ctx.decodeAudioData(b))
+  return (buffers[url] ||= (bytes[url] ||= fetchBytes(url).catch(err => { delete bytes[url]; throw err; }))
+    .then(b => decoder().decodeAudioData(b.slice(0)))      // 푸는 동안 원본이 비워지므로 사본을 넘긴다 (터치 전이면 오프라인 오디오로 푼다)
     .then(buf => { progress[url] = 1; done.add(url); return buf; })
     .catch(err => { delete buffers[url]; done.add(url); throw err; }));   // 못 받아도 "끝남" — 시작 화면이 계속 기다리지 않게
 };
@@ -451,35 +480,62 @@ export function bgmState(name) {
 
 // 곡 파일을 미리 받아 풀어 둔다 (스플래시 동안 메뉴 음악, 보스 · 모드를 고르는 동안 그 판의 곡 —
 // 예전엔 판이 시작되는 순간에 받기 시작해서 폰에서는 라운드가 시작된 뒤에야 음악이 나왔다)
+// 곡 파일만 받아 둔다 (풀지 않아 메모리를 거의 안 쓴다). 틀 때 내려받기 없이 바로 푼다 — '다다음' 화면 곡용
+export function prefetchBgm(name) {
+  const url = BGM_FILES[name];
+  if (!url || badFiles.has(url) || bytes[url]) return Promise.resolve();
+  return (bytes[url] = fetchBytes(url).catch(err => { delete bytes[url]; throw err; })).then(() => {}, () => {});
+}
 export function preloadBgm(name) {
   const url = BGM_FILES[name];
-  if (url && !badFiles.has(url) && unlock()) return loadBuffer(url).then(() => {}, () => {});
+  if (url && !badFiles.has(url) && (unlock() || decoder())) return loadBuffer(url).then(() => {}, () => {});
   return Promise.resolve();
 }
 
 // 곡을 튼다. 돌려주는 약속은 실제로 소리가 나기 시작할 때 끝난다 (파일을 받는 중이면 받은 뒤)
+// 지금 나는 음원을 dur 초 동안 줄이며 끈다
+function fadeOutAudible(dur = 0.3) {
+  const a = audible;
+  audible = null;
+  if (!a || !ctx) return;
+  try {
+    const now = ctx.currentTime;
+    a.g.gain.cancelScheduledValues(now);
+    a.g.gain.setValueAtTime(a.g.gain.value, now);
+    a.g.gain.linearRampToValueAtTime(0, now + dur);
+    a.src.stop(now + dur + 0.05);
+  } catch { /* 이미 멈춤 */ }
+}
 export function playBgm(name) {
   if (playing?.name === name) return playing.ready || Promise.resolve();
-  stopBgm();
-  if (!unlock()) return Promise.resolve();
+  // 앞 곡은 다음 곡이 준비될 때까지 그대로 둔다 (예전엔 바로 끊겨서 받는 · 푸는 동안 조용했다). 칩튠 곡만 바로 멈춘다
+  if (playing?.timer) clearInterval(playing.timer);
+  playing = null;
+  if (!unlock()) { pendingBgm = name; preloadBgm(name); return Promise.resolve(); }
+  pendingBgm = null;
   const url = BGM_FILES[name];
   if (url && !badFiles.has(url)) {
     const state = { name, url };
     playing = state;
     state.ready = loadBuffer(url).then(buf => {
       if (playing !== state) return;   // 받는 사이 다른 곡으로 바뀌었다
+      const fade = !!audible;
+      fadeOutAudible(0.35);
       const src = ctx.createBufferSource(), g = ctx.createGain();
-      src.buffer = buf; src.loop = true; g.gain.value = FILE_VOL;
+      src.buffer = buf; src.loop = true;
+      if (fade) { const now = ctx.currentTime; g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(FILE_VOL, now + 0.3); } else g.gain.value = FILE_VOL;
       if (BGM_LOOP[name] < buf.duration) { src.loopStart = BGM_LOOP[name]; src.loopEnd = buf.duration; }
       src.connect(g).connect(bgmGain);
       src.start();
       state.src = src;
+      audible = { src, g };
     }).catch(() => {
       badFiles.add(url);
-      if (playing === state) { playing = null; if (SONGS[name]) playBgm(name); }
+      if (playing === state) { playing = null; fadeOutAudible(0.1); if (SONGS[name]) playBgm(name); }
     });
     return state.ready;
   }
+  fadeOutAudible(0.2);
   const song = SONGS[name];
   const tracks = {
     lead: tokenize(song.lead), harm: tokenize(song.harm),
@@ -509,8 +565,9 @@ export function playBgm(name) {
 }
 
 export function stopBgm() {
+  pendingBgm = null;
   if (playing?.timer) clearInterval(playing.timer);
-  if (playing?.src) try { playing.src.stop(); } catch { /* 이미 멈춤 */ }
+  fadeOutAudible(0.08);
   playing = null;
 }
 
@@ -625,6 +682,102 @@ export const sfx = {
       case 'pop':           // 하트: 뿅
         ping(sfxGain, { f: 700 + r * 200, slide: 1500 + r * 300, t, dur: 0.1, vol: 0.05 + k * 0.07, type: 'square' });
         break;
+      case 'scale': {       // 드래곤: 단단한 비늘끼리 맞부딪히는 고급스러운 '찰칵' — 짧은 각질 딸깍 + 낮은 금속성 몸통음, 세게 부딪히면 비늘이 겹쳐 밀리는 잔떨림
+        if (t - (this.scT || 0) < 0.03) break;
+        this.scT = t;
+        const f = 1150 + r * 300;
+        noise(sfxGain, { t, dur: 0.014, vol: 0.06 + k * 0.1, hp: 2200, lp: 7000 });
+        ping(sfxGain, { f, t, dur: 0.11, vol: 0.035 + k * 0.05, type: 'triangle' });
+        ping(sfxGain, { f: f * 1.53, t, dur: 0.08, vol: 0.018 + k * 0.03 });
+        ping(sfxGain, { f: 190 + r * 40, slide: 140, t, dur: 0.07, vol: 0.05 + k * 0.07, type: 'triangle' });
+        if (k > 0.35) for (let i = 1; i <= 2 + (k > 0.7 ? 1 : 0); i++) {
+          const ti = t + i * (0.016 + Math.random() * 0.01);
+          noise(sfxGain, { t: ti, dur: 0.008, vol: (0.03 + k * 0.04) / i, hp: 2800, lp: 8000 });
+          ping(sfxGain, { f: f * (1.1 + Math.random() * 0.3), t: ti, dur: 0.05, vol: (0.012 + k * 0.02) / i });
+        }
+        break;
+      }
+      case 'sizzle': {      // 용암: 돌이 닿는 둔탁한 '툭' + 뜨거운 표면에 닿아 '치익' 지지는 소리 (세게 부딪힐수록 길고 진하게 · 탁탁 튀는 불티)
+        const now = t;
+        noise(sfxGain, { t, dur: 0.03 + k * 0.03, vol: 0.07 + k * 0.14, hp: 200, lp: 1600 });
+        ping(sfxGain, { f: 120 + r * 40, slide: 80, t, dur: 0.08, vol: 0.06 + k * 0.08, type: 'triangle' });
+        if (now - (this.szT || 0) > 0.09) {
+          this.szT = now;
+          noise(sfxGain, { t: t + 0.01, dur: 0.18 + k * 0.32, vol: 0.02 + k * 0.045, hp: 3200, lp: 10000 });
+          for (let i = 0; i < 1 + Math.round(k * 3); i++) noise(sfxGain, { t: t + 0.03 + Math.random() * (0.12 + k * 0.2), dur: 0.006, vol: 0.02 + k * 0.03, hp: 1800, lp: 7000 });
+        }
+        break;
+      }
+      // ── v0.39.10 새 주사위 10종 ──
+      case 'bit': {         // 8비트: 뿅 — 짧은 사각파 두 음 (세게 부딪히면 한 옥타브 위 음이 하나 더)
+        if (t - (this.btT || 0) < 0.04) break;
+        this.btT = t;
+        const f = [523, 587, 659, 784][Math.floor(r * 4)];
+        ping(sfxGain, { f, t, dur: 0.05, vol: 0.035 + k * 0.05, type: 'square' });
+        ping(sfxGain, { f: f * 1.5, t: t + 0.045, dur: 0.05, vol: 0.025 + k * 0.04, type: 'square' });
+        if (k > 0.55) ping(sfxGain, { f: f * 2, t: t + 0.09, dur: 0.05, vol: 0.02 + k * 0.03, type: 'square' });
+        break;
+      }
+      case 'bone': {        // 해골 뼈: 속이 빈 뼈가 달그락 — 마른 나무 같은 딸깍 두 번
+        const f = 820 + r * 260;
+        noise(sfxGain, { t, dur: 0.02, vol: 0.06 + k * 0.12, hp: 900, lp: 5000 });
+        ping(sfxGain, { f, slide: f * 0.8, t, dur: 0.06, vol: 0.06 + k * 0.08, type: 'triangle' });
+        if (k > 0.3) { noise(sfxGain, { t: t + 0.035, dur: 0.012, vol: 0.03 + k * 0.06, hp: 1200, lp: 5000 }); ping(sfxGain, { f: f * 1.25, t: t + 0.035, dur: 0.04, vol: 0.03 + k * 0.04, type: 'triangle' }); }
+        break;
+      }
+      case 'squish':        // 슬라임: 말캉 — 아래로 미끄러지는 둥근 소리 + 촉촉한 거품
+        ping(sfxGain, { f: 420 + r * 120, slide: 160, t, dur: 0.12, vol: 0.07 + k * 0.1, type: 'sine' });
+        noise(sfxGain, { t, dur: 0.05 + k * 0.04, vol: 0.02 + k * 0.04, hp: 500, lp: 2200 });
+        if (k > 0.5) ping(sfxGain, { f: 900 + r * 300, slide: 1300, t: t + 0.05, dur: 0.05, vol: 0.02 + k * 0.03 });
+        break;
+      case 'chips': {       // 카지노 칩: 점토 칩끼리 탁 · 겹치며 차르륵
+        const f = 2300 + r * 600;
+        noise(sfxGain, { t, dur: 0.018, vol: 0.07 + k * 0.12, hp: 2500, lp: 9000 });
+        ping(sfxGain, { f, t, dur: 0.05, vol: 0.03 + k * 0.04 });
+        for (let i = 1; i <= (k > 0.4 ? 3 : 1); i++) noise(sfxGain, { t: t + i * (0.022 + Math.random() * 0.012), dur: 0.01, vol: (0.04 + k * 0.06) / i, hp: 2800, lp: 9000 });
+        break;
+      }
+      case 'wood':          // 보물 상자: 단단한 나무 쿵 + 철 리벳 챙
+        noise(sfxGain, { t, dur: 0.035 + k * 0.03, vol: 0.08 + k * 0.16, hp: 250, lp: 2600 });
+        ping(sfxGain, { f: 210 + r * 50, slide: 150, t, dur: 0.09, vol: 0.07 + k * 0.09, type: 'triangle' });
+        if (k > 0.35) ping(sfxGain, { f: 2400 + r * 500, t: t + 0.006, dur: 0.09, vol: 0.015 + k * 0.03 });
+        break;
+      case 'china': {       // 벚꽃 도자기: 맑은 자기 팅 — 높고 짧은 두 배음
+        if (t - (this.chT || 0) < 0.03) break;
+        this.chT = t;
+        const f = 3400 + r * 900;
+        ping(sfxGain, { f, t, dur: 0.16, vol: 0.035 + k * 0.06 });
+        ping(sfxGain, { f: f * 2.4, t, dur: 0.08, vol: 0.015 + k * 0.03 });
+        noise(sfxGain, { t, dur: 0.01, vol: 0.03 + k * 0.05, hp: 5000, lp: 13000 });
+        break;
+      }
+      case 'ice': {         // 얼음 결정: 얼음끼리 딸깍 · 차가운 고음 + 살짝 서걱
+        const f = 2900 + r * 1300;
+        noise(sfxGain, { t, dur: 0.02, vol: 0.05 + k * 0.08, hp: 3500, lp: 12000 });
+        ping(sfxGain, { f, t, dur: 0.12, vol: 0.03 + k * 0.05 });
+        ping(sfxGain, { f: f * 1.37, t: t + 0.008, dur: 0.07, vol: 0.015 + k * 0.03 });
+        if (k > 0.5) noise(sfxGain, { t: t + 0.03, dur: 0.06, vol: 0.015 + k * 0.02, hp: 6000, lp: 13000 });
+        break;
+      }
+      case 'rune':          // 룬석: 묵직한 돌 툭 + 룬이 울리는 낮은 맑은 소리
+        noise(sfxGain, { t, dur: 0.03 + k * 0.03, vol: 0.08 + k * 0.15, hp: 150, lp: 1800 });
+        ping(sfxGain, { f: 150 + r * 30, slide: 110, t, dur: 0.08, vol: 0.06 + k * 0.08, type: 'triangle' });
+        if (t - (this.ruT || 0) > 0.12) { this.ruT = t; ping(sfxGain, { f: 880 + r * 220, t: t + 0.01, dur: 0.35, vol: 0.012 + k * 0.025 }); ping(sfxGain, { f: (880 + r * 220) * 1.5, t: t + 0.01, dur: 0.25, vol: 0.006 + k * 0.012 }); }
+        break;
+      case 'brass': {       // 별자리 놋쇠: 작은 놋쇠 종 — 낮은 금속 울림이 길게
+        if (t - (this.brT || 0) < 0.04) break;
+        this.brT = t;
+        const f = 1250 + r * 350;
+        noise(sfxGain, { t, dur: 0.012, vol: 0.04 + k * 0.07, hp: 2000, lp: 9000 });
+        ping(sfxGain, { f, t, dur: 0.4, vol: 0.03 + k * 0.05 });
+        ping(sfxGain, { f: f * 1.008, t, dur: 0.4, vol: 0.015 + k * 0.025 });
+        ping(sfxGain, { f: f * 2.62, t, dur: 0.18, vol: 0.012 + k * 0.025 });
+        break;
+      }
+      case 'wisp':          // 유령 불꽃: 부드러운 바람 스침 + 으스스하게 휘어지는 낮은 음 (너무 자주 울리지 않게)
+        noise(sfxGain, { t, dur: 0.02, vol: 0.03 + k * 0.05, hp: 1200, lp: 6000 });
+        if (t - (this.wsT || 0) > 0.11) { this.wsT = t; noise(sfxGain, { t, dur: 0.18 + k * 0.2, vol: 0.012 + k * 0.025, hp: 700, lp: 3000 }); ping(sfxGain, { f: 520 + r * 160, slide: 380, t, dur: 0.3, vol: 0.012 + k * 0.022 }); }
+        break;
       case 'key':           // 키캡: 도각 — 스위치 클릭 + 낮은 바닥음
         noise(sfxGain, { t, dur: 0.018, vol: 0.12 + k * 0.2, hp: 2000, lp: 6000 });
         ping(sfxGain, { f: 170 + r * 40, slide: 120, t: t + 0.004, dur: 0.05, vol: 0.12 + k * 0.12, type: 'triangle' });
@@ -653,6 +806,14 @@ export const sfx = {
     }, { kick: [0, 3, 7], snare: [3, 6, 6.5], crash: 7 });
   },
   card() { seq(['G6', 'D7'], 0.04, { type: 'p12', vol: 0.1 }); },
+  // 심장 소리 (쿵-쿵): 마지막 주사위 슬로모션 동안 되풀이한다
+  heartbeat() {
+    if (!unlock()) return;
+    const t = ctx.currentTime;
+    voice(sfxGain, { type: 'tri', f: 70, slide: 42, t, dur: 0.12, vol: 0.5 });
+    voice(sfxGain, { type: 'tri', f: 62, slide: 38, t: t + 0.17, dur: 0.14, vol: 0.4 });
+    buzz(20);
+  },
   legend() { seq(['C6', 'E6', 'G6', 'B6', 'D7', 'G7'], 0.05, { type: 'p12', vol: 0.12 }); },
   round() { seq(['G4', null, 'G4', 'C5'], 0.09, { type: 'p50', vol: 0.14 }); },
   turn() { seq(['E5', 'A5'], 0.09, { type: 'p25', vol: 0.12 }); },

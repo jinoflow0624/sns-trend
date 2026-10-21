@@ -10,6 +10,7 @@ import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioS
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
+import { setAmbientSource, ambientSurge, setTrayAura } from './ambient.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
@@ -145,6 +146,7 @@ function showTitle() {
   Wal.loadWallet().then(syncOwned, () => {});
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
   preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
+  warmStage(1500);               // 메뉴에 있는 동안 트레이까지 만들어 둔다 (첫 판을 바로 시작하게)
   // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게, 테스트판만)
   if (!PROD) setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
   layer.innerHTML = '';
@@ -224,9 +226,10 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, tray: () => tray, stageReady, turnSkin, speak, toast, nopeDie, tipAttr, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
-      owns: id => !Wal.wallet() || Wal.owns('cls', id), name: () => myName, sealSigil: SEAL_SIGIL,
+      owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(), runPrice: id => Wal.priceOf('run', id),
+      name: () => myName, sealSigil: SEAL_SIGIL,
     });
     runMod = m;
     return m;
@@ -249,7 +252,7 @@ function healCode(err) {
   try { if (sessionStorage.getItem('dh.healed')) return false; sessionStorage.setItem('dh.healed', '1'); } catch { return false; }
   (async () => {
     const names = (await caches.keys()).filter(k => k.startsWith('dh-'));
-    const urls = new Set(['run/ui.js', 'run/rules.js', 'run/art.js', 'run/relic-art.js', 'run/hand.js', 'run/progress.js', 'run/run.css'].map(u => new URL(u, location.href).href));
+    const urls = new Set(['run/ui.js', 'run/rules.js', 'run/art.js', 'run/relic-art.js', 'run/hand.js', 'run/progress.js', 'run/tour.js', 'run/run.css'].map(u => new URL(u, location.href).href));
     for (const n of names) for (const r of await (await caches.open(n)).keys()) if (/\.(js|css|html)$/.test(new URL(r.url).pathname)) urls.add(r.url.split('?')[0]);
     await Promise.allSettled([...urls].map(async u => {
       // 주소 끝에 시간을 붙여 어느 캐시(기기 · 서버 앞단)도 건너뛰고 받는다
@@ -514,17 +517,19 @@ function clampDiff(o) {
   if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss);
 }
 
+// 마왕 · 마신: 해금하기 전에는 자리(잠금 칸)도 보이지 않는다 (스포일러 방지)
+const finalShown = b => !b.final || (demonOpen() && (!b.base || upgradeOpen(b.id)));
 function bossPicker(o) {
   clampDiff(o);
   return `
   <section class="frame mode-box">
     <div class="bosses">
-      ${E.BOSSES.map(b => b.final && !demonOpen()
-        ? `<button class="boss-pick sealed-boss final" style="--c:${b.color}" data-act="boss-locked">
-          ${portrait(b.id, 'bp')}<b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
+      ${E.BOSSES.filter(finalShown).map(b => b.final && !demonOpen()
+        ? `<button class="boss-pick sealed-boss final hidden-boss" data-act="boss-locked">
+          <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${ico('lock', 'xs')} 봉인됨</small></button>`
         : !upgradeOpen(b.id)
-        ? `<button class="boss-pick sealed-boss${b.final ? ' final' : ''}" style="--c:${b.color}" data-act="boss-locked" data-base="${b.base}">
-          ${portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
+        ? `<button class="boss-pick sealed-boss${b.final ? ' final hidden-boss' : ''}" ${b.final ? '' : `style="--c:${b.color}"`} data-act="boss-locked" data-base="${b.base}">
+          ${b.final ? `<span class="bp-seal">${ico('lock')}</span>` : portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${ico('lock', 'xs')} ${E.bossInfo(b.base).ko.split(' ')[0]} 어려움 토벌</small></button>`
         : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
@@ -571,6 +576,7 @@ function showSetup() {
   playBgm('title');
   pick.o ||= opts;
   preloadBgm(optsSong(pick.o));   // 고른 모드 · 보스의 곡을 미리 받아 둔다 (시작하자마자 음악이 나오게)
+  warmStage();
   const steps = pickSteps();
   if (!steps.includes(pick.step)) pick.step = steps[steps.length - 1];
   const n = steps.indexOf(pick.step);
@@ -626,13 +632,7 @@ function pickBack() {
 const classicPick = () => { const o = pick?.for === 'room' ? online?.room?.opts || pick.o : pick?.o || opts; return o?.mode === 'versus' && o?.rule === 'classic'; };
 // 직업 다이얼: 가운데가 지금 직업, 양옆으로 돌린다 (◀ ▶ · 옆 그림 누르기 · 밀기). 잠긴 직업은 옆에 보석 값이 보이고, 그쪽으로 돌리면 사기 창
 let dialSpin = null;
-// 다이얼을 돌려 가운데 온 캐릭터가 한마디 (다시 그린 뒤)
-function speakDial(i, ms, want) {
-  setTimeout(() => {
-    const el = document.querySelector(`.cls-dial[data-i="${i}"] .dial-hero.d0`);
-    if (el && (!want || el.dataset.cls === want)) speak(el, classLine(el.dataset.cls), true);
-  }, ms);
-}      // 방금 돌린 다이얼 (그 다이얼만 도는 연출)
+// (dialSpin: 방금 돌린 다이얼 — 그 다이얼만 도는 연출)
 const dialDirOf = t => (t.closest('.cls-dial') ? Math.sign([...t.closest('.cls-dial').querySelectorAll('[data-cls]')].indexOf(t) - 3) : 0);
 function clsDial(pl, i) {
   const ids = E.CLASSES.map(k => k.id), k = Math.max(0, ids.indexOf(pl.cls));
@@ -692,8 +692,8 @@ function onSetupAct(act, t) {
   if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; store.set(KEYS.setup, setup); showSetup(); });
   if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
   if (act === 'bot') { setup[i].bot = true; if (setup[i].name === '나') setup[i].name = BOT_NAMES[i % 4]; }
-  if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
-  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; speakDial(i, 280); }
+  if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
+  if (act === 'cls') { setup[i].cls = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
   if (act === 'remove') setup.splice(i, 1);
   if (act === 'add' && setup.length < 4) {
     const used = new Set(setup.map(p => p.cls));
@@ -758,7 +758,7 @@ async function createRoom() {
   const room = {
     v: 1, host: token, started: false,
     opts: { ...opts },
-    seats: [{ token, name: myName, cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false, skin: mySkin() }],
+    seats: [{ token, name: netName(), cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false, skin: mySkin() }],
     game: null, fxLog: [], fxId: 0,
     seen: { [token]: Date.now() },
   };
@@ -795,7 +795,7 @@ async function joinRoom(code) {
     if (room.started) return fail('이미 시작한 방입니다.');
     if (room.seats.length >= 4) return fail('방이 가득 찼습니다 (최대 4명).');
     const used = new Set(room.seats.map(s => s.cls));
-    room.seats.push({ token, name: myName, cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false, skin: mySkin() });
+    room.seats.push({ token, name: netName(), cls: E.CLASSES.find(c => !used.has(c.id) && Wal.owns('cls', c.id))?.id || firstOwnedClass(), bot: false, skin: mySkin() });
     return room;
   });
   if (!res.ok) return showOnlineMenu(res.failure);
@@ -848,13 +848,16 @@ function leaveRoom(goHome = true) {
     const { backend, code, token, room } = online;
     // 진행 중인 게임에서 나가면 1분 안에 돌아올 수 있게 방 코드를 기억한다
     if (room?.started && room.game && !room.game.ended) store.set(KEYS.lastRoom, { code, t: Date.now() });
-    // 시작 전이면 자리에서 빠진다
+    // 시작 전이면 자리에서 빠진다. 사람이 아무도 안 남으면 방을 없앤다
+    // (예전엔 방장 자리만 지운 빈 방이 남아서, 나중에 들어온 사람이 방장 없는 방에서 하염없이 기다렸다)
     if (room && !room.started) {
+      let empty = false;
       backend.txn(code, r => {
         r.seats = r.seats.filter(s => s.token !== token);
+        empty = !r.seats.some(s => !s.bot);
         if (r.host === token) r.host = r.seats.find(s => !s.bot)?.token || r.host;
         return r;
-      });
+      }).then(() => { if (empty) backend.remove?.(code).catch(() => {}); });
     }
   }
   online = null;
@@ -866,8 +869,33 @@ function leaveRoom(goHome = true) {
 }
 
 const isHost = () => online && online.room?.host === online.token;
+// 방에 쓰는 내 이름: 혼자 하기 기본 이름 '나' 는 친구 화면에서 친구 자신처럼 보여 '안 들어왔다'고 헷갈렸다 → 모험가
+const netName = () => (myName && myName !== '나' ? myName : '모험가');
 // 나는 늘 접속 중 (내 접속 신호는 내 화면으로 되돌아오지 않을 수 있다)
 const alive = token => token === online?.token || (!!online?.room?.seen?.[token] && Date.now() - online.room.seen[token] < Net.ABSENT_MS);
+
+// 방장이 1분 넘게 소식이 없다 (초대 링크를 보내러 잠깐 다른 앱에 가 있는 정도로는 넘기지 않는다)
+const hostGone = token => token !== online?.token && Date.now() - (online?.room?.seen?.[token] || 0) > Net.DROP_MS;
+// 대기실 방장 넘기기: 방장이 자리에 없거나(나갔다) 연결이 끊겼으면, 접속 중인 첫 사람이 방장이 된다.
+// 그 사람 기기만 바꾼다 (여럿이 동시에 바꾸려다 엇갈리지 않게)
+function fixHost(room) {
+  if (!online || room.started) return;
+  const humans = room.seats.filter(s => !s.bot);
+  const host = humans.find(s => s.token === room.host);
+  if (host && !hostGone(host.token)) return;
+  const next = humans.find(s => alive(s.token));
+  if (next?.token !== online.token) return;
+  online.backend.txn(online.code, r => {
+    if (r.started || r.host === online.token) return;
+    const h = r.seats.find(s => s.token === r.host && !s.bot);
+    if (h && !hostGone(h.token)) return;
+    const me = r.seats.find(s => s.token === online.token);
+    if (!me) return;
+    r.host = me.token;
+    me.ready = false;
+    return r;
+  }).then(res => { if (res.ok && isHost()) toast(ico('crown'), '방장이 되었어요', '이제 게임을 시작할 수 있어요', 1800); });
+}
 
 // 준비(레디): 방장을 뺀 사람 참가자가 모두 준비해야 시작할 수 있다
 const needReady = room => room.seats.filter(s => !s.bot && s.token !== room.host);
@@ -882,6 +910,9 @@ function showLobby() {
   const humans = room.seats.filter(s => !s.bot).length;
   const need = needReady(room), readyN = need.filter(s => s.ready).length;
   const allReady = readyN === need.length;
+  // 화면에 보이는 준비 숫자: 방에 들어온 사람 전체(방장 포함) 중 준비된 사람. 방장은 늘 준비된 것으로 센다
+  const people = room.seats.filter(s => !s.bot), isOn = s => s.token === room.host || s.ready;
+  const shownN = people.filter(isOn).length;
   const mine = room.seats.find(s => s.token === online.token);
   const tooFew = room.seats.length < 2 && humans < 2 && room.opts.mode === 'versus';
   app.innerHTML = `
@@ -899,7 +930,7 @@ function showLobby() {
         <button class="pbtn gold" data-act="copy-link">초대 링크 복사</button>
       </section>
       ${optsSummary(room.opts, host ? 'lobby-opts' : '')}
-      ${need.length ? `<div class="ready-bar"><b>준비 ${readyN} / ${need.length}</b>${need.map(s => `<span class="rb${s.ready ? ' on' : ''}">${s.ready ? '✔' : '…'} ${esc(s.name)}</span>`).join('')}</div>` : ''}
+      <div class="ready-bar"><b>준비 ${shownN} / ${people.length}</b>${people.map(s => `<span class="rb${isOn(s) ? ' on' : ''}">${s.token === room.host ? ico('crown', 'xs') : isOn(s) ? '✔' : '…'} ${esc(s.name)}${s.token === online.token ? ' (나)' : ''}</span>`).join('')}</div>
       ${room.seats.map((s, i) => {
         const me = s.token === online.token;
         const who = s.token === room.host ? `${ico('crown', 'xs')} 방장` : s.bot ? '봇' : s.ready ? '<span class="rdy on">준비 완료</span>' : '<span class="rdy">준비 중</span>';
@@ -908,7 +939,7 @@ function showLobby() {
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>＋ 봇 추가</button>` : ''}
       ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>게임 시작</button>
-                ${!allReady ? `<p class="waiting">준비 ${readyN} / ${need.length}</p>` : ''}`
+                ${!allReady ? `<p class="waiting">준비 ${shownN} / ${people.length}</p>` : ''}`
              : `<button class="pbtn big ${mine?.ready ? '' : 'gold'}" data-act="lobby-ready">${mine?.ready ? '준비 취소' : '준비 완료!'}</button>
                 <p class="waiting">${mine?.ready ? (allReady ? '방장이 시작하기를 기다리는 중…' : '다른 사람이 준비하기를 기다리는 중…') : '캐릭터를 고르고 준비 버튼을 눌러 주세요'}</p>`}
     </div>
@@ -928,7 +959,7 @@ function onLobbyAct(act, t) {
     me?.ready ? sfx.back() : sfx.start();
     return lobbyTxn(r => { const s = r.seats.find(x => x.token === online.token); if (s) s.ready = !s.ready; });
   }
-  if (act === 'cls-talk') return speak(t, classLine(t.dataset.cls));
+  if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
   if (act === 'cls-buy') {
     const i = Number(t.dataset.i);
     return classBuyDialog(t.dataset.cls, id => lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = id; }));
@@ -937,7 +968,6 @@ function onLobbyAct(act, t) {
     sfx.select();
     const i = Number(t.dataset.i);
     dialSpin = { i, d: dialDirOf(t), t: Date.now() };
-    speakDial(i, 650, t.dataset.cls);       // 방 상태가 돌아와 다시 그린 뒤
     return lobbyTxn(r => { if (r.seats[i]?.token === online.token && !r.seats[i].ready) r.seats[i].cls = t.dataset.cls; });
   }
   if (act === 'lobby-bot' && isHost()) {
@@ -984,7 +1014,7 @@ function onNameInput(i, value) {
     onNameInput.t = setTimeout(() => {
       myName = value.trim().slice(0, 10) || myName;
       store.set(KEYS.name, myName);
-      lobbyTxn(r => { const s = r.seats[i]; if (s?.token === online.token) s.name = myName; });
+      lobbyTxn(r => { const s = r.seats[i]; if (s?.token === online.token) s.name = netName(); });
     }, 500);
     return;
   }
@@ -1008,6 +1038,7 @@ async function onRoom(room) {
       toast(ico('door'), '방에서 나왔습니다', '');
       leaveRoom(); return showTitle();
     }
+    fixHost(room);
     if (screen === 'setup' && pick.for === 'room') return;          // 방장이 모드·보스를 바꾸는 중
     if (screen !== 'lobby' || !document.activeElement?.matches?.('input')) showLobby();
     return;
@@ -1249,6 +1280,8 @@ async function makeTray() {
   try {
     const { DiceTray } = await Promise.race([preload3d(), timeout(tray3dWait(), '3D 불러오기 시간 초과')]);
     tray = new DiceTray(trayHost(), trayOpts());
+    tray.onTrail = (i, p, sp) => diceTrail(tray, p, sp);
+    tray.onSlow = (i, on) => slowFx(on);
     gfxNote = '3D';
     return tray;
   } catch (err) {
@@ -1305,8 +1338,9 @@ function render() {
   const absent = online && !cur.bot && !mine && !alive(cur.token);
   const last = S.log[S.log.length - 1];
 
+  // --ph: 계속 도는 움직임(보스 둥실 · 분노 · 내 차례 빛 등)을 시계 기준으로 이어 간다 — 주사위를 누를 때마다 화면을 새로 그려도 처음부터 다시 시작하지 않게
   app.innerHTML = `
-  <div class="screen game${mine ? ' my-turn' : ' other-turn'}${ui.sheet ? ' sheet-open' : ''}">
+  <div class="screen game${mine ? ' my-turn' : ' other-turn'}${ui.sheet ? ' sheet-open' : ''}" style="--ph:-${(performance.now() / 1000).toFixed(3)}s">
     <header class="hud">
       <button class="icon-btn" data-act="pause" aria-label="메뉴">☰</button>
       <div class="round-chip"><small>ROUND</small><b>${shownRound}<i>/${E.ROUNDS}</i></b></div>
@@ -1555,22 +1589,39 @@ function bossPanel() {
   // 분노는 살아 있을 때만 (체력 0에서 분노 흔들림이 계속돼 발작처럼 보였다)
   const rage = b.diff === 2 && shown * 2 < b.maxHp && shown > 0 && ui.rageSeed === S.seed;
   // 보스 예고: 이번 라운드에 쓰는 스킬(now)과 다음 라운드에 쓸 스킬(next, 깜박이며 '다음')
-  const planNow = new Set(E.bossPlan(S, ui.roundShow ?? S.round).map(k => k.id));
-  const planNext = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, (ui.roundShow ?? S.round) + 1).map(k => k.id) : []);
+  // 보스 스킬: 이번 라운드에 쓰는 것만 칩에 수치와 함께 띄운다 (다음 라운드 예고는 하지 않는다)
+  const shownR = ui.roundShow ?? S.round;
+  const planNow = new Set(b.hp > 0 && !S.ended ? E.bossPlan(S, shownR).map(k => k.id) : []);
+  const nowKey = `${S.seed}|${shownR}|${[...planNow].join()}`;
+  const chipPop = nowKey !== ui.skillNowKey;
+  ui.skillNowKey = nowKey;
+  // 보호막 배지는 수치가 바뀔 때만 튀어나온다 (다시 그릴 때마다 튀면 새로 생긴 것처럼 보였다)
+  const shieldPop = b.shield !== ui.shieldShown;
+  ui.shieldShown = b.shield;
   return `
   <section class="boss-panel${['demon', 'archdemon'].includes(b.id) ? ' big-boss' : ''}${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
     <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
       <div class="hp-row"><div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
-        <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
+        <em>HP ${hp} / ${b.maxHp}</em></div>${b.shield ? `<span class="shield-badge${shieldPop ? ' pop' : ''}" title="보호막">${ico('shield', 'xs')}<b>${b.shield}</b></span>` : ''}</div>
       ${bossStatus(b)}
       <div class="boss-skills">
-        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => `<button class="skill-chip${k.id !== 'heads' && planNow.has(k.id) ? ' now' : ''}${k.id !== 'heads' && planNext.has(k.id) ? ' next' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${k.id !== 'heads' && planNext.has(k.id) ? '<i class="nx">다음</i>' : ''}</button>`).join('')}
+        ${info.skills.filter(k => k.id !== 'rage' || b.diff === 2).map(k => { const on = planNow.has(k.id), tag = on ? skillTag(k.id, shownR) : ''; return `<button class="skill-chip${on ? ' now' : ''}${on && chipPop ? ' pop' : ''}" data-act="info-skill" data-id="${k.id}">${skillIco(k.id, 'xs')}${k.ko}${tag ? `<em class="sk-tag">${tag}</em>` : ''}</button>`; }).join('')}
         ${rage ? '<span class="rage-tag">분노!</span>' : ''}
       </div>
     </div>
   </section>`;
+}
+
+// 이번 라운드 보스 스킬의 수치 (칩 옆 작은 표시)
+function skillTag(id, round) {
+  const rage = E.enraged?.(S) ?? bossRaging();
+  if (id === 'heads') return { fire: '1개→1', ice: '2개 얼음', poison: '15점↓ 피해½' }[E.HEADS[(round - 1) % 3]] || '';
+  return {
+    breath: '1개→1', drums: '굴림 −1', twist: `${rage ? 2 : 1}개 뒤집힘`, rock: '빈칸 1 막힘', reverse: '최다 눈 뒤집힘',
+    seal: `${rage ? 2 : 1}개 봉인`, haki: '도구 금지', eternal: '1개 봉인', midnight: '도구 금지',
+  }[id] || '';
 }
 
 // 강화 보스 상태 한 줄: 세머리 용 머리 · 키클롭스 응시 칸 · 오버로드 해골병
@@ -1761,9 +1812,8 @@ async function toast(icon, title, text, ms = 1900, img = '') {
 let skipBanner = () => {};
 async function banner(round, evId) {
   const ev = E.eventInfo(evId);
-  // 보스 예고: 다음 라운드에 보스가 때가 되어 쓰는 공격이 있으면 이번 라운드 배너에서 미리 경고한다
-  const next = S?.boss ? E.bossPlan(S, round + 1) : [];
-  const warn = next.length ? `<div class="warn-next">${ico('warn', 'xs')}<b>다음 라운드</b>${next.map(k => `<span>${skillIco(k.id, 'xs')}${k.ko}</span>`).join('')}<small>${next.map(k => k.what).join(' · ')}</small></div>` : '';
+  // 보스 스킬은 다음 라운드를 미리 알리지 않는다 — 라운드가 시작되면 보스 칸의 스킬 칩에 수치와 함께 뜬다
+  const warn = '';
   // 마왕의 패기 라운드: 라운드 표시만 하고, 패기는 그다음 따로 발동한다 (hakiFx)
   layer.innerHTML = evId === 'haki' || evId === 'midnight' || S?.classic
     ? `<div class="overlay" data-act="skip-banner"><div class="banner"><div class="rn">ROUND ${round}</div>${warn}</div></div>`
@@ -1897,8 +1947,7 @@ async function rageScene() {
     <div class="rs-text"><b>분노!</b><small>${esc(b.ko)} — ${esc(rageSkill?.desc(2) || '')}</small></div>`;
   layer.appendChild(el);
   const fx = FX(), C = { x: innerWidth / 2, y: innerHeight * 0.42 };
-  const keepSong = S.boss.id === 'archdemon';   // 마신: 각성 장면에서도 곡을 끊지 않는다
-  if (!keepSong) stopBgm?.();
+  // 분노 장면에서도 배경음악은 끊지 않고 이어서 흐른다 (예전엔 멈췄다가 처음부터 다시 나왔다)
   sfx.boom(3); buzz(200);
   fx.flash('#000000', 400, 0.5);
   const flames = setInterval(() => fx.burst(C.x + (Math.random() - 0.5) * 220, C.y + 110, { n: 10, pal, speed: [60, 220], dir: -Math.PI / 2, spread: 0.9, grav: -60, life: [0.5, 1], size: [3, 7] }), 70);
@@ -1918,7 +1967,7 @@ async function rageScene() {
   el.classList.add('out');
   await wait(300);
   el.remove();
-  if (!keepSong) playBgm(bossSong(S.boss.id));
+  playBgm(bossSong(S.boss.id));            // 같은 곡이 흐르는 중이면 아무것도 하지 않는다 (혹시 멈춰 있었을 때만 다시 튼다)
   render();
 }
 
@@ -2137,7 +2186,7 @@ async function attackFx(f) {
     const r = el?.getBoundingClientRect();
     return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 80 };
   };
-  const onImpact = () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); };
+  const onImpact = () => { sfx.boom(style.power); shake(app.querySelector('.game'), style.power); if (style.power >= 2.4) bigHit(style.power); if (!S.boss) bumpPts(f.player, scoreGain(f)); };
   const cls = S.players[f.player]?.cls;
   if (S.boss && cls && bigActor()) {
     // 1) 영웅 등장 + 주사위가 기운으로 뭉친다 → 2) 기운이 영웅에게 스며든다(기운 받기) → 3) 직업 기술로 보스를 친다(공격)
@@ -2240,7 +2289,7 @@ function showBetPicker() {
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame bet-pick" data-act="noop">
     <h2>${ico('coins')} 배팅</h2>
     <p class="hint">${ico('coins', 'xs')} 맞히면 <b>×${E.CLASS_TUNE.betMul}</b> · 빗나가면 <b>0</b></p>
-    <div class="bet-grid">${open.map(c => `<button class="pbtn bet-cat" data-act="bet" data-cat="${c.id}"><b>${c.ko}</b><small>${CAT_HELP[c.id].rule}</small></button>`).join('')}</div>
+    <div class="bet-grid">${open.map((c, k) => { const [su, tone] = [['♠', 'blk'], ['♥', 'red'], ['♦', 'red'], ['♣', 'blk']][k % 4]; return `<button class="bet-cat ${tone}" data-act="bet" data-cat="${c.id}" style="--i:${k}"><i class="bc-pip tl">${su}</i><b>${c.ko}</b><small>${CAT_HELP[c.id].rule}</small><i class="bc-pip br">${su}</i></button>`; }).join('')}</div>
     <button class="pbtn small" data-act="close">닫기</button>
   </div></div>`;
 }
@@ -2267,6 +2316,7 @@ async function duelFx(f) {
     tray.restore();
     await fx.flyOrb(o, towerTop(me), { pal: style.pal, power: style.power, ms: 280, shrink: 0.5 });
     bumpPts(me, scoreGain(f));              // 에너지가 내 탑에 닿는 순간 블록이 쿵 얹히고 점수가 오른다
+    if (style.power >= 2.4) bigHit(style.power);
     await powerFx(me, style.pal, style.power);
     if (f.cat === 'yacht') { fx.flash('#FFFFFF', 320, 0.5); shake(app.querySelector('.party'), 1.5); }
   }
@@ -2404,6 +2454,7 @@ function castBanner(f) {
 
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 async function skillFx(f) {
+  ambientSurge(1);                          // 보스가 스킬을 쓰면 배경 불씨가 확 밝아진다
   const fx = FX();
   fx.speed = (ui.fast ? 1.8 : 1) * FX_SLOW * (rushing() ? 3 : 1) * fxRate();
   const t = await trayReady();
@@ -3037,7 +3088,7 @@ function showDashboard() {
         <h3 class="dash-h">보스 토벌 <small>최고 등급</small></h3>
         <div class="dash-boss">
           <span></span>${E.DIFFS.map(d => `<small style="color:${d.color}">${d.ko}</small>`).join('')}
-          ${E.BOSSES.map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
+          ${E.BOSSES.filter(finalShown).map(b => `${portrait(b.id, 'mini')}${E.DIFFS.map(d => {
             if (!E.bossDiffs(b.id).includes(d.id)) return '<span class="db-none"></span>';   // 강화 보스 · 마신은 쉬움이 없다
             const r = prof.bosses[`${b.id}:${d.id}`];
             return `<span class="db-cell${r?.grade ? ` g${r.grade}` : ''}">${r ? `<b>${r.grade}</b><small>${r.wins}/${r.tries}</small>` : '-'}</span>`;
@@ -3076,6 +3127,16 @@ function stageReady(skins = [mySkin()]) {
   const imgs = skins.flatMap(sk => [preloadDice(diceSkin(sk.dice).id), preloadTray(traySkin(sk.tray).id)]);
   return Promise.race([Promise.all([ensureTray(), ...imgs].map(p => p.catch(() => {}))), sleep(8000)]);
 }
+// 다음 화면 미리 준비: 메뉴 · 고르기 화면에 머무는 동안 3D 트레이를 만들어 두고 내 주사위 · 트레이 그림을 받아 둔다
+// → 「시작」을 누르면 stageReady 가 바로 끝나 기다림 없이 싸움 화면이 열린다. 화면이 한가할 때(idle) 한 번만
+var warming = null;   // var: 모듈이 다 읽히기 전에 불려도 되게
+function warmStage(delay = 0) {
+  if (tray || warming || !unlocked) return;
+  warming = setTimeout(() => {
+    const go = () => stageReady().finally(() => { warming = null; });
+    if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 1500 }); else go();
+  }, delay);
+}
 // 지금 차례인 사람의 스킨으로 트레이를 바꾼다 (친구 차례엔 친구 것, 내 차례·봇·한 기기에선 내 것)
 function turnSkin(t) {
   const cur = S && online ? E.current(S) : null;
@@ -3092,24 +3153,149 @@ function turnSkin(t) {
 
 // 주사위가 부딪힐 때: 스킨마다 다른 소리, 하트 주사위는 하트가 뿅뿅 튄다
 let heartT = 0;
+// 굴러가는 주사위 궤적: 특별한 주사위만 (기본 · 미니멀 · 블랙 · 키캡은 없음). 입자 + 가끔 십자 반짝
+//   grav: 아래로 떨어지면 +, 떠오르면 −  ·  hearts: 하트도 가끔 톡
+const TRAIL = {
+  openheart: { pal: ['#FFE2B0', '#FFC56A', '#E8913A', '#B8641E'], grav: 110, glint: '#FFE2B0', glintP: 0.2, few: 0.6, ring: '#E8B070' },   // 구리 불똥 조금 + 톱니가 도는 듯한 잔잔한 원형 파동
+  gold:      { pal: ['#FFFFFF', '#FFF6C8', '#FFF0A8', '#FFD24A', '#FF9A1F'], grav: 50, glint: '#FFF6C8' },       // 금가루 + 반짝
+  cosmic:    { pal: ['#FFFFFF', '#C8B8FF', '#7A6BFF', '#4FB3FF', '#FF9AE0'], grav: -8, glint: '#FFFFFF' },       // 별가루 + 별빛
+  clear:     { pal: ['#FFFFFF', '#FF9AB8', '#7CE0FF', '#FFE27A', '#B98CFF', '#3EE6B4'], grav: -24, glint: '#FFFFFF' },  // 무지개 조각
+  heart:     { pal: ['#FFFFFF', '#FFE0EE', '#FF9AC8', '#FF7AB0', '#FF4A8A'], grav: -36, glint: '#FFD0E4', hearts: true },
+  dragon:    { pal: ['#FFF2A8', '#FFC83D', '#FF9A1F', '#E8435A'], grav: -30, glint: '#FFE2B0', glintP: 0, noGlint: true, few: 0.4, scales: true },   // 화염 비늘이 나풀나풀 흩날린다
+  lava:      { pal: ['#FFF2A8', '#FFC83D', '#FF8A1A', '#FF4A1A'], grav: -60, glint: '#FFD24A', glintP: 0, noGlint: true, few: 0.25, flames: true },    // 궤적을 따라 부드러운 불꽃
+  // v0.39.10 새 주사위 10종 — scales/flames 에 객체를 주면 그 색 · 움직임으로 (꽃잎 · 도깨비불 · 젤리 방울)
+  pixel:     { pal: ['#FFFFFF', '#FFE27A', '#E8435A'], grav: 0, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0, pix: true },          // 8비트: 또렷한 도트 별 · 하트 · 동전이 칸 단위로 떠오르고 깜빡이며 사라진다
+  // 뼈 주사위: 굴림 효과 없음 (소리만)
+  slime:     { pal: ['#E8FFB0', '#B8F04A', '#7AC81E'], grav: 0, glint: '#E8FFB0', noGlint: true, glintP: 0, few: 0.2,
+               flames: { pal: ['rgba(184,240,74,A)', 'rgba(122,200,30,A)', 'rgba(210,255,120,A)'], core: 'rgba(240,255,200,A)', grav: 260, size: [5, 9] } },   // 젤리 방울이 똑똑
+  chip:      { pal: ['#FFFFFF', '#FFE27A'], grav: 150, glint: '#FFE27A', noGlint: true, glintP: 0, few: 0, suits: true },               // 트럼프 문양 ♠ ♣ ♥ ♦ 이 톡톡 튄다
+  chest:     { pal: ['#FFF6C8', '#FFE27A', '#FFC83D'], grav: 120, glint: '#FFF0A8', glintP: 0.25, few: 0.15, coins: true },                // 금화가 짤랑짤랑 떨어진다
+  porcelain: { pal: ['#FFFFFF', '#E0F2E8'], grav: 20, glint: '#FFFFFF', noGlint: true, glintP: 0, few: 0.2,
+               scales: { pal: ['#A8D8C4', '#84C0A8', '#C8E8DA'], tip: '#F2FBF6', edge: '#3E8A74', grav: 22 } },                   // 청자: 비취빛 꽃잎이 나풀나풀
+  // 얼음 결정: 차가운 냉기 — 옅은 하얀 김이 주사위에서 피어나 아래로 가라앉으며 흩어진다 (찬 공기는 가라앉는다) + 아주 작은 서리 가루
+  frost:     { pal: ['#FFFFFF', '#E0F8FF', '#BFEFFF'], grav: 30, glint: '#E0F8FF', noGlint: true, glintP: 0, few: 0.25,
+               flames: { pal: ['rgba(200,236,255,A)', 'rgba(170,220,250,A)', 'rgba(230,248,255,A)'], core: 'rgba(225,244,255,A)', grav: 26, size: [10, 16], life: [0.7, 1.1], alpha: 0.28, vx: 30, vy: [-6, 6] } },
+  // 룬석: 굴러가는 자리에 육망성 마법진이 연하게 떠올랐다 사라진다 + 푸른 룬빛 조금
+  rune:      { pal: ['#E0FAFF', '#9FE8FF', '#3EC8FF'], grav: -24, glint: '#9FE8FF', noGlint: true, glintP: 0, few: 0.2, hexa: true,
+               flames: { pal: ['rgba(62,200,255,A)', 'rgba(90,170,255,A)', 'rgba(140,230,255,A)'], core: 'rgba(224,250,255,A)', grav: -50, size: [4, 7], alpha: 0.6 } },  // 푸른 룬빛
+  brass:     { pal: ['#FFFFFF', '#FFF2C8', '#FFD27A'], grav: 20, glint: '#FFF6C8', noGlint: true, glintP: 0, few: 0.15, constel: true },   // 별자리 놋쇠: 굴러간 자리에 금빛 별자리가 그려졌다 사라진다
+  wisp:      { pal: ['#E0FFF8', '#5AF0E0', '#B98CFF'], grav: -30, glint: '#5AF0E0', noGlint: true, glintP: 0, few: 0.2,
+               flames: { pal: ['rgba(90,240,224,A)', 'rgba(185,140,255,A)', 'rgba(62,200,200,A)'], core: 'rgba(230,255,250,A)', grav: -60, size: [7, 12] } },  // 도깨비불
+};
+let heartTrailT = 0;
+// 룬석 마법진 · 별자리 놋쇠 별자리는 화면 전체에서 0.35초에 하나까지 (한꺼번에 여러 개가 겹쳐 뜨면 주사위보다 눈에 띈다)
+let hexaT = 0;
+const hexaOK = () => { const n = performance.now(); if (n - hexaT < 350) return false; hexaT = n; return true; };
+// 주사위 이펙트 세기 (궤적 · 부딪힘 불꽃 · 하트). 1 이면 예전 그대로 — 과하다는 의견에 70% 로
+const DICE_FX = 0.7;
+const fxN = n => { const x = n * DICE_FX; return Math.floor(x) + (Math.random() < x % 1 ? 1 : 0); };   // 개수 (소수점은 확률로)
+const fxS = v => v * (0.5 + DICE_FX * 0.5);   // 크기 · 빠르기 (70% 면 85%)
+function diceTrail(t, p, sp) {
+  if (prefs.fx === 'min' || document.hidden) return;
+  const id = t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin;
+  const tr0 = TRAIL[diceSkin(id).id];
+  if (!tr0) return;                       // 기본 · 미니멀 · 블랙 · 키캡: 효과 없음
+  const tr = { ...tr0, ...tintOf(t, tr0) };
+  const fx = FX(), fast = sp > 0.5;
+  fx.c.classList.toggle('over', t === skinPreview);   // 꾸미기 미리 굴리기: 창 위에 그린다 (효과 캔버스는 원래 창 뒤에 있다)
+  if (tr.ring && Math.random() < (fast ? 0.22 : 0.14)) fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(24 + Math.random() * 10), dur: 560, width: 2 });
+  fx.burst(p.x, p.y, { n: fxN((fast ? 6 : 4) * (tr.few ?? 1)), pal: tr.pal, speed: [14, fxS(80)], size: [fxS(2.5), fxS(6)], life: [0.4, 0.8], grav: tr.grav, drag: 2.6 });
+  const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
+  if (tr.pix) fx.pix(p.x, p.y, { n: fxN(fast ? 0.8 : 0.4) });
+  if (tr.suits) fx.suits(p.x, p.y, { n: fxN(fast ? 0.4 : 0.2), size: [fxS(4), fxS(6)] });
+  if (tr.coins) fx.coinRain(p.x, p.y, { n: fxN(fast ? 1.1 : 0.6), size: [fxS(4), fxS(6)] });
+  if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(fast ? 1.6 : 1), size: [fxS(4), fxS(7)] });
+  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN((fast ? 2.6 : 1.8) * (tr.hexa ? 0.4 : 1)), size: (fo.size || [7, 12]).map(fxS) });
+  if (tr.constel && Math.random() < (fast ? 0.05 : 0.025) && hexaOK()) fx.constel(p.x, p.y, { size: fxS(20 + Math.random() * 6) });
+  if (tr.hexa && Math.random() < (fast ? 0.04 : 0.02) && hexaOK()) fx.hexa(p.x, p.y, { r0: fxS(6), r1: fxS(20 + Math.random() * 6), alpha: 0.32 });
+  if (Math.random() < (fast ? 0.5 : 0.3) * DICE_FX * (tr.glintP ?? 1)) fx.glint(p.x + (Math.random() - 0.5) * 24, p.y + (Math.random() - 0.5) * 24, { color: tr.glint, size: fxS(9 + Math.random() * 8) });
+  const now = performance.now();
+  if (tr.hearts && now - heartTrailT > 140 && Math.random() < 0.5 * DICE_FX) {
+    heartTrailT = now;
+    const h = document.createElement('span');
+    h.className = 'heart-pop';
+    h.textContent = '♥';
+    h.style.left = `${p.x + (Math.random() - 0.5) * 20}px`;
+    h.style.top = `${p.y - 6}px`;
+    h.style.setProperty('--dx', `${(Math.random() - 0.5) * 50}px`);
+    h.style.fontSize = `${fxS(10 + Math.random() * 8)}px`;
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 900);
+  }
+}
+// 특별한 주사위가 세게 부딪힐 때: 그 주사위 빛깔 불꽃이 반짝 터진다 (주사위마다 0.12초에 한 번까지)
+const sparkT = [];
+function hitSpark(id, v, i, t) {
+  const tr0 = TRAIL[id];
+  const tr = tr0 && { ...tr0, ...tintOf(t, tr0) };
+  if (!tr || v < 4 || !t || i == null || prefs.fx === 'min' || document.hidden) return;
+  const now = performance.now();
+  if (now - (sparkT[i] || 0) < 120) return;
+  sparkT[i] = now;
+  const p = t.screenPos(i), fx = FX(), k = Math.min(1, (v - 4) / 6);
+  fx.c.classList.toggle('over', t === skinPreview);
+  if (tr.pix) return fx.pixBurst(p.x, p.y, { power: k });      // 8비트: 작은 도트가 4방향으로 톡
+  if (tr.suits) return fx.suits(p.x, p.y, { n: fxN(1 + k * 1.5), speed: [50, fxS(100 + k * 40)], size: [fxS(4.5), fxS(6.5)] });   // 칩: 문양 1~2개가 톡
+  if (tr.coins) return fx.coinRain(p.x, p.y, { n: fxN(2 + k * 3), size: [fxS(4.5), fxS(6.5)], up: 110 + k * 60 });               // 보물 상자: 금화가 튀어 올랐다 떨어진다
+  fx.burst(p.x, p.y, { n: fxN(8 + Math.round(k * 8)), pal: tr.pal, speed: [40, fxS(130 + k * 60)], size: [fxS(2), fxS(5)], life: [0.25, 0.55], grav: tr.grav, drag: 3.2 });
+  const so = typeof tr.scales === 'object' ? tr.scales : {}, fo = typeof tr.flames === 'object' ? tr.flames : {};
+  if (tr.scales) fx.scales(p.x, p.y, { ...so, n: fxN(2 + k * 2), speed: [50, fxS(120 + k * 50)], size: [fxS(4), fxS(8)] });
+  if (tr.flames) fx.flames(p.x, p.y, { ...fo, n: fxN((3 + k * 3) * (tr.hexa ? 0.4 : 1)), size: (fo.size || [9, 16]).map(v => fxS(v * 1.3)) });
+  if (tr.constel && k > 0.25 && hexaOK()) fx.constel(p.x, p.y, { size: fxS(24 + k * 8), life: 1.4 });
+  if (tr.hexa && k > 0.25 && hexaOK()) fx.hexa(p.x, p.y, { r0: fxS(8), r1: fxS(30 + k * 14), life: 1.1, alpha: 0.32 + k * 0.08 });   // 룬석: 부딪힌 자리에 마법진
+  if (tr.ring) { fx.ring(p.x, p.y, { color: tr.ring, r0: 8, r1: fxS(40 + k * 24), dur: 700, width: 2 }); fx.ring(p.x, p.y, { color: tr.ring, r0: 4, r1: fxS(26 + k * 14), dur: 520, width: 1 }); }
+  else if (!tr.noGlint) fx.glint(p.x, p.y, { color: tr.glint, size: fxS(12 + k * 8), dur: 320 });   // 드래곤 · 용암: 십자 반짝 없이
+}
+// 트레이 색: 특별한 주사위의 궤적 · 부딪힘 불꽃에 그 트레이 테마 색을 섞는다 (트레이만의 착지 효과는 따로 없다 — 트레이는 ambient.js 의 은은한 입자)
+const TRAY_TINT = {
+  marble: ['#FFF6C8', '#F4ECD8', '#FFE27A'], royal: ['#FFD24A', '#FF9A1F', '#E8435A'], deepsea: ['#C8F4FF', '#7CE0FF', '#3AA8FF'],
+  demon: ['#B98CFF', '#7A4BFF', '#C21E56'], sakura: ['#FFB8D8', '#FF8AB8', '#FF6FA8'], lava: ['#FFD24A', '#FF8A1A', '#FF4A1A'], starry: ['#C8B8FF', '#7CE0FF', '#FFE27A'],
+  pixel8: ['#B98CFF', '#FFC83D', '#3EE6B4'], deck: ['#F1DDAE', '#C9A27A', '#9A6232'], casino: ['#FFE27A', '#C8D8FF', '#A78B4D'], alchemy: ['#FFD27A', '#9AE85A', '#C8861E'],
+  ruins: ['#9FE8FF', '#3EC8FF', '#A8C0B8'], glacier: ['#FFFFFF', '#C8F4FF', '#7CC8E8'], dragonnest: ['#FFC83D', '#FF6A1A', '#E8435A'],
+};
+// 주사위 팔레트 앞 둘(밝은 색)은 남기고 나머지를 트레이 색으로
+function tintOf(t, tr) {
+  const tint = TRAY_TINT[t?.traySkin];
+  return tint ? { pal: [...tr.pal.slice(0, 2), ...tint], ring: tr.ring ? tint[1] : null } : {};
+}
+// 큰 한 방 (요트 · 30점 이상): 0.1초 멈칫(히트스톱) → 화면이 확 당겨졌다 튕겨 나오고, 가장자리가 어두워졌다 밝아진다
+function bigHit(power = 3) {
+  if (prefs.fx === 'min') return;
+  FX().hold(power >= 3 ? 120 : 80);
+  document.body.classList.remove('bighit'); void document.body.offsetWidth; document.body.classList.add('bighit');
+  const k = power >= 3 ? 0.05 : 0.03;
+  app.animate([{ transform: 'scale(1)' }, { transform: `scale(${1 + k})`, offset: 0.2 }, { transform: `scale(${1 - k * 0.35})`, offset: 0.55 }, { transform: 'scale(1)' }], { duration: 560, easing: 'ease-out' });
+  clearTimeout(bigHit.t);
+  bigHit.t = setTimeout(() => document.body.classList.remove('bighit'), 800);
+}
+// 마지막 주사위 슬로모션 동안: 화면 가장자리가 어두워지고 심장이 뛴다
+function slowFx(on) {
+  clearInterval(slowFx.t);
+  document.body.classList.toggle('slowmo', on);
+  if (!on) return;
+  sfx.heartbeat?.();
+  slowFx.t = setInterval(() => sfx.heartbeat?.(), 620);
+  setTimeout(() => { clearInterval(slowFx.t); document.body.classList.remove('slowmo'); }, 3000);   // 혹시 끝 신호를 못 받아도
+}
 function diceHit(v, i, t) {
   // 꾸미기에서 안 산 주사위를 미리 굴릴 땐 그 주사위 소리로 (예전엔 지금 쓰는 주사위 소리가 났다)
   const skin = diceSkin(t && t === skinPreview && skinTry?.kind === 'dice' ? skinTry.id : t === tray && ui.skinDice ? ui.skinDice : prefs.diceSkin);
   sfx.hit(skin.sound, v);
   if (v > 3.5) rumble(v);   // 던지는 동안·흔드는 동안 부딪힐 때마다 진동
+  hitSpark(skin.id, v, i, t);
   if (skin.sound !== 'pop' || v < 3.5 || !t || i == null || prefs.fx === 'min') return;
   const now = performance.now();
   if (now - heartT < 90) return;
   heartT = now;
   const p = t.screenPos(i);
-  for (let k = 0; k < 2 + (v > 8 ? 1 : 0); k++) {
+  for (let k = 0, n = fxN(2 + (v > 8 ? 1 : 0)); k < Math.max(1, n); k++) {
     const h = document.createElement('span');
     h.className = 'heart-pop';
     h.textContent = '♥';
     h.style.left = `${p.x + (Math.random() - 0.5) * 30}px`;
     h.style.top = `${p.y - 10}px`;
     h.style.setProperty('--dx', `${(Math.random() - 0.5) * 60}px`);
-    h.style.fontSize = `${14 + Math.random() * 12}px`;
+    h.style.fontSize = `${fxS(14 + Math.random() * 12)}px`;
     document.body.appendChild(h);
     setTimeout(() => h.remove(), 900);
   }
@@ -3120,11 +3306,13 @@ function diceHit(v, i, t) {
 let skinPreview = null;
 function closeSkinPreview() {
   skinTry = null;
+  document.querySelector('.fx-canvas.over')?.classList.remove('over');
   skinPreview?.destroy?.();
   skinPreview = null;
 }
 async function showSkins(tab = 'dice') {
-  const list = tab === 'dice' ? DICE_SKINS : TRAY_SKINS;
+  // 가격 싼 순 (무료 기본이 맨 앞)
+  const list = [...(tab === 'dice' ? DICE_SKINS : TRAY_SKINS)].sort((a, b) => Wal.priceOf(tab, a.id) - Wal.priceOf(tab, b.id));
   const cur = tab === 'dice' ? diceSkin(prefs.diceSkin).id : traySkin(prefs.traySkin).id;
   const thumb = tab === 'dice' ? diceThumb : trayThumb;
   const reuse = skinPreview && layer.querySelector('.skin-preview');
@@ -3138,8 +3326,8 @@ async function showSkins(tab = 'dice') {
       ${k.id === cur ? '<span class="skin-on">사용 중</span>' : ''}
     </button>`;
   }).join('');
-  const buyBar = () => skinTry ? `<div class="buy-bar"><span>${esc((skinTry.kind === 'dice' ? diceSkin : traySkin)(skinTry.id).name)} 미리 보는 중</span>
-      <button class="pbtn gold small" data-act="buy" data-kind="${skinTry.kind}" data-id="${skinTry.id}">${ico('gem', 'xs')} ${Wal.priceOf(skinTry.kind, skinTry.id).toLocaleString()}에 사기</button></div>` : '';
+  // 구매 버튼은 미리 보는 그 카드 안에 (예전엔 미리보기 아래 띠에 따로 떴다)
+  const buyBar = () => '';
   if (reuse) {
     const grid = layer.querySelector('.skin-grid');
     // 같은 탭이면 카드를 새로 그리지 않고 표시만 바꾼다 (썸네일이 다시 뜨느라 깜박이지 않게)
@@ -3180,28 +3368,66 @@ async function showSkins(tab = 'dice') {
     const { DiceTray } = await import('./dice3d.js');
     if (!host.isConnected) return;
     skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
+    skinPreview.onTrail = (i, p, sp) => diceTrail(skinPreview, p, sp);
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
 }
-// 안 산 스킨: 미리 보기만 (사기 버튼이 뜬다). 산 스킨: 바로 쓴다
+// 스킨을 누르면 미리 보기만 한다 (아래 창에 사기 · 사용하기 버튼). 사용하기를 눌러야 바뀐다
 let skinTry = null;
+const curSkin = kind => kind === 'dice' ? diceSkin(prefs.diceSkin).id : traySkin(prefs.traySkin).id;
 function pickSkin(kind, id) {
-  if (!Wal.owns(kind, id)) {
-    sfx.select();
-    skinTry = { kind, id };
-    const d = kind === 'dice' ? id : diceSkin(prefs.diceSkin).id, t = kind === 'tray' ? id : traySkin(prefs.traySkin).id;
-    skinPreview?.setSkin(d, t);
-    return showSkins(kind);
-  }
+  sfx.select();
+  skinTry = id === curSkin(kind) ? null : { kind, id };
+  const d = kind === 'dice' ? id : curSkin('dice'), t = kind === 'tray' ? id : curSkin('tray');
+  skinPreview?.setSkin(d, t);
+  showSkins(kind);
+  skinPop(kind, id);
+}
+function useSkin(kind, id) {
+  if (!Wal.owns(kind, id)) return;
   skinTry = null;
   sfx.select();
   if (kind === 'dice') prefs.diceSkin = id; else prefs.traySkin = id;
   store.set(KEYS.prefs, prefs);
-  const d = diceSkin(prefs.diceSkin).id, t = traySkin(prefs.traySkin).id;
+  const d = curSkin('dice'), t = curSkin('tray');
   skinPreview?.setSkin(d, t);
   tray?.setSkin?.(d, t);
   if (tray) tray.skinKey = '';
   showSkins(kind);
+  skinPop(kind, id);
+}
+// 스킨을 고르면 아래에서 작은 창이 올라온다: 그림 · 이름 · 설명 · (안 샀으면) 가격과 사기 버튼. 위쪽 3D 미리보기는 가리지 않는다
+function skinPop(kind, id) {
+  layer.querySelector('.skin-pop-wrap')?.remove();
+  const box = layer.querySelector('.modal.skins');
+  if (!box) return;
+  const k = (kind === 'dice' ? diceSkin : traySkin)(id), own = Wal.owns(kind, id), price = Wal.priceOf(kind, id);
+  const el = document.createElement('div');
+  el.className = 'skin-pop-wrap';
+  el.innerHTML = `<div class="skin-pop frame" data-act="noop" role="dialog" aria-label="${esc(k.name)}">
+    <button class="sp-x" data-act="skin-pop-close" aria-label="닫기">✕</button>
+    <img${kind === 'dice' ? ' class="die-th"' : ''} src="${(kind === 'dice' ? diceThumb : trayThumb)(id)}" alt="">
+    <div class="sp-txt"><b>${esc(k.name)}</b><p>${esc(k.desc)}</p></div>
+    ${own ? (id === curSkin(kind) ? '<span class="sp-own">사용 중</span>' : `<button class="pbtn gold sp-buy" data-act="skin-use" data-kind="${kind}" data-id="${id}">사용하기</button>`)
+      : `<button class="pbtn gold sp-buy" data-act="buy" data-kind="${kind}" data-id="${id}" ${Wal.gems() < price ? 'disabled' : ''}>${ico('gem', 'xs')} ${price.toLocaleString()} 사기</button>`}
+  </div>`;
+  box.appendChild(el);
+  // 아래 창이 목록을 가리지 않게: 목록 아래에 창 높이만큼 여백을 두고, 고른 카드가 창 밑에 깔리면 위로 올려 보여 준다
+  // (showSkins 가 카드 표시를 고치는 것보다 뒤에 재야 해서 다음 프레임에)
+  const pop = el.querySelector('.skin-pop');
+  box.style.paddingBottom = `${pop.getBoundingClientRect().height + 24}px`;
+  requestAnimationFrame(() => {
+    if (!el.isConnected) return;
+    const popT = innerHeight - el.offsetHeight;     // 창은 아래에서 미끄러져 올라오는 중이라 다 올라온 자리로 잰다
+    const card = box.querySelector(`.skin-card[data-kind="${kind}"][data-id="${id}"]`);
+    const over = card ? card.getBoundingClientRect().bottom - (popT - 10) : 0;
+    if (over > 0) box.scrollTop += over;
+  });
+}
+function closeSkinPop() {
+  layer.querySelector('.skin-pop-wrap')?.remove();
+  const box = layer.querySelector('.modal.skins');
+  if (box) box.style.paddingBottom = '';
 }
 // 잠긴 직업을 누르면: 설명과 가격을 보여 주고 살지 묻는다
 let afterClassBuy = null;
@@ -3221,15 +3447,47 @@ function classBuyDialog(id, then) {
 
 // 보석으로 사기 (스킨 · 직업 공용)
 async function buyItem(kind, id, btn) {
-  if (btn) btn.disabled = true;
+  if (btn) btn.toggleAttribute('disabled', true);   // 카드 안 사기 버튼(span)도 두 번 눌리지 않게
   const r = await Wal.buy(kind, id).catch(err => ({ ok: false, why: navigator.onLine ? (err?.message || '서버 오류') : '인터넷 연결이 필요해요.' }));
-  if (btn) btn.disabled = false;
+  if (btn) btn.toggleAttribute('disabled', false);
   if (!r.ok) { sfx.back(); return toast(ico('warn'), '살 수 없어요', r.why, 2000); }
   sfx.coin();
-  const name = kind === 'cls' ? E.classInfo(id).ko : (kind === 'dice' ? diceSkin : traySkin)(id).name;
-  toast(ico('gem'), `${name} 획득!`, `남은 보석 ${Wal.gems().toLocaleString()}`, 1600);
+  unlockReveal(kind, id);
   if (kind === 'cls') { layer.innerHTML = ''; return afterClassBuy?.(id); }
+  if (kind === 'run') { layer.innerHTML = ''; return runMod?.refreshSelect?.(); }
   return pickSkin(kind, id);
+}
+
+// 해금 연출: 산 직업 · 주사위 · 트레이를 화면 가운데에 크게 보여 준다 (탭하거나 4초 뒤 닫힘)
+//   직업: 검은 실루엣이 떠올라 두근두근 떨다가 하얀 빛과 함께 "짠!" 하고 제 색 그림으로 바뀐다 → 빛줄기 · 불꽃 · 팡파레
+//   주사위 · 트레이: 그림이 통 튀어나오며 빛줄기 · 불꽃
+function unlockReveal(kind, id) {
+  document.querySelector('.unlock-fx')?.remove();
+  const isCls = kind === 'cls' || kind === 'run';
+  const info = isCls ? E.classInfo(id) : (kind === 'dice' ? diceSkin : traySkin)(id);
+  const name = isCls ? info.ko : info.name;
+  const color = isCls ? info.color : '#FFD24A';
+  const art = isCls ? spriteURL(id, 12) : (kind === 'dice' ? diceThumb : trayThumb)(id);
+  const title = isCls ? (kind === 'run' ? '원정 직업 해금!' : '새 직업 해금!') : kind === 'dice' ? '새 주사위 획득!' : '새 트레이 획득!';
+  const sparks = Array.from({ length: 18 }, (_, i) => `<i class="uf-sp" style="--a:${(i * 20 + Math.random() * 10).toFixed(0)}deg;--d:${(90 + Math.random() * 70).toFixed(0)}px;--s:${(3 + Math.random() * 4).toFixed(1)}px"></i>`).join('');
+  const el = document.createElement('div');
+  el.className = `unlock-fx ${isCls ? 'is-cls' : 'is-skin'} k-${kind}`;
+  el.style.setProperty('--c', color);
+  el.innerHTML = `<div class="uf-stage">
+      <div class="uf-rays"></div><div class="uf-glow"></div>
+      <img class="uf-art${kind === 'dice' ? ' die-th' : ''}${isCls && isImgSprite(id) ? ' spr-hi' : isCls ? ' spr' : ''}" src="${art}" alt="">
+      <div class="uf-flash"></div>${sparks}
+    </div>
+    <div class="uf-txt"><small>${title}</small><b>${esc(name)}</b><span>남은 보석 ${ico('gem', 'xs')}${Wal.gems().toLocaleString()}</span></div>
+    <p class="uf-tap">화면을 눌러 계속</p>`;
+  document.body.appendChild(el);
+  const revealAt = isCls ? 1150 : 120;
+  if (isCls) sfx.heartbeat?.();
+  setTimeout(() => { if (el.isConnected) { (isCls ? sfx.levelup : sfx.quest)?.(); } }, revealAt);
+  const t0 = performance.now();
+  const close = () => { if (!el.isConnected || el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  el.addEventListener('click', () => { if (performance.now() - t0 > revealAt + 450) close(); });
+  setTimeout(close, revealAt + 3600);
 }
 
 async function rollPreview() {
@@ -3260,45 +3518,13 @@ function showSettings(inGame = false) {
     ${PROD && !inGame ? '<div class="set-row account" id="account-row">계정 <small>확인 중…</small></div>' : ''}
     <p class="hint diag">v${GAME.version} · 그래픽 ${esc(gfxNote || '아직 안 씀')}${lastErr ? `<br>최근 오류: ${esc(lastErr)}` : ''}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a><button class="linkish" data-act="wipe">내 데이터 지우기</button></div>`}
+    ${PROD || inGame ? '' : '<div class="set-links test-only"><b>테스트판</b><button class="linkish" data-act="relock" data-kinds="cls,run">직업 잠금 되돌리기</button><button class="linkish" data-act="relock" data-kinds="dice,tray">주사위 · 트레이 잠금 되돌리기</button></div>'}
     ${online ? `<p class="hint">온라인 방 ${online.code}${inGame && S && !S.ended ? '<br>1분 안에 돌아오면 이어서' : ''}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">계속하기</button><button class="pbtn" data-act="quit">${online ? '방 나가기' : '메인 메뉴로'}</button>` :
         '<button class="pbtn" data-act="tutorial">튜토리얼</button><button class="pbtn" data-act="credits">크레딧</button><button class="pbtn gold" data-act="close">닫기</button>'}
     </div>
   </div></div>`;
-}
-// 캐릭터를 누르면 하는 한마디 (스킬 특징에 맞게). 원정 직업 대사는 run/ui.js
-// 영화 · 애니 명대사를 직업 스킬에 맞게 비틀어 쓴 오마주
-const CLASS_LINES = {
-  warrior: ['This is Sparta!', '즐겁지 아니한가!', "I'll be back."],
-  rogue: ['왜 럼은 늘 없는 거지?', '진실은 없다. 모든 것이 허용된다.', '잭 스패로 선장이 왔다는 걸 기억해라.'],
-  mage: ['너는 지나갈 수 없다! …경험치 없이는', '마법사는 늦지 않는다. 정확히 레벨 업할 때 온다', '윙가르디움 레비-오사! 레벨아 떠올라라'],
-  bard: ['음유시인에게 동전을 던져라~', '다 잊어~ 다 잊어~', '쇼는 계속되어야 한다!'],
-  gambler: ['묻고 더블로 가!', '쫄리면 뒈지시든가.', '쇼 미 더 머니!'],
-  monk: ['어제는 역사, 내일은 미스터리, 오늘은 선물이다.', '하거나, 안 하거나. 해 본다는 건 없다.', '물이 되어라, 친구여.'],
-  dancer: ['댄싱 퀸~ 주사위 눈이 하나씩 업!', '흔들어 주세요, 모두 +1!', '오늘 이 무대는 내가 접수한다'],
-  outlaw: ['자, 쏴 봐. 내 하루를 완성시켜 줘', '정오의 결투다. 첫 굴림에 끝낸다', '내 장화 속에 주사위가 있어!'],
-  sharper: ['싸늘하다. 가슴에 비수가 날아와 꽂힌다.', '손은 눈보다 빠르다.', '동작 그만. 밑장 빼기냐?'],
-};
-let lineK = 0;
-const classLine = id => { const l = CLASS_LINES[id] || ['…']; return l[lineK++ % l.length]; };
-// 말풍선: 그림 위에 잠깐 떴다가 사라진다 (원정도 X.speak 로 쓴다)
-function speak(el, text, quiet = false) {   // quiet: 다이얼을 돌려 저절로 말할 때 (넘기는 소리와 겹치지 않게)
-  if (!el || !text) return;
-  document.querySelectorAll('.speech').forEach(b => b.remove());
-  const r = el.getBoundingClientRect();
-  const b = document.createElement('div');
-  b.className = 'speech';
-  b.textContent = text;
-  document.body.appendChild(b);
-  const w = b.offsetWidth;
-  b.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  b.style.top = `${Math.max(8, r.top - b.offsetHeight - 10)}px`;
-  b.style.setProperty('--ax', `${Math.max(12, Math.min(w - 12, r.left + r.width / 2 - parseFloat(b.style.left)))}px`);
-  if (!quiet) sfx.tap();
-  el.classList.remove('talk'); void el.offsetWidth; el.classList.add('talk');
-  setTimeout(() => b.classList.add('out'), 2000);
-  setTimeout(() => b.remove(), 2350);
 }
 // 직업 한 줄 요령 (캐릭터를 길게 누르면 스킬과 함께 보인다)
 const CLASS_TIP = {
@@ -3907,6 +4133,8 @@ function onAct(act, t) {
   if (act === 'ach-claim') return claimAchUI(t.dataset.id, t);
   if (act === 'skin-tab') { sfx.tap(); return showSkins(t.dataset.tab); }
   if (act === 'skin-pick') return pickSkin(t.dataset.kind, t.dataset.id);
+  if (act === 'skin-use') return useSkin(t.dataset.kind, t.dataset.id);
+  if (act === 'skin-pop-close') { sfx.back?.(); return closeSkinPop(); }
   if (act === 'skin-roll') return rollPreview();
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
@@ -3919,6 +4147,23 @@ function onAct(act, t) {
       toast(ico('up'), '구글 계정을 연결했어요', '', 1600);
       paintAccount();
     }, err => { t.disabled = false; if (err?.code !== 'auth/popup-closed-by-user') toast(ico('warn'), '연결하지 못했어요', String(err?.message || err).slice(0, 80), 2400); });
+  }
+  if (act === 'relock') {          // 테스트판: 산 직업(또는 스킨)을 다시 잠그고 보석을 돌려준다
+    const kinds = t.dataset.kinds.split(',');
+    const r = Wal.relockLocal(kinds);
+    if (!r.ok) { sfx.back(); return toast(ico('warn'), '할 수 없어요', r.why, 1600); }
+    if (kinds.includes('cls')) setup.forEach(p => { if (!p.bot && !Wal.owns('cls', p.cls)) p.cls = firstOwnedClass(); });
+    if (kinds.includes('run')) {          // 원정: 도전과제로 연 직업(음유시인 · 수도승)도 다시 잠근다
+      const rb = store.get('diceheroes.runBest');
+      if (rb?.best?.feats) { rb.best.feats = rb.best.feats.filter(f => !['bulwark', 'ascetic'].includes(f)); store.set('diceheroes.runBest', rb); }
+      runMod?.reloadProgress?.();
+    }
+    if (kinds.includes('dice') && !Wal.owns('dice', prefs.diceSkin)) prefs.diceSkin = 'classic';
+    if (kinds.includes('tray') && !Wal.owns('tray', prefs.traySkin)) prefs.traySkin = 'classic';
+    store.set(KEYS.setup, setup); store.set(KEYS.prefs, prefs);
+    tray?.setSkin?.(diceSkin(prefs.diceSkin).id, traySkin(prefs.traySkin).id); if (tray) tray.skinKey = '';
+    sfx.select();
+    return toast(ico('lock'), `${kinds.includes('cls') ? '직업' : '주사위 · 트레이'} ${r.out.n}개를 다시 잠갔어요`, `보석 ${r.out.back.toLocaleString()} 돌려받음`, 2000);
   }
   if (act === 'wipe') {
     sfx.select();
@@ -4146,6 +4391,25 @@ addEventListener('resize', () => { updateCoach(); closePopover(); });
 addEventListener('scroll', () => { updateCoach(); closePopover(); }, { passive: true });
 
 // 설치형 앱(PWA)으로 쓸 때 오프라인 캐시
+// 배경 분위기 입자 (ambient.js): 대전 = 별빛 · 협동 보스전 = 불씨(분노면 더 뜨겁게) · 원정 = 막마다 (run/ui.js ambient)
+// 트레이 위에 테마 입자가 은은하게 떠다닌다 (트레이 스킨마다 · 기본 트레이는 없음). 꾸미기 미리보기도
+setTrayAura(() => {
+  if (prefs.fx === 'min') return null;
+  const pv = skinPreview && layer.querySelector('.skin-preview');
+  if (pv) return { skin: skinPreview.traySkin, el: pv, over: true };
+  const el = (screen === 'game' || screen === 'run') && document.getElementById('tray');
+  return el && tray?.traySkin ? { skin: tray.traySkin, el } : null;
+});
+setAmbientSource(() => {
+  if (prefs.fx === 'min') return null;
+  if (screen === 'game' && S) {
+    if (!S.boss) return { mode: 'stars' };
+    const b = S.boss;
+    return { mode: 'embers', color: E.bossInfo(b.id)?.color, hot: b.diff === 2 && b.hp * 2 < b.maxHp && b.hp > 0 };
+  }
+  if (screen === 'run') return runMod?.ambient?.() || null;
+  return null;
+});
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai')) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
   // 새 서비스 워커로 바뀌어도(새 버전 배포 뒤 첫 실행 · 처음 방문) 새로고침하지 않는다.

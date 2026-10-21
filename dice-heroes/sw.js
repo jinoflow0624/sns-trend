@@ -5,11 +5,11 @@
 // 그래서 새 버전을 배포하면 다음 실행에 바로 반영되고, 신호가 약해도 멈춰 있지 않는다.
 // 이름을 바꾸면 예전 캐시를 통째로 지운다 (v0.30.7: 버전이 안 붙은 예전 주사위·트레이 그림이 남아 있어서)
 const BGM_VER = 'b2';   // audio.js 의 BGM_VER 와 같아야 한다 (곡을 바꾸면 둘 다 올린다)
-const ART_VER = 'a1';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
+const ART_VER = 'b1';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
 const CACHE = 'dh-cache-3';   // v0.37.5: 버전이 안 붙은 예전 보스 곡(도입부 없는 루프)을 지운다
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
-  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest',
+  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'ambient.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
   'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   // 곡은 앱이 부르는 주소 그대로(?v=곡 버전) 받아 둔다 → 처음 설치할 때부터 캐시에 있다 (audio.js 의 BGM_VER 와 같게)
@@ -17,10 +17,14 @@ const FILES = [
   ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].map(id => `assets/boss/${id}.webp`),
   ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
   // 그림 주사위 · 트레이 스킨: 앱이 부르는 주소 그대로(?v=그림 버전) → 설치할 때부터 캐시에 있어 첫 판부터 바로 뜬다
-  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', 'corner_side', 'corner_top', ...(['demon', 'lava', 'starry'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
-  ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
+  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry', 'pixel8', 'deck', 'alchemy', 'ruins', 'glacier', 'dragonnest'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', ...(['demon', 'lava', 'starry', 'ruins'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
+  ...['floor', 'glow', 'box', 'thumb', 'cushion'].map(f => `assets/trays/casino/${f}.webp?v=${ART_VER}`),
+  // 테두리 장식 그림 (v0.39.21)
+  ...Object.entries({"deck": ["decor_flag_cloth", "decor_flagpole", "decor_rope_knot", "decor_timber_corner"], "deepsea": ["decor_foam_arc", "decor_small_ripple", "decor_wave_corner", "decor_wave_crest"], "demon": ["decor_blade_spike", "decor_demon_horn", "decor_skull_corner", "decor_violet_crystal"], "dragonnest": ["decor_bone_fragment", "decor_egg_coins", "decor_nest_branch", "decor_red_scales"], "glacier": ["decor_ice_cluster", "decor_ice_corner", "decor_icicle", "decor_snow_cap"], "lava": ["decor_basalt_cluster", "decor_basalt_corner", "decor_lava_fissure", "decor_small_rock"], "pixel8": ["decor_corner_block", "decor_pixel_heart", "decor_pixel_star", "decor_step_block"], "royal": ["decor_crown_point", "decor_filigree_corner", "decor_ruby_setting", "decor_sapphire_setting"], "sakura": ["decor_blossom_cluster", "decor_branch_corner", "decor_branch_fork", "decor_single_blossom"], "starry": ["decor_crescent", "decor_nebula_corner", "decor_small_planet", "decor_star_cluster"]}).flatMap(([k, fs]) => fs.map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),   // 둥근 포커 테이블 (난간 그림 대신 쿠션)
+  ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal', 'dragon', 'lava', 'pixel', 'bone', 'slime', 'chip', 'chest', 'porcelain', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
+  ...['dragon', 'lava', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}_glow.webp?v=${ART_VER}`)),
 ];
-const NET_WAIT = 4000;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로
+const NET_WAIT = 2500;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로 (첫 화면이 오래 검게 남지 않게)
 let slowUntil = 0;       // 방금 네트워크가 느렸으면 30초 동안은 캐시부터 (파일마다 4초씩 기다리지 않게)
 
 // 파일마다 따로 받아 둔다 (하나가 실패해도 나머지는 캐시에 남게 — addAll 은 하나만 실패해도 전부 버린다)
@@ -31,11 +35,23 @@ self.addEventListener('install', e => e.waitUntil(
     .then(() => self.skipWaiting()),
 ));
 
-// 예전 버전이 만든 캐시(dh-0.x.x)는 지운다
+// 예전 버전이 만든 캐시(dh-0.x.x)는 지운다. 원정 그림을 게임 버전(?v=0.38.x)으로 받아 쌓아 둔 것도 지운다 (이제 그림 버전 r1 …)
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => caches.open(CACHE)).then(c => c.keys().then(reqs => Promise.all(reqs
+      .filter(r => { const u = new URL(r.url); return u.pathname.includes('/assets/run/') && /^\d+\.\d+/.test(u.searchParams.get('v') || ''); })
+      .map(r => c.delete(r)))))
+    .catch(() => {})
     .then(() => self.clients.claim()),
 ));
+// 버전이 붙은 그림 · 곡을 새로 받으면, 같은 파일의 예전 버전은 캐시에서 지운다 (캐시가 끝없이 커지지 않게)
+async function putVersioned(req, res) {
+  const c = await caches.open(CACHE), u = new URL(req.url);
+  await c.put(req, res);
+  const old = (await c.keys()).filter(r => { const o = new URL(r.url); return o.pathname === u.pathname && o.search !== u.search; });
+  await Promise.all(old.map(r => c.delete(r)));
+}
+const refreshed = new Set();   // 버전 없는 그림은 이 서비스워커가 살아 있는 동안 한 번만 뒤에서 새로 받는다
 
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -44,15 +60,18 @@ self.addEventListener('fetch', e => {
   // 그림·음악(assets/)은 캐시에 있으면 바로 쓰고, 뒤에서 조용히 새로 받아 둔다 (스킨을 고르면 바로 보이게).
   // 주사위·트레이 그림은 주소에 그림 버전(?v=)이 붙는다 → 주소가 정확히 같을 때만 캐시를 쓴다 (그림 버전을 올리면 바로 새 그림).
   // 인터넷이 없으면 버전이 다른 예전 그림이라도 꺼내 쓴다
+  // 버전(?v=)이 붙은 그림 · 곡은 주소가 같으면 내용도 같다 → 캐시에 있으면 그대로 쓰고 다시 받지 않는다 (예전엔 볼 때마다 뒤에서 또 받아 데이터 · 배터리를 썼다)
   if (new URL(req.url).pathname.includes('/assets/')) {
+    const versioned = new URL(req.url).searchParams.has('v');
     e.respondWith((async () => {
       const hit = await caches.match(req);
-      const fresh = fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
-        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); }
+      if (hit && versioned) return hit;
+      const fresh = () => fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
+        if (res.ok) { const copy = res.clone(); (versioned ? putVersioned(req, copy) : caches.open(CACHE).then(c => c.put(req, copy))).catch(() => {}); }
         return res;
       });
-      if (hit) { e.waitUntil(fresh.catch(() => {})); return hit; }
-      return fresh.catch(async () => (await caches.match(req, { ignoreSearch: true })) || Response.error());
+      if (hit) { if (!refreshed.has(req.url)) { refreshed.add(req.url); e.waitUntil(fresh().catch(() => {})); } return hit; }
+      return fresh().catch(async () => (await caches.match(req, { ignoreSearch: true })) || Response.error());
     })());
     return;
   }

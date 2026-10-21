@@ -8,7 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import * as CANNON from './vendor/cannon-es.js';
 import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
-import { drawDieFace, dieMatParams, dieGlows, dieImage, READY, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
+import { TRAY_DECOR, drawDieFace, dieMatParams, dieGlows, dieImage, dieGlowImage, READY, loadImage, diceReady, preloadDice, drawTrayFloor, trayGlows, trayStyle, trayImage, trayReady, preloadTray, drawBoxFloor } from './skins.js';
 
 // 원정 특수 주사위가 눈을 바꿀 때의 빛 색
 const MORPH_COLOR = { gold: 0xFFC83D, twin: 0xFF9AD0, stair: 0x3EE6B4, heavy: 0x9AA4B8 };
@@ -26,6 +26,13 @@ const BOX_D = 1.9;                           // 함 안쪽 깊이
 const BOX_Z = TRAY_D / 2 + RAIL_T + BOX_D / 2; // 함 안 주사위 줄 위치
 const BOX_T = 0.35, BOX_H = 0.42;            // 함 벽 두께·높이
 const SCENE_Z0 = -(TRAY_D / 2 + RAIL_T), SCENE_Z1 = BOX_Z + BOX_D / 2 + BOX_T;   // 화면에 담을 앞뒤 범위
+// 주사위 함 벽 [폭, 깊이, x, z]: 함 바깥 끝을 트레이 난간 바깥 끝에 맞춘다 (예전엔 벽 두께만큼 옆으로 삐져나와 계단이 졌다)
+const BOX_OUT = TRAY_W / 2 + RAIL_T;
+const BOX_WALLS = [
+  [2 * BOX_OUT, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2],
+  [BOX_T, BOX_D, -(BOX_OUT - BOX_T / 2), BOX_Z],
+  [BOX_T, BOX_D, BOX_OUT - BOX_T / 2, BOX_Z],
+];
 const FPS = 60;
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -83,7 +90,8 @@ const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 
 const easeIn = t => t * t * t;
 
 // 트레이 물리 세계 (바닥·벽·천장). 굴림 녹화와 흔드는 동안의 실시간 물리가 같이 쓴다
-function makeWorld(ceiling = 6.0, dieBounce = 0.08) {
+// cornerR: 둥근 모서리 트레이(포커 테이블)는 네 모서리에 둥근 벽을 짧은 판 여러 개로 세운다
+function makeWorld(ceiling = 6.0, dieBounce = 0.08, cornerR = 0) {
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -32, 0) });
   world.allowSleep = true;
   const dieMat = new CANNON.Material('die');
@@ -110,8 +118,39 @@ function makeWorld(ceiling = 6.0, dieBounce = 0.08) {
     b.quaternion.setFromEuler(...r);
     world.addBody(b);
   }
+  if (cornerR > 0) {
+    const SEG = 9, th = 0.6, len = (Math.PI / 2) * cornerR / SEG + 0.08;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const cx = sx * (TRAY_W / 2 - cornerR), cz = sz * (TRAY_D / 2 - cornerR);
+      for (let k = 0; k < SEG; k++) {
+        const a = ((k + 0.5) / SEG) * (Math.PI / 2), nx = sx * Math.cos(a), nz = sz * Math.sin(a);   // 바깥을 향한 법선
+        const r = cornerR + th / 2;
+        const b = new CANNON.Body({ mass: 0, material: wallMat, shape: new CANNON.Box(new CANNON.Vec3(len / 2, 3, th / 2)) });
+        b.position.set(cx + nx * r, 3, cz + nz * r);
+        b.quaternion.setFromEuler(0, Math.atan2(-nz, nx) + Math.PI / 2, 0);
+        world.addBody(b);
+      }
+    }
+  }
 
   return { world, dieMat };
+}
+
+// 장식 그림의 실제 그림 영역 (투명 여백 제외, uv 0~1 · 아래가 0). 그림을 아직 못 받았으면 예전 기준(아래 12% 여백)
+const ALPHA_BOX = new WeakMap();
+function alphaBox(img) {
+  const def = { x0: 0, x1: 1, y0: 0.12, y1: 1 };
+  if (!img || !(img.naturalWidth || img.width) || img.width <= 4) return def;
+  if (ALPHA_BOX.has(img)) return ALPHA_BOX.get(img);
+  const W = 96, H = Math.max(8, Math.round(96 * (img.naturalHeight || img.height) / (img.naturalWidth || img.width)));
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H);
+  let d; try { d = g.getImageData(0, 0, W, H).data; } catch { return def; }
+  let x0 = W, x1 = -1, y0 = H, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const r = x1 < 0 ? def : { x0: Math.max(0, (x0 - 1) / W), x1: Math.min(1, (x1 + 2) / W), y0: Math.max(0, 1 - (y1 + 2) / H), y1: Math.min(1, 1 - (y0 - 1) / H) };
+  ALPHA_BOX.set(img, r);
+  return r;
 }
 
 export class DiceTray {
@@ -186,19 +225,14 @@ export class DiceTray {
 
     // 주사위 함 (트레이 앞 난간에 붙은 낮은 나무 상자)
     const boxFloor = this.boxFloor = new THREE.Mesh(
-      new THREE.PlaneGeometry(TRAY_W + 2 * T, BOX_D),
+      new THREE.PlaneGeometry(2 * (BOX_OUT - BOX_T), BOX_D),
       new THREE.MeshStandardMaterial({ roughness: 0.8 }),
     );
     boxFloor.rotation.x = -Math.PI / 2;
     boxFloor.position.set(0, 0.001, BOX_Z);
     boxFloor.receiveShadow = true;
     scene.add(boxFloor);
-    const boxWalls = [
-      [TRAY_W + 2 * T + 2 * BOX_T, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2],
-      [BOX_T, BOX_D, -(TRAY_W / 2 + T + BOX_T / 2), BOX_Z],
-      [BOX_T, BOX_D, TRAY_W / 2 + T + BOX_T / 2, BOX_Z],
-    ];
-    for (const [w, d, x, z] of boxWalls) {
+    for (const [w, d, x, z] of BOX_WALLS) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, BOX_H, d), wood);
       m.position.set(x, BOX_H / 2, z);
       m.castShadow = true; m.receiveShadow = true;
@@ -329,13 +363,21 @@ export class DiceTray {
 
   // 디자인 렌더로 만든 면 그림 (불러오면 다시 그린다)
   // 받아 둔 그림의 텍스처는 버리지 않고 다시 쓴다 (스킨을 다시 고를 때 GPU에 또 올리느라 늦게 뜨지 않게)
-  imageTex(url) {
+  // 아직 못 받은 그림은 검게 비지 않게 대신 그림(fallback 캔버스 — 없으면 어두운 나무색)을 먼저 입히고,
+  // 받으면 같은 텍스처에 바꿔 끼운다 (복제한 난간 텍스처도 같은 원본을 써서 함께 바뀐다)
+  imageTex(url, fallback = null) {
     this.texCache ||= new Map();
     if (this.texCache.has(url)) return this.texCache.get(url);
     const img = READY.get(url);
     let t;
-    if (img) { t = new THREE.Texture(img); t.needsUpdate = true; t.userData.cached = true; this.texCache.set(url, t); }
-    else t = (this.loader ||= new THREE.TextureLoader()).load(url, () => { this.dirty = true; });
+    if (img) t = new THREE.Texture(img);
+    else {
+      let ph = fallback?.();
+      if (!ph) { ph = document.createElement('canvas'); ph.width = ph.height = 4; const g = ph.getContext('2d'); g.fillStyle = '#5A4636'; g.fillRect(0, 0, 4, 4); }
+      t = new THREE.Texture(ph);
+      loadImage(url).then(im => { t.image = im; t.needsUpdate = true; this.dirty = true; }, () => {});
+    }
+    t.needsUpdate = true; t.userData.cached = true; this.texCache.set(url, t);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
@@ -375,7 +417,8 @@ export class DiceTray {
       for (let v = 1; v <= 6; v++) {
         const old = this.faceMats[v];
         const url = dieImage(diceId, v);
-        const face = mode => (url && !mode ? this.imageTex(url) : this.canvasTex(drawDieFace(document.createElement('canvas'), v, diceId, mode)));
+        const draw = mode => drawDieFace(document.createElement('canvas'), v, diceId, mode);
+        const face = mode => (url && !mode ? this.imageTex(url, () => draw(mode)) : this.canvasTex(draw(mode)));
         let m;
         if (p.toon) {
           m = new THREE.MeshToonMaterial({ map: face(''), gradientMap: this.toonRamp() });
@@ -386,6 +429,8 @@ export class DiceTray {
           if (p.glow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = face('glow'); m.emissiveIntensity = p.glow; }
           if (p.bump) { m.bumpMap = face('bump'); m.bumpScale = p.bump; }
           if (p.selfGlow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = m.map; m.emissiveIntensity = p.selfGlow; }
+          // 발광 지도 그림 (드래곤 · 용암): 받기 전엔 빛 없음(검정)으로 둔다
+          if (p.glowImage) { m.emissive = new THREE.Color(p.glowColor ?? 0xFFFFFF); m.emissiveMap = this.imageTex(dieGlowImage(diceId, v), () => { const c = document.createElement('canvas'); c.width = c.height = 4; const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 4, 4); return c; }); m.emissiveIntensity = p.glowImage; }
           m.userData.glowBase = m.emissiveIntensity;
         }
         if (p.cutout) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }        // 구멍 뚫린 금속 골조: 반대편 면이 비쳐 보인다
@@ -410,8 +455,8 @@ export class DiceTray {
       const fm = this.floorMesh.material;
       this.drop(fm.map); this.drop(fm.emissiveMap);
       // 그림 트레이는 파일(바닥·발광 지도), 나머지는 캔버스로 그린 바닥
-      const img = kind => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind));
-      fm.map = img('floor') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
+      const img = (kind, fb) => trayImage(trayId, kind) && this.imageTex(trayImage(trayId, kind), fb);
+      fm.map = img('floor', () => drawTrayFloor(document.createElement('canvas'), trayId)) || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId));
       if (trayGlows(trayId)) {
         fm.emissive = new THREE.Color(0xFFFFFF);
         fm.emissiveMap = img('glow') || this.canvasTex(drawTrayFloor(document.createElement('canvas'), trayId, true));
@@ -426,92 +471,386 @@ export class DiceTray {
       this.trimMat.needsUpdate = true;
       const bm = this.boxFloor.material;
       this.drop(bm.map);
-      bm.map = img('box') || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
+      bm.map = img('box', () => drawBoxFloor(document.createElement('canvas'), trayId)) || this.canvasTex(drawBoxFloor(document.createElement('canvas'), trayId));
       bm.needsUpdate = true;
       // 그림 난간이 있는 스킨: 단색 나무 테두리 대신 울퉁불퉁한 그림 난간 · 모서리 기둥 · 보석 장식 (기본 트레이는 그대로)
-      const frame = st.rails ? (this.fancyFrames ||= {})[trayId] ||= this.buildFancyFrame(trayId, st) : null;
+      const frame = st.oval ? (this.fancyFrames ||= {})[trayId] ||= this.buildOvalFrame(trayId, st)
+        : st.rails ? (this.fancyFrames ||= {})[trayId] ||= this.buildFancyFrame(trayId, st) : null;
       Object.values(this.fancyFrames || {}).forEach(f => { f.visible = f === frame; });
       this.plainFrame.forEach(o => { o.visible = !frame; });
+      this.cornerR = st.oval || 0;
+      this.floorMesh.visible = this.boxFloor.visible = !st.oval;   // 둥근 트레이는 모서리를 깎은 바닥 · 칸 바닥을 따로 쓴다 (같은 재질)
     }
   }
 
-  // 그림 난간 (assets/trays/<스킨>/rail_top · rail_side · corner_side · corner_top · rail_glow).
-  // 윗면을 스킨 모양대로 출렁이게(물결 · 톱니 · 바위) 하고, 네 모서리 기둥과 난간 가운데에 그 스킨의 보석을 얹는다.
+  // 그림 난간 (assets/trays/<스킨>/rail_top · rail_side [· rail_glow]).
+  // 트레이 둘레 · 주사위 칸 둘레를 각각 "하나로 이어진 고리"로 만든다: 안쪽 경계를 따라 단면(안벽 · 둥근 윗면 · 바깥벽)을 쓸어서,
+  // 난간 4개 · 모서리 기둥을 따로 붙이던 예전 방식의 끊김 · 겹침 · 무늬 이음매가 없다. 윗면 모양(파도 · 톱니 · 바위)도 한 바퀴에 꼭 맞게 반복한다.
+  // 트레이 앞 난간 = 주사위 칸 뒷벽 (칸 고리의 뒤쪽은 그 안에 묻힌다). 두 고리가 만나는 옆면은 바깥 출렁임을 0 으로 줄여 한 면으로 이어 붙인다.
   // 물리 벽은 따로 있어서(평면) 겉모양만 바뀐다
   buildFancyFrame(id, st) {
-    const S = st.rails, T = RAIL_T, H = 0.7;
-    const grp = new THREE.Group();
-    const tex = (kind, rx) => {
-      const base = this.imageTex(trayImage(id, kind));
-      const t = base.clone();
-      t.wrapS = THREE.RepeatWrapping; t.repeat.set(rx, 1); t.needsUpdate = true;
-      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    const S = st.rails, grp = new THREE.Group();
+    this.railPts = [];
+    const tex = (kind) => {
+      const t = this.imageTex(trayImage(id, kind)).clone();
+      t.wrapS = THREE.RepeatWrapping; t.needsUpdate = true;
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      if (st.pixel) { t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; }
       return t;
     };
-    const mat = (kind, rx, glow) => {
-      const m = new THREE.MeshStandardMaterial({ map: tex(kind, rx), roughness: S.rough ?? 0.5, metalness: S.metal ?? 0.2 });
+    const mat = (kind, glow) => {
+      const m = new THREE.MeshStandardMaterial({ map: tex(kind), roughness: S.rough ?? 0.5, metalness: S.metal ?? 0.2 });
       if (st.envRail !== false && st.trimEnv) { m.envMap = this.envMap(); m.envMapIntensity = 0.5; }
-      if (glow && st.railGlow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = tex('rail_glow', rx); m.emissiveIntensity = st.glow ?? 0.8; }
+      if (glow && st.railGlow) { m.emissive = new THREE.Color(0xFFFFFF); m.emissiveMap = tex('rail_glow'); m.emissiveIntensity = st.glow ?? 0.8; }
       return m;
     };
-    // 윗면 높이 모양: x(난간 방향 거리)에 따라
-    const seed = id.length * 7.3;
-    const bump = x => {
-      const a = S.amp, f = S.freq;
-      if (S.shape === 'scallop') return a * Math.abs(Math.sin(x * f));
-      if (S.shape === 'jag') { const q = (x * f / Math.PI) % 1; return a * (q < 0.5 ? q * 2 : (1 - q) * 2) + a * 0.3 * Math.sin(x * 7.1 + seed); }
-      if (S.shape === 'rock') return a * (0.5 + 0.5 * Math.sin(x * f + seed) * Math.sin(x * f * 2.3 + 1.7) + 0.25 * Math.sin(x * 9.3));
-      return a * (0.5 + 0.5 * Math.sin(x * f + seed));                       // wave
-    };
-    // out: 바깥쪽이 지역 z 의 어느 쪽인지 (+1 · -1). 바깥 가장자리만 물결처럼 밀려 나가 테두리 윤곽이 울퉁불퉁해진다 (안쪽은 곧게)
-    const rail = (len, w, h, cx, out) => {
-      const seg = Math.max(8, Math.round(len * 10));
-      const g = new THREE.BoxGeometry(len, h, w, seg, 1, 1);
-      const p = g.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        const b = bump(p.getX(i) + cx);
-        if (p.getY(i) > 0) p.setY(i, p.getY(i) + b);
-        if (out && p.getZ(i) * out > 0) p.setZ(i, p.getZ(i) + out * b * (S.bulge ?? 1.2));
-      }
-      g.computeVertexNormals();
-      const end = mat('rail_side', w / (h * 8)), top = mat('rail_top', len / (w * 16)), side = mat('rail_side', len / (h * 8), true);
-      return new THREE.Mesh(g, [end, end, top, top, side, side]);
-    };
-    // 난간 4개 (앞 · 뒤 · 좌 · 우)
-    for (const [len, off, rot] of [[TRAY_W + 2 * T, TRAY_D / 2 + T / 2, 0], [TRAY_W + 2 * T, -(TRAY_D / 2 + T / 2), 0], [TRAY_D, TRAY_W / 2 + T / 2, Math.PI / 2], [TRAY_D, -(TRAY_W / 2 + T / 2), Math.PI / 2]]) {
-      const m = rail(len, T, H, off * 3.1, Math.sign(off));
-      m.position.y = H / 2; m.rotation.y = rot;
-      if (rot) m.position.x = off; else m.position.z = off;
-      m.castShadow = m.receiveShadow = true;
-      grp.add(m);
-      // 난간 가운데 보석 (조금 떠서 솟은 모양)
-      const gem = this.frameGem(S, 0.17);
-      gem.position.set(rot ? off : 0, H + bump(off * 3.1) + 0.16, rot ? 0 : off);
-      grp.add(gem);
-    }
-    // 네 모서리 기둥 + 꼭대기 보석
-    const PW = 0.72, PH = H + 0.32;
-    const sideM = mat('corner_side', 1, false), topM = mat('corner_top', 1, false);
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, PW), [sideM, sideM, topM, topM, sideM, sideM]);
-      post.position.set(sx * (TRAY_W / 2 + T / 2), PH / 2, sz * (TRAY_D / 2 + T / 2));
-      post.castShadow = post.receiveShadow = true;
-      grp.add(post);
-      const gem = this.frameGem(S, 0.24);
-      gem.position.set(post.position.x, PH + 0.24, post.position.z);
-      grp.add(gem);
-    }
-    // 주사위 함 벽도 같은 그림 난간으로
-    for (const [w, d, x, z] of [[TRAY_W + 2 * T + 2 * BOX_T, BOX_T, 0, BOX_Z + BOX_D / 2 + BOX_T / 2], [BOX_T, BOX_D, -(TRAY_W / 2 + T + BOX_T / 2), BOX_Z], [BOX_T, BOX_D, TRAY_W / 2 + T + BOX_T / 2, BOX_Z]]) {
-      const along = w >= d, len = along ? w : d, thick = along ? d : w;
-      const m = rail(len, thick, BOX_H, x * 2.3 + z, along ? 1 : Math.sign(x));
-      m.position.set(x, BOX_H / 2, z);
-      if (!along) m.rotation.y = Math.PI / 2;
-      m.castShadow = m.receiveShadow = true;
-      grp.add(m);
-    }
+    const mats = [mat('rail_side', true), mat('rail_top', false), mat('rail_side', true)];
+    const r0 = S.round ?? (st.pixel || st.flags ? 0 : 0.2);
+    const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    // 트레이 고리: 앞 모서리는 각지게 (칸 고리와 맞붙는다), 앞쪽은 바깥으로 출렁이지 않게
+    grp.add(this.railRing({ hw: TRAY_W / 2, hd: TRAY_D / 2, cz: 0, T: RAIL_T, H: 0.7, round: [r0, r0, 0, 0], S, id, mats,
+      bulgeW: (x, z) => 1 - sm(TRAY_D / 2 - 1.1, TRAY_D / 2 - 0.15, z), amp: 1 }));
+    // 주사위 칸 고리: 뒤 모서리는 각지게 (트레이 앞 난간 속에 묻힌다), 낮게 · 출렁임도 작게
+    const bhw = BOX_OUT - BOX_T, bhd = BOX_D / 2;
+    grp.add(this.railRing({ hw: bhw, hd: bhd, cz: BOX_Z, T: BOX_T, H: BOX_H, round: [0, 0, r0 * 0.8, r0 * 0.8], S, id, mats,
+      bulgeW: (x, z) => sm(BOX_Z - bhd + 0.15, BOX_Z - bhd + 1.0, z), amp: 0.55, seat: (x, z) => z > BOX_Z - bhd + 0.02 }));
+    this.addDecor(grp, id, st);
     this.scene.add(grp);
     return grp;
+  }
+  // 고리 하나: hw · hd 안쪽 반폭 · 반깊이, cz 가운데 z, T 두께, H 높이, round [뒤왼 · 뒤오 · 앞오 · 앞왼] 모서리 반지름 (0 = 각진 모서리)
+  railRing({ hw, hd, cz, T, H, round, S, id, mats, bulgeW, amp, seat = () => true }) {
+    const step = 0.04, pts = [];
+    // 안쪽 경계 위의 점 + 바깥 방향 (각진 모서리는 두 방향의 합 = 비스듬히 잘린 모서리)
+    const corners = [[-1, -1, round[0]], [1, -1, round[1]], [1, 1, round[2]], [-1, 1, round[3]]];
+    const line = (ax, az, bx, bz, nx, nz) => { const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / step)); for (let i = 1; i < n; i++) pts.push({ x: ax + (bx - ax) * i / n, z: az + (bz - az) * i / n, nx, nz }); };
+    const cornerPts = k => {
+      const [sx, sz, r] = corners[k], a0 = Math.atan2(k === 0 ? 0 : k === 1 ? -1 : k === 2 ? 0 : 1, k === 0 ? -1 : k === 1 ? 0 : k === 2 ? 1 : 0);
+      if (!r) { pts.push({ x: sx * hw, z: cz + sz * hd, nx: sx, nz: sz }); return; }
+      const ox = sx * (hw - r), oz = cz + sz * (hd - r), n = Math.max(3, Math.ceil(r * Math.PI / 2 / step * 2));
+      for (let i = 0; i <= n; i++) { const a = a0 + (Math.PI / 2) * i / n; pts.push({ x: ox + Math.cos(a) * r, z: oz + Math.sin(a) * r, nx: Math.cos(a), nz: Math.sin(a) }); }
+    };
+    // 뒤왼 → 뒤 변 → 뒤오 → 오른쪽 변 → 앞오 → 앞 변 → 앞왼 → 왼쪽 변 순서로 한 바퀴
+    const C = corners.map(([sx, sz, r]) => ({ sx, sz, r }));
+    // 각 모서리의 시작 · 끝 (둥근 모서리는 호의 양 끝)
+    const cs = k => { const { sx, sz, r } = C[k]; return k % 2 === 0 ? [sx * hw, cz + sz * (hd - r)] : [sx * (hw - r), cz + sz * hd]; };
+    const ce = k => { const { sx, sz, r } = C[k]; return k % 2 === 0 ? [sx * (hw - r), cz + sz * hd] : [sx * hw, cz + sz * (hd - r)]; };
+    const nrm = [[0, -1], [1, 0], [0, 1], [-1, 0]];       // 모서리 k 다음 변의 바깥 방향 (뒤 · 오른쪽 · 앞 · 왼쪽)
+    for (let k = 0; k < 4; k++) {
+      cornerPts(k);
+      const [ax, az] = ce(k), [bx, bz] = cs((k + 1) % 4);
+      line(ax, az, bx, bz, nrm[k][0], nrm[k][1]);
+    }
+    // 가운데 선 길이로 무늬 좌표 · 한 바퀴 길이
+    let s = 0;
+    pts.forEach((p, i) => { if (i) { const q = pts[i - 1]; s += Math.hypot(p.x + p.nx * T / 2 - q.x - q.nx * T / 2, p.z + p.nz * T / 2 - q.z - q.nz * T / 2); } p.s = s; });
+    const P = s + Math.hypot(pts[0].x + pts[0].nx * T / 2 - pts.at(-1).x - pts.at(-1).nx * T / 2, pts[0].z + pts[0].nz * T / 2 - pts.at(-1).z - pts.at(-1).nz * T / 2);
+    pts.push({ ...pts[0], s: P });
+    // 윗면 높이: 한 바퀴(θ 0 → 2π)에 정수 번 반복하는 물결이라 이음매가 없다
+    const seed = id.length * 7.3, TAU2 = Math.PI * 2;
+    const m = f => Math.max(1, Math.round(f * P / TAU2));
+    const a = (S.amp || 0) * amp, f = S.freq || 2;
+    const bump = th => {
+      if (!S.fancy) return 0;
+      if (S.shape === 'scallop') { const k = Math.max(1, Math.round(f * P / Math.PI)); return a * Math.abs(Math.sin(k * th / 2)); }
+      if (S.shape === 'jag') { const k = Math.max(1, Math.round(f * P / Math.PI)), q = (k * th / TAU2) % 1; return a * (q < 0.5 ? q * 2 : (1 - q) * 2) + a * 0.3 * Math.sin(m(7.1) * th + seed); }
+      if (S.shape === 'rock') return a * (0.5 + 0.5 * Math.sin(m(f) * th + seed) * Math.sin(m(f * 2.3) * th + 1.7) + 0.25 * Math.sin(m(9.3) * th));
+      return a * (0.5 + 0.5 * Math.sin(m(f) * th + seed));
+    };
+    // 단면 [안쪽에서 바깥으로 거리, 높이] — 0 안벽 · 1 윗면(둥근 모서리 포함) · 2 바깥벽
+    const e = Math.min(0.08, T * 0.2), c = 0.29;
+    const prof = [
+      [[0, 0], [0, H * 0.5], [0, H - e]],
+      [[0, H - e], [e * c, H - e * c], [e, H], [T / 2, H], [T - e, H], [T - e * c, H - e * c], [T, H - e]],
+      [[T, H - e], [T, H * 0.5], [T, 0]],
+    ];
+    const kTop = Math.max(1, Math.round(P / (T * 16))) / P, kSide = Math.max(1, Math.round(P / (H * 8))) / P;
+    const pos = [], uv = [], idx = [], geo = new THREE.BufferGeometry();
+    const bulge = S.bulge ?? 1.2;
+    let base = 0;
+    prof.forEach((pr, gi) => {
+      const start = idx.length;
+      for (const p of pts) {
+        const b = bump(p.s / P * TAU2), w = bulgeW(p.x, p.z);
+        for (let j = 0; j < pr.length; j++) {
+          const [d0, y0] = pr[j];
+          const d = d0 + bulge * b * w * (d0 / T), y = y0 + b * (y0 / H);
+          pos.push(p.x + p.nx * d, y, p.z + p.nz * d);
+          uv.push(p.s * (gi === 1 ? kTop : kSide), gi === 1 ? 1 - d0 / T : y0 / H);
+        }
+        if (gi === 1 && seat(p.x, p.z)) this.railPts.push({ x: p.x + p.nx * T / 2, z: p.z + p.nz * T / 2, y: H + b, nx: p.nx, nz: p.nz });
+      }
+      const n = pr.length;
+      for (let i = 0; i < pts.length - 1; i++) for (let j = 0; j < n - 1; j++) {
+        const A = base + i * n + j, B = A + n, Cc = B + 1, D = A + 1;
+        idx.push(A, D, B, B, D, Cc);
+      }
+      geo.addGroup(start, idx.length - start, gi);
+      base += pts.length * n;
+    });
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    // 감는 방향 확인: 윗면 삼각형이 위(+y)를 보게
+    {
+      const g1 = geo.groups[1], ia = idx[g1.start], ib = idx[g1.start + 1], ic = idx[g1.start + 2];
+      const v = k => new THREE.Vector3(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]);
+      const nn = new THREE.Vector3().crossVectors(v(ib).sub(v(ia)), v(ic).sub(v(ia)));
+      if (nn.y < 0) for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+      geo.setIndex(idx);
+    }
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mats);
+    mesh.castShadow = mesh.receiveShadow = true;
+    return mesh;
+  }
+  // 둥근 포커 테이블 (카지노): 모서리를 깎은 펠트 바닥 + 둘레를 감싸는 볼록한 검은 가죽 쿠션, 앞쪽 주사위 칸도 쿠션으로 두른다
+  buildOvalFrame(id, st) {
+    const R = st.oval, grp = new THREE.Group();
+    const rr = (hw, hd, r) => {        // 가운데 기준 둥근 사각형 Shape
+      const s = new THREE.Shape();
+      s.moveTo(-hw + r, -hd); s.lineTo(hw - r, -hd); s.absarc(hw - r, -hd + r, r, -Math.PI / 2, 0);
+      s.lineTo(hw, hd - r); s.absarc(hw - r, hd - r, r, 0, Math.PI / 2);
+      s.lineTo(-hw + r, hd); s.absarc(-hw + r, hd - r, r, Math.PI / 2, Math.PI);
+      s.lineTo(-hw, -hd + r); s.absarc(-hw + r, -hd + r, r, Math.PI, Math.PI * 1.5);
+      return s;
+    };
+    const fg = new THREE.ShapeGeometry(rr(TRAY_W / 2, TRAY_D / 2, R), 24);
+    const p = fg.attributes.position, uv = fg.attributes.uv;
+    for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / TRAY_W + 0.5, p.getY(i) / TRAY_D + 0.5);
+    const floor = new THREE.Mesh(fg, this.floorMesh.material);
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+    grp.add(floor);
+    const TB = st.tube || {};
+    const tex = this.imageTex(trayImage(id, TB.tex || 'cushion')).clone();
+    tex.wrapS = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
+    const leather = new THREE.MeshStandardMaterial({ map: tex, roughness: TB.rough ?? 0.42, metalness: TB.metal ?? 0.05, envMap: this.envMap(), envMapIntensity: 0.55 });
+    if (TB.glow && st.railGlow) {
+      const gt = this.imageTex(trayImage(id, 'rail_glow')).clone(); gt.wrapS = THREE.RepeatWrapping; gt.needsUpdate = true;
+      leather.emissive = new THREE.Color(0xFFFFFF); leather.emissiveMap = gt; leather.emissiveIntensity = TB.glow;
+    }
+    // 둥근 사각형 둘레를 따라 가는 관 (단면은 위아래로 조금 납작한 원)
+    this.railPts = [];
+    const cushion = (hw, hd, r, rad, h, rep, cz = 0) => {
+      const pts = rr(hw, hd, r).getSpacedPoints(220).map(q => new THREE.Vector3(q.x, 0, -q.y));
+      for (const q of pts) this.railPts.push({ x: q.x, z: q.z + cz, y: h + rad * 0.85 });
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 440, rad, 18, true);
+      // 그림 난간 질감(가로 8 : 세로 1)을 관에 감을 때는 둘레 비율에 맞춰 반복 수를 정한다 (예전엔 길이 방향으로 5배쯤 눌려 세로 줄무늬처럼 보였다)
+      if (TB.tex && TB.tex !== 'cushion') { const len = g.parameters.path.getLength(); rep = Math.max(2, Math.round(len / (2 * Math.PI * rad * 8 * 0.75))); }
+      const m = new THREE.Mesh(g, leather.clone());
+      m.material.map = tex.clone(); m.material.map.repeat.set(rep, 1); m.material.map.needsUpdate = true;
+      if (m.material.emissiveMap) { m.material.emissiveMap = m.material.emissiveMap.clone(); m.material.emissiveMap.repeat.set(rep, 1); m.material.emissiveMap.needsUpdate = true; }
+      m.scale.y = 0.85; m.position.y = h; m.castShadow = m.receiveShadow = true;
+      return m;
+    };
+    const CR = TB.rad || 0.3, off = CR - 0.02;   // 쿠션 안쪽 면이 벽(바닥 가장자리)에 닿게
+    grp.add(cushion(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off, CR, CR * 0.95, TB.rep || 22));
+    if (st.nest) this.nestTwigs(grp, rr(TRAY_W / 2 + off, TRAY_D / 2 + off, R + off), 0, CR, CR * 0.95, tex, 3);
+    // 앞쪽 주사위 칸: 얇은 쿠션 고리
+    const bz0 = TRAY_D / 2 + 2 * CR, bz1 = BOX_Z + BOX_D / 2 + BOX_T, bc = 0.17;
+    const ring = cushion(BOX_OUT - bc, (bz1 - bz0) / 2 - bc, 0.55, bc, bc * 0.95, 18, (bz0 + bz1) / 2);
+    if (st.nest) this.nestTwigs(grp, rr(BOX_OUT - bc, (bz1 - bz0) / 2 - bc, 0.55), (bz0 + bz1) / 2, bc, bc * 0.95, tex, 2);
+    ring.position.z = (bz0 + bz1) / 2;
+    grp.add(ring);
+    // 주사위 칸 바닥도 쿠션 고리 안쪽에 맞춘 둥근 바닥 (네모 바닥이 쿠션 밖으로 삐져나오지 않게)
+    const bhw = BOX_OUT - 2 * bc + 0.04, bhd = (bz1 - bz0) / 2 - 2 * bc + 0.04;
+    const bg = new THREE.ShapeGeometry(rr(bhw, bhd, 0.42), 16), bp = bg.attributes.position, buv = bg.attributes.uv;
+    for (let i = 0; i < bp.count; i++) buv.setXY(i, bp.getX(i) / (2 * bhw) + 0.5, bp.getY(i) / (2 * bhd) + 0.5);
+    const bf = new THREE.Mesh(bg, this.boxFloor.material);
+    bf.rotation.x = -Math.PI / 2; bf.position.set(0, 0.002, (bz0 + bz1) / 2); bf.receiveShadow = true;
+    grp.add(bf);
+    this.addDecor(grp, id, st);
+    if (st.nest) this.nestProps(grp);
+    this.scene.add(grp);
+    return grp;
+  }
+  // 드래곤 둥지: 굵은 가지 둘레를 가는 가지 여러 줄이 꼬며 감는다 (엮어 쌓은 둥지처럼). n: 감는 가지 수
+  nestTwigs(grp, shape, cz, rad, h, tex, n) {
+    const path = shape.getSpacedPoints(400).map(q => new THREE.Vector2(q.x, -q.y + cz));
+    const L = path.reduce((a, p, i) => a + (i ? p.distanceTo(path[i - 1]) : 0), 0);
+    const cols = [0xFFF0D8, 0xE8C8A0, 0xFFFFFF];
+    for (let k = 0; k < n; k++) {
+      const turns = Math.round(L / (1.6 + k * 0.35)), ph = k * 2.1, rr = rad * (0.92 + 0.08 * k), tr = rad * (0.2 + 0.05 * ((k + 1) % 2));
+      const pts = [];
+      let s = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        const p = path[i], q = path[i + 1];
+        if (i) s += p.distanceTo(path[i - 1]);
+        const tx = q.x - p.x, tz = q.y - p.y, tl = Math.hypot(tx, tz) || 1;
+        const nx = tz / tl, nz = -tx / tl;                       // 바깥쪽 (둥근 사각형은 시계 반대 방향)
+        const a = ph + (s / L) * turns * Math.PI * 2;
+        // 아래쪽 반 바퀴(바닥 속)는 안 보이니 위쪽으로 치우쳐 감는다
+        const c = Math.cos(a), sn = Math.sin(a) * 0.5 + 0.5;
+        pts.push(new THREE.Vector3(p.x + nx * c * rr, h * 0.85 + sn * rr * 0.95, p.y + nz * c * rr));
+      }
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 900, tr, 7, true);
+      const t = tex.clone(); t.repeat.set(Math.round(L / 0.9), 1); t.needsUpdate = true;
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, color: cols[k % 3], roughness: 0.85, metalness: 0 }));
+      m.castShadow = m.receiveShadow = true;
+      grp.add(m);
+    }
+  }
+  // 드래곤 둥지 소품: 뒤쪽 난간에 반짝이는 용의 알 무리 · 금화 더미 (그림판이 아닌 진짜 3D — 빛 · 그림자를 받는다)
+  nestProps(grp) {
+    const eggTex = (hue) => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+      gr.addColorStop(0, hue[0]); gr.addColorStop(0.55, hue[1]); gr.addColorStop(1, hue[2]);
+      g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+      // 비늘 무늬
+      g.strokeStyle = 'rgba(255, 220, 140, .35)'; g.lineWidth = 2;
+      for (let y = 0; y < 256; y += 18) for (let x = (y / 18) % 2 ? 9 : 0; x < 256; x += 18) { g.beginPath(); g.arc(x, y, 9, 0, Math.PI); g.stroke(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping;
+      return t;
+    };
+    const eggMats = [['#FFD27A', '#B8261A', '#3A0608'], ['#FFF0B0', '#C8861E', '#4A2A08'], ['#D8C8FF', '#5A2A8A', '#14081E']].map(h => {
+      const t = eggTex(h);
+      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.28, metalness: 0.25, envMap: this.envMap(), envMapIntensity: 0.9, emissive: 0xFF5A1A, emissiveMap: t, emissiveIntensity: 0.06 });
+    });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xFFC83D, roughness: 0.22, metalness: 0.95, envMap: this.envMap(), envMapIntensity: 1.2, emissive: 0x5A3A00, emissiveIntensity: 0.25 });
+    const egg = new THREE.SphereGeometry(1, 24, 18), coin = new THREE.CylinderGeometry(1, 1, 0.16, 18);
+    const seat = (x, z) => {
+      let best = null, bd = Infinity;
+      for (const q of this.railPts || []) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < bd) { bd = d; best = q; } }
+      return best || { x, z, y: 0.6 };
+    };
+    const put = (mesh, x, z, dy = 0) => { const q = seat(x, z); mesh.position.set(q.x + (x - q.x) * 0.0, q.y + dy, q.z); mesh.castShadow = true; grp.add(mesh); return mesh; };
+    const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(7);
+    // 알 무리 (뒤 왼쪽 · 뒤 오른쪽)
+    for (const [cx, mi] of [[-2.3, 0], [2.4, 1]]) {
+      [[0, 0, 0.27], [0.42, 0.08, 0.21], [-0.38, 0.06, 0.2]].forEach(([dx, dz, r], j) => {
+        const m = new THREE.Mesh(egg, eggMats[(mi + j) % 3]);
+        m.scale.set(r, r * 1.35, r);
+        m.rotation.set((rnd() - 0.5) * 0.5, rnd() * 6, (rnd() - 0.5) * 0.6);
+        put(m, cx + dx, -4 + dz, r * 0.95);
+      });
+      // 알 둘레 금화
+      for (let k = 0; k < 7; k++) {
+        const m = new THREE.Mesh(coin, gold), r = 0.075 + rnd() * 0.02;
+        m.scale.set(r, 1, r); m.rotation.set((rnd() - 0.5) * 1.2, rnd() * 6, (rnd() - 0.5) * 1.2);
+        put(m, cx + (rnd() - 0.5) * 1.1, -4 + (rnd() - 0.5) * 0.3, 0.02 + rnd() * 0.05);
+      }
+    }
+    // 가운데 금화 더미 (낮게 쌓인)
+    for (let k = 0; k < 16; k++) {
+      const m = new THREE.Mesh(coin, gold), r = 0.08 + rnd() * 0.025, u = rnd() - 0.5;
+      m.scale.set(r, 1, r); m.rotation.set((rnd() - 0.5) * 1.1, rnd() * 6, (rnd() - 0.5) * 1.1);
+      put(m, u * 1.5, -4, 0.02 + (0.5 - Math.abs(u)) * 0.12 + rnd() * 0.03);
+    }
+  }
+  // 테두리 장식 그림 (skins.js TRAY_DECOR): 배치도 자리에서 가장 가까운 난간 윗면에 "올려 앉힌다" (높이도 그 자리 난간 높이).
+  // 예전엔 빛을 받지 않는 스프라이트를 난간 위에 덮어 그려서 스티커처럼 떠 보였다 — 이제 조명 · 그림자를 받고, 난간 · 바닥에 그림자를 드리우며,
+  // 밑동에 옅은 접지 그림자가 깔린다. 그림판은 카메라를 향해 세우고(faceDecor), 그림의 투명한 아래 여백은 잘라서 밑동이 난간에 닿게 한다.
+  addDecor(grp, id, st) {
+    const list = TRAY_DECOR[id];
+    if (!list) return;
+    const wx = px => (px - 160) / 120 - TRAY_W / 2;
+    const wz = py => (py >= 1000 ? TRAY_D / 2 + RAIL_T + (py - 1050) / 120 : (py - 160) / 120 - TRAY_D / 2);
+    const seatAt = (x, z) => {
+      let best = null, bd = Infinity;
+      for (const q of this.railPts || []) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < bd) { bd = d; best = q; } }
+      return best || { x, z, y: 0.7 };
+    };
+    for (const [n, asp, px, py, front] of list) {
+      if (n === 'flagpole') continue;
+      const q = seatAt(wx(px), wz(py));
+      if (n === 'flag_cloth') { grp.add(this.makeFlag(id, q.x, q.z, front, q.y)); continue; }
+      const h = front ? 0.5 : (n.match(/point|spike|horn|icicle|fissure|crystal/) ? 0.95 : 0.8);
+      const tex = this.imageTex(trayImage(id, `decor_${n}`)); tex.colorSpace = THREE.SRGBColorSpace;
+      if (st.pixel) { tex.magFilter = THREE.NearestFilter; }
+      const box = alphaBox(tex.image);       // 그림 속 실제 그림 영역 (투명 여백 빼고)
+      const geo = new THREE.PlaneGeometry(1, 1);
+      const uvA = geo.attributes.uv, pA = geo.attributes.position;
+      for (let i = 0; i < uvA.count; i++) {
+        const u = uvA.getX(i), v = uvA.getY(i);
+        uvA.setXY(i, box.x0 + u * (box.x1 - box.x0), box.y0 + v * (box.y1 - box.y0));
+        pA.setXY(i, u - 0.5, v);
+      }
+      const bw = (box.x1 - box.x0) * asp / (box.y1 - box.y0);     // 잘라 낸 그림의 가로/세로 비
+      const hh = h * (box.y1 - box.y0) * 0.92;                     // 예전 크기와 비슷하게 (예전엔 그림판 전체가 h, 그 안의 그림은 더 작았다)
+      const m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.04, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide,
+        emissive: 0xFFFFFF, emissiveMap: tex, emissiveIntensity: 0.18 });
+      const mesh = new THREE.Mesh(geo, m);
+      mesh.scale.set(hh * bw, hh, 1);
+      mesh.userData.h = hh;
+      mesh.position.set(q.x, q.y - 0.03, q.z);
+      mesh.castShadow = true;
+      mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5 });
+      mesh.renderOrder = 2;
+      (this.decorMeshes ||= []).push(mesh);
+      grp.add(mesh);
+      // 밑동 접지 그림자 (난간 윗면에 납작하게)
+      const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: this.blobTex(), transparent: true, depthWrite: false, opacity: 0.55, color: 0x000000 }));
+      blob.rotation.x = -Math.PI / 2;
+      blob.scale.set(hh * bw * 0.95, Math.min(0.5, hh * bw * 0.45), 1);
+      blob.position.set(q.x, q.y + 0.006, q.z);
+      blob.renderOrder = 1;
+      grp.add(blob);
+    }
+    this.faceDecor();
+  }
+  // 장식 그림판: 카메라 쪽으로 돌리되 똑바로 서지도 · 완전히 눕지도 않게 40° 만 뒤로 기울인다
+  // (카메라를 똑바로 보면 판이 난간 위에 납작하게 깔려 그림자 · 입체감이 없고, 똑바로 서면 위에서 내려다봐 짧아 보인다 — 짧아지는 만큼 세로로 늘린다)
+  faceDecor() {
+    if (!this.camera) return;
+    const c = this.camera.position, TILT = 0.7;
+    for (const m of this.decorMeshes || []) {
+      const dx = c.x - m.position.x, dz = c.z - m.position.z, dy = c.y - m.position.y;
+      const pitch = Math.atan2(dy, Math.hypot(dx, dz));
+      m.rotation.set(-TILT, Math.atan2(dx, dz), 0, 'YXZ');
+      m.scale.y = m.userData.h / Math.max(0.8, Math.cos(pitch - TILT)) * 0.9;
+    }
+  }
+  blobTex() {
+    if (this._blob) return this._blob;
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    this._blob = new THREE.CanvasTexture(c); this._blob.userData.cached = true;
+    return this._blob;
+  }
+  makeFlag(id, x, z, front, top) {
+    const g = new THREE.Group(), s = front ? 0.55 : 1;
+    const ph = 0.95 * s;
+    const wood = new THREE.MeshStandardMaterial({ color: 0x3A2618, roughness: 0.7 });
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s + 0.01, 0.045 * s + 0.01, ph, 10), wood);
+    pole.position.y = ph / 2; pole.castShadow = true; g.add(pole);
+    // 깃대 밑동: 난간에 박아 넣은 쇠 고리 (막대가 그냥 꽂혀 떠 보이지 않게)
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.075 * s + 0.02, 0.09 * s + 0.025, 0.07, 12), new THREE.MeshStandardMaterial({ color: 0x2A2420, roughness: 0.45, metalness: 0.7 }));
+    collar.position.y = 0.02; collar.castShadow = true; g.add(collar);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06 * s + 0.02, 12, 10), new THREE.MeshStandardMaterial({ color: 0xC8A060, roughness: 0.35, metalness: 0.7 }));
+    knob.position.y = ph; g.add(knob);
+    const fw = 1.1 * s, fh = 0.75 * s, dir = (x < 0 ? -1 : 1) * (front ? 1 : -1);   // 뒤 깃발은 안쪽(트레이 위 하늘)으로, 앞 깃발은 바깥쪽으로 휘날린다
+    const geo = new THREE.PlaneGeometry(fw, fh, 14, 6);
+    geo.translate(fw / 2, 0, 0);
+    const tex = this.imageTex(trayImage(id, 'decor_flag_cloth')); tex.colorSpace = THREE.SRGBColorSpace;
+    const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide, roughness: 0.9 }));
+    cloth.castShadow = true;
+    cloth.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5 });
+    cloth.position.y = ph - fh / 2 - 0.04;
+    cloth.scale.x = dir;
+    cloth.userData.base = Float32Array.from(geo.attributes.position.array);
+    cloth.userData.fw = fw; cloth.userData.seed = x * 1.7 + z;
+    g.add(cloth);
+    g.position.set(x, top - 0.04, z);
+    g.rotation.z = (x < 0 ? 1 : -1) * (front ? 0.2 : 0.04);   // 깃대는 바깥쪽으로 살짝 (앞 깃발은 더)
+    g.rotation.x = front ? -0.5 : -0.85;   // 카메라가 위에서 내려다봐서 똑바로 서면 납작해 보인다 — 뒤로 눕혀 깃발 면이 화면을 향하게
+    (this.flags ||= []).push(cloth);
+    return g;
+  }
+  // 깃발 천 펄럭임: 깃대에서 멀수록 크게 출렁이는 물결 (초당 30번만 다시 그린다)
+  flagTick(t) {
+    for (const c of this.flags || []) {
+      if (!c.parent?.parent?.visible) continue;
+      const p = c.geometry.attributes.position, b = c.userData.base, fw = c.userData.fw, sd = c.userData.seed;
+      for (let i = 0; i < p.count; i++) {
+        const x = b[i * 3], y = b[i * 3 + 1], k = x / fw;
+        p.setZ(i, Math.sin(x * 7 - t * 0.006 + sd) * 0.09 * k + Math.sin(x * 3.1 - t * 0.0037 + y * 4) * 0.05 * k);
+        p.setY(i, y - k * k * 0.06 + Math.sin(t * 0.004 + x * 5) * 0.02 * k);
+      }
+      p.needsUpdate = true; c.geometry.computeVertexNormals();
+    }
   }
   // 난간 장식 보석: 스킨 색의 팔면체(진주는 구), 빛나는 스킨은 스스로 빛난다
   frameGem(S, r) {
@@ -569,10 +908,12 @@ export class DiceTray {
       this.camera.updateMatrixWorld();
     };
     place();
-    // 앞쪽 주사위 함은 트레이보다 넓고 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝 장식(보석)이 잘렸다.
-    // 함 바닥 양 끝 장식 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 벽까지 다 넣으면 주사위가 너무 작아진다)
-    const XE = TRAY_W / 2 + RAIL_T - 0.15, XR = TRAY_W / 2 + RAIL_T;
-    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, 0.7, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
+    // 앞쪽 주사위 함은 카메라에 가까워서(원근으로 더 커 보인다) 좁은 화면에선 양 끝이 잘렸다.
+    // 함 바닥 양 끝 · 난간 모서리가 화면 안에 들어올 때까지 조금씩 물러난다 (함 바깥 끝은 이제 난간 바깥 끝과 같은 선)
+    const XE = BOX_OUT - 0.15, XR = BOX_OUT;
+    // 모든 트레이가 같은 화면 맞춤 (장식이 있든 없든 주사위 · 굴리는 면이 같은 크기로 보이게). 뒤쪽 장식(깃발 · 왕관 · 뿔)이 들어갈 만큼 위쪽 여유를 늘 둔다
+    const DECOR_TOP = 1.45;
+    const corners = [[XE, 0, BOX_Z + BOX_D / 2], [XE, 0, BOX_Z - BOX_D / 2], [XR, DECOR_TOP, SCENE_Z0], [XR, 0.7, -SCENE_Z0]];
     const v = new THREE.Vector3();
     for (let k = 0; k < 40; k++) {
       const out = corners.some(([x, y, z]) => { v.set(x, y, z).project(this.camera); return Math.abs(v.x) > 0.985 || Math.abs(v.y) > 0.985; });
@@ -581,6 +922,7 @@ export class DiceTray {
       place();
     }
     this.camBase = this.camera.position.clone();
+    this.faceDecor();
     this.dirty = true;
   }
 
@@ -665,14 +1007,21 @@ export class DiceTray {
     this.dice.forEach((d, i) => {
       d.held = !!held[i];
       if (this.live?.ids.has(i)) return;   // 흔드는 중인 주사위는 물리가 움직인다
+      // 새 차례(아직 안 굴림 · 값 0)인데 앞서 굴린 눈이 있으면: 눈은 그대로 두고 자리로만 돌아온다
+      // (예전엔 1 · 2 · 3 · 4 · 5 자리표시 눈으로 갑자기 바뀌어 부자연스러웠다)
+      const keep = !values[i] && d.value && !d.blank;
       if (d.boxed && (!d.held || !values[i])) {
         // 고정을 풀었거나 새 차례: 함에서 트레이로 돌아온다
-        if (values[i] && d.value === values[i]) this.hop(d, false);
+        if ((values[i] && d.value === values[i]) || keep) this.hop(d, false);
         else { d.boxed = false; d.hop = null; }
       }
       // 고정하면 바로 주사위 함으로 (다른 기기에서 고정한 것도)
       if (d.held && !d.boxed && values[i] && d.value === values[i] && !d.blank && !this.live) this.hop(d, true);
       if (d.morph) return;          // 보스 스킬 연출 중인 주사위는 연출이 끝나면 눈을 바꾼다
+      if (keep) {
+        if (!d.hop) { d.mesh.position.x = this.slotX(i, n); d.mesh.position.z = this.homeZ(d); }
+        return;
+      }
       // 눈이 그대로면 굴러서 멈춘 자세를 유지한다 (다시 그릴 때 튀지 않게)
       if (values[i] && d.value === values[i] && !d.blank) {
         d.mesh.position.x = this.slotX(i, n);
@@ -833,10 +1182,11 @@ export class DiceTray {
 
   // values: 엔진이 정한 굴림 결과, rolling: 이번에 굴리는 주사위 여부
   roll(values, rolling, speed = 1) {
+    const baseSpeed = speed;
     speed *= 1.2;                  // 굴러가는 모습 1.2배속
     const n = values.length;
     this.ensure(n);
-    const { world, dieMat } = makeWorld();
+    const { world, dieMat } = makeWorld(6.0, 0.08, this.cornerR || 0);
 
     const bodies = [];
     let boxing = false;   // 고정한 주사위를 함으로 옮기는 중이면, 다 옮긴 다음에 던진다
@@ -890,7 +1240,7 @@ export class DiceTray {
         }
         b.addEventListener('collide', e => {
           const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-          if (v > 2.2) hits.push({ f: frames.length, v, i });
+          if (v > 2.2) hits.push({ f: frames.length, v, i, floor: e.body.material?.name === 'floor' });
         });
         world.addBody(b);
         bodies.push({ i, b });
@@ -910,7 +1260,7 @@ export class DiceTray {
       b.angularVelocity.set((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 30, 35 + Math.random() * 30);
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
-        if (v > 2.2) hits.push({ f: frames.length, v, i });
+        if (v > 2.2) hits.push({ f: frames.length, v, i, floor: e.body.material?.name === 'floor' });
       });
       world.addBody(b);
       bodies.push({ i, b });
@@ -987,15 +1337,47 @@ export class DiceTray {
       return { i, from: null, to: fix.multiply(level) };
     });
 
+    // 마지막 주사위 슬로모션: 나머지가 다 멈췄는데 마지막 하나가 아직 구르고, 그 하나로 요트 · 스트레이트가 될 수 있으면
+    // 그 주사위가 멈출 때까지 느리게 보여 준다 (빨리 감기 중이면 하지 않는다)
+    const slow = this.slowmo === false || baseSpeed > 1 ? null : this.slowPlan(frames, bodies, values);
+
     return new Promise(resolve => {
       const now = performance.now();
       const hopLeft = Math.max(0, ...this.dice.map(d => (d.hop && d.boxed ? d.hop.t0 + d.hop.ms - now : 0)));
       const wait = boxing ? HOP_MS + 40 : hopLeft ? hopLeft + 40 : 0;
       this.live = null;
       if (boxing || hopLeft) setTimeout(() => this.onBox(), Math.max(0, wait - 80));
-      this.anim = { frames, bodies, hits, settle, spins, speed, t0: performance.now() + wait, hitIdx: 0, swaps, pre, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
+      this.anim = { frames, bodies, hits, settle, spins, speed, slow, t0: performance.now() + wait, hitIdx: 0, swaps, pre, resolve, phase: wait ? 'wait' : 'fly', ids: new Set(bodies.map(b => b.i)) };
       if (!wait) this.throwNow();
     });
+  }
+
+  // 슬로모션 계획: 가장 늦게 멈추는 주사위 하나만 남은 순간부터 그 주사위가 멈출 때까지 느리게.
+  // 다른 네 주사위(고정한 것 포함)가 같은 눈 4개거나 스트레이트 4칸이면 — 마지막 하나에 요트 · 라지 스트레이트가 걸려 있다
+  slowPlan(frames, bodies, values) {
+    if (!bodies.length || values.length !== 5) return null;
+    const stopF = bodies.map((_, k) => {
+      for (let f = frames.length - 1; f > 0; f--) {
+        const a = frames[f - 1][k], b = frames[f][k];
+        if (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) > 0.004) return f;
+      }
+      return 0;
+    });
+    const order = stopF.map((f, k) => [f, k]).sort((x, y) => y[0] - x[0]);
+    const [lastF, k0] = order[0];
+    const from = order.length > 1 ? order[1][0] : Math.floor(lastF * 0.35);
+    if (lastF - from < 14) return null;                       // 혼자 남아 구르는 시간이 너무 짧다
+    const i = bodies[k0].i;
+    const rest = values.filter((_, j) => j !== i);
+    const cnt = [0, 0, 0, 0, 0, 0, 0];
+    rest.forEach(v => cnt[v]++);
+    const set = new Set(rest);
+    const four = cnt.some(c => c >= 4);
+    const run = [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]].some(r => r.every(v => set.has(v)));
+    if (!four && !run) return null;
+    // 느린 구간은 길어도 약 1.6초
+    const k = Math.max(0.3, (lastF - from) / (FPS * 1.2 * 1.6));
+    return { from, to: lastF, k, k0 };
   }
 
   // 던지는 순간: 굴리는 주사위에 결과 눈을 입히고 던지는 소리
@@ -1010,7 +1392,7 @@ export class DiceTray {
   // 흔들기를 멈추면 앱이 roll() 을 부르고, roll() 은 지금 자세·속도 그대로 이어서 멈출 때까지 굴린다
   startShake(rolling) {
     if (this.anim || this.live) return false;
-    const { world, dieMat } = makeWorld(3.4, 0.7);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튀고, 주사위끼리는 통통 튕긴다
+    const { world, dieMat } = makeWorld(3.4, 0.7, this.cornerR || 0);   // 흔드는 동안은 천장을 낮춰 트레이 안에서만 튀고, 주사위끼리는 통통 튕긴다
     const shape = new CANNON.Box(new CANNON.Vec3(HALF * 0.96, HALF * 0.96, HALF * 0.96));
     const bodies = [];
     let lastHit = 0;
@@ -1028,7 +1410,7 @@ export class DiceTray {
       b.addEventListener('collide', e => {
         const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
         const t = performance.now();
-        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); }
+        if (v > 2.5 && t - lastHit > 45) { lastHit = t; this.onHit(v, i); if (e.body.material?.name === 'floor') this.onLand?.(v, i, this.traySkin); }
         // 벽에 부딪히면 모서리로 넘어가며 데굴데굴 (미끄러지기만 하지 않게)
         // 주사위끼리 부딪히면 옆으로 튕겨 나간다
         if (v > 1.5 && e.body.mass > 0) { b.velocity.x += (Math.random() - 0.5) * v * 1.6; b.velocity.z += (Math.random() - 0.5) * v * 1.6; b.velocity.y = Math.max(b.velocity.y, Math.min(5, v * 0.5)); }
@@ -1161,16 +1543,30 @@ export class DiceTray {
     const moving = this.anim || this.live || this.shrink || this.dice.some(d => d.morph || d.wobble || d.hop || d.auraI > 0.01 || Math.abs(this.liftWant(d) - d.lift) > 0.002);
     const glowing = this.twinkle || this.dice.some(d => d.glow.visible);
     if (this.twinkle) for (let v = 1; v <= 6; v++) { const m = this.faceMats[v]; m.emissiveIntensity = (m.userData.glowBase || 0.5) * (0.85 + Math.sin(t / 380 + v * 1.7) * 0.35); }   // 별빛이 반짝인다
+    const flags = this.flags?.some(c => c.parent?.parent?.visible);
     if (!moving && !this.dirty) {
-      if (!glowing || t - (this.lastDraw || 0) < 100) return;
+      if (flags && t - (this.lastDraw || 0) >= 33) { /* 깃발이 펄럭인다 */ }
+      else if (!glowing || t - (this.lastDraw || 0) < 100) return;
     }
+    if (flags) this.flagTick(t);
     this.dirty = false;
     this.lastDraw = t;
     if (this.live) this.stepLive(t);
     const a = this.anim;
     if (a && a.phase === 'wait' && t >= a.t0) { a.phase = 'fly'; this.throwNow(); }
     if (a && a.phase === 'fly') {
-      const f = Math.min(a.frames.length - 1, Math.floor(((t - a.t0) / 1000) * FPS * a.speed));
+      let e = ((t - a.t0) / 1000) * FPS * a.speed;
+      const sl = a.slow;
+      if (sl && e > sl.from) {
+        const span = (sl.to - sl.from) / sl.k;                 // 느린 구간을 보여 주는 데 드는 (원래 속도 기준) 프레임 수
+        const inSlow = e - sl.from < span;
+        e = inSlow ? sl.from + (e - sl.from) * sl.k : sl.to + (e - sl.from - span);
+        if (inSlow && !sl.on) { sl.on = true; this.onSlow?.(a.bodies[sl.k0].i, true); }
+        if (!inSlow && sl.on && !sl.off) { sl.off = true; this.onSlow?.(a.bodies[sl.k0].i, false); }
+      }
+      const zoomTo = sl?.on && !sl.off ? 1.07 : 1;
+      if (Math.abs(this.camera.zoom - zoomTo) > 0.001) { this.camera.zoom += (zoomTo - this.camera.zoom) * 0.12; this.camera.updateProjectionMatrix(); }
+      const f = Math.min(a.frames.length - 1, Math.floor(e));
       a.bodies.forEach(({ i }, k) => {
         const s = a.frames[f][k];
         this.dice[i].mesh.position.set(s[0], s[1], s[2]);
@@ -1181,8 +1577,17 @@ export class DiceTray {
           this.dice[i].mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(sp.axis, Math.PI * 2 * sp.turns * w));
         }
       });
+      // 굴러가는 궤적 (스킨마다 아주 옅은 이펙트 — app.js 가 onTrail 을 붙인다). 두 프레임마다, 움직이는 주사위만
+      if (this.onTrail && f !== a.trailF && f % 2 === 0) {
+        a.trailF = f;
+        a.bodies.forEach(({ i }, k) => {
+          const s0 = a.frames[Math.max(0, f - 2)][k], s1 = a.frames[f][k];
+          const sp = Math.hypot(s1[0] - s0[0], s1[1] - s0[1], s1[2] - s0[2]);
+          if (sp > 0.06) this.onTrail(i, this.screenPos(i), sp);
+        });
+      }
       for (const sw of a.swaps) if (!sw.done && (f >= sw.f || f >= a.frames.length - 1)) { sw.done = true; this.setFaces(this.dice[sw.i], sw.faces); }
-      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
+      while (a.hitIdx < a.hits.length && a.hits[a.hitIdx].f <= f) { const h = a.hits[a.hitIdx++]; this.onHit(h.v, h.i); if (h.floor) this.onLand?.(h.v, h.i, this.traySkin); if (this.marks?.[h.i]?.kind === 'heavy') this.onMarkHit?.(h.v, h.i); }
       if (f >= a.frames.length - 1) {
         a.phase = 'settle';
         a.t1 = t + 50;
@@ -1192,6 +1597,8 @@ export class DiceTray {
         });
       }
     } else if (a && a.phase === 'settle') {
+      if (a.slow?.on && !a.slow.off) { a.slow.off = true; this.onSlow?.(a.bodies[a.slow.k0].i, false); }
+      if (this.camera.zoom !== 1) { this.camera.zoom = Math.abs(this.camera.zoom - 1) < 0.004 ? 1 : this.camera.zoom + (1 - this.camera.zoom) * 0.2; this.camera.updateProjectionMatrix(); }
       const k = easeOut(Math.min(1, Math.max(0, (t - a.t1) / 260)));
       const n = this.dice.length;
       a.settle.forEach(s => {

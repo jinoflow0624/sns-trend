@@ -22,6 +22,17 @@ function intoFight(R) {
 function mulberry(a) { return () => { let t = (a = (a + 0x6D2B79F5) >>> 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 console.log('\n원정 시작 · 지도');
+test('회복 물약은 전투 밖에서도 마실 수 있다 (다른 물약은 전투 중에만)', () => {
+  const R = mk({ cls: 'warrior', seed: 4 });
+  R.phase = 'map'; R.hp = 20; R.potions = ['heal', 'fire'];
+  Run.usePotion(R, 0);
+  assert.equal(R.hp, 48); assert.deepEqual(R.potions, ['fire']);
+  assert.throws(() => Run.usePotion(R, 0));
+  R.potions = ['heal']; R.hp = R.maxHp;
+  assert.throws(() => Run.usePotion(R, 0), /가득/);
+  assert.deepEqual(R.potions, ['heal']);
+});
+
 test('직업마다 시작 덱 9장 · 체력 · 도구', () => {
   for (const cls of Object.keys(Run.RUN_CLASSES)) {
     const R = run(cls);
@@ -474,7 +485,7 @@ test('전투에서 이기면 보상: 골드 · 카드 고르기, 받고 나서 �
   assert.equal(R.phase, 'map');
 });
 test('상점: 골드로 사고, 카드 제거는 한 번', () => {
-  const R = run('monk');
+  const R = run('warrior');
   R.gold = 999;
   R.phase = 'shop';
   R.shop = (() => { R.phase = 'map'; const id = Run.nextNodes(R)[0]; R.map.nodes[id].type = 'shop'; Run.enterNode(R, id); return R.shop; })();
@@ -670,8 +681,24 @@ test('인장: 해 ×1.5 점수 · 구름 보호막 20 · 별 골드 15 · 달은
   Run.playCard(M, M.C.hand.indexOf(copy), 'enemy');
   assert.ok(![...M.C.draw, ...M.C.discard, ...M.C.hand].some(c => c.u === copy.u));   // 쓰고 나면 사라진다
 });
+test('수도승 금욕: 상점에서 사거나 빼거나 강화할 수 없다 · 상점에서 산 횟수를 센다', () => {
+  const M = mk({ cls: 'monk', seed: 3 }); M.phase = 'shop'; M.gold = 999; M.shop = { cards: [{ c: { u: 9001, cat: 'ones', up: 0 }, price: 10, sold: false }], relics: [], potions: [], tools: [], seals: [], removed: false, smithed: false };
+  assert.throws(() => Run.buy(M, 'card', 0), /금욕/);
+  assert.throws(() => Run.startRemove(M), /금욕/);
+  assert.throws(() => Run.startSmith(M), /금욕/);
+  const W = mk({ cls: 'warrior', seed: 3 }); W.phase = 'shop'; W.gold = 999; W.shop = { cards: [{ c: { u: 9002, cat: 'ones', up: 0 }, price: 10, sold: false }], relics: [], potions: [], tools: [], seals: [], removed: false, smithed: false };
+  Run.buy(W, 'card', 0);
+  assert.equal(W.stats.shop, 1);
+});
+test('원정 직업 해금 표: 기본 3 · 도전과제 2 · 나머지는 보석', () => {
+  assert.deepEqual(Run.RUN_ORDER.slice(0, 3), ['warrior', 'rogue', 'mage']);
+  assert.equal(Run.RUN_ORDER.length, Object.keys(Run.RUN_CLASSES).length);
+  assert.equal(Run.RUN_UNLOCK.bard.feat, 'bulwark');
+  assert.equal(Run.RUN_UNLOCK.monk.feat, 'ascetic');
+  assert.ok(Run.FEATS.some(f => f.id === 'bulwark') && Run.FEATS.some(f => f.id === 'ascetic'));
+});
 test('상점 인장: 사면 붙일 카드를 고르고, 이미 붙은 카드엔 못 붙인다', () => {
-  const R = mk({ cls: 'monk', seed: 2 }); R.phase = 'shop'; R.gold = 200; R.shop = { cards: [], relics: [], potions: [], tools: [], seals: [{ id: 'star', price: 30, sold: false }], removed: false, smithed: false };
+  const R = mk({ cls: 'warrior', seed: 2 }); R.phase = 'shop'; R.gold = 200; R.shop = { cards: [], relics: [], potions: [], tools: [], seals: [{ id: 'star', price: 30, sold: false }], removed: false, smithed: false };
   Run.buy(R, 'seal', 0);
   assert.equal(R.pick.why, 'seal');
   Run.pickDeck(R, R.deck[0].u);
@@ -696,14 +723,26 @@ test('균형의 추: 1을 6으로 셀 수 있다', () => {
   const R = duel(['balance'], R => { R.C.dice = [6, 6, 6, 6, 1]; });
   assert.equal(Run.scoreCard(R, { u: 1, cat: 'yacht', up: 0, kws: [] }).base, 50);
 });
-test('엘리트는 유물 3개 중 고르기, 감정사의 돋보기면 4개', () => {
-  for (const [rel, n] of [[[], 3], [['loupe'], 4]]) {
-    const R = mk({ cls: 'monk', seed: 9 }); rel.forEach(id => Run.gainRelic(R, id));
+test('엘리트 유물 고르기: 기본 2개 · 감정 안목 3개 · 감정사의 돋보기 +1', () => {
+  for (const [rel, n, ap] of [[[], 2, 0], [[], 3, 1], [['loupe'], 3, 0]]) {
+    const R = mk({ cls: 'monk', seed: 9, meta: ap ? { lv: { appraise: 1 } } : null }); rel.forEach(id => Run.gainRelic(R, id));
     Run.startCombat(R, Run.ACT_INFO[1].elite[0]); R.C.e.hp = 1; R.C.rolled = true; R.C.dice = [6, 6, 6, 6, 6]; R.C.hand[0] = { u: 9901, cat: 'choice', up: 0, kws: [] };
     Run.playCard(R, 0, 'enemy');
     const it = R.reward.items.find(x => x.t === 'relicPick');
     assert.equal(it.opts.length, n);
   }
+});
+test('보물 상자: 유물 고르기(2개) · 새로고침하면 후보가 바뀐다', () => {
+  const R = mk({ cls: 'warrior', seed: 21, meta: { lv: { repick: 1 } } });
+  R.phase = 'map';
+  const id = Run.nextNodes(R)[0]; R.map.nodes[id].type = 'treasure'; Run.enterNode(R, id);
+  const k = R.reward.items.findIndex(x => x.t === 'relicPick');
+  assert.ok(k >= 0 && R.reward.items[k].kind === 'treasure' && R.reward.items[k].opts.length === 2);
+  const before = R.reward.items[k].opts.join();
+  Run.rerollPick(R, k);
+  assert.notEqual(R.reward.items[k].opts.join(), before);
+  Run.takeReward(R, k, 0);
+  assert.equal(R.relics.length, 1);
 });
 test('초이스는 실버 등급 · 일반 카드 보상에서는 나오지 않는다', () => {
   assert.equal(Run.cardRarity({ cat: 'choice', up: 0, kws: [] }), 2);
@@ -914,6 +953,90 @@ test('출발 유물은 직업마다 하나로 정해져 있다', () => {
   }
 });
 
+
+console.log('\n깜짝 보스 「시공 광대」 · 미래 카드');
+test('2번째 원정까지는 광대가 끼어들지 않는다 · 4번째 원정은 2막 중간에 반드시 (한 번만)', () => {
+  const R = mk({ cls: 'warrior', seed: 11, meta: { lv: {}, runs: 1 } });
+  assert.equal(R.runNo, 2);
+  const id = Run.nextNodes(R)[0];
+  Run.enterNode(R, id);
+  assert.notEqual(R.C?.e.id, 'jester');
+  const F = mk({ cls: 'warrior', seed: 11, meta: { lv: {}, runs: 3 } });
+  assert.equal(F.runNo, 4);
+  F.act = 2; F.phase = 'map';
+  const n = F.map.nodes.find(x => x.row === Run.JESTER_ROW && x.type !== 'boss');
+  F.pos = F.map.nodes.find(x => x.next.includes(n.id)).id;
+  Run.enterNode(F, n.id);
+  assert.equal(F.C.e.id, 'jester');
+  assert.equal(F.jester.then, n.id);
+});
+test('광대에게 지면: 원정은 이어지고 체력 절반 · 보상 없이 원래 칸으로', () => {
+  const F = mk({ cls: 'warrior', seed: 11, meta: { lv: {}, runs: 3 } });
+  F.act = 2;
+  const n = F.map.nodes.find(x => x.row === Run.JESTER_ROW && x.type === 'fight') || F.map.nodes.find(x => x.row === Run.JESTER_ROW);
+  F.pos = F.map.nodes.find(x => x.next.includes(n.id)).id;
+  Run.enterNode(F, n.id);
+  F.hp = 1; F.C.block = 0; F.C.e.intent = { ko: '찌르기', atk: 50 };
+  Run.roll(F);
+  Run.playCard(F, 0, 'self');
+  assert.equal(F.ended, false);
+  assert.equal(F.hp, Math.ceil(F.maxHp / 2));
+  assert.notEqual(F.reward?.kind, 'special');
+  assert.notEqual(F.C?.e.id, 'jester');
+});
+test('광대를 이기면: 별조각 · 보석 · 골드 · 미래 카드 3장 중 1장 (유물 없음)', () => {
+  const R = run('warrior', 3);
+  intoFight(R);
+  Run.startCombat(R, 'jester');
+  R.C.e.hp = 1; R.C.e.block = 0;
+  Run.roll(R);
+  const hi = R.C.hand.findIndex(c => Run.scoreCard(R, c).total > 0);
+  for (let k = 0; k < 20 && R.phase === 'combat'; k++) { if (!R.C.rolled) Run.roll(R); const h = R.C.hand.findIndex(c => Run.scoreCard(R, c).total > 0); Run.playCard(R, h >= 0 ? h : 0, 'enemy'); R.hp = R.maxHp; }
+  void hi;
+  assert.equal(R.phase, 'reward');
+  const t = R.reward.items.map(i => i.t);
+  assert.deepEqual(t, ['gold', 'stars', 'gems', 'card']);
+  assert.ok(!t.includes('relicPick'));
+  assert.deepEqual(R.reward.items[3].opts.map(c => c.cat).sort(), ['xpar', 'xpause', 'xrent']);
+  R.reward.items.forEach((it, i) => Run.takeReward(R, i, 0));
+  assert.equal(R.gems, Run.jesterPrize(R.act).gems);
+  assert.ok(Run.starsOf(R) >= Run.jesterPrize(R.act).stars);
+  assert.ok(R.deck.some(c => Run.isFuture(c.cat)));
+  assert.ok(!Run.canUpgrade(R.deck.find(c => Run.isFuture(c.cat))));
+});
+test('미래 카드: 병렬 연산은 점수 나는 카드를 모두 함께 · 일시정지는 적의 행동 무효 · 유물 대여는 손패에 있을 때만', () => {
+  const R = run('warrior', 5);
+  const C = intoFight(R);
+  C.hand.push({ u: 901, cat: 'xpar', up: 0, kws: [] }, { u: 902, cat: 'xpause', up: 0, kws: [] });
+  Run.roll(R);
+  C.dice = [6, 6, 6, 5, 5];
+  const set = Run.parallelSet(R, 901);
+  const S = set.reduce((a, o) => a + o.s, 0);
+  const hp0 = C.e.hp + C.e.block, n0 = C.hand.length;
+  Run.playCard(R, C.hand.findIndex(c => c.u === 901), 'enemy');
+  assert.ok(set.length >= 1);
+  assert.ok(hp0 - (R.C.e.hp + R.C.e.block) >= Math.min(hp0, Math.floor(S * 0.5)) || R.phase !== 'combat');
+  assert.ok(n0 > 0);
+  // 일시정지
+  if (R.phase === 'combat') {
+    const C2 = R.C;
+    C2.hand.push({ u: 903, cat: 'xpause', up: 0, kws: [] });
+    C2.e.intent = { ko: '세게', atk: 40 };
+    Run.roll(R);
+    const hp1 = R.hp;
+    Run.playCard(R, C2.hand.findIndex(c => c.u === 903), 'self');
+    assert.equal(R.hp, hp1);
+  }
+  // 유물 대여
+  const Q = run('warrior', 9);
+  const Cq = intoFight(Q);
+  assert.equal(Run.hasRelic(Q, Cq.rent[0] || 'x'), false);
+  Cq.hand.push({ u: 904, cat: 'xrent', up: 0, kws: [] });
+  Run.swapCard(Q, 0);                     // 손패가 바뀌면 다시 센다
+  assert.equal(Q.C.rent.length, 2);
+  const id = Q.C.rent[0];
+  assert.ok(Run.hasRelic(Q, id) && !Q.relics.includes(id));
+});
 console.log(`\n${passed} 통과, ${failed} 실패`);
 if (failed) process.exit(1);
 test('새로고침: 출정 채비 횟수 · 징조 +1 · 상점 · 카드/유물 고르기', () => {

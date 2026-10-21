@@ -1,11 +1,13 @@
 // 원정 그림. 적 · 엘리트는 512px 도트 그림(assets/run/<id>.webp), 보스는 협동 보스 그림(assets/boss)을 그대로 쓴다.
 // 아래 MON 은 처음 쓰던 16×16 임시본 (그림 파일이 없는 적만 이것으로 그린다).
 // 지도 · 키워드 · 물약 아이콘, 카드 틀, 장면, 막 배경도 여기서 주소를 만든다 (tools/make_run_art.py 로 변환).
-import { GAME } from '../config.js';
 import { spriteURL } from '../pixel.js';
 import { ico } from '../icons.js';
 
-const AV = `?v=${GAME.version}`;
+// 원정 그림 주소의 버전 — 게임 버전이 아니다 (게임 버전으로 하면 업데이트마다 원정 그림 전부를 다시 받아 느려지고 검게 빈다).
+// assets/run/ 의 그림 파일을 바꾸거나 더하면 이것을 올린다 (CLAUDE.md)
+export const RUN_ART_VER = 'r5';
+const AV = `?v=${RUN_ART_VER}`;
 // 그림 파일이 생긴 적 (예: ['slime', 'goblin'])
 const FILES = ['slime', 'goblin', 'bat', 'wolf', 'shaman', 'mimic', 'skeleton', 'ghost', 'wisp', 'knight', 'golem', 'imp', 'hound', 'gargoyle', 'shade', 'champion'];
 const K = '#1A1030';
@@ -300,33 +302,48 @@ function draw(id, scale) {
   return c.toDataURL();
 }
 // 적 그림 주소: 보스는 협동 보스 그림, 그림 파일이 생긴 적은 그 파일, 나머지는 위 도트
+// 히든 보스 「시공 광대」: 평소 · 비아냥 · 분노 (디자인 세션 그림, 512px)
+export const JESTER_ART = ['jester', 'jester_taunt', 'jester_rage'];
+export const jesterURL = (mode = '') => `assets/run/jester/${JESTER_ART.includes(`jester_${mode}`) ? `jester_${mode}` : 'jester'}.webp${AV}`;
+// 미래 카드 가운데 그림 (assets/run/jester/icon_<id>.webp — 그림이 오면 id 를 적는다)
+export const FUTURE_ICON = ['xpar', 'xpause', 'xrent'];
+export const futureIconURL = id => (FUTURE_ICON.includes(id) ? `assets/run/jester/icon_${id}.webp${AV}` : null);
 export function foeURL(id, scale = 6) {
+  if (id === 'jester') return jesterURL();
   if (!MON[id]) return spriteURL(id, 4);
   if (FILES.includes(id)) return `assets/run/${id}.webp${AV}`;
   const key = `${id}:${scale}`;
   if (!cache.has(key)) cache.set(key, draw(id, scale));
   return cache.get(key);
 }
-export const isPixelFoe = id => !!MON[id] && !FILES.includes(id);
+export const isPixelFoe = id => !!MON[id] && !FILES.includes(id) && id !== 'jester';
 
 // 원정 전용 아이콘 그림 (assets/run/ui/<kind>_<id>.webp, 128px). 그림이 없으면 공용 12×12 아이콘
 const UI = {
   node: ['fight', 'elite', 'event', 'shop', 'rest', 'treasure', 'boss'],
   kw: ['guard', 'vamp', 'burn', 'pierce', 'quick', 'lucky', 'weak', 'gold', 'echo', 'keep'],
   potion: ['heal', 'block', 'fire', 'time', 'power', 'pure'],
-  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'seal'],
+  meta: ['hp', 'gold', 'tools', 'potion', 'relic', 'sharp', 'seal', 'reshop', 'repick'],
   spec: ['ones', 'twos', 'threes'],      // 특별 카드 휘장 (에이스 주인공 · 듀스 두배 · 트레이 삼위일체)
   asc: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],   // 승천 단계 문장 (asc_<n>.webp)
-  ui: ['star', 'asc', 'smith', 'shield', 'split_knob'],
+  ui: ['star', 'asc', 'smith', 'shield', 'split_knob', 'deck', 'card_back', 'pouch',
+    ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `card_back_${k}`)],   // 직업 색 카드 뒷면
   seal: ['cloud', 'moon', 'star', 'sun'],
-  omen: ['bounty', 'drought', 'feast', 'fog', 'forbid', 'glass', 'merchant', 'rift', 'rush', 'sealrain', 'war'],
+  omen: ['bounty', 'drought', 'feast', 'fog', 'forbid', 'glass', 'merchant', 'rift', 'rush', 'sealrain', 'war', 'regular', 'wish'],
   hex: ['burn', 'drums', 'freeze', 'gaze', 'haki', 'poison', 'reverse', 'seal', 'twist'],
   feat: ['act1', 'clear', 'flawless', 'ace30', 'lstr60', 'yacht', 'wall', 'rich', 'hoard', 'asc5', 'asc10', 'five'],                                   // 종류 없이 이름 그대로인 그림 (assets/run/ui/<id>.webp)
 };
+// 징조 창문 그림 (타로 카드풍 도트, assets/run/omen/<id>.webp — 디자인 세션이 만들면 id 를 적는다). 없으면 하늘색 + 아이콘
+export const OMEN_WIN = ['feast', 'bounty', 'fog', 'forbid', 'rush', 'merchant', 'war', 'rift', 'sealrain', 'drought', 'glass', 'regular', 'wish'];
+export const omenWinURL = id => (OMEN_WIN.includes(id) ? `assets/run/omen/${id}.webp${AV}` : null);
 export function runIco(kind, id, fallback, cls = '') {
   if (!UI[kind]?.includes(id)) return ico(fallback, cls);
   return `<img class="ico run-ico${cls ? ' ' + cls : ''}" src="assets/run/ui/${kind === 'ui' ? id : `${kind}_${id}`}.webp${AV}" alt="">`;
 }
+// 아이콘이 아닌 원정 UI 그림 주소 (카드 뒷면 · 물약 주머니 — CSS background 로 쓴다)
+export const uiArtURL = id => `assets/run/ui/${id}.webp${AV}`;
+// 카드 뒷면: 직업 고유 색 (무희 분홍 · 도적 초록 …), 없는 직업이면 기본 빨강
+export const cardBackURL = cls => uiArtURL(UI.ui.includes(`card_back_${cls}`) ? `card_back_${cls}` : 'card_back');
 // 별조각 아이콘 (원정 밖 성장 화폐)
 export const starIco = (cls = 'xs') => runIco('ui', 'star', 'star', cls);
 // 상점 · 휴식 · 보물 · 이벤트 장면 그림 (assets/run/scene/<id>.webp, 512px)
@@ -340,10 +357,13 @@ export function runAssetURLs(bosses = []) {
     ...FILES.map(id => `assets/run/${id}.webp${AV}`),
     ...[1, 2, 3].map(actBgURL),
     ...SCENES.map(sceneURL),
+    ...OMEN_WIN.map(omenWinURL),
     ...Object.entries(UI).flatMap(([kind, ids]) => ids.map(id => `assets/run/ui/${kind === 'ui' ? id : `${kind}_${id}`}.webp${AV}`)),
     ...['card_common', 'card_rare', 'card_legend'].map(n => `assets/run/ui/${n}.webp`),
     ...['claw', 'bite', 'star'].map(n => `assets/run/fx/${n}.webp`),
     ...bosses.map(id => foeURL(id)),
+    ...JESTER_ART.map(n => `assets/run/jester/${n}.webp${AV}`),
+    ...FUTURE_ICON.map(futureIconURL),
   ];
   return [...new Set(out)];
 }

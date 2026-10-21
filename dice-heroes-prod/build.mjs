@@ -28,7 +28,7 @@ if (conf.includes('REPLACE_ME')) {
 }
 
 // run/ = 원정(로그라이크) 모드 — 아직 테스트판 전용이라 배포판에는 넣지 않는다 (게임도 배포판에서는 원정 버튼을 그리지 않는다)
-const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'package.json', 'package-lock.json', 'run']);
+const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'DESIGN-HANDOFF.md', 'package.json', 'package-lock.json', 'run']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 // 원정 전용 곡(assets/bgm/run_*.ogg) · 그림(assets/run/)도 배포판에는 넣지 않는다

@@ -6,6 +6,17 @@
 const TAU = Math.PI * 2;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+// 8비트 도트 그림 (한 글자 = 한 칸). k 외곽선 · w 흰 · y 노랑 · o 주황 · r 빨강 · p 분홍
+const PIX = {
+  star: ['..y..', '.yyy.', 'yywyy', '.yyy.', '..y..'],
+  spark: ['.w.', 'www', '.w.'],
+  heart: ['.r.r.', 'rprrr', 'rrrrr', '.rrr.', '..r..'],
+  coin: ['.kkk.', 'kyywk', 'kyoyk', 'kyyyk', '.kkk.'],
+  dot: ['ww', 'ww'],
+  blk: ['yy', 'yy'],
+  big: ['...y...', '...y...', '..yyy..', 'yyywyyy', '..yyy..', '...y...', '...y...'],
+};
+const PIX_COL = { k: '#1A1030', w: '#FFFFFF', y: '#FFE27A', o: '#FF9A1F', r: '#E8435A', p: '#FFB0C0' };
 const ease = t => 1 - Math.pow(1 - t, 3);
 const easeIn = t => t * t * t;
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -35,6 +46,13 @@ export function attackStyle(pts, cat) {
   return { pal: PALETTES.frost, power: 1 };
 }
 
+// 별자리 모양 (가운데 기준 -1 ~ 1): p 별 자리, e 잇는 선, big 밝은 별
+const CONSTELS = [
+  { p: [[-1, 0.4], [-0.5, -0.1], [0, 0.1], [0.5, -0.3], [1, -0.1], [0.75, 0.55], [0.3, 0.5]], e: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]], big: 2 },   // 큰곰자리 (국자)
+  { p: [[-1, -0.3], [-0.5, 0.3], [0, -0.2], [0.5, 0.35], [1, -0.25]], e: [[0, 1], [1, 2], [2, 3], [3, 4]], big: 2 },                                       // 카시오페이아 (W)
+  { p: [[-0.5, -1], [0.5, -0.9], [-0.15, -0.05], [0.15, 0.05], [-0.6, 0.95], [0.55, 1]], e: [[0, 2], [1, 3], [2, 3], [2, 4], [3, 5]], big: 3 },           // 오리온 (허리띠)
+  { p: [[0, -1], [0, -0.2], [-0.8, -0.1], [0.8, -0.1], [0, 0.9]], e: [[0, 1], [1, 2], [1, 3], [1, 4]], big: 1 },                                         // 백조자리 (십자)
+];
 class FxLayer {
   constructor() {
     this.c = document.createElement('canvas');
@@ -67,7 +85,7 @@ class FxLayer {
   }
 
   tick(t) {
-    const dt = Math.min(0.05, (t - this.last) / 1000);
+    const dt = t < (this.holdUntil || 0) ? 0 : Math.min(0.05, (t - this.last) / 1000);   // 히트스톱: 잠깐 모든 입자가 멈춘다
     this.last = t;
     const g = this.g;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -92,6 +110,7 @@ class FxLayer {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       const k = p.life / p.max;
+      if (p.shape) { FxLayer.drawShape(g, p, k, dt); keep.push(p); continue; }
       const size = Math.max(1, p.shrink ? p.size * (0.3 + 0.7 * k) : p.size);
       g.globalAlpha = Math.min(1, k * 1.6) * p.alpha;
       if (p.glow) {
@@ -111,6 +130,9 @@ class FxLayer {
     if (this.parts.length || this.items.length || this.emitters.size) requestAnimationFrame(this.tick);
     else { this.running = false; g.clearRect(0, 0, innerWidth, innerHeight); }
   }
+
+  // 히트스톱 (큰 한 방): ms 동안 입자 · 연출이 멈춘 채로 보인다
+  hold(ms) { this.holdUntil = performance.now() + ms; }
 
   spawn(p) {
     this.parts.push({ vx: 0, vy: 0, grav: 0, drag: 0, size: 3, alpha: 1, glow: true, shrink: true, ...p, max: p.life });
@@ -142,6 +164,21 @@ class FxLayer {
     }, dur);
   }
 
+  // 반짝: 십자 모양 별빛이 커졌다가 사라진다 (주사위 궤적)
+  glint(x, y, { color = '#FFFFFF', size = 10, dur = 380 } = {}) {
+    return this.add((g, k) => {
+      const s = size * Math.sin(Math.PI * Math.min(1, k * 1.4)), w = Math.max(1, Math.round(s / 4));
+      if (s < 1) return;
+      g.fillStyle = color;
+      g.globalAlpha = 0.3 * (1 - k);
+      g.fillRect(Math.round(x - w * 2), Math.round(y - w * 2), w * 4, w * 4);
+      g.globalAlpha = 1 - k * 0.5;
+      g.fillRect(Math.round(x - s), Math.round(y - w / 2), Math.round(s * 2), w);
+      g.fillRect(Math.round(x - w / 2), Math.round(y - s), w, Math.round(s * 2));
+      g.globalAlpha = 1;
+    }, dur);
+  }
+
   flash(color = '#FFFFFF', dur = 260, alpha = 0.35) {
     return this.add((g, k) => {
       g.globalAlpha = alpha * (1 - k);
@@ -149,6 +186,162 @@ class FxLayer {
       g.fillRect(0, 0, innerWidth, innerHeight);
       g.globalAlpha = 1;
     }, dur);
+  }
+
+  // 모양 입자 (주사위 궤적)
+  //   scale: 화염 비늘 — 끝이 뾰족한 비늘 조각이 빙글 돌며 나풀나풀 떠오른다 (드래곤 주사위)
+  //   flame: 부드러운 불꽃 — 번지는 둥근 불빛이 커지며 피어올라 사라진다 (용암 주사위)
+  static drawShape(g, p, k, dt) {
+    if (p.shape === 'pix') return FxLayer.drawPix(g, p, k);
+    if (p.shape === 'suit') return FxLayer.drawSuit(g, p, k, dt);
+    if (p.shape === 'coin') return FxLayer.drawCoin(g, p, k, dt);
+    if (p.shape === 'hexa') return FxLayer.drawHexa(g, p, k, dt);
+    if (p.shape === 'constel') return FxLayer.drawConstel(g, p, k);
+    const a = Math.min(1, k * 2.2) * p.alpha;
+    if (p.shape === 'scale') {
+      p.rot += p.spin * dt; p.ph += dt * 7;
+      const s = p.size, sx = s * (0.55 + 0.45 * Math.abs(Math.sin(p.ph)));   // 앞뒤로 뒤집히며 나풀거린다
+      g.save(); g.translate(p.x + Math.sin(p.ph * 0.6) * 3, p.y); g.rotate(p.rot); g.scale(sx / s, 1);
+      g.globalAlpha = a * 0.35; g.fillStyle = p.color;
+      g.beginPath(); g.ellipse(0, 0, s * 1.3, s * 1.7, 0, 0, TAU); g.fill();
+      g.globalAlpha = a;
+      const grad = g.createLinearGradient(0, -s, 0, s); grad.addColorStop(0, p.tip || '#FFF2A8'); grad.addColorStop(0.45, p.color); grad.addColorStop(1, p.edge || '#7A0E14');
+      g.fillStyle = grad;
+      g.beginPath(); g.moveTo(0, -s); g.quadraticCurveTo(s * 0.9, -s * 0.1, 0, s); g.quadraticCurveTo(-s * 0.9, -s * 0.1, 0, -s); g.fill();
+      g.restore();
+    } else if (p.shape === 'flame') {
+      const r = p.size * (0.7 + 0.8 * (1 - k));
+      const grad = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      grad.addColorStop(0, (p.core || 'rgba(255,242,168,A)').replace('A', `${0.9 * a}`)); grad.addColorStop(0.35, p.color.replace('A', `${0.55 * a}`)); grad.addColorStop(1, p.color.replace('A', '0'));
+      g.globalAlpha = 1; g.fillStyle = grad;
+      g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  // 8비트 도트 그림 (8비트 주사위): 빛 번짐 없이 또렷한 도트, 칸(u px) 단위로 움직이고 끝에는 깜빡이며 사라진다
+  static drawPix(g, p, k) {
+    if (k < 0.32 && Math.floor(p.life * 14) % 2) return;            // 사라지기 전 깜빡깜빡
+    const u = p.u, spr = PIX[p.spr], x0 = Math.round(p.x / u) * u - (spr[0].length * u) / 2, y0 = Math.round(p.y / u) * u - (spr.length * u) / 2;
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.6 * Math.min(1, k * 2.5);    // 반투명 — 효과는 거들 뿐, 주사위보다 눈에 띄지 않게
+    for (let r = 0; r < spr.length; r++) for (let c = 0; c < spr[r].length; c++) {
+      const ch = spr[r][c]; if (ch === '.') continue;
+      g.fillStyle = PIX_COL[ch] || p.color;
+      g.fillRect(Math.round(x0 + c * u), Math.round(y0 + r * u), u, u);
+    }
+    g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
+  }
+  // 육망성 마법진 (룬석 주사위): 원 + 두 삼각형이 천천히 돌며 퍼졌다 옅어진다. 아주 연하게 (주사위보다 튀지 않게)
+  static drawHexa(g, p, k, dt) {
+    p.rot += p.spin * dt;
+    const r = p.r0 + (p.r1 - p.r0) * (1 - k) ** 0.6, a = p.alpha * Math.min(1, k * 2) * Math.min(1, (1 - k) * 6);
+    g.save(); g.translate(p.x, p.y); g.scale(1, 0.62); g.rotate(p.rot);      // 바닥에 깔린 듯 납작하게
+    g.globalAlpha = a; g.strokeStyle = p.color; g.lineWidth = 1.2; g.shadowColor = p.color; g.shadowBlur = 6;
+    g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke();
+    g.globalAlpha = a * 0.6; g.beginPath(); g.arc(0, 0, r * 0.82, 0, TAU); g.stroke();
+    g.globalAlpha = a;
+    for (const o of [0, Math.PI / 3]) {
+      g.beginPath();
+      for (let i = 0; i < 3; i++) { const t = o + i * TAU / 3 - Math.PI / 2; g[i ? 'lineTo' : 'moveTo'](Math.cos(t) * r * 0.82, Math.sin(t) * r * 0.82); }
+      g.closePath(); g.stroke();
+    }
+    g.restore(); g.globalAlpha = 1;
+  }
+  // 별자리 (별자리 놋쇠 주사위): 별 몇 개가 차례로 반짝 뜨고 가는 금빛 선이 이어지며 별자리를 그린 뒤 옅어진다
+  static drawConstel(g, p, k) {
+    const C = CONSTELS[p.ci], t = 1 - k, s = p.size, fade = Math.min(1, k * 3) * p.alpha;
+    const pt = i => [p.x + C.p[i][0] * s, p.y + C.p[i][1] * s];
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = p.color; g.lineWidth = 0.9; g.lineCap = 'round';
+    C.e.forEach(([a, b], j) => {                                 // 선이 하나씩 이어진다
+      const u = Math.min(1, Math.max(0, (t - 0.08 - j * 0.07) / 0.14));
+      if (u <= 0) return;
+      const [ax, ay] = pt(a), [bx, by] = pt(b);
+      g.globalAlpha = fade * 0.55;
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + (bx - ax) * u, ay + (by - ay) * u); g.stroke();
+    });
+    C.p.forEach((_, i) => {                                     // 별: 작은 십자 반짝
+      const u = Math.min(1, Math.max(0, (t - i * 0.05) / 0.1));
+      if (u <= 0) return;
+      const [x, y] = pt(i), r = (i === C.big ? 3.2 : 2.2) * (0.8 + 0.2 * Math.sin(t * 30 + i));
+      g.globalAlpha = fade * u;
+      g.fillStyle = '#FFF6D8';
+      g.fillRect(x - r, y - 0.5, r * 2, 1); g.fillRect(x - 0.5, y - r, 1, r * 2);
+      g.globalAlpha = fade * u * 0.5; g.fillStyle = p.color;
+      g.beginPath(); g.arc(x, y, r * 0.7, 0, TAU); g.fill();
+    });
+    g.restore(); g.globalAlpha = 1;
+  }
+  constel(x, y, { size = 16, life = 1.3, color = '#FFD27A', alpha = 0.7 } = {}) {
+    this.spawn({ shape: 'constel', ci: Math.floor(Math.random() * CONSTELS.length), x: x + (Math.random() - 0.5) * 10, y: y - 6, vx: 0, vy: -10, size, life, color, alpha, grav: 0, drag: 0.5 });
+  }
+  hexa(x, y, { r0 = 6, r1 = 22, life = 0.9, color = '#9FE8FF', alpha = 0.35 } = {}) {
+    this.spawn({ shape: 'hexa', x, y, r0, r1, life, color, alpha, rot: Math.random() * TAU, spin: (Math.random() < 0.5 ? -1 : 1) * 1.4, drag: 0, grav: 0 });
+  }
+  // 트럼프 문양 (칩 주사위): ♠ ♣ 은 짙은 회색, ♥ ♦ 는 차분한 빨강, 얇은 흰 테두리. 반투명으로 작게 톡 튀었다 사라진다 (주사위보다 튀지 않게)
+  static drawSuit(g, p, k, dt) {
+    p.rot += p.spin * dt;
+    const a = 0.5 * Math.min(1, k * 2.5), s = p.size * (k > 0.85 ? 0.6 + (1 - k) / 0.15 * 0.4 : 1);
+    g.save(); g.globalCompositeOperation = 'source-over'; g.globalAlpha = a;
+    g.translate(p.x, p.y); g.rotate(p.rot);
+    g.font = `bold ${Math.round(s * 2)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineJoin = 'round'; g.lineWidth = Math.max(1, s * 0.2); g.strokeStyle = 'rgba(255,255,255,.7)'; g.strokeText(p.ch, 0, 0);
+    g.fillStyle = p.ch === '♥' || p.ch === '♦' ? '#C8485A' : '#3A3448'; g.fillText(p.ch, 0, 0);
+    g.restore(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
+  }
+  // 금화 (보물 상자 주사위): 빙글 도는 금화가 아래로 떨어진다 (도는 동안 폭이 줄었다 늘었다)
+  static drawCoin(g, p, k, dt) {
+    p.ph += p.spin * dt;
+    const a = Math.min(1, k * 3), r = p.size, w = Math.max(0.15, Math.abs(Math.cos(p.ph)));
+    g.save(); g.globalCompositeOperation = 'source-over'; g.globalAlpha = a;
+    g.translate(p.x, p.y); g.scale(w, 1);
+    g.fillStyle = '#8A5A12'; g.beginPath(); g.arc(0, r * 0.12, r, 0, TAU); g.fill();          // 옆면 두께
+    const grad = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+    grad.addColorStop(0, '#FFF6C8'); grad.addColorStop(0.45, '#FFD24A'); grad.addColorStop(1, '#C8861E');
+    g.fillStyle = grad; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+    g.strokeStyle = '#A8701A'; g.lineWidth = Math.max(1, r * 0.16); g.beginPath(); g.arc(0, 0, r * 0.66, 0, TAU); g.stroke();
+    g.restore();
+    if (w > 0.85 && k > 0.3) {                                                                   // 정면일 때 반짝
+      g.globalAlpha = a * 0.5; g.fillStyle = '#FFF6C8'; g.fillRect(Math.round(p.x - r * 0.35 - 1), Math.round(p.y - r * 0.45 - 1), 2, 2);
+    }
+    g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1;
+  }
+  suits(x, y, { n = 1, size = [4, 6], speed = [30, 70], life = [0.45, 0.7], grav = 220 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = rnd(...speed);
+      this.spawn({ shape: 'suit', ch: pick(['♠', '♣', '♥', '♦']), x: x + (Math.random() - 0.5) * 12, y: y + (Math.random() - 0.5) * 8, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), grav, drag: 1.6, rot: (Math.random() - 0.5) * 0.6, spin: (Math.random() - 0.5) * 4 });
+    }
+  }
+  // 금화: 주사위 위쪽에서 생겨 아래로 똑똑 떨어진다 (up: 위로 살짝 튀어 오른 뒤 떨어지게)
+  coinRain(x, y, { n = 1, size = [4, 6], life = [0.7, 1.0], grav = 420, up = 40 } = {}) {
+    for (let i = 0; i < n; i++) {
+      this.spawn({ shape: 'coin', x: x + (Math.random() - 0.5) * 22, y: y - 6 - Math.random() * 10, vx: (Math.random() - 0.5) * 50, vy: -up * (0.5 + Math.random()), life: rnd(...life), size: rnd(...size), grav, drag: 0.6, ph: Math.random() * TAU, spin: 7 + Math.random() * 6 });
+    }
+  }
+  pix(x, y, { n = 1, sprs = ['star', 'spark', 'heart', 'coin'], u = 2, speed = [10, 34], life = [0.4, 0.7], grav = -30 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = rnd(...speed);
+      this.spawn({ shape: 'pix', spr: pick(sprs), u, x: x + (Math.random() - 0.5) * 14, y: y + (Math.random() - 0.5) * 10, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), grav, drag: 2 });
+    }
+  }
+  // 세게 부딪힐 때: 작은 도트 조각이 4방향(대각선)으로 톡 퍼진다 (가운데 큰 별은 주사위를 가려서 뺐다)
+  pixBurst(x, y, { u = 2, power = 1 } = {}) {
+    for (let i = 0; i < 4; i++) {
+      const ang = Math.PI / 4 + i * Math.PI / 2, v = 60 + power * 40;
+      this.spawn({ shape: 'pix', spr: i % 2 ? 'dot' : 'blk', u, x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: 0.22 + power * 0.1, grav: 0, drag: 4 });
+    }
+  }
+  // pal · tip · edge 로 꽃잎(벚꽃 도자기) 같은 다른 조각에도 쓴다
+  scales(x, y, { n = 3, pal = ['#FF9A1F', '#FF6A1A', '#FFC83D'], tip, edge, size = [4, 7], speed = [20, 60], life = [0.7, 1.2], grav = -40 } = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, v = rnd(...speed);
+      this.spawn({ shape: 'scale', x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: rnd(...life), size: rnd(...size), color: pick(pal), tip, edge, grav, drag: 1.8, rot: Math.random() * TAU, spin: (Math.random() - 0.5) * 9, ph: Math.random() * TAU });
+    }
+  }
+  // pal: 'rgba(r,g,b,A)' 꼴 색들, core: 가운데 색 — 도깨비불 · 젤리 방울에도 쓴다
+  flames(x, y, { n = 2, size = [7, 12], life = [0.45, 0.8], grav = -70, pal = ['rgba(255,138,26,A)', 'rgba(255,106,26,A)', 'rgba(255,170,60,A)'], core, alpha = 1, vx = 18, vy = [-10, -30] } = {}) {
+    for (let i = 0; i < n; i++) {
+      this.spawn({ shape: 'flame', x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * vx, vy: rnd(...vy), life: rnd(...life), size: rnd(...size), color: pick(pal), core, grav, drag: 1.4, alpha });
+    }
   }
 
   // 원 모양 빛 (구체)
@@ -915,9 +1108,14 @@ class FxLayer {
 
   // 외눈 응시: 눈꺼풀이 열리고 → 눈동자가 두리번거리다 → 목표 쪽을 똑바로 보며 눈을 가늘게 뜬다 → 깜빡 닫힘.
   // 무섭지 않게: 어둡게 덮는 막은 옅게, 핏빛 광선 대신 시선이 점선으로 흘러가 목표에 조준 표시가 맺힌다
+  // target: 점 하나 · 점 여러 개 · 또는 그때그때 점(들)을 돌려주는 함수 (움직이는 카드를 따라 본다)
   async eye(c, target, ms = 1100) {
-    const ang = target ? Math.atan2(target.y - c.y, target.x - c.x) : Math.PI / 2;
+    const pts = () => { const t = typeof target === 'function' ? target() : target; return (Array.isArray(t) ? t : t ? [t] : []).filter(Boolean); };
+    let last = pts();
     await this.add((g, k) => {
+      const now = pts(); if (now.length) last = now;
+      const tg = last, mid = tg.length ? { x: tg.reduce((a, p) => a + p.x, 0) / tg.length, y: tg.reduce((a, p) => a + p.y, 0) / tg.length } : null;
+      const ang = mid ? Math.atan2(mid.y - c.y, mid.x - c.x) : Math.PI / 2;
       const W = Math.min(innerWidth * 0.28, 113);            // 예전의 3분의 2
       const open = k < 0.18 ? ease(k / 0.18) : k > 0.86 ? 1 - ease((k - 0.86) / 0.14) : 1;
       const lock = k < 0.42 ? 0 : Math.min(1, (k - 0.42) / 0.12);   // 목표를 보는 정도
@@ -945,9 +1143,9 @@ class FxLayer {
         g.restore();
       }
       g.restore();
-      if (target && lock > 0 && k < 0.88) {                  // 시선: 눈에서 목표로 흘러가는 점선 + 조준 표시
+      if (lock > 0 && k < 0.88) for (const target of tg) {   // 시선: 눈에서 목표(카드마다)로 흘러가는 점선 + 조준 표시
         const L = Math.hypot(target.x - c.x, target.y - c.y), step = 16, shift = (k * 260) % step;
-        g.save(); g.translate(c.x, c.y); g.rotate(ang);
+        g.save(); g.translate(c.x, c.y); g.rotate(Math.atan2(target.y - c.y, target.x - c.x));
         for (let d = W * 0.6 + shift; d < L - 18; d += step) {
           g.globalAlpha = lock * (0.45 + 0.55 * (d / L)); g.fillStyle = '#FF7A8A'; g.fillRect(Math.round(d) - 3, -3, 6, 6);
           g.fillStyle = '#FFFFFF'; g.fillRect(Math.round(d) - 1, -1, 2, 2);
@@ -961,7 +1159,7 @@ class FxLayer {
         g.restore(); g.globalAlpha = 1;
       }
     }, ms);
-    if (target) this.ring(target.x, target.y, { color: '#FF7A8A', r0: 8, r1: 56, dur: 380, width: 5 });
+    for (const t of last) this.ring(t.x, t.y, { color: '#FF7A8A', r0: 8, r1: 56, dur: 380, width: 5 });
   }
 
   // 바위 투척: 하늘에서 거대한 바위가 굴러떨어져 쾅 — 먼지 · 파편 · 금
