@@ -288,13 +288,37 @@ function showMeta() {
   const shelf = list => `<div class="shelf"><div class="shelf-row">${list.map(item).join('')}</div><i class="shelf-plank" aria-hidden="true"></i></div>`;
   const rows = [];
   for (let k = 0; k < Run.META.length; k += 3) rows.push(Run.META.slice(k, k + 3));
-  X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box meta-store" data-act="noop">
+  const inner = `
     <div class="meta-head market"><i class="mk-awning" aria-hidden="true"></i><img class="run-scene" src="${sceneURL('shop')}" alt=""><div class="mh-sign"><h2>출정 채비</h2><small>영구 강화 · 원정을 떠날 때마다 적용</small></div></div>
     <div class="meta-counter"><span class="star-wallet${ui.walletWas != null && ui.walletWas !== m.stars ? ' bump' : ''}">${starIco('')}<span><small>보유 별조각</small><b>${m.stars}</b></span></span></div>
     <div class="shop-stall meta-stall">${rows.map(shelf).join('')}</div>
-    <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>
-  </div></div>`;
+    <div class="pick-actions"><button class="pbtn small gold" data-act="close">닫기</button></div>`;
+  // 이미 열려 있으면(물건을 산 뒤) 창은 그대로 두고 안만 바꾼다 — 창을 지우고 다시 열면 깜빡였다
+  const box = X.layer.querySelector('.run-meta .meta-store');
+  if (box) box.innerHTML = inner;
+  else X.layer.innerHTML = `<div class="overlay run-meta" data-act="close-bg"><div class="deck-box meta-store" data-act="noop">${inner}</div></div>`;
   ui.walletWas = m.stars;
+}
+// 출정 채비를 샀을 때: 산 물건이 화면 가운데에 크게 떠오르며 빛줄기 · 후광 · 불꽃 (주사위 · 트레이를 샀을 때와 같은 연출)
+function metaReveal(id) {
+  const u = Run.META.find(x => x.id === id);
+  if (!u) return;
+  document.querySelector('.unlock-fx')?.remove();
+  const n = mlv(best(), id);
+  const sparks = Array.from({ length: 18 }, (_, i) => `<i class="uf-sp" style="--a:${(i * 20 + Math.random() * 10).toFixed(0)}deg;--d:${(90 + Math.random() * 70).toFixed(0)}px;--s:${(3 + Math.random() * 4).toFixed(1)}px"></i>`).join('');
+  const el = document.createElement('div');
+  el.className = 'unlock-fx is-skin k-meta';
+  el.style.setProperty('--c', '#FFD24A');
+  el.innerHTML = `<div class="uf-stage"><div class="uf-rays"></div><div class="uf-glow"></div>
+      <div class="uf-art uf-meta">${runIco('meta', u.id, u.icon, 'lg')}</div><div class="uf-flash"></div>${sparks}</div>
+    <div class="uf-txt"><small>출정 채비 ${n >= u.max ? '완성!' : `${n}단계!`}</small><b>${esc(u.ko)}</b><span>${u.desc(n)}</span></div>
+    <p class="uf-tap">화면을 눌러 계속</p>`;
+  document.body.appendChild(el);
+  sfx.quest?.();
+  const t0 = performance.now();
+  const close = () => { if (!el.isConnected || el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  el.addEventListener('click', () => { if (performance.now() - t0 > 500) close(); });
+  setTimeout(close, 3600);
 }
 // 출정 채비 물건을 누르면: 설명(지금 → 다음) + 구매 / 취소
 function metaItemTip(el, id) {
@@ -314,8 +338,14 @@ async function metaAct(act, id) {
   } catch (e) { return X.toast(ico('warn'), '할 수 없어요', e.message, 1400); }
   finally { ui.metaBusy = false; }
   sfx.forge?.();
-  paintSelect();                         // 직업 고르기 화면의 별조각 수를 바꾸고 (창을 지운다)
-  showMeta();
+  showMeta();                            // 창은 그대로 두고 안만 바꾼다 (깜빡이지 않게)
+  // 뒤의 직업 고르기 화면: 별조각 수 · 직업 정보(체력 · 도구) · 시작 카드(연마)만 그 자리에서 바꾼다
+  const b = best(), sel = ui.cls, mb = X.app.querySelector('[data-act=run-meta] .mk-board b');
+  if (mb) mb.innerHTML = `${starIco()}${b.meta.stars}`;
+  X.app.querySelectorAll('.rs-info-in').forEach((el, i) => { const cid = Run.RUN_ORDER[i]; if (cid) el.innerHTML = classInfoHTML(cid, b); });
+  const front = X.app.querySelector('.rs-front'), dk = sel && startDeck(sel);
+  if (front && dk) front.innerHTML = cardFace(dk[dk.length - 1]);
+  if (act === 'run-metabuy') metaReveal(id);
 }
 function showFeats() {
   const b = best();
@@ -575,7 +605,7 @@ function showCombat(fresh) {
 }
 const canAct = () => R?.phase === 'combat' && R.C?.phase === 'roll' && !ui.busy;
 // 굴리는 동안(주사위가 다 멈추기 전)은 '?' — 점수는 주사위가 멈춘 뒤에 드러난다
-const cardScore = c => (ui.rolling || (R.C.hidden?.includes(c.u) && !R.C.pure) ? (R.C.rolled || ui.rolling ? '?' : null) : R.C.rolled ? (c.cat === 'xpar' ? Run.parallelSet(R, c.u).reduce((a, o) => a + o.s, 0) : Run.scoreCard(R, c).total) : null);
+const cardScore = c => (c.cat === 'xrent' && !Run.canPlayCard(R, c) ? null : ui.rolling || (R.C.hidden?.includes(c.u) && !R.C.pure) ? (R.C.rolled || ui.rolling ? '?' : null) : R.C.rolled ? (c.cat === 'xpar' ? Run.parallelSet(R, c.u).reduce((a, o) => a + o.s, 0) : Run.scoreCard(R, c).total) : null);
 
 const shownHTML = new WeakMap();
 const setHTML = (el, html) => { if (el && shownHTML.get(el) !== html) { el.innerHTML = html; shownHTML.set(el, html); } };
@@ -724,6 +754,7 @@ function tapCard(u) {
     $('rtip').innerHTML = tipText(false);
     return;
   }
+  if (!Run.canPlayCard(R, C.hand[hi])) { sfx.tap(); return X.popover(hand.el(u), cardTip(C.hand[hi]) + '<p class="dim">손패에 들고 있는 카드예요 (낼 수 없어요)</p>'); }   // 유물 대여
   if (!C.rolled) { sfx.back(); nudgeRoll(); return; }   // 굴리기 전: 글자 대신 굴리기 버튼이 톡 튄다
   sfx.card();
   if (ui.sel === u && hand.sel === u) return closeSplit();
@@ -762,18 +793,17 @@ function openSplit(u) {
   const C = R.C, hi = C.hand.findIndex(c => c.u === u), card = C.hand[hi];
   // 뒷면 카드 · 미래 카드: 나누기 막대 없이 버튼만 (뒷면은 숫자를 보여 주지 않는다)
   const hidden = C.hidden?.includes(u) && !C.pure;
-  if (hidden || Run.isFuture(card.cat)) {
+  if (hidden || (Run.isFuture(card.cat) && card.cat !== 'xpar')) {      // 병렬 연산은 보통 카드처럼 막대로 나눈다
     ui.sel = u; ui.split = null;
     const go = (t, label, cls = '') => `<button class="pbtn sp-go${cls}" data-act="run-play" data-u="${u}" data-t="${t}">${label}</button>`;
     let body;
     if (hidden) body = `<div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 공격 ???`, ' gold')}${go('self', `${ico('shield', 'xs')} 수비 ???`)}</div>`;
-    else if (card.cat === 'xpar') { const set = Run.parallelSet(R, u), S = set.reduce((a, o) => a + o.s, 0); body = `<p class="sp-info">${ico('card', 'xs')} 점수가 나는 카드 ${set.length}장을 함께 낸다 · 합 <b>${S}</b></p><div class="sp-row">${go('enemy', `${ico('sword', 'xs')} 전부 공격`, ' gold')}${go('self', `${ico('shield', 'xs')} 전부 수비`)}</div>`; }
     else body = `<p class="sp-info">${esc(Run.FUTURE[card.cat].desc)}</p><div class="sp-row">${go('self', card.cat === 'xpause' ? '일시정지!' : '내기 (0점)', ' gold')}</div>`;
     hand.select(u, `<div class="split simple fut" id="split">${body}</div>`, { wide: true });
     hand.el(u)?.classList.add('splitting');
     return;
   }
-  const S = Run.splitPool(R, card, Run.scoreCard(R, card).total);
+  const S = card.cat === 'xpar' ? Run.parallelScore(R, u) : Run.splitPool(R, card, Run.scoreCard(R, card).total);
   ui.sel = u;
   // 기본은 '딱 막기' (다음 공격을 다 막을 만큼만 방어 · 나머지 공격). 막을 공격이 없으면 전부 공격.
   // 짙은 안개: 적의 다음 행동을 모르므로 막대 위치로 새지 않게 처음엔 전부 방어
@@ -946,6 +976,7 @@ function paintSplit() {
 }
 function dropCard(u, target) {
   if (!canAct() || !R.C.rolled) return false;
+  if (!Run.canPlayCard(R, R.C.hand.find(c => c.u === u))) return false;   // 유물 대여는 던져도 돌아온다
   doPlay(u, target);
   return true;
 }
@@ -1692,7 +1723,7 @@ async function playOne(f) {
     case 'parallel': {
       skillCall(`${ico('card')} 병렬 연산 · 합 ${f.score}`);
       f.us.forEach(u => hand.el(u)?.classList.add('par-glow'));
-      sfx.levelup?.();
+      sfx.card?.();                                  // 팡파레는 울리지 않는다
       await wait(700);
       return;
     }
@@ -1803,7 +1834,6 @@ function showReward() {
       <div class="rw-items">
         ${rw.items.map((it, k) => rewardRow(it, k)).join('')}
       </div>
-      ${rw.kind === 'special' ? `<div class="chest jest-prize"><img class="run-scene" src="${jesterURL('taunt')}" alt=""></div>` : ''}
       <button class="pbtn gold" data-act="run-leave">${rw.kind === 'boss' ? '다음 막으로' : rw.kind === 'start' ? '출발' : rw.kind === 'special' ? '가던 길로' : '지도로'}</button>
     </div>
     ${heroStrip()}
@@ -1815,7 +1845,7 @@ function showReward() {
   if (auto >= 0) setTimeout(() => R?.reward === rw && takeItem(auto), rw.cheered === 'auto' ? 220 : 520);
   rw.cheered = rw.cheered && 'auto';
 }
-const autoTakes = it => !it.done && (it.t === 'gold' || it.t === 'stars' || it.t === 'gems' || (it.t === 'potion' && R.potions.length < Run.POTION_SLOTS));
+const autoTakes = it => !it.done && ((it.t === 'card' && it.fixed) || it.t === 'gold' || it.t === 'stars' || it.t === 'gems' || (it.t === 'potion' && R.potions.length < Run.POTION_SLOTS));
 // 보상 칸: 가로세로가 비슷한 타일. 저절로 받는 것(골드 · 물약)은 「받음」, 직접 고르는 것은 「고르기」 · 「받기」 표시
 function rewardRow(it, k) {
   const done = it.done ? ' done' : '';
@@ -1829,6 +1859,7 @@ function rewardRow(it, k) {
   if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b>${tag}</button>`;
   if (it.t === 'stars') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${starIco('')}<b>별조각 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
   if (it.t === 'gems') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('gem')}<b>보석 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
+  if (it.t === 'card' && it.fixed) { const c = it.opts[0]; return `<button class="rw card-row future-row${done}" data-act="run-take" data-k="${k}">${ico('card')}<b>히든 족보 · ${esc(Run.FUTURE[c.cat]?.ko || Run.cardName(c))}</b><small>${esc(Run.FUTURE[c.cat]?.desc || '')}</small>${tag}</button>`; }
   if (it.t === 'card' && it.future) return `<button class="rw card-row future-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
   if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
   return '';

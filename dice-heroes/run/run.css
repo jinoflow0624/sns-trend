@@ -1358,3 +1358,8 @@ body:has(.run-sb) .popover { z-index: 310; }
   40% { transform: skewX(-5deg) translateX(6px); filter: hue-rotate(160deg) saturate(1.8) blur(1px); } 60% { transform: skewX(3deg) translateX(-5px) scaleX(1.02); filter: hue-rotate(260deg) saturate(1.6) blur(.6px); }
   80% { transform: skewX(-1deg); filter: hue-rotate(330deg); } }
 @media (prefers-reduced-motion: reduce) { .holo-warp, #app.holo-wobble { animation-duration: .01s !important; } }
+
+/* 출정 채비 구매 연출: 물건 아이콘을 크게 (unlock-fx 는 app 의 주사위 · 트레이 획득 연출) */
+.unlock-fx .uf-art.uf-meta { display: grid; place-items: center; width: 140px; height: 140px; }
+.unlock-fx .uf-art.uf-meta .run-ico, .unlock-fx .uf-art.uf-meta img, .unlock-fx .uf-art.uf-meta .ico { width: 120px; height: 120px; image-rendering: pixelated; }
+.unlock-fx.k-meta .uf-txt span { font-size: 12px; max-width: 280px; text-align: center; }
