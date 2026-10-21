@@ -404,7 +404,7 @@ function futureFace(c, score, cls) {
   return `<div class="rc-in r4 future f-${c.cat}${cls}">
     ${sl ? `<i class="rc-seal s-${c.seal}" style="--sc:${sl.color}${ui.stampHide.has(c.u) ? ';visibility:hidden' : ''}" title="${sl.ko}">${sealIco(c.seal)}</i>` : ''}
     <i class="rc-holo" aria-hidden="true"></i><i class="rc-scan" aria-hidden="true"></i>
-    <b class="rc-name">${f.ko}</b><small class="rc-en">${f.en}</small>
+    <b class="rc-name">${f.ko}</b>
     <div class="rc-pat">${url ? `<img class="rc-fimg" src="${url}" alt="">` : `<span class="rc-fico">${ico(f.icon)}</span>`}</div>
     <small class="rc-rule">${Run.CAT_RULE[c.cat]}</small>
     <span class="rc-kw none"></span>
@@ -427,7 +427,7 @@ function longPress(el, fn, ms = 450) {
 }
 // 카드 규칙 글 (주인공은 자란 만큼, 두배는 2 · 4 · 8 · 16 · 32)
 const ruleOf = c => (c.cat === 'ones' && c.grow ? `1의 개수 + ${c.grow}` : Run.CAT_RULE[c.cat]);
-const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)} <small>${Run.FUTURE[c.cat].en}</small></b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">미래 카드 · 강화할 수 없다 (인장은 붙는다)</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>빌린 유물: ${R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · ')}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.jest ? `<p>${jMask() ? '???' : c.jest === 'bomb' ? '시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5' : '광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5'}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
+const cardTip = c => (R?.C?.hidden?.includes(c.u) && !R.C.pure ? '<b>???</b>' : Run.isFuture(c.cat) ? `<b class="fut-tip">${esc(Run.FUTURE[c.cat].ko)}</b><p>${Run.FUTURE[c.cat].desc}</p><p class="dim">강화할 수 없다 (인장은 붙는다)</p>${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.cat === 'xrent' && R?.C?.rentMap?.[c.u] ? `<p>빌린 유물: ${R.C.rentMap[c.u].map(id => esc(Run.relicInfo(id).ko)).join(' · ')}</p>` : ''}` : `<b>${esc(Run.cardName(c))}</b><p>${ruleOf(c)}${c.up ? ' · 강화: 점수 +30%' : ''}</p>${c.jest ? `<p>${jMask() ? '???' : c.jest === 'bomb' ? '시한폭탄: 턴이 끝날 때 손패에 있으면 터진다. 내서 공격하면 피해 ×1.5' : '광대의 도전장: 이 카드를 내지 않으면 피해 절반. 내서 공격하면 피해 ×1.5'}</p>` : ''}${Run.isSpecial(c.cat) ? `<p>${runIco('spec', c.cat, Run.SPECIAL[c.cat].icon, 'xs')} <b>${Run.SPECIAL[c.cat].ko}</b> ${Run.SPECIAL[c.cat].desc}${c.cat === 'ones' && c.grow ? ` (지금 +${c.grow})` : ''}</p>` : ''}${c.seal ? `<p>${sealIco(c.seal)} <b>${Run.sealInfo(c.seal).ko}</b> ${Run.sealInfo(c.seal).desc}</p>` : ''}${c.temp ? '<p><b>달빛 복사본</b> 한 번 쓰면 사라진다</p>' : ''}${Run.kwsOf(c).map(k => `<p>${runIco('kw', k, Run.KEYWORDS[k].icon, 'xs')} <b>${Run.KEYWORDS[k].ko}</b> ${Run.KEYWORDS[k].desc}</p>`).join('')}`);
 
 // ── 지도 ─────────────────────────────────────────────────────────────────────
 const MAP_ROW = 74, MAP_PAD = 46;
@@ -1330,6 +1330,19 @@ function hurtFlash(big) {
   setTimeout(() => el.remove(), 560);
 }
 // 시공 광대의 표정: 비아냥 · 분노 그림으로 잠깐 바뀐다 (말은 하지 않는다)
+// 홀로그램 일렁임: 화면 전체가 지지직 출렁였다가 돌아온다 (히든 보스에 들어갈 때 · 쓰러져 원래 세계로 돌아올 때)
+function holoWarp(ms = 1300) {
+  const el = document.createElement('div');
+  el.className = 'holo-warp';
+  el.style.setProperty('--d', `${ms}ms`);
+  el.innerHTML = '<i class="hw-scan"></i><i class="hw-band"></i>';
+  document.body.appendChild(el);
+  const app = $('app');
+  app?.style.setProperty('--d', `${ms}ms`);
+  app?.classList.add('holo-wobble');
+  sfx.whoosh?.();
+  return wait(ms).then(() => { el.remove(); app?.classList.remove('holo-wobble'); });
+}
 // 광대 연출 글씨: 트레이 한가운데 크게 (회피 · 손패 섞기)
 function jBanner(html, kind = '') {
   const r = $('tray')?.getBoundingClientRect();
@@ -1703,8 +1716,19 @@ async function playOne(f) {
       art?.classList.add('warp');
       sfx.whoosh?.();
       if (fxOn) { const e = foeAt(); FX().burst(e.x, e.y, { n: 50, pal: ['#3EE6E0', '#FF4FD8', '#FFFFFF'], speed: [100, 360] }); }
-      if (!f.won) { const h = heroAt(); floatAt(h.x, h.y - 40, `체력 절반(${f.hp})으로 일어났다`, 'mint big'); setShow({ hp: f.hp }); updHero(false); }
       await wait(900);
+      if (!f.won) {
+        // 쓰러진 뒤: 광대가 사라지고 1초 뒤, 회복 소리와 함께 화면 전체가 홀로그램으로 일렁이며 원래 세계로 — 체력이 절반까지 찬다
+        await wait(1000);
+        sfx.quest?.();
+        const warp = holoWarp(1700);
+        await wait(750);
+        const h = heroAt();
+        if (fxOn) FX().burst(h.x, h.y, { n: 30, pal: PALETTES.heal, grav: -80 });
+        floatAt(h.x, h.y - 30, `+${Math.max(0, f.hp - (ui.show?.hp || 0))}`, 'mint big');
+        setShow({ hp: f.hp }); updHero(false);
+        await warp;
+      }
       return;
     }
     default: return;
@@ -1812,7 +1836,7 @@ function rewardRow(it, k) {
   if (it.t === 'flip' || it.t === 'nudge') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico(it.t)}<b>${it.t === 'flip' ? '뒤집기' : '조정'} +${it.n}</b>${tag}</button>`;
   if (it.t === 'stars') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${starIco('')}<b>별조각 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
   if (it.t === 'gems') return `<button class="rw${done}" data-act="run-take" data-k="${k}">${ico('gem')}<b>보석 ${it.n}</b><small>원정이 끝나면 받는다</small>${tag}</button>`;
-  if (it.t === 'card' && it.future) return `<button class="rw card-row future-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>미래 카드</b><small>${it.opts.length}장 중 1장 · 여기서만 얻는다</small>${tag}</button>`;
+  if (it.t === 'card' && it.future) return `<button class="rw card-row future-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
   if (it.t === 'card') return `<button class="rw card-row${done}" data-act="run-cardpick" data-k="${k}">${ico('card')}<b>카드</b><small>${it.opts.length}장 중 1장</small>${tag}</button>`;
   return '';
 }
@@ -1836,7 +1860,7 @@ function cardPick(k) {
   ui.cardPick = k;
   sfx.card();
   X.layer.innerHTML = `<div class="overlay run-pick${it.future ? ' future-pick' : ''}" data-act="noop"><div class="pick-box">
-    <h2>${it.future ? '미래 카드 — 하나만 가져갈 수 있다' : '보상'}</h2>
+    ${it.future ? '' : '<h2>보상</h2>'}
     <div class="pick-cards" style="--n:${it.opts.length}">${it.opts.map((c, i) => `<button class="rc rc-static pick" data-act="run-cardtake" data-i="${i}" style="--d:${i * 90}ms">${cardFace(c)}</button>`).join('')}</div>
     ${it.future ? `<div class="fut-descs">${it.opts.map(c => `<p><b>${esc(Run.FUTURE[c.cat].ko)}</b> ${esc(Run.FUTURE[c.cat].desc)}</p>`).join('')}</div>` : ''}
     <div class="pick-actions">${it.future ? '' : rerollBtn('run-repick', Run.rrOf(R).pick, k)}<button class="pbtn small" data-act="run-deck">내 덱 보기</button><button class="pbtn small" data-act="run-cardskip">건너뛰기</button></div>
@@ -2105,7 +2129,7 @@ function showSandbox() {
       <h3>자원</h3><div class="sb-row">${chip('run-sbx', 'gold', false, `${ico('coins', 'xs')}골드 +100`)}${chip('run-sbx', 'flip', false, `${ico('flip', 'xs')}뒤집기 +1`)}${chip('run-sbx', 'nudge', false, `${ico('nudge', 'xs')}조정 +1`)}${R.cls === 'dancer' ? chip('run-sbx', 'dance', false, '춤사위 +1') : ''}${chip('run-sbx', 'hp', false, `${ico('heart', 'xs')}체력 가득`)}${chip('run-sbx', 'maxhp', false, '최대 체력 +10')}${chip('run-sbx', 'rrshop', false, `${ico('recycle', 'xs')}상점 새로고침 +1 (${Run.rrOf(R).shop})`)}${chip('run-sbx', 'rrpick', false, `${ico('recycle', 'xs')}카드 · 유물 새로고침 +1 (${Run.rrOf(R).pick})`)}</div>
       <h3>무적</h3><div class="sb-row">${chip('run-sbx', 'god', R.sbGod, R.sbGod ? '무적 켜짐 (체력 1 아래로 안 내려감)' : '무적 끄기 상태 · 눌러서 켜기')}</div>`;
   } else if (sb.tab === 'foe') {
-    const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스'], ['special', '깜짝 보스']];
+    const kinds = [['normal', '일반'], ['elite', '엘리트'], ['boss', '보스'], ['special', '히든 보스']];
     body = `<p class="dim">고르면 바로 싸워요. 이기면 보상을 받고 지도로 돌아와요 (막 · 층 그대로). 적 체력은 지금 막(${R.act}막) 기준.</p>
       <div class="sb-row">${[1, 2, 3].map(n => chip('run-sbact', n, R.act === n, `${n}막`)).join('')}</div>
       ${kinds.map(([k, ko]) => `<h3>${ko}</h3><div class="sb-grid foes">${Object.entries(Run.ENEMIES).filter(([, e]) => e.kind === k).map(([id, e]) => `<button class="sb-foe" data-act="run-sbfoe" data-v="${id}"><img src="${foeURL(id)}" alt=""><span>${esc(e.ko)}</span><small>${e.act ? `${e.act}막` : "1 · 2막"}</small></button>`).join('')}</div>`).join('')}`;
@@ -2171,7 +2195,7 @@ function sbAct(act, t) {
     const opening = drain().filter(f => ['hex', 'gaze', 'facedown', 'jestCard', 'rent'].includes(f.type));
     if (kind === 'special') opening.unshift({ type: 'jesterIn' });
     if (opening.length) { ui.openFx = opening; ui.hideGaze = true; }
-    return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady()]).then(() => enterView(true));
+    return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady(), kind === 'special' && holoWarp(1400)]).then(() => enterView(true));
   }
 }
 
@@ -2348,7 +2372,8 @@ export function onAct(act, t) {
     const ty = R.phase === 'combat' && R.C?.e.id === 'jester' ? 'elite' : Run.mapNode(R, id).type;
     const song = ty === 'boss' ? bossSong(R.boss) : ty === 'elite' ? 'run_elite' : ty === 'fight' ? 'run_battle' : null;
     const ready = song ? Promise.race([preloadBgm(song), wait(3000)]) : null;
-    return Promise.all([ready, wait(260), song && X.stageReady()]).then(() => enterView(true));
+    const jest = R.phase === 'combat' && R.C?.e.id === 'jester';   // 히든 보스: 화면이 홀로그램으로 일렁인 뒤 보스전으로
+    return Promise.all([ready, wait(260), song && X.stageReady(), jest && holoWarp(1400)]).then(() => enterView(true));
   }
   // 보상
   if (act === 'run-take') return takeItem(Number(t.dataset.k));

@@ -41,7 +41,7 @@
   `node sim/acts.mjs 300` 으로 잰다 (덮어쓰기 시험은 파일 머리말).
 - **돌연사(한 턴에 최대 체력의 절반 이상 잃고 죽음)는 적게.** 적 한 턴 공격은 `TUNE.cap`(45%) × max(최대 체력, `TUNE.capRef`) 까지, 연타는 쌓인 힘을 한 대에 절반만 (`atkOf`).
   `sim/acts.mjs` 의 '한 방 50%+ 죽음' 줄로 본다. 긴장감은 한 방이 아니라 꾸준한 압박으로.
-- 깜짝 보스 「시공 광대」(지도에 없다 · `run/rules.js` JESTER_*): 막마다 이길 확률 30% 안팎. `node sim/jester.mjs` 로 재고 `TUNE.hp/atk.special` 로 맞춘다. 보스별 승률은 `node sim/bosses.mjs`.
+- 히든 보스 「시공 광대」(지도에 없다 · `run/rules.js` JESTER_*): 막마다 이길 확률 30% 안팎. `node sim/jester.mjs` 로 재고 `TUNE.hp/atk.special` 로 맞춘다. 보스별 승률은 `node sim/bosses.mjs`.
 - 유물 희귀도는 클리어율 기여로 나눈다: 보스 +16%p 이상 · 희귀 +8 ~ 16%p · 일반 그 아래. `node sim/relics.mjs` 로 재고 `RELIC_POWER` 도 같이 고친다.
 
 ## 원정 기록 · 별조각 (조작 방지)
