@@ -2022,4 +2022,8 @@ export default {"키보리아":"KYBORIA",
 "인원 {0}/4":"Jogadores {0}/4",
 "첫 판을 끝내면 직업별 기록이 쌓여요":"Termine sua primeira partida para começar os registros por classe",
 "거대 일격!":"Golpe devastador!",
-"완벽 방어!":"Bloqueio perfeito!"};
+"완벽 방어!":"Bloqueio perfeito!",
+"유물 획득!":"Relíquia obtida!",
+"일반 유물":"Relíquia comum",
+"희귀 유물":"Relíquia rara",
+"눌러서 받기":"Toque para pegar"};

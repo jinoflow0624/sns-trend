@@ -2022,4 +2022,8 @@ export default {"키보리아":"KYBORIA",
 "인원 {0}/4":"Pemain {0}/4",
 "첫 판을 끝내면 직업별 기록이 쌓여요":"Selesaikan permainan pertama untuk mulai mencatat per kelas",
 "거대 일격!":"Serangan Dahsyat!",
-"완벽 방어!":"Blok Sempurna!"};
+"완벽 방어!":"Blok Sempurna!",
+"유물 획득!":"Relik didapat!",
+"일반 유물":"Relik Biasa",
+"희귀 유물":"Relik Langka",
+"눌러서 받기":"Ketuk untuk ambil"};

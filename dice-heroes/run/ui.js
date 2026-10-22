@@ -1210,7 +1210,65 @@ async function stampShow(cards, title) {
 function drain() {
   const list = Run.drainFx(R);
   ui.stamps.push(...list.filter(f => f.type === 'sealOn'));
+  // 유물을 얻으면(보물상자 · 보상 · 상점 · 이벤트 …) 기운이 모여 터지는 연출로 받는다. 한꺼번에 여럿(시험 원정 시작 · 샌드박스)은 조용히
+  const got = list.filter(f => f.type === 'relic' && Run.relicInfo(f.id));
+  if (got.length && got.length < 3 && !X.layer.querySelector('.run-sb')) got.forEach(f => relicReveal(f.id));
   return list;
+}
+// 유물 받기: 화면이 어두워지고 기운이 가운데로 모였다가 '번쩍' — 희귀도 색 빛줄기 속에 유물이 떠오른다. 누르면 위 유물 칸으로 날아가 들어간다
+//   일반 하늘색 · 희귀 보라 · 보스 금빛. 여러 개면 차례로. 연출 '최소' 는 짧게
+const RELIC_GLOW = { 1: '#8FD3FF', 2: '#C08BFF', 3: '#FFD24A' };
+let relicQ = Promise.resolve();
+export function relicReveal(id) {   // (디버그에서도 부른다)
+  relicQ = relicQ.then(() => relicShow(id)).catch(e => console.warn('[relic]', e));
+  return relicQ;
+}
+function relicShow(id) {
+  return new Promise(done => {
+    const r = Run.relicInfo(id), c = RELIC_GLOW[r.r] || RELIC_GLOW[1], fxOn = X.prefs.fx !== 'min';
+    const el = document.createElement('div');
+    el.className = `relic-reveal r${r.r}${fxOn ? '' : ' quick'}`;
+    el.style.setProperty('--rc', c);
+    el.innerHTML = `<div class="rv-core"><i class="rv-rays" aria-hidden="true"></i><i class="rv-orb" aria-hidden="true"></i><span class="rv-art">${relicIco(r)}</span></div>
+      <div class="rv-txt"><small>${[TR('유물 획득!'), TR('일반 유물'), TR('희귀 유물'), TR('보스 유물')][r.r] || TR('유물 획득!')}</small><b>${esc(r.ko)}</b><p>${esc(r.desc)}</p></div>
+      <p class="rv-tap">${TR('눌러서 받기')}</p>`;
+    document.body.appendChild(el);
+    const cx = innerWidth / 2, cy = innerHeight * 0.42;
+    if (fxOn) {
+      // 1) 기운이 모인다: 큰 고리가 줄어들며 반짝이가 빨려 든다
+      sfx.charge?.(1.6);
+      for (let k = 0; k < 3; k++) setTimeout(() => FX().ring(cx, cy, { color: c, r0: 170 - k * 30, r1: 12, dur: 520, width: 5 }), k * 150);
+      const pull = setInterval(() => { const a = Math.random() * 6.28, d = 140 + Math.random() * 60; FX().burst(cx + Math.cos(a) * d, cy + Math.sin(a) * d, { n: 3, pal: [c, '#FFFFFF'], speed: [10, 40], size: [2, 3], life: [0.25, 0.4], grav: 0 }); }, 60);
+      // 2) 번쩍: 흰 빛 · 불꽃 · 화면 흔들림 · 팡파레
+      setTimeout(() => {
+        clearInterval(pull);
+        el.classList.add('burst');
+        FX().flash('#FFFFFF', 320, 0.55);
+        FX().burst(cx, cy, { n: 90, pal: [c, '#FFFFFF', '#FFE27A'], speed: [160, 520], size: [3, 6], life: [0.5, 1.2], grav: 160 });
+        FX().ring(cx, cy, { color: '#FFFFFF', r0: 20, r1: 220, dur: 600, width: 8 });
+        shake($('rc') || X.app, r.r >= 3 ? 2 : 1.3);
+        rumble(r.r >= 3 ? 12 : 8);
+        sfx.legend?.(); if (r.r >= 2) setTimeout(() => sfx.powerUp?.(r.r >= 3 ? 2.6 : 1.8), 120);
+      }, 760);
+    } else { el.classList.add('burst'); sfx.legend?.(); }
+    // 3) 누르면 받는다 (조금 뒤부터 — 실수로 바로 넘기지 않게). 4초 뒤엔 저절로
+    const t0 = performance.now(), wait0 = fxOn ? 1300 : 300;
+    const take = () => {
+      if (el.classList.contains('out')) return;
+      el.classList.add('out');
+      const art = el.querySelector('.rv-art'), slot = X.app.querySelector('.rh-relics .relic:last-child') || $('rhero');
+      if (art && slot && fxOn) {
+        const a = art.getBoundingClientRect(), b = slot.getBoundingClientRect();
+        art.style.setProperty('--fx', `${b.left + b.width / 2 - (a.left + a.width / 2)}px`);
+        art.style.setProperty('--fy', `${b.top + b.height / 2 - (a.top + a.height / 2)}px`);
+        art.classList.add('fly');
+        setTimeout(() => { FX().burst(b.left + b.width / 2, b.top + b.height / 2, { n: 24, pal: [c, '#FFFFFF'], speed: [60, 200], life: [0.25, 0.5] }); sfx.select?.(); slot.classList?.add('pop'); setTimeout(() => slot.classList?.remove('pop'), 500); }, 430);
+      }
+      setTimeout(() => { el.remove(); done(); }, fxOn ? 520 : 200);
+    };
+    el.addEventListener('click', () => { if (performance.now() - t0 > wait0) take(); });
+    setTimeout(take, wait0 + 4000);
+  });
 }
 
 // 뽑을 더미가 비면: 버린 카드들이 모여 두 더미로 갈라졌다가 엇갈려 섞인다 (리플 셔플)
@@ -1921,7 +1979,7 @@ async function takeItem(k) {
   const el = X.app.querySelector(`[data-act=run-take][data-k="${k}"]`);
   const p = center(el);
   if (it.t === 'gold') { sfx.coin(); FX().coins(p, center($('r-gold')), 12); }
-  else if (it.t === 'relic') { sfx.legend(); FX().burst(p.x, p.y, { n: 40, pal: PALETTES.gold }); }
+  else if (it.t === 'relic') { /* 유물은 drain() 의 받기 연출(relicReveal)이 맡는다 */ }
   else if (it.t === 'stars' || it.t === 'gems') { sfx.stars?.(Math.min(10, it.n / 10)) || sfx.coin(); FX().burst(p.x, p.y, { n: 36, pal: it.t === 'gems' ? PALETTES.arcane : PALETTES.gold }); }
   else { sfx.card(); FX().burst(p.x, p.y, { n: 20, pal: PALETTES.heal }); }
   save();
