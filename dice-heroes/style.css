@@ -1866,3 +1866,18 @@ html:lang(fr) .quest.ok::after { content: 'Fait !'; }
 html:lang(fr) .skin-preview.flat::after { content: 'Aperçu 3D indisponible sur cet appareil'; }
 html:lang(id) .quest.ok::after { content: 'Selesai!'; }
 html:lang(id) .skin-preview.flat::after { content: 'Pratinjau 3D tidak tersedia di perangkat ini'; }
+
+/* ── 언어 고르기 (설정 안 화면) ── */
+.lang-btn { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal.lang-pick h2 small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.lang-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0 4px; max-height: 60vh; overflow-y: auto; }
+.lang-opt { position: relative; display: grid; gap: 1px; justify-items: start; text-align: left; padding: 9px 10px; min-height: 44px;
+  font: 700 14px var(--px); color: var(--text); background: #140F36; border: 3px solid var(--ink); box-shadow: inset 0 0 0 1px #3A2F7A; cursor: pointer; }
+.lang-opt:first-child { grid-column: 1 / -1; }
+.lang-opt small { font-size: 11px; font-weight: 400; color: var(--muted); }
+.lang-opt:active { transform: translateY(1px); }
+.lang-opt.on { background: #1E3B33; box-shadow: inset 0 0 0 2px var(--mint); }
+.lang-opt .lo-check { position: absolute; right: 8px; top: 50%; translate: 0 -50%; font-style: normal; color: var(--mint); font-size: 14px; }
+/* 언어 이름은 그 언어 글꼴로 (중국어 이름 한자) */
+.lang-opt[lang="zh-Hans"] .lo-name { font-family: 'KyboriaHanziSC', 'Galmuri11', sans-serif; }
+.lang-opt[lang="zh-Hant"] .lo-name { font-family: 'KyboriaHanziTC', 'Galmuri11', sans-serif; }

@@ -2,7 +2,7 @@
 //   메뉴 → 파티 편성(대전/협동) → 게임 → 결과
 //   메뉴 → 온라인 방(만들기/참가) → 로비 → 게임 → 결과
 // 룰은 engine.js, 온라인은 net.js, 3D 주사위는 dice3d.js, 소리는 audio.js, 도트 그림은 pixel.js · scenes.js.
-import { t as TR, LANG, LANGS, langPref, setLang } from './i18n.js';
+import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.js';
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
@@ -61,7 +61,8 @@ const markSeen = k => { seen[k] = true; store.set(KEYS.seen, seen); };
 // 처음 한 번만: 처음이면 기억하고 true (안내 문구는 처음 만났을 때만 띄운다)
 const once = k => !seen[k] && (markSeen(k), true);
 
-const BOT_NAMES = [TR('고블린 봇'), TR('슬라임 봇'), TR('해골 봇'), TR('미믹 봇')];
+// 봇 이름 · 내 이름은 저장 · 온라인으로 보내는 '사람 데이터'라 그냥 글자로 (언어를 바꾸면 renameDefaults 가 기본 이름만 바꾼다)
+const botNames = () => [TR('고블린 봇'), TR('슬라임 봇'), TR('해골 봇'), TR('미믹 봇')];
 let setup = store.get(KEYS.setup) || [
   { name: TR('나'), cls: 'warrior', bot: false },
   { name: TR('고블린 봇'), cls: 'mage', bot: true },
@@ -107,18 +108,18 @@ const miniDice = arr => `<span class="mds">${arr.map(miniDie).join('')}</span>`;
 
 // 점수표 칸마다 한 줄 규칙과 예시 주사위
 const CAT_HELP = {
-  ones:   { rule: TR('1만 더함'),         ex: [1, 1, 1, 4, 5], pts: 3 },
-  twos:   { rule: TR('2만 더함'),         ex: [2, 2, 3, 5, 6], pts: 4 },
-  threes: { rule: TR('3만 더함'),         ex: [3, 3, 3, 1, 6], pts: 9 },
-  fours:  { rule: TR('4만 더함'),         ex: [4, 4, 2, 4, 1], pts: 12 },
-  fives:  { rule: TR('5만 더함'),         ex: [5, 5, 5, 5, 2], pts: 20 },
-  sixes:  { rule: TR('6만 더함'),         ex: [6, 6, 6, 3, 1], pts: 18 },
-  choice: { rule: TR('아무거나 · 5개 합'), ex: [6, 5, 4, 3, 6], pts: 24 },
-  four:   { rule: TR('같은 눈 4개 · 5개 합'), ex: [4, 4, 4, 4, 2], pts: 18 },
-  full:   { rule: TR('3개+2개 · 5개 합'),  ex: [3, 3, 3, 5, 5], pts: 19 },
-  sstr:   { rule: TR('연속 4개 · 15점'),   ex: [1, 2, 3, 4, 6], pts: 15 },
-  lstr:   { rule: TR('연속 5개 · 30점'),   ex: [2, 3, 4, 5, 6], pts: 30 },
-  yacht:  { rule: TR('5개 모두 같음 · 50점'), ex: [5, 5, 5, 5, 5], pts: 50 },
+  ones:   { rule: tL('1만 더함'),         ex: [1, 1, 1, 4, 5], pts: 3 },
+  twos:   { rule: tL('2만 더함'),         ex: [2, 2, 3, 5, 6], pts: 4 },
+  threes: { rule: tL('3만 더함'),         ex: [3, 3, 3, 1, 6], pts: 9 },
+  fours:  { rule: tL('4만 더함'),         ex: [4, 4, 2, 4, 1], pts: 12 },
+  fives:  { rule: tL('5만 더함'),         ex: [5, 5, 5, 5, 2], pts: 20 },
+  sixes:  { rule: tL('6만 더함'),         ex: [6, 6, 6, 3, 1], pts: 18 },
+  choice: { rule: tL('아무거나 · 5개 합'), ex: [6, 5, 4, 3, 6], pts: 24 },
+  four:   { rule: tL('같은 눈 4개 · 5개 합'), ex: [4, 4, 4, 4, 2], pts: 18 },
+  full:   { rule: tL('3개+2개 · 5개 합'),  ex: [3, 3, 3, 5, 5], pts: 19 },
+  sstr:   { rule: tL('연속 4개 · 15점'),   ex: [1, 2, 3, 4, 6], pts: 15 },
+  lstr:   { rule: tL('연속 5개 · 30점'),   ex: [2, 3, 4, 5, 6], pts: 30 },
+  yacht:  { rule: tL('5개 모두 같음 · 50점'), ex: [5, 5, 5, 5, 5], pts: 50 },
 };
 
 function setStage(next) {
@@ -429,8 +430,8 @@ const pickSteps = () => {
   const head = pick.fixed ? [] : ['mode'];                    // 메뉴에서 모드를 정하고 들어오면 모드 단계 없음
   return pick.for === 'local' ? [...head, mid, 'party'] : [...head, mid];
 };
-const STEP_TITLE = { mode: TR('모드 선택'), boss: TR('보스 선택'), rule: TR('규칙 선택'), party: TR('캐릭터 선택') };
-const STEP_SHORT = { mode: TR('모드'), boss: TR('보스'), rule: TR('규칙'), party: TR('캐릭터') };
+const STEP_TITLE = { mode: tL('모드 선택'), boss: tL('보스 선택'), rule: tL('규칙 선택'), party: tL('캐릭터 선택') };
+const STEP_SHORT = { mode: tL('모드'), boss: tL('보스'), rule: tL('규칙'), party: tL('캐릭터') };
 
 function beginPick(kind, o, fixed = false) {
   pick = { for: kind, step: fixed ? (o.mode === 'coop' ? 'boss' : 'rule') : 'mode', o, fixed };
@@ -704,18 +705,18 @@ function onSetupAct(act, t) {
   if (act === 'cls-buy') return classBuyDialog(t.dataset.cls, id => { setup[i].cls = id; delete dialView[i]; store.set(KEYS.setup, setup); showSetup(); });
   if (act === 'cls-view') { sfx.select(); dialView[i] = t.dataset.cls; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; return showSetup(); }   // 잠긴 직업: 보기만
   if (act === 'human') { setup[i].bot = false; if (!Wal.owns('cls', setup[i].cls)) setup[i].cls = firstOwnedClass(); }
-  if (act === 'bot') { setup[i].bot = true; if (setup[i].name === TR('나')) setup[i].name = BOT_NAMES[i % 4]; }
+  if (act === 'bot') { setup[i].bot = true; if (setup[i].name === TR('나')) setup[i].name = botNames()[i % 4]; }
   if (act === 'cls-talk') { sfx.tap(); t.classList.remove('talk'); void t.offsetWidth; t.classList.add('talk'); return; }   // 직업 대사는 뺐다 (살짝 들썩이기만)
   if (act === 'cls') { setup[i].cls = t.dataset.cls; delete dialView[i]; dialSpin = { i, d: dialDirOf(t), t: Date.now() }; }
   if (act === 'remove') setup.splice(i, 1);
   if (act === 'add' && setup.length < 4) {
     const used = new Set(setup.map(p => p.cls));
-    setup.push({ name: BOT_NAMES.find(n => !setup.some(p => p.name === n)) || TR('동료'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
+    setup.push({ name: botNames().find(n => !setup.some(p => p.name === n)) || TR('동료'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
   }
   if (act === 'start') {
     if (opts.mode === 'coop') clampDiff(opts);
     syncOwned();
-    setup.forEach((p, k) => { p.name = (p.name || '').trim() || (p.bot ? BOT_NAMES[k] : TR('영웅{0}', k + 1)); });
+    setup.forEach((p, k) => { p.name = (p.name || '').trim() || (p.bot ? botNames()[k] : TR('영웅{0}', k + 1)); });
     store.set(KEYS.setup, setup);
     sfx.start();
     return startGame(E.createGame(setup, undefined, opts));
@@ -989,7 +990,7 @@ function onLobbyAct(act, t) {
     return lobbyTxn(r => {
       if (r.seats.length >= 4) return;
       const used = new Set(r.seats.map(s => s.cls));
-      r.seats.push({ token: `bot-${Net.makeCode(6)}`, name: BOT_NAMES.find(n => !r.seats.some(s => s.name === n)) || TR('봇'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
+      r.seats.push({ token: `bot-${Net.makeCode(6)}`, name: botNames().find(n => !r.seats.some(s => s.name === n)) || TR('봇'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
     });
   }
   if (act === 'remove' && isHost()) {
@@ -1166,7 +1167,7 @@ function connBanner(show) {
 }
 
 // 이모티콘 반응 (정해진 문구만 — 채팅이 아니라 욕설 걱정이 없다)
-const EMOTES = [TR('나이스!'), TR('좋아요'), TR('아깝다…'), TR('ㅋㅋㅋ'), TR('빨리요~'), 'GG'];
+const EMOTES = [tL('나이스!'), tL('좋아요'), tL('아깝다…'), tL('ㅋㅋㅋ'), tL('빨리요~'), 'GG'];
 function showEmotes(room) {
   if (!online || !room.emote) return;
   for (const [token, v] of Object.entries(room.emote)) {
@@ -1795,9 +1796,9 @@ function floatText(text, cls, offset = 0, anchor = 'tray', icon = '') {
 }
 // 못 고르는 주사위: 소리 · 진동 · 주사위 떨림. 글 안내는 종류마다 처음 한 번만
 const NOPE_TIPS = {
-  seal: ['chain', TR('봉인된 주사위'), TR('다시 굴리면 풀려요')],
-  'seal-perm': ['chain', TR('봉인된 주사위'), TR('뒤집기로 풀기')],
-  ice: ['snow', TR('얼어붙은 주사위'), TR('뒤집기 · 조정만')],
+  seal: ['chain', tL('봉인된 주사위'), tL('다시 굴리면 풀려요')],
+  'seal-perm': ['chain', tL('봉인된 주사위'), tL('뒤집기로 풀기')],
+  ice: ['snow', tL('얼어붙은 주사위'), tL('뒤집기 · 조정만')],
 };
 function nopeDie(i, kind) {
   sfx.back(); buzz(40);
@@ -1987,30 +1988,30 @@ async function rageScene() {
 }
 
 const BOSS_LINES = {
-  eternal: TR('영겁의 봉인! 다시 굴려도 풀리지 않는다 — 뒤집기 1회로 풀 수 있다'),
-  curse: TR('피의 저주! 저주 칸의 점수만큼 마신이 회복했다'),
-  cleanse: TR('저주를 끊었다! 첫 굴림 그대로 완성 — 피해 2배'),
-  midheal: TR('미드나잇! 0점을 틈타 마신이 회복했다'),
-  awaken: TR('진(眞) 각성! 영겁의 봉인이 매 라운드 — 저주가 번진다'),
-  hfire: TR('불 머리의 숨결! 가장 높은 주사위가 1로 타 버렸다'),
-  hice: TR('얼음 머리의 숨결! 주사위 2개가 얼어붙었다 — 다시 굴릴 수 없다 (뒤집기 · 조정은 가능)'),
-  hpoison: TR('독 머리의 숨결! 이번 라운드 15점 이하 기록은 피해 절반'),
-  behead: TR('머리를 베었다! 이 머리는 더 이상 숨결을 뿜지 못한다'),
-  regrow: TR('잘린 머리가 다시 자라났다!'),
-  gaze: TR('외눈 응시! 노려본 칸에 적으면 피해 0'),
-  gazed: TR('외눈이 노려보는 칸이었다 — 피해 0'),
-  rock: TR('바위 투척! 이번 차례 그 칸은 쓸 수 없다'),
-  necro: TR('사령술! 해골병이 주인을 회복시킨다'),
-  reverse: TR('운명 역전! 가장 많이 나온 눈이 전부 뒤집혔다'),
-  throne: TR('뼈의 왕좌! 보호막을 둘렀다'),
-  rewind: TR('시간 역행! 이번 라운드 피해의 절반을 되돌렸다'),
-  breath: TR('화염 숨결! 가장 높은 주사위가 1로 타 버렸다'),
-  twist: TR('운명 비틀기! 주사위가 뒤집혔다'),
-  drums: TR('전쟁의 북! 이번 라운드 굴림 기회 -1'),
-  plunder: TR('약탈! 0점을 틈타 체력을 회복했다'),
-  bone: TR('뼈 방패! 보호막을 둘렀다'),
-  seal: TR('봉인! 주사위가 쇠사슬에 묶였다 — 다시 굴리면 풀린다'),
-  unseal: TR('봉인이 풀렸다'),
+  eternal: tL('영겁의 봉인! 다시 굴려도 풀리지 않는다 — 뒤집기 1회로 풀 수 있다'),
+  curse: tL('피의 저주! 저주 칸의 점수만큼 마신이 회복했다'),
+  cleanse: tL('저주를 끊었다! 첫 굴림 그대로 완성 — 피해 2배'),
+  midheal: tL('미드나잇! 0점을 틈타 마신이 회복했다'),
+  awaken: tL('진(眞) 각성! 영겁의 봉인이 매 라운드 — 저주가 번진다'),
+  hfire: tL('불 머리의 숨결! 가장 높은 주사위가 1로 타 버렸다'),
+  hice: tL('얼음 머리의 숨결! 주사위 2개가 얼어붙었다 — 다시 굴릴 수 없다 (뒤집기 · 조정은 가능)'),
+  hpoison: tL('독 머리의 숨결! 이번 라운드 15점 이하 기록은 피해 절반'),
+  behead: tL('머리를 베었다! 이 머리는 더 이상 숨결을 뿜지 못한다'),
+  regrow: tL('잘린 머리가 다시 자라났다!'),
+  gaze: tL('외눈 응시! 노려본 칸에 적으면 피해 0'),
+  gazed: tL('외눈이 노려보는 칸이었다 — 피해 0'),
+  rock: tL('바위 투척! 이번 차례 그 칸은 쓸 수 없다'),
+  necro: tL('사령술! 해골병이 주인을 회복시킨다'),
+  reverse: tL('운명 역전! 가장 많이 나온 눈이 전부 뒤집혔다'),
+  throne: tL('뼈의 왕좌! 보호막을 둘렀다'),
+  rewind: tL('시간 역행! 이번 라운드 피해의 절반을 되돌렸다'),
+  breath: tL('화염 숨결! 가장 높은 주사위가 1로 타 버렸다'),
+  twist: tL('운명 비틀기! 주사위가 뒤집혔다'),
+  drums: tL('전쟁의 북! 이번 라운드 굴림 기회 -1'),
+  plunder: tL('약탈! 0점을 틈타 체력을 회복했다'),
+  bone: tL('뼈 방패! 보호막을 둘렀다'),
+  seal: tL('봉인! 주사위가 쇠사슬에 묶였다 — 다시 굴리면 풀린다'),
+  unseal: tL('봉인이 풀렸다'),
 };
 
 // ?slowfx 로 열면 연출을 4배 느리게 (화면 점검용)
@@ -2446,12 +2447,12 @@ function crownDraw(g, x, y, s = 1, rot = 0) {
 // 보스 스킬마다 주사위(또는 보스)에 맞는 연출
 // 보스 스킬 이름표: 화면 가운데 스킬 이름이 쾅 찍히고 보스 그림이 번쩍인다 (색은 스킬 기운)
 const CAST = {
-  breath: [TR('화염 숨결'), '#FF8A1A'], hfire: [TR('불 머리의 숨결'), '#FF8A1A'], hice: [TR('얼음 머리의 숨결'), '#7CE0FF'], hpoison: [TR('독 머리의 숨결'), '#5FD13A'],
-  behead: [TR('머리 베기!'), '#FFD24A'], regrow: [TR('머리 재생'), '#B98CFF'], twist: [TR('운명 비틀기'), '#B98CFF'], reverse: [TR('운명 역전'), '#B98CFF'],
-  drums: [TR('전쟁의 북'), '#B6F25A'], plunder: [TR('약탈'), '#FFD24A'], bone: [TR('뼈 방패'), '#C8F4FF'], throne: [TR('뼈의 왕좌'), '#C8F4FF'],
-  gaze: [TR('외눈 응시'), '#FF3B3B'], gazed: [TR('응시당한 칸 — 피해 0'), '#FF3B3B'], rock: [TR('바위 투척'), '#C8C0B0'],
-  necro: [TR('사령술'), '#9DB7D6'], rewind: [TR('시간 역행'), '#B98CFF'], seal: [TR('봉인'), '#FF2A6A'], eternal: [TR('영겁의 봉인'), '#FF2A6A'],
-  curse: [TR('피의 저주'), '#C21E56'], cleanse: [TR('저주 정화!'), '#FFD24A'], midheal: [TR('미드나잇'), '#FF2A6A'], awaken: [TR('진(眞) 각성'), '#FF2A6A'],
+  breath: [tL('화염 숨결'), '#FF8A1A'], hfire: [tL('불 머리의 숨결'), '#FF8A1A'], hice: [tL('얼음 머리의 숨결'), '#7CE0FF'], hpoison: [tL('독 머리의 숨결'), '#5FD13A'],
+  behead: [tL('머리 베기!'), '#FFD24A'], regrow: [tL('머리 재생'), '#B98CFF'], twist: [tL('운명 비틀기'), '#B98CFF'], reverse: [tL('운명 역전'), '#B98CFF'],
+  drums: [tL('전쟁의 북'), '#B6F25A'], plunder: [tL('약탈'), '#FFD24A'], bone: [tL('뼈 방패'), '#C8F4FF'], throne: [tL('뼈의 왕좌'), '#C8F4FF'],
+  gaze: [tL('외눈 응시'), '#FF3B3B'], gazed: [tL('응시당한 칸 — 피해 0'), '#FF3B3B'], rock: [tL('바위 투척'), '#C8C0B0'],
+  necro: [tL('사령술'), '#9DB7D6'], rewind: [tL('시간 역행'), '#B98CFF'], seal: [tL('봉인'), '#FF2A6A'], eternal: [tL('영겁의 봉인'), '#FF2A6A'],
+  curse: [tL('피의 저주'), '#C21E56'], cleanse: [tL('저주 정화!'), '#FFD24A'], midheal: [tL('미드나잇'), '#FF2A6A'], awaken: [tL('진(眞) 각성'), '#FF2A6A'],
 };
 function castBanner(f) {
   const [name, color] = CAST[f.skill] || [];
@@ -2763,8 +2764,8 @@ async function playOne(f) {
 
 // 처음 나오는 용어는 한 번씩 짧게 설명한다 (튜토리얼을 건너뛴 사람을 위해)
 const TERM_TIPS = [
-  ['flip', p => p.flip > 0, 'flip', TR('뒤집기'), '1↔6 · 2↔5 · 3↔4'],
-  ['nudge', p => p.nudge > 0, 'nudge', TR('조정'), TR('주사위 눈 ±1')],
+  ['flip', p => p.flip > 0, 'flip', tL('뒤집기'), '1↔6 · 2↔5 · 3↔4'],
+  ['nudge', p => p.nudge > 0, 'nudge', tL('조정'), tL('주사위 눈 ±1')],
 ];
 function termTips() {
   if (tut || !S || S.ended || !myControl() || ui.busy) return;
@@ -3515,6 +3516,7 @@ async function rollPreview() {
 
 // ── 설정 · 크레딧 ────────────────────────────────────────────────────────────
 function showSettings(inGame = false) {
+  settingsInGame = inGame;
   const a = audioSettings();
   layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
     <h2>${inGame ? TR('일시정지') : TR('설정')}</h2>
@@ -3524,7 +3526,7 @@ function showSettings(inGame = false) {
     <div class="set-row">${TR('연출 속도')}<div class="seg" role="group" aria-label="${TR('연출 속도')}">
       ${[['normal', TR('보통')], ['fast', TR('빠르게')], ['min', TR('최소')]].map(([v, k]) => `<button data-act="pref-fx" data-v="${v}" class="${prefs.fx === v ? 'on' : ''}">${k}</button>`).join('')}
     </div></div>
-    <label class="set-row">${TR('언어')} <small>Language · 言語</small><select id="set-lang" class="set-select">${[['auto', TR('기기 언어')], ...LANGS].map(([k, n]) => `<option value="${k}"${langPref() === k ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+    <div class="set-row">${TR('언어')}${LANG === 'en' ? '' : ' <small>Language</small>'}<button class="pbtn small lang-btn" data-act="lang-open">${esc(langLabel())} ▸</button></div>
     <label class="set-row">${TR('글자 크게')}<input id="set-big" type="checkbox" ${prefs.bigText ? 'checked' : ''}></label>
     <label class="set-row">${TR('색약 보조 표시')}<input id="set-ca" type="checkbox" ${prefs.colorAssist ? 'checked' : ''}></label>
     <label class="set-row">${TR('큰 족보 연출')} <small>${TR('암전 · 슬로모션')}</small><input id="set-drama" type="checkbox" ${prefs.drama !== false ? 'checked' : ''}></label>
@@ -3543,17 +3545,70 @@ function showSettings(inGame = false) {
     </div>
   </div></div>`;
 }
+// ── 언어 고르기: 설정 안의 게임 화면 (휴대폰 고르기 상자 대신). 고르면 다시 불러오지 않고 그 자리에서 바뀐다 ──
+let settingsInGame = false;
+const langName = code => LANGS.find(([k]) => k === code)?.[1] || code;
+const langLabel = () => (langPref() === 'auto' ? `${TR('기기 언어')} · ${langName(LANG)}` : langName(LANG));
+function showLangPicker() {
+  const pref = langPref();
+  const opt = (k, name, sub = '') => `<button class="lang-opt${pref === k ? ' on' : ''}" data-act="lang-pick" data-v="${k}" lang="${k === 'auto' ? LANG : k}">
+      <span class="lo-name">${esc(name)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}${pref === k ? `<i class="lo-check">✓</i>` : ''}</button>`;
+  layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame lang-pick" data-act="noop">
+    <h2>${TR('언어')}${LANG === 'en' ? '' : ' <small>Language</small>'}</h2>
+    <div class="lang-list">
+      ${opt('auto', TR('기기 언어'), langName(fromDevice(navigator.languages?.[0] || navigator.language)))}
+      ${LANGS.map(([k, n]) => opt(k, n)).join('')}
+    </div>
+    <div class="modal-actions"><button class="pbtn" data-act="lang-back">${TR('뒤로')}</button></div>
+  </div></div>`;
+}
+// 기본 이름(나 · 고블린 봇 …)은 언어를 따라 바꾼다 — 사람이 직접 지은 이름은 그대로
+const defaultNames = () => [TR('나'), ...botNames(), TR('모험가'), TR('동료'), TR('봇')];
+async function pickLang(code) {
+  if (langBusy) return;
+  langBusy = true;
+  const before = defaultNames();
+  try {
+    if (!(await setLang(code))) { showLangPicker(); return; }
+  } catch (err) { noteErr(err); toast(ico('warn'), TR('할 수 없어요'), String(err?.message || err).slice(0, 80), 2000); return; } finally { langBusy = false; }
+  const after = defaultNames(), ren = n => { const i = before.indexOf(n); return i >= 0 ? after[i] : n; };
+  setup.forEach(p => { p.name = ren(p.name); });
+  store.set(KEYS.setup, setup);
+  if (store.get(KEYS.name) == null) myName = ren(myName);
+  if (S && !online) S.players.forEach(p => { p.name = ren(p.name); });   // 혼자 하는 판의 기본 이름도 (온라인은 다른 사람과 같이 보는 이름이라 그대로)
+  runMod?.renameHero?.(ren);
+  try { redrawScreen(); } catch (err) { noteErr(err); }
+  showLangPicker();
+  sfx.select();
+}
+let langBusy = false;
+// 언어가 바뀌면: 창 제목 · 지금 화면을 새 언어로 다시 그리고, 열려 있던 언어 고르기 화면을 다시 띄운다
+window.addEventListener('langchange', () => {
+  document.title = LANG === 'ko' ? `${GAME.en} · ${GAME.sub}` : TR('KYBORIA · 요트 주사위 RPG');
+  try { redrawScreen(); } catch (err) { noteErr(err); }
+  showLangPicker();
+});
+function redrawScreen() {
+  if (screen === 'title') return showTitle();
+  if (screen === 'setup') return showSetup();
+  if (screen === 'online') return showOnlineMenu();
+  if (screen === 'lobby') return showLobby();
+  if (screen === 'game') return render();
+  if (screen === 'ach') return showAchievements();
+  if (screen === 'dashboard') return showDashboard();
+  if (screen === 'run') return runMod?.redraw?.();
+}
 // 직업 한 줄 요령 (캐릭터를 길게 누르면 스킬과 함께 보인다)
 const CLASS_TIP = {
-  warrior: TR('상단 6칸만 잘 모아도 보너스 35점. 에이스~식스를 꾸준히 채우세요'),
-  rogue: TR('첫 턴부터 뒤집기로 아쉬운 주사위 하나를 살릴 수 있어요'),
-  mage: TR('레벨이 빨리 올라 특성 카드를 더 많이 고릅니다'),
-  bard: TR('의뢰를 깰수록 점수와 조정이 함께 늘어나요'),
-  gambler: TR('노릴 족보를 미리 걸어야 해요. 확률 높은 족보부터'),
-  monk: TR('일찍 적을수록 조정이 쌓입니다. 좋은 패가 나오면 바로 기록'),
-  dancer: TR('큰 점수를 적어 버프를 모았다가, 스트레이트 · 요트 직전에 +1'),
-  outlaw: TR('첫 굴림에 포카인드 · 풀하우스 · 스트레이트 · 요트가 보이면 다시 굴리지 말고 바로 적으세요'),
-  sharper: TR('한 개만 모자랄 때 밑장빼기로 완성. 대신 그 기록은 경험치가 없어요'),
+  warrior: tL('상단 6칸만 잘 모아도 보너스 35점. 에이스~식스를 꾸준히 채우세요'),
+  rogue: tL('첫 턴부터 뒤집기로 아쉬운 주사위 하나를 살릴 수 있어요'),
+  mage: tL('레벨이 빨리 올라 특성 카드를 더 많이 고릅니다'),
+  bard: tL('의뢰를 깰수록 점수와 조정이 함께 늘어나요'),
+  gambler: tL('노릴 족보를 미리 걸어야 해요. 확률 높은 족보부터'),
+  monk: tL('일찍 적을수록 조정이 쌓입니다. 좋은 패가 나오면 바로 기록'),
+  dancer: tL('큰 점수를 적어 버프를 모았다가, 스트레이트 · 요트 직전에 +1'),
+  outlaw: tL('첫 굴림에 포카인드 · 풀하우스 · 스트레이트 · 요트가 보이면 다시 굴리지 말고 바로 적으세요'),
+  sharper: tL('한 개만 모자랄 때 밑장빼기로 완성. 대신 그 기록은 경험치가 없어요'),
 };
 // 설정의 계정 줄: 게스트면 '구글 계정 연결' 버튼
 async function paintAccount() {
@@ -4164,6 +4219,9 @@ function onAct(act, t) {
   if (act === 'demon-ok') { sfx.start(); t.closest('.demon-reveal')?.remove(); if (screen === 'title') playBgm('title'); return; }
   if (act === 'buy') return buyItem(t.dataset.kind, t.dataset.id, t);
   if (act === 'settings') { sfx.select(); showSettings(false); return paintAccount(); }
+  if (act === 'lang-open') { sfx.select(); return showLangPicker(); }
+  if (act === 'lang-pick') return pickLang(t.dataset.v);
+  if (act === 'lang-back') { sfx.back(); showSettings(settingsInGame); return settingsInGame ? undefined : paintAccount(); }
   if (act === 'link-google') {
     sfx.select();
     t.disabled = true;
@@ -4250,7 +4308,7 @@ function onAct(act, t) {
     // 대전(봇): 상대 봇이 한 명도 없으면 한 명 앉힌다
     if (opts.mode === 'versus' && !setup.some(p => p.bot) && setup.length < 4) {
       const used = new Set(setup.map(p => p.cls));
-      setup.push({ name: BOT_NAMES.find(n => !setup.some(p => p.name === n)) || TR('봇'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
+      setup.push({ name: botNames().find(n => !setup.some(p => p.name === n)) || TR('봇'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
     }
     return beginPick('local', opts, true);
   }
@@ -4382,7 +4440,6 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => {
   const id = e.target.id;
-  if (id === 'set-lang') return setLang(e.target.value);   // 저장하고 다시 불러온다
   if (id === 'set-bgm') setAudio({ bgm: Number(e.target.value) });
   if (id === 'set-sfx') { setAudio({ sfx: Number(e.target.value) }); sfx.tap(); }
   if (id === 'set-vib') { setAudio({ vibrate: e.target.checked }); buzz(80); }   // 켜면 바로 한 번 떨어서 확인
