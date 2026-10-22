@@ -1446,17 +1446,11 @@ function dangerCheck() {
 }
 // ── 보스 분노: 가운데서 붉은 파동이 퍼지며 화면이 일렁 → 그 뒤로 보스가 활활 타오른다 ──
 function rageWave() {
-  const app = $('app'), r = $('foe-art')?.getBoundingClientRect();
-  const x = innerWidth / 2, y = innerHeight * 0.45;
-  const el = document.createElement('div');
-  el.className = 'rage-wave';
-  el.style.setProperty('--x', `${x}px`); el.style.setProperty('--y', `${y}px`);
-  el.innerHTML = '<i></i><i></i><i></i>';
-  document.body.appendChild(el);
-  if (X.prefs.fx !== 'min') { [0, 140, 280].forEach(d => setTimeout(() => FX().ring(x, y, { color: '#FF3B4E', r0: 10, r1: Math.max(innerWidth, innerHeight) * 0.7, dur: 700, width: 10 }), d)); }
-  app?.classList.add('rage-wobble');
-  setTimeout(() => { el.remove(); app?.classList.remove('rage-wobble'); }, 1100);
-  return r;
+  const app = $('app'), x = innerWidth / 2, y = innerHeight * 0.45, R1 = Math.hypot(innerWidth, innerHeight) * 0.62;
+  // 빛나는 얇은 파동 두 겹 (효과 캔버스에 선 몇 개 — 화면 전체를 다시 그리지 않아 느려지지 않는다)
+  if (X.prefs.fx !== 'min') { FX().wave(x, y, { r1: R1, dur: 820 }); setTimeout(() => FX().wave(x, y, { r1: R1, dur: 820, color: '#FF8A6A' }), 170); }
+  app?.classList.add('rage-wobble');   // 가벼운 일렁임 (늘였다 줄였다만 · 색 필터 없음)
+  setTimeout(() => app?.classList.remove('rage-wobble'), 720);
 }
 let flameT = null;
 function rageFlames() {
