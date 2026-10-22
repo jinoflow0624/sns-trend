@@ -1,4 +1,4 @@
-// 원정 화면 — 테스트판 전용 (배포판 빌드에는 run/ 폴더가 들어가지 않는다).
+// 원정 화면. /*TEST{*/ … /*}TEST*/ · // @test-only{ … // }@test-only 구간은 배포판 빌드가 잘라낸다 (시험 원정 · 시험용 승천).
 // app.js 가 init(도구) 로 트레이 · 알림 · 저장소 같은 공용 도구를 넘겨 주고,
 // 'run-' 으로 시작하는 행동과 원정 중의 주사위 터치를 onAct 로 보낸다. 규칙은 rules.js (순수 로직).
 import { t as TR } from '../i18n.js';
@@ -85,8 +85,8 @@ function save() {
 function best() { const p = Prog.progress(); return { ...p.best, meta: { stars: p.stars, lv: p.lv } }; }
 const mlv = (b, id) => b.meta.lv[id] || 0;
 // 승천: 원정을 깬 단계 + 1 까지 고를 수 있다 (직업마다)
-// 시험용: 이 직업은 승천을 처음부터 끝까지 열어 둔다 (원정은 테스트판에만 있다. 정식 출시 전에 비울 것)
-const ASC_ALL_OPEN = new Set(['dancer']);
+// 시험용: 이 직업은 승천을 처음부터 끝까지 열어 둔다 (테스트판만 — 배포판 빌드는 비운다)
+const ASC_ALL_OPEN = new Set(/*TEST{*/['dancer']/*}TEST*/);
 const ascOpen = (b, cls) => (ASC_ALL_OPEN.has(cls) ? Run.ASC_MAX : Math.min(Run.ASC_MAX, (b.asc[cls] ?? -1) + 1));
 // 판 안에서 이룬 도전과제를 기록에 옮기고, 처음 이룬 것은 알린다
 // (기록에 옮기는 것은 원정이 끝날 때 progress.js 가 한다. 여기서는 알리기만)
@@ -248,7 +248,7 @@ function paintSelect() {
       ${runOpen(sel, bb) ? `<button class="pbtn gold big" data-act="run-go">${TR('원정 떠나기')}</button>`
         : Run.RUN_UNLOCK[sel]?.feat ? `<p class="rs-lockhow">${unlockHow(sel)}</p>`
         : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${TR('{0} {1}에 해금', ico('gem', 'xs'), X.runPrice(sel).toLocaleString())}</button>`}
-      ${PROD ? '' : `<button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>`}
+      ${''/*TEST{*/ + (PROD ? '' : `<button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>`)/*}TEST*/}
     </div>
   </div>`;
   // 덱 더미를 길게 누르면 시작 덱 9장
@@ -373,7 +373,7 @@ const shownBlk = () => (ui.show ? ui.show.blk : R.C?.block || 0);
 function hud() {
   const C = R.C;
   const fl = Run.floorOf(R);
-  return `${R.trial ? `<button class="sb-open" data-act="run-sb" aria-label="${TR('샌드박스')}">${TR('시험')}</button>` : ''}<header class="rhud">
+  return `${''/*TEST{*/ + (R.trial ? `<button class="sb-open" data-act="run-sb" aria-label="${TR('샌드박스')}">${TR('시험')}</button>` : '')/*}TEST*/}<header class="rhud">
     <button class="icon-btn" data-act="run-menu" aria-label="${TR('메뉴')}">☰</button>
     <div class="rh-act" ${X.tipAttr(TR('{0}막{1}', R.act, R.asc ? ` ${TR('· 하드모드 {0}', R.asc)}` : ''), TR('{0}층 + 보스 · 3막까지', Run.ROWS))}><small>${TR('{0}막{1}', R.act, R.asc ? ` ${TR('· 하드모드{0}', R.asc)}` : '')}</small><b>${fl > Run.ROWS ? TR('보스') : fl ? TR('{0}층', fl) : TR('출발')}</b></div>
     <div class="rh-res">
@@ -2131,7 +2131,8 @@ function showDeck() {
   </div></div>`;
 }
 
-// ── 시험 원정 샌드박스 (테스트판 전용 · 정식 출시 전에 시험 원정 버튼과 함께 지울 것) ──
+// @test-only{
+// ── 시험 원정 샌드박스 (테스트판 전용 · 배포판 빌드는 잘라낸다) ──
 // 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 바꾸고, 손패 카드의 점수 계산을 줄줄이 본다.
 const SB_TABS = [['score', TR('점수')], ['relic', TR('유물')], ['card', TR('카드')], ['item', TR('소모품')], ['foe', TR('적')], ['event', TR('이벤트')], ['omen', TR('징조')]];
 const sbState = () => (ui.sb ||= { tab: R.phase === 'combat' ? 'score' : 'relic', cat: 'ones', up: 0, kws: [], seal: '' });
@@ -2244,6 +2245,7 @@ function sbAct(act, t) {
   }
 }
 
+// }@test-only
 // ── 결과 ─────────────────────────────────────────────────────────────────────
 function showEnd() {
   hand?.destroy(); hand = null;
@@ -2299,8 +2301,8 @@ function showMenu() {
     <p class="hint">${TR('{0}막 · {1} · 체력 {2}/{3}', R.act, esc(Run.ACT_INFO[R.act].ko), R.hp, R.maxHp)}</p>
     <div class="modal-actions">
       <button class="pbtn gold" data-act="close">${TR('계속하기')}</button>
-      <button class="pbtn" data-act="run-deck">${TR('덱 보기')}</button>${R.trial ? `
-      <button class="pbtn" data-act="run-sb">${TR('샌드박스')}</button>` : ''}
+      <button class="pbtn" data-act="run-deck">${TR('덱 보기')}</button>${''/*TEST{*/ + (R.trial ? `
+      <button class="pbtn" data-act="run-sb">${TR('샌드박스')}</button>` : '')/*}TEST*/}
       <button class="pbtn" data-act="settings">${TR('설정')}</button>
       <button class="pbtn" data-act="run-tourre">${TR('안내 다시 보기')}</button>
       <button class="pbtn" data-act="run-home">${TR('메인 메뉴로')}</button>
@@ -2351,7 +2353,7 @@ export function onAct(act, t) {
   if (act === 'run-metaitem') return metaItemTip(t, t.dataset.id);
   if (act === 'run-metaclose') { sfx.back(); return X.closePopover(); }
   if (act === 'run-metabuy') { X.closePopover?.(); return metaAct(act, t.dataset.id); }
-  if (act === 'run-trial' && PROD) return;   // 시험 원정(샌드박스)은 테스트판만
+  if (act === 'run-trial' && PROD) return;   // 시험 원정(샌드박스)은 테스트판만 (배포판 빌드는 시험 원정 코드를 잘라낸다)
   if (act === 'run-start' || act === 'run-again' || act === 'run-trial') {
     sfx.start();
     const trial = act === 'run-trial' || (act === 'run-again' && R?.trial);
@@ -2363,7 +2365,9 @@ export function onAct(act, t) {
     return Prog.startRun(cls, lv).then(s => {
       R = Run.createRun({ cls, name: X.name(), asc: lv, seed: s.seed, meta: s.meta });
       R.xid = s.id;
+// @test-only{
       if (trial) Run.trialKit(R);          // 시험 원정: 에이스 · 듀스 · 트레이 + 회귀자의 망토 · 세포배양관 · 프리즘
+// }@test-only
       ui.recorded = false; ui.end = null; ui.featShown.clear();
       save();
       const r0 = R;
@@ -2377,7 +2381,9 @@ export function onAct(act, t) {
   }
   if (!R) return;
   if (act === 'run-menu') { sfx.select(); return showMenu(); }
+// @test-only{
   if (act.startsWith('run-sb')) return R.trial ? sbAct(act, t) : undefined;
+// }@test-only
   if (act === 'run-tourre') { sfx.select(); replayTours(); X.layer.innerHTML = ''; X.toast?.(ico('scroll'), TR('안내를 다시 보여 줄게요'), TR('화면마다 처음 볼 때 한 번씩'), 1800); return enterView(); }
   if (act === 'run-giveup') {
     if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = TR('한 번 더 누르면 포기해요'); sfx.select(); return; }

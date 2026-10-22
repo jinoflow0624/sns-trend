@@ -43,7 +43,9 @@ let pendingRun = null;
 export function loadWallet() {
   ready ||= (async () => {
     W = readLocal();                            // 먼저 기기 사본으로 화면을 그린다
+// @test-only{
     if (W && !PROD) W.gems = TEST_GEMS;
+// }@test-only
     emit();
     const app = await fireApp();
     fb = app.fb;
@@ -63,10 +65,14 @@ export function loadWallet() {
   })().catch(err => { ready = null; console.warn('[wallet]', err); W ||= readLocal(); throw err; });
   return ready;
 }
-// 테스트판은 보석 무제한: 언제나 이만큼 채워 둔다 (사도 줄지 않는다). 배포판은 서버 지갑 그대로
+// @test-only{
+// 테스트판은 보석 무제한: 언제나 이만큼 채워 둔다 (사도 줄지 않는다). 배포판은 서버 지갑 그대로 (배포판 빌드는 이 구간을 잘라낸다)
 const TEST_GEMS = 99999999;
+// }@test-only
 function fix(w) {
+// @test-only{
   if (!PROD) w.gems = TEST_GEMS;
+// }@test-only
   w.owned ||= {};
   w.clears ||= {};
   w.vs ||= { day: 0, n: 0 };
@@ -123,6 +129,7 @@ export async function claimDaily() {
   return r.ok ? { ok: true, ...r.out } : r;
 }
 
+// @test-only{
 // 테스트판 전용: 산 것을 다시 잠근다 (kind: 'cls' 직업 · 'dice' · 'tray'). 쓴 보석은 돌려준다
 export function relockLocal(kinds = ['cls']) {
   if (PROD) return { ok: false, why: TR('테스트판에서만 할 수 있어요.') };
@@ -134,6 +141,7 @@ export function relockLocal(kinds = ['cls']) {
     return { n, back };
   });
 }
+// }@test-only
 
 // 내 데이터 지우기: 서버의 지갑도 지운다
 export async function deleteWallet() {

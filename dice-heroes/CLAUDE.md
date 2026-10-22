@@ -5,7 +5,10 @@
   `main` 에 합치면 GitHub Pages(테스트판)에 바로 반영된다. 그 뒤 Actions 의 `dice-heroes-prod.yml` 을 `targets=hosting,database` 로 실행한다
   (`engine.js` · `wallet-rules.js` · `achievements.js` · `run/rules.js` · `i18n.js` · `dice-heroes-prod/functions` 가 바뀌면 `,functions` 추가 — 서버가 같은 파일로 결과를 계산한다).
 - 배포판 빌드(`dice-heroes-prod/build.mjs`)는 `run/` 과 원정 그림 · 곡을 함께 넣는다 (`run/*.md` 문서만 뺀다).
-- 테스트판 전용: 시험 원정(특별 카드 샌드박스) 버튼 · 다이아 무제한. 배포판(`PROD`)에서는 막혀 있다.
+- **테스트판 전용 기능은 배포판에 코드째로 넣지 않는다**: 시험 원정(샌드박스) · 다이아 무제한 · 잠금 되돌리기 · 시험용 승천(무희) · `?demon` · `?debug`.
+  줄 구간은 `// @test-only{` ~ `// }@test-only`, 한 줄 안은 `/*TEST{*/ … /*}TEST*/` 로 감싼다 (템플릿 글자 안이면 `${''/*TEST{*/ + (…)/*}TEST*/}`).
+  배포판 빌드(`build.mjs` `stripTest`)가 잘라내고, 잘라낸 뒤 문법 검사 · 남은 테스트 코드(`TEST_LEFT`)가 있으면 빌드가 실패한다.
+  새 테스트 전용 기능을 넣으면 같은 표시로 감싸고 `TEST_LEFT` 에 이름을 더한다. 잘라낸 뒤에도 배포판이 돌아가게 (남은 코드가 지운 것을 부르지 않게).
 
 ## 반영 순서
 1. 작업 브랜치에 커밋 → `git fetch origin main && git merge origin/main`
