@@ -3638,6 +3638,7 @@ function showCredits() {
     <p><b>${esc(GAME.en)}</b> ${esc(GAME.name)} v${GAME.version}<br>${TR('기획 · 개발 {0}', esc(GAME.studio))}</p>
     <p>${TR('음악 · 효과음 · 도트 그림')}<br>${TR('이 게임을 위해 새로 만든 것 (WebAudio 칩튠 합성)')}</p>
     <p>${TR('픽셀 서체')} <b>Galmuri</b> © Lee Minseo · SIL Open Font License 1.1<br>
+       ${TR('픽셀 서체')} (中文) <b>Fusion Pixel Font</b> © TakWolf · SIL Open Font License 1.1<br>
        3D <b>three.js</b> · MIT License<br>
        ${TR('물리')} <b>cannon-es</b> · MIT License<br>
        ${TR('온라인')} <b>Firebase</b></p>
