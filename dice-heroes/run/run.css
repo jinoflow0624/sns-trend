@@ -1486,3 +1486,31 @@ html:not(:lang(ko)) .meta-ware .mw-name { white-space: normal; max-width: 96px; 
 /* 연출 최소 · 움직임 줄이기: 모으기 없이 바로 */
 .relic-reveal.quick .rv-orb { animation: none; }
 @media (prefers-reduced-motion: reduce) { .relic-reveal *, .relic-reveal { animation-duration: .01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; } }
+
+/* ── 위기 (체력 25% 미만): 화면 가장자리가 심장 박동에 맞춰 붉게 (run/ui.js dangerCheck · 1.4초마다 두근) ── */
+body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; pointer-events: none;
+  background: radial-gradient(ellipse 78% 74% at 50% 48%, transparent 62%, rgba(170, 0, 24, .34) 100%);
+  box-shadow: inset 0 0 60px 12px rgba(200, 10, 40, .42); animation: dangerBeat 1.4s ease-out infinite; }
+@keyframes dangerBeat { 0% { opacity: .55; } 8% { opacity: 1; } 20% { opacity: .7; } 30% { opacity: .95; } 60%, 100% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { body.run-danger::before { animation: none; opacity: .7; } }
+
+/* ── 보스 분노: 가운데서 퍼지는 붉은 파동 + 화면 일렁임 ── */
+.rage-wave { position: fixed; inset: 0; z-index: 61; pointer-events: none; overflow: hidden; }
+.rage-wave i { position: absolute; left: var(--x); top: var(--y); width: 40px; height: 40px; translate: -50% -50%; border-radius: 50%;
+  border: 6px solid rgba(255, 70, 80, .85); box-shadow: 0 0 24px rgba(255, 40, 60, .8), inset 0 0 24px rgba(255, 40, 60, .6); animation: rageWaveGo .9s cubic-bezier(.2, .6, .4, 1) forwards; }
+.rage-wave i:nth-child(2) { animation-delay: .14s; } .rage-wave i:nth-child(3) { animation-delay: .28s; }
+@keyframes rageWaveGo { from { scale: .2; opacity: 1; } to { scale: 34; opacity: 0; border-width: 1px; } }
+#app.rage-wobble { animation: rageWobble 1s ease-in-out; }
+@keyframes rageWobble { 0%, 100% { transform: none; filter: none; } 15% { transform: scale(1.018) skewX(1.6deg); filter: saturate(1.5) hue-rotate(-12deg); }
+  35% { transform: scale(.99) skewX(-1.4deg); } 55% { transform: scale(1.01) skewY(.8deg); filter: saturate(1.3); } 75% { transform: skewX(-.6deg); } }
+@media (prefers-reduced-motion: reduce) { .rage-wave, #app.rage-wobble { animation: none !important; display: none; } }
+
+/* ── 분노한 보스: 몸 뒤로 일렁이는 불길 · 붉게 달아오른 몸 (불티는 FX 가 위로 날린다) ── */
+.foe-art.raged::before { content: ''; position: absolute; left: 50%; bottom: 2%; width: 130%; height: 120%; translate: -50% 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse 34% 52% at 30% 78%, rgba(255, 120, 20, .85), transparent 70%), radial-gradient(ellipse 30% 60% at 70% 76%, rgba(255, 90, 30, .8), transparent 70%),
+    radial-gradient(ellipse 40% 70% at 50% 70%, rgba(255, 200, 60, .75), transparent 72%), radial-gradient(ellipse 60% 40% at 50% 92%, rgba(255, 40, 40, .7), transparent 75%);
+  filter: blur(3px); transform-origin: 50% 100%; animation: rageFlame .45s ease-in-out infinite alternate; }
+@keyframes rageFlame { from { scale: 1 .94; opacity: .8; } to { scale: 1.06 1.08; opacity: 1; } }
+.foe-art.raged .foe-img { filter: drop-shadow(0 0 6px #FF5A1A) drop-shadow(0 0 14px rgba(255, 60, 20, .7)) saturate(1.25) brightness(1.06); }
+.foe-art.raged .aura { background: radial-gradient(circle, rgba(255, 80, 30, .75), transparent 70%); animation-duration: .8s; }
+@media (prefers-reduced-motion: reduce) { .foe-art.raged::before { animation: none; } }
