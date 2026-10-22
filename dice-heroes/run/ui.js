@@ -188,6 +188,7 @@ async function preloadRun() {
 // R.phase 에 맞는 화면을 연다
 function enterView(fresh = false) {
   ui.tool = null; ui.sel = null; ui.dealDie = null; ui.peek = false;
+  setTimeout(() => { dangerCheck(); rageFlames(); }, 0);   // 전투 화면이 그려진 뒤 위기 · 분노 연출을 맞춘다 (전투를 떠나면 꺼진다)
   if (R.phase === 'combat') return showCombat(fresh);
   X.tray()?.setMarks?.(null);
   if (R.phase === 'won' || R.phase === 'lost') return showEnd();
@@ -687,7 +688,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="${TR('보호막')}">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
@@ -1364,6 +1365,7 @@ function updHero(hurt = false) {
   bar.querySelector('em').textContent = `${hp} / ${R.maxHp}`;
   const b = $('rh-blk');
   if (b) { b.classList.toggle('on', blk > 0); b.querySelector('b').textContent = blk; }
+  dangerCheck();
   const g = $('r-gold');
   if (g) g.querySelector('b').textContent = ui.show?.gold ?? R.gold;
   if ($('r-hero')) shownHTML.set($('r-hero'), heroStrip());
@@ -1427,6 +1429,46 @@ function hurtFlash(big) {
 }
 // 시공 광대의 표정: 비아냥 · 분노 그림으로 잠깐 바뀐다 (말은 하지 않는다)
 // 홀로그램 일렁임: 화면 전체가 지지직 출렁였다가 돌아온다 (히든 보스에 들어갈 때 · 쓰러져 원래 세계로 돌아올 때)
+// ── 위기: 체력 25% 미만이면 천천히 두근거리는 심장 소리 + 화면 가장자리가 붉게 맥박친다 (전투 중에만) ──
+let dangerT = null;
+const inDanger = () => {
+  if (!R || R.phase !== 'combat' || X.screen?.() !== 'run' || !$('rhero')) return false;
+  const hp = ui.show ? shownHp() : R.hp;
+  return hp > 0 && hp < R.maxHp * 0.25;
+};
+function dangerCheck() {
+  const on = inDanger();
+  document.body.classList.toggle('run-danger', on);
+  if (on && !dangerT) {
+    sfx.heartbeat?.();
+    dangerT = setInterval(() => { if (inDanger()) sfx.heartbeat?.(); else { clearInterval(dangerT); dangerT = null; document.body.classList.remove('run-danger'); } }, 1400);
+  } else if (!on && dangerT) { clearInterval(dangerT); dangerT = null; }
+}
+// ── 보스 분노: 가운데서 붉은 파동이 퍼지며 화면이 일렁 → 그 뒤로 보스가 활활 타오른다 ──
+function rageWave() {
+  const app = $('app'), r = $('foe-art')?.getBoundingClientRect();
+  const x = innerWidth / 2, y = innerHeight * 0.45;
+  const el = document.createElement('div');
+  el.className = 'rage-wave';
+  el.style.setProperty('--x', `${x}px`); el.style.setProperty('--y', `${y}px`);
+  el.innerHTML = '<i></i><i></i><i></i>';
+  document.body.appendChild(el);
+  if (X.prefs.fx !== 'min') { [0, 140, 280].forEach(d => setTimeout(() => FX().ring(x, y, { color: '#FF3B4E', r0: 10, r1: Math.max(innerWidth, innerHeight) * 0.7, dur: 700, width: 10 }), d)); }
+  app?.classList.add('rage-wobble');
+  setTimeout(() => { el.remove(); app?.classList.remove('rage-wobble'); }, 1100);
+  return r;
+}
+let flameT = null;
+function rageFlames() {
+  const on = () => R?.phase === 'combat' && R.C?.e?.raged && R.C.e.hp > 0 && $('foe-art') && X.prefs.fx !== 'min' && !X.prefs.lowGfx;
+  $('foe-art')?.classList.toggle('raged', !!(R?.phase === 'combat' && R.C?.e?.raged && R.C.e.hp > 0));
+  if (flameT || !on()) return;
+  flameT = setInterval(() => {
+    if (!on()) { clearInterval(flameT); flameT = null; $('foe-art')?.classList.remove('raged'); return; }
+    const b = $('foe-art').getBoundingClientRect();
+    FX().flames(b.left + b.width * (0.2 + Math.random() * 0.6), b.top + b.height * (0.55 + Math.random() * 0.4), { n: 2, size: [8, 15], life: [0.4, 0.75], vy: [-30, -70], alpha: 0.85 });
+  }, 90);
+}
 function holoWarp(ms = 1300) {
   const el = document.createElement('div');
   el.className = 'holo-warp';
@@ -1637,7 +1679,9 @@ async function playOne(f) {
       if (fxOn) { FX().flash('#E8435A', 400, 0.35); FX().burst(e.x, e.y, { n: 60, pal: PALETTES.hell, speed: [120, 380] }); }
       floatAt(e.x, e.y - 50, TR('분노!'), 'dmg big');
       shake($('rc'), 2);
+      rageWave();
       await wait(700);
+      rageFlames();
       if (Run.ENEMIES[f.foe]?.talk) await jSay('', 'rage');
       return;
     }
