@@ -1478,8 +1478,11 @@ async function playOne(f) {
         if (fxOn) FX().shield(h);
         sfx.hold();
         // 방어: 이 카드로 처음 들어올 공격을 다 막게 되면 크게
-        const before = ui.show.blk, inc = Run.incoming(R);
-        centerCall('def', f.block, inc > 0 && before < inc && before + f.block >= inc, f.target === 'enemy' && f.dmg > 0 ? 64 : 0);
+        //   (적이 쓰러졌으면 막을 공격이 없으니 보통 크기) · 같은 카드로 공격도 했으면 공격 글자와 겹치지 않게 조금 뒤 · 아래에
+        const before = ui.show.blk, inc = R.C?.e?.hp > 0 ? Run.incoming(R) : 0;
+        const bigDef = inc > 0 && before < inc && before + f.block >= inc, both = f.target === 'enemy' && f.dmg > 0;
+        const call = () => centerCall('def', f.block, bigDef, both ? (bigDef ? 96 : 70) : 0);
+        if (both) setTimeout(call, bigDef ? 650 : 250); else call();
         setShow({ blk: ui.show.blk + f.block });
         updHero();
         popBlk();
