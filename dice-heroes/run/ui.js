@@ -574,6 +574,7 @@ function showOmens() {
 
 // ── 전투 화면 ────────────────────────────────────────────────────────────────
 function showCombat(fresh) {
+  if (fresh) ui.perfect = false;
   const C = R.C;
   const kind = Run.ENEMIES[C.e.id].kind;
   playBgm(kind === 'boss' ? bossSong(C.e.id) : kind === 'special' ? 'boss_jester' : kind === 'elite' ? 'run_elite' : 'run_battle');
@@ -1542,6 +1543,7 @@ async function playOne(f) {
         //   (적이 쓰러졌으면 막을 공격이 없으니 보통 크기) · 같은 카드로 공격도 했으면 공격 글자와 겹치지 않게 조금 뒤 · 아래에
         const before = ui.show.blk, inc = R.C?.e?.hp > 0 ? Run.incoming(R) : 0;
         const bigDef = inc > 0 && before < inc && before + f.block >= inc, both = f.target === 'enemy' && f.dmg > 0;
+        if (bigDef) ui.perfect = true;   // 이번 턴에 '완벽 방어' 를 이미 띄웠다 → 적 공격을 막을 때 또 띄우지 않는다
         const call = () => centerCall('def', f.block, bigDef, both ? (bigDef ? 96 : 70) : 0);
         if (both) setTimeout(call, bigDef ? 650 : 250); else call();
         setShow({ blk: ui.show.blk + f.block });
@@ -1609,7 +1611,8 @@ async function playOne(f) {
         art?.classList.remove('lunge');
         // 적의 공격을 하나도 안 맞고 다 막았다 → 크게
         { const got = f.hits.reduce((a, h) => a + (h.dmg || 0), 0), blk = f.hits.reduce((a, h) => a + (h.blocked || 0), 0);
-          if (!got && blk > 0) { centerCall('def', blk, true, 0, false); await wait(500); } }
+          if (!got && blk > 0 && !ui.perfect) { centerCall('def', blk, true, 0, false); await wait(500); }
+          ui.perfect = false; }
         if (f.thorn) { setShow({ ehp: ui.show.ehp - f.thorn }); repaintBars(); floatAt(e.x, e.y, `${f.thorn}`, 'dmg'); }
       }
       if (f.block) { if (fxOn) FX().shield(e); setShow({ eblk: f.block }); repaintBars(); floatAt(e.x, e.y - 30, `${ico('shield', 'xs')}+${f.block}`, 'sky'); sfx.hold(); await wait(380); }
@@ -1646,6 +1649,7 @@ async function playOne(f) {
     case 'regrow': { const e = foeAt(); floatAt(e.x, e.y - 40, TR('머리가 다시 자란다!'), 'dmg'); if (fxOn) FX().regrow?.(e); await wait(600); return; }
     case 'fury': { const e = foeAt(); floatAt(e.x, e.y - 50, TR('{0}격앙 +{1}', ico('anger', 'xs'), f.str), 'dmg'); await wait(320); return; }
     case 'turn': {
+      ui.perfect = false;
       setShow({ blk: 0, hideIntent: false });
       repaintBars();
       t?.restore?.();                   // 지난 턴 끝에 빨려 들어간 주사위가 다시 나타난다
