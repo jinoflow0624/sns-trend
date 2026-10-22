@@ -453,6 +453,8 @@ export const RELIC_TUNE = { madMul: 1, hammerEvery: 3, hammerCap: 6, comboMul: 1
 const RT = RELIC_TUNE;
 export const hammerBonus = (R, cat) => Math.min(RT.hammerCap, Math.floor((R.hammer?.[cat] || 0) / RT.hammerEvery));
 // 유물 하나를 들고 출발했을 때 늘어난 클리어율 (%p, 1 · 2 · 3막 평균 · 봇 9직업 × 40판) — 희귀도를 나누고 봇이 유물을 고를 때 쓴다
+// 무지개 팔레트: 아직 내야 하는 족보 수 (다 냈거나 없으면 0)
+export const paletteLeft = R => (R.palette && !R.palette.done ? Math.max(0, RELIC_TUNE.paletteN - R.palette.seen.length) : 0);
 export const RELIC_POWER = { midas: 34.8, bloodpact: 31.7, madscale: 21.1, sixth: 28.4, reroll: 21.5, flow: 19.2, pairs: 19.1, horn: 18.1, phoenix: 16.7, emptyhand: 16.3, scale: 16.2, glasscannon: 16.0, beast: 15.6, quad: 15.6, kaleido: 15.4, thorn: 15.2, bloodsword: 15.2, crown: 15.1, weight: 14.7, straight: 14.6, coin: 14.0, chalice: 13.4, balance: 13.1, basic: 12.9, combo: 12.9, nudge: 12.6, palette: 12.2, iron: 12.1, flip: 12.1, crutch: 11.8, yacht: 11.6, drum: 11.3, pairring: 11.1, hammer: 10.7, emptyhouse: 10.4, seven: 10.1, insure: 9.9, choice: 9.8, bone: 9.4, ember: 9.3, whet: 9.3, echodrum: 9.1, fang: 9.1, lucky: 8.2, heart: 8.1, sandbank: 7.9, miser: 7.7, prism: 7.4, reso: 6.9, discard: 6.6, hourglass: 6.5, pilgrim: 6.4, full: 5.9, parity: 5.9, lotus: 5.7, rampart: 5.6, scholar: 5.5, fourk: 4.7, keepbox: 4.6, magnet: 4.1, counter: 3.9, sealbag: 3.8, cape: 3.3, dust: 3.0, loupe: 2.8, culture: 2.8, bloodcup: 2.6, camp: 2.3, ytower: 2.1, zero: 1.6, goldframe: 1.0, libkey: 0.7, purse: 0.6, trinity: 0.5, wax: 0.3, rosary: 0.2, sealknife: -0.6, small: -1.9, medal: -2.9 };
 export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
 // 유물 고르기 후보 수: 기본 2개 (출정 채비 「감정 안목」이면 3개) + 감정사의 돋보기 1개. 예전 저장 판(relicN 없음)은 3개
@@ -1582,7 +1584,7 @@ function afterPlay(R, card, p, ev) {
   C.played[card.u] = (C.played[card.u] || 0) + 1;
   if (hasRelic(R, 'hammer')) (R.hammer ||= {})[cat] = (R.hammer[cat] || 0) + 1;
   if (hasRelic(R, 'palette') && R.palette && !R.palette.done) {
-    if (!R.palette.seen.includes(cat)) R.palette.seen.push(cat);
+    if (!R.palette.seen.includes(cat)) { R.palette.seen.push(cat); ev.paletteLeft = Math.max(0, RT.paletteN - R.palette.seen.length); }   // 화면: 아이콘 숫자 줄이기
     if (R.palette.seen.length >= RT.paletteN) { R.palette.done = true; ev.palette = true; }
   }
   if (hasRelic(R, 'pilgrim') && R.pilgrim && !R.pilgrim.includes(cat)) {

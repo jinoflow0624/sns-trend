@@ -1508,3 +1508,38 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 .foe-art.raged .foe-img { filter: drop-shadow(0 0 6px #FF5A1A) drop-shadow(0 0 14px rgba(255, 60, 20, .7)) saturate(1.25) brightness(1.06); }
 .foe-art.raged .aura { background: radial-gradient(circle, rgba(255, 80, 30, .75), transparent 70%); animation-duration: .8s; }
 @media (prefers-reduced-motion: reduce) { .foe-art.raged::before { animation: none; } }
+
+/* 무지개 팔레트: 남은 족보 수 (아이콘 가운데 크게) · 봉인 해제 연출 */
+.rh-relics .relic { position: relative; }
+.rh-relics .relic.sealed .ico { filter: grayscale(.85) brightness(.75); }
+.relic-cnt { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  font-size: 20px; font-weight: 700; color: #fff; line-height: 1;
+  text-shadow: 2px 0 0 #1A1030, -2px 0 0 #1A1030, 0 2px 0 #1A1030, 0 -2px 0 #1A1030, 2px 2px 0 #1A1030, -2px -2px 0 #1A1030, 2px -2px 0 #1A1030, -2px 2px 0 #1A1030; }
+.relic-cnt.tick { animation: palTick .45s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes palTick { 0% { transform: scale(1.9); color: #FFE27A; } 100% { transform: scale(1); } }
+.rh-relics .relic.unsealed { animation: palGlow 1.6s ease-out; }
+@keyframes palGlow { 0%, 60% { box-shadow: 0 0 0 2px #fff, 0 0 14px 4px #FF5AD8; } 100% { box-shadow: none; } }
+.pal-unlock { position: fixed; inset: 0; z-index: 70; display: grid; place-content: center; justify-items: center; gap: 10px;
+  background: radial-gradient(circle at 50% 45%, rgba(40, 20, 80, .55), rgba(6, 4, 26, .82)); animation: fade .2s; }
+.pal-unlock.out { opacity: 0; transition: opacity .25s; }
+.pu-stage { position: relative; width: 160px; height: 160px; display: grid; place-items: center; }
+.pu-art { position: relative; z-index: 2; animation: puPop .7s cubic-bezier(.2, 1.7, .4, 1) both; }
+.pu-art .ico { width: 96px; height: 96px; image-rendering: pixelated; filter: drop-shadow(0 0 10px #fff); }
+.pu-rays { position: absolute; inset: -60px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 90, 106, .35) 0 15deg, rgba(255, 200, 61, .35) 15deg 30deg, rgba(62, 230, 180, .35) 30deg 45deg, rgba(79, 179, 255, .35) 45deg 60deg, rgba(185, 140, 255, .35) 60deg 75deg, transparent 75deg 90deg);
+  -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); mask: radial-gradient(circle, #000 20%, transparent 70%);
+  animation: puSpin 6s linear infinite, fade .5s; }
+.pu-ring { position: absolute; inset: 20px; border-radius: 50%; border: 4px solid #fff; animation: puRing .8s ease-out forwards; }
+.pu-sp { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; background: hsl(var(--h), 95%, 65%);
+  animation: puSp .9s ease-out forwards; }
+.pu-title { font-size: 34px; letter-spacing: 1px; color: #fff; text-align: center; padding: 0 16px;
+  background: linear-gradient(90deg, #FF5A6A, #FFC83D, #3EE6B4, #4FB3FF, #B98CFF, #FF5A6A); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(3px 3px 0 #1A1030); animation: puPop .6s .25s cubic-bezier(.2, 1.7, .4, 1) both, puShine 1.6s linear infinite; }
+.pu-sub { color: #FFE27A; font-size: 14px; text-shadow: 2px 2px 0 #1A1030; animation: fade .4s .5s both; }
+@keyframes puPop { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes puSpin { to { transform: rotate(360deg); } }
+@keyframes puRing { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes puSp { 0% { transform: translate(-50%, -50%) rotate(var(--a)) translateY(0); opacity: 1; } 100% { transform: translate(-50%, -50%) rotate(var(--a)) translateY(-110px); opacity: 0; } }
+@keyframes puShine { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) { .pu-rays, .pu-title { animation: none; } }
