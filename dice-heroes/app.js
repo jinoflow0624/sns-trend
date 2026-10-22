@@ -3548,7 +3548,7 @@ function showSettings(inGame = false) {
 // ── 언어 고르기: 설정 안의 게임 화면 (휴대폰 고르기 상자 대신). 고르면 다시 불러오지 않고 그 자리에서 바뀐다 ──
 let settingsInGame = false;
 const langName = code => LANGS.find(([k]) => k === code)?.[1] || code;
-const langLabel = () => (langPref() === 'auto' ? `${TR('기기 언어')} · ${langName(LANG)}` : langName(LANG));
+const langLabel = () => langName(LANG);   // 버튼엔 지금 언어 이름만 (기기 언어로 둔 것은 고르기 화면에서 ✓ 로 보인다)
 function showLangPicker() {
   const pref = langPref();
   const opt = (k, name, sub = '') => `<button class="lang-opt${pref === k ? ' on' : ''}" data-act="lang-pick" data-v="${k}" lang="${k === 'auto' ? LANG : k}">

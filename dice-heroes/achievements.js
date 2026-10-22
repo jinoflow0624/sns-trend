@@ -11,7 +11,7 @@ import { t as TR, tL, live } from './i18n.js';
 export const TIER = {
   1: { ko: tL('브론즈'), gems: 50, color: '#D08A4A' },
   2: { ko: tL('실버'), gems: 100, color: '#C8D2E6' },
-  3: { ko: tL('골드'), gems: 200, color: '#FFD24A' },
+  3: { ko: tL('골드⟪등급⟫'), gems: 200, color: '#FFD24A' },
   4: { ko: tL('전설'), gems: 400, color: '#FF6FB5' },
 };
 
