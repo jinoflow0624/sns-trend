@@ -9,7 +9,7 @@ from fontTools.ttLib import TTFont
 from fontTools import subset
 g = TTFont('fonts/Galmuri11.woff2')
 css = open('style.css', encoding='utf8').read() + open('run/run.css', encoding='utf8').read()
-EXTRA = '，。、：；！？（）“”‘’《》【】—…·「」『』～％＋－'
+EXTRA = '，。、：；！？（）“”‘’《》【】—…·「」『』～％＋－' + '简体中文繁體'   # 언어 고르기의 언어 이름
 for src_path, lang, out in [(sys.argv[1], 'zh-Hans', 'SC'), (sys.argv[2], 'zh-Hant', 'TC')]:
     text = open(f'lang/{lang}.js', encoding='utf8').read() + css + EXTRA
     cs = sorted({c for c in text if ord(c) >= 0x2E80 and not (0xAC00 <= ord(c) <= 0xD7A3) and not (0x3130 <= ord(c) <= 0x318F)})

@@ -1,4 +1,4 @@
-import { t as TR } from './i18n.js';
+import { t as TR, tL } from './i18n.js';
 // 보석 가격 · 보상 규칙 — 게임(wallet.js)과 서버(dice-heroes-prod/functions)가 같은 파일을 쓴다.
 // 서버 쪽 사본은 dice-heroes-prod/build.mjs 가 functions/shared/ 로 복사한다 (여기만 고치면 된다).
 
@@ -48,7 +48,7 @@ export function rewardFor(info) {
 // 일일 보상: 하루 한 번 주사위 5개를 굴려 눈의 합만큼 보석
 //   요트(5개 모두 같음) 합 ×10 · 고급 족보(라지 스트레이트 · 포카인드 · 풀하우스 · 스몰 스트레이트) 합 ×5
 export const DAILY_YACHT_MUL = 10, DAILY_COMBO_MUL = 5;
-export const DAILY_COMBO_KO = { yacht: TR('요트'), lstr: TR('라지 스트레이트'), four: TR('포카인드'), full: TR('풀하우스'), sstr: TR('스몰 스트레이트') };
+export const DAILY_COMBO_KO = { yacht: tL('요트'), lstr: tL('라지 스트레이트'), four: tL('포카인드'), full: tL('풀하우스'), sstr: tL('스몰 스트레이트') };
 export function dailyCombo(dice) {
   if (dice.length !== 5) return null;
   const c = [0, 0, 0, 0, 0, 0, 0]; dice.forEach(d => c[d]++);

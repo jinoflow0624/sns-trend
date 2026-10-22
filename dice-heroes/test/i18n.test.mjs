@@ -14,9 +14,9 @@ const unq = s => s.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\\\/g, '
 const keys = new Set(), raw = [];
 for (const f of files) {
   const src = readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-  for (const m of src.matchAll(/\bTR\('((?:[^'\\]|\\.)*)'/g)) keys.add(unq(m[1]));
+  for (const m of src.matchAll(/\b(?:TR|tL)\('((?:[^'\\]|\\.)*)'/g)) keys.add(unq(m[1]));
   src.split('\n').forEach((line, i) => {
-    const code = line.replace(/\/\/.*$/, '').replace(/\bTR\('(?:[^'\\]|\\.)*'/g, '');
+    const code = line.replace(/\/\/.*$/, '').replace(/\b(?:TR|tL)\('(?:[^'\\]|\\.)*'/g, '');
     if (/^\s*\*|^\s*\/\*/.test(line)) return;
     if (/(['"`])[^'"`]*[가-힣][^'"`]*\1/.test(code) && !/console\.|fail\(`?['"]?모르는/.test(code)) raw.push(`${f}:${i + 1}`);
   });
