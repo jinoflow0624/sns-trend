@@ -1392,6 +1392,29 @@ function jBanner(html, kind = '') {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1400);
 }
+// 공격 · 방어 수치를 트레이 가운데에 크게 (원정 전투)
+//   보통: 「⚔ 공격 23」 · 「🛡 방어 +12」 글자만 / 큰 것(적 최대 체력의 1/4 이상 피해 · 들어올 공격을 다 막음): 제목 + 큰 숫자 + 빛줄기 · 불꽃 · 번쩍임
+function centerCall(kind, n, big = false, dy = 0, plus = kind === 'def') {
+  const r = $('tray')?.getBoundingClientRect();
+  const x = r ? r.left + r.width / 2 : innerWidth / 2, y = (r ? r.top + r.height / 2 : innerHeight * 0.4) + dy;
+  const atk = kind === 'atk', icon = ico(atk ? 'sword' : 'shield');
+  const el = document.createElement('div');
+  el.className = `center-call ${kind}${big ? ' big' : ''}`;
+  el.innerHTML = big
+    ? `<i class="cc-rays" aria-hidden="true"></i><b class="cc-label">${atk ? TR('거대 일격!') : TR('완벽 방어!')}</b><span class="cc-v">${icon}${plus ? `+${n}` : n}</span>`
+    : `<span class="cc-v">${icon}${atk ? TR('공격 {0}', n) : TR('방어 {0}', `+${n}`)}</span>`;
+  el.style.left = `${x}px`; el.style.top = `${y}px`;
+  document.body.appendChild(el);
+  if (big && X.prefs.fx !== 'min') {
+    const pal = atk ? PALETTES.rainbow : PALETTES.frost;
+    FX().flash(atk ? '#FFB13A' : '#7CC8FF', 360, 0.32);
+    FX().burst(x, y, { n: 70, pal, speed: [160, 460], size: [3, 6], life: [0.45, 1.0], grav: 220 });
+    FX().ring(x, y, { color: atk ? '#FFD24A' : '#BFE6FF', r0: 20, r1: 150, dur: 520, width: 8 });
+    shake($('rc'), 1.6);
+    if (atk) sfx.legend?.(); else sfx.clang?.(1);
+  }
+  setTimeout(() => el.remove(), big ? 1700 : 1000);
+}
 async function jSay(_text, mode = 'taunt', ms = 1600) {
   ui.jmode = mode;
   const img = $('foe-art')?.querySelector('.foe-img');
@@ -1446,6 +1469,7 @@ async function playOne(f) {
           shieldBreak(sr);
           if (f.blocked) floatAt(e.x + 30, e.y - 20, `${ico('shield', 'xs')}${f.blocked}`, 'dim');
           floatAt(e.x, e.y - 10, `${f.dmg}`, `dmg big${power >= 2 ? ' huge' : ''}`);
+          if (f.dmg > 0) centerCall('atk', f.dmg, f.dmg * 4 >= (R.C?.e?.maxHp || Infinity));
           if (f.behead) { await wait(250); floatAt(e.x, e.y + 30, TR('머리 베기!'), 'gold'); sfx.slash?.(); if (fxOn) FX().slash?.(e, 140); }
         } else {
           floatAt(e.x, e.y - 10, '0', 'dim');
@@ -1456,6 +1480,12 @@ async function playOne(f) {
         if (f.target === 'enemy' && fxOn) FX().ring(h.x, h.y, { color: '#7CC8FF', r0: 10, r1: 60, dur: 360, width: 6 });   // 나눠 낸 방어 몫
         if (fxOn) FX().shield(h);
         sfx.hold();
+        // 방어: 이 카드로 처음 들어올 공격을 다 막게 되면 크게
+        //   (적이 쓰러졌으면 막을 공격이 없으니 보통 크기) · 같은 카드로 공격도 했으면 공격 글자와 겹치지 않게 조금 뒤 · 아래에
+        const before = ui.show.blk, inc = R.C?.e?.hp > 0 ? Run.incoming(R) : 0;
+        const bigDef = inc > 0 && before < inc && before + f.block >= inc, both = f.target === 'enemy' && f.dmg > 0;
+        const call = () => centerCall('def', f.block, bigDef, both ? (bigDef ? 96 : 70) : 0);
+        if (both) setTimeout(call, bigDef ? 650 : 250); else call();
         setShow({ blk: ui.show.blk + f.block });
         updHero();
         popBlk();
@@ -1519,6 +1549,9 @@ async function playOne(f) {
           await wait(f.hits.length > 1 ? 260 : 340);
         }
         art?.classList.remove('lunge');
+        // 적의 공격을 하나도 안 맞고 다 막았다 → 크게
+        { const got = f.hits.reduce((a, h) => a + (h.dmg || 0), 0), blk = f.hits.reduce((a, h) => a + (h.blocked || 0), 0);
+          if (!got && blk > 0) { centerCall('def', blk, true, 0, false); await wait(500); } }
         if (f.thorn) { setShow({ ehp: ui.show.ehp - f.thorn }); repaintBars(); floatAt(e.x, e.y, `${f.thorn}`, 'dmg'); }
       }
       if (f.block) { if (fxOn) FX().shield(e); setShow({ eblk: f.block }); repaintBars(); floatAt(e.x, e.y - 30, `${ico('shield', 'xs')}+${f.block}`, 'sky'); sfx.hold(); await wait(380); }

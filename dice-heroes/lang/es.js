@@ -2020,4 +2020,6 @@ export default {"키보리아":"KYBORIA",
 "직업 능력 · 의뢰 게시판 · 레벨업":"Habilidades de clase · Tablón de misiones · Niveles",
 "주사위만으로 겨루는 순수 야추":"Yacht puro: solo dados",
 "인원 {0}/4":"Jugadores {0}/4",
-"첫 판을 끝내면 직업별 기록이 쌓여요":"Termina tu primera partida para empezar los récords por clase"};
+"첫 판을 끝내면 직업별 기록이 쌓여요":"Termina tu primera partida para empezar los récords por clase",
+"거대 일격!":"¡Golpe devastador!",
+"완벽 방어!":"¡Bloqueo perfecto!"};

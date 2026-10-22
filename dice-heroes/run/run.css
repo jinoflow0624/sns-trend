@@ -1418,3 +1418,28 @@ html:lang(ja) .rc-rule, html:lang(zh-Hans) .rc-rule, html:lang(zh-Hant) .rc-rule
 html:lang(zh-Hans) .rc-rule, html:lang(zh-Hans) .rc-kw, html:lang(zh-Hant) .rc-rule, html:lang(zh-Hant) .rc-kw { font-family: var(--px); }
 /* 출정 채비 물건 이름: 길면 두 줄로 (옆 물건과 겹치지 않게) */
 html:not(:lang(ko)) .meta-ware .mw-name { white-space: normal; max-width: 96px; font-size: 10px; line-height: 1.1; text-align: center; hyphens: auto; overflow-wrap: anywhere; }
+
+/* ── 공격 · 방어 수치: 트레이 가운데 (run/ui.js centerCall) ── */
+.center-call { position: fixed; z-index: 63; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 2px; text-align: center; font-weight: 700; }
+.center-call .cc-v { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 30px; line-height: 1;
+  text-shadow: 0 3px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink), 2px 2px 0 var(--ink), -2px 2px 0 var(--ink), 2px -2px 0 var(--ink), -2px -2px 0 var(--ink); }
+.center-call .cc-v .ico { width: 28px; height: 28px; filter: drop-shadow(0 2px 0 var(--ink)); }
+.center-call.atk .cc-v { color: #FFB46A; }
+.center-call.def .cc-v { color: #A8DCFF; }
+.center-call:not(.big) { animation: ccPop 1s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+@keyframes ccPop { 0% { opacity: 0; scale: .5; } 18% { opacity: 1; scale: 1.12; } 30% { scale: 1; } 75% { opacity: 1; translate: 0 -8px; } 100% { opacity: 0; translate: 0 -22px; } }
+/* 큰 것: 제목 + 큰 숫자 + 도는 빛줄기 */
+.center-call.big { animation: ccBig 1.7s cubic-bezier(.2, 1.5, .4, 1) forwards; }
+.center-call.big .cc-label { max-width: 92vw; font-size: min(38px, 9vw); line-height: 1.05; text-wrap: balance; letter-spacing: .02em;
+  text-shadow: 0 4px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink), 0 0 18px currentColor; }
+.center-call.big .cc-v { font-size: 66px; }
+.center-call.big .cc-v .ico { width: 50px; height: 50px; }
+.center-call.atk.big .cc-label { color: #FFE27A; } .center-call.atk.big .cc-v { color: #FFF3C8; text-shadow: 0 4px 0 #7A1A0A, 4px 0 0 #7A1A0A, -4px 0 0 #7A1A0A, 0 -4px 0 #7A1A0A, 0 0 26px #FF7A2A, 0 0 50px #FF3A3A; }
+.center-call.def.big .cc-label { color: #DFF3FF; } .center-call.def.big .cc-v { color: #FFFFFF; text-shadow: 0 4px 0 #0A2A5A, 4px 0 0 #0A2A5A, -4px 0 0 #0A2A5A, 0 -4px 0 #0A2A5A, 0 0 26px #5AB8FF, 0 0 50px #3A7AFF; }
+.cc-rays { position: absolute; left: 50%; top: 50%; z-index: -1; width: 340px; height: 340px; translate: -50% -50%; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, var(--rc, rgba(255, 210, 74, .55)) 0 9deg, transparent 9deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 18%, transparent 68%); mask: radial-gradient(circle, #000 18%, transparent 68%); animation: ccSpin 1.7s linear forwards; }
+.center-call.def .cc-rays { --rc: rgba(140, 210, 255, .55); }
+@keyframes ccSpin { from { rotate: 0deg; scale: .4; opacity: 0; } 15% { opacity: 1; scale: 1; } 80% { opacity: .9; } to { rotate: 80deg; scale: 1.15; opacity: 0; } }
+@keyframes ccBig { 0% { opacity: 0; scale: 2.4; } 14% { opacity: 1; scale: .9; } 22% { scale: 1.08; } 30% { scale: 1; } 82% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: 1.15; } }
+@media (prefers-reduced-motion: reduce) { .center-call, .center-call.big, .cc-rays { animation: none !important; } }
