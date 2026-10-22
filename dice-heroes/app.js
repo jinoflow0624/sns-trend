@@ -654,7 +654,7 @@ function clsDial(pl, i) {
     const id = at(d), c = E.classInfo(id), lock = !pl.bot && !Wal.owns('cls', id);
     const act = d === 0 ? (lock ? 'cls-buy' : 'cls-talk') : lock ? 'cls-view' : 'cls';
     return `<button class="dial-hero d${d}${lock ? ' locked' : ''}" style="--c:${c.color}" data-act="${act}" data-i="${i}" data-cls="${id}" aria-label="${c.ko}${lock ? ` ${TR('(잠김)')}` : ''}">
-      ${portrait(id, d ? 'mini' : '')}${lock ? (d ? `<span class="dial-lock">${ico('lock', 'xs')}</span>` : `<span class="dial-price">${ico('gem', 'xs')}${Wal.priceOf('cls', id).toLocaleString()}</span>`) : ''}</button>`;   // 옆 칸은 자물쇠만 (가격표가 실루엣 발을 가렸다)
+      ${portrait(id, d ? 'mini' : '')}${lock && d ? `<span class="dial-lock">${ico('lock', 'xs')}</span>` : ''}</button>`;   // 잠긴 직업: 옆 칸은 자물쇠만, 가운데는 표시 없음 (가격은 아래 '누르면 해금 · 💎' 줄에 — 가운데 가격표는 다이얼 칸에 잘려 보였다)
   };
   const step = d => { const id = at(d), lock = !pl.bot && !Wal.owns('cls', id); return `data-act="${lock ? 'cls-view' : 'cls'}" data-i="${i}" data-cls="${id}"`; };
   const spin = dialSpin && dialSpin.i === i && Date.now() - dialSpin.t < 400 ? (dialSpin.d > 0 ? ' spin-r' : ' spin-l') : '';
