@@ -1384,3 +1384,37 @@ html:lang(en) .rc.aim-atk::after { content: 'Attack'; }
 html:lang(ja) .rc.aim-atk::after { content: '攻撃'; }
 html:lang(en) .rc.aim-def::after { content: 'Block'; }
 html:lang(ja) .rc.aim-def::after { content: '防御'; }
+html:lang(zh-Hans) .foe.drop-on::after { content: '攻击！'; }
+html:lang(zh-Hans) .rc.aim-atk::after { content: '攻击'; }
+html:lang(zh-Hans) .rc.aim-def::after { content: '防御'; }
+html:lang(zh-Hant) .foe.drop-on::after { content: '攻擊！'; }
+html:lang(zh-Hant) .rc.aim-atk::after { content: '攻擊'; }
+html:lang(zh-Hant) .rc.aim-def::after { content: '防禦'; }
+html:lang(es) .foe.drop-on::after { content: '¡Ataque!'; }
+html:lang(es) .rc.aim-atk::after { content: 'Ataque'; }
+html:lang(es) .rc.aim-def::after { content: 'Bloqueo'; }
+html:lang(pt) .foe.drop-on::after { content: 'Ataque!'; }
+html:lang(pt) .rc.aim-atk::after { content: 'Ataque'; }
+html:lang(pt) .rc.aim-def::after { content: 'Bloqueio'; }
+html:lang(ru) .foe.drop-on::after { content: 'Атака!'; }
+html:lang(ru) .rc.aim-atk::after { content: 'Атака'; }
+html:lang(ru) .rc.aim-def::after { content: 'Защита'; }
+html:lang(de) .foe.drop-on::after { content: 'Angriff!'; }
+html:lang(de) .rc.aim-atk::after { content: 'Angriff'; }
+html:lang(de) .rc.aim-def::after { content: 'Block'; }
+html:lang(fr) .foe.drop-on::after { content: 'Attaque !'; }
+html:lang(fr) .rc.aim-atk::after { content: 'Attaque'; }
+html:lang(fr) .rc.aim-def::after { content: 'Blocage'; }
+html:lang(id) .foe.drop-on::after { content: 'Serang!'; }
+html:lang(id) .rc.aim-atk::after { content: 'Serang'; }
+html:lang(id) .rc.aim-def::after { content: 'Blok'; }
+
+/* 다른 언어: 카드 글자가 길다 → 이름 · 설명을 조금 작게, 긴 낱말은 하이픈으로 끊고 3줄까지 */
+html:not(:lang(ko)) .rc-name { font-size: 10px; hyphens: auto; overflow-wrap: anywhere; word-break: normal; }
+html:not(:lang(ko)) .rc-rule { font-size: 8px; hyphens: auto; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+html:lang(ja) .rc-name, html:lang(zh-Hans) .rc-name, html:lang(zh-Hant) .rc-name { font-size: 11px; }
+html:lang(ja) .rc-rule, html:lang(zh-Hans) .rc-rule, html:lang(zh-Hant) .rc-rule { font-size: 9px; }
+/* 중국어: 카드 작은 글자도 중국어 한자 서체로 */
+html:lang(zh-Hans) .rc-rule, html:lang(zh-Hans) .rc-kw, html:lang(zh-Hant) .rc-rule, html:lang(zh-Hant) .rc-kw { font-family: var(--px); }
+/* 출정 채비 물건 이름: 길면 두 줄로 (옆 물건과 겹치지 않게) */
+html:not(:lang(ko)) .meta-ware .mw-name { white-space: normal; max-width: 96px; font-size: 10px; line-height: 1.1; text-align: center; hyphens: auto; overflow-wrap: anywhere; }

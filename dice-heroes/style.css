@@ -16,6 +16,8 @@
    게임 화면이라 밤하늘 한 가지 테마로 고정한다. */
 @font-face { font-family: 'Galmuri11'; src: url('fonts/Galmuri11.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Galmuri11'; src: url('fonts/Galmuri11-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'KyboriaHanziSC'; src: url('fonts/KyboriaHanzi-SC.woff2') format('woff2'); font-display: swap; unicode-range: U+2E80-2FFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF; }
+@font-face { font-family: 'KyboriaHanziTC'; src: url('fonts/KyboriaHanzi-TC.woff2') format('woff2'); font-display: swap; unicode-range: U+2E80-2FFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF; }
 
 :root {
   color-scheme: dark;
@@ -36,6 +38,9 @@
   --legend: #FFE27A;
   --px: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', monospace;
 }
+/* 중국어: 한자는 Fusion Pixel 12px 를 줄인 Kyboria Hanzi (tools/zh-font.py) (간체 · 번체 글자 모양이 다르다), 나머지는 갈무리 */
+html:lang(zh-Hans) { --px: 'KyboriaHanziSC', 'Galmuri11', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+html:lang(zh-Hant) { --px: 'KyboriaHanziTC', 'Galmuri11', 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -229,7 +234,10 @@ html:not(:lang(ko)) .solo-pick .mt-run .mt-nodes img:first-child { display: none
 .page-head h2::before, .page-head h2::after { content: ''; flex: none; width: 7px; height: 7px; rotate: 45deg; background: #FFD24A; box-shadow: 0 0 0 2px var(--ink); }
 .page-head > .icon-btn:first-child { flex: none; }
 .page-head:not(:has(.count)) h2 { margin-right: 54px; }
-.page-head .count { min-width: 44px; text-align: right; font-size: 12px; color: var(--muted); }
+.page-head .count { flex: none; min-width: 44px; text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* 다른 언어는 제목이 길다 → 조금 작게, 넘치면 두 줄로 (오른쪽 숫자를 밀어내지 않게) */
+.page-head h2 { min-width: 0; }
+html:not(:lang(ko)) .page-head h2 { font-size: 17px; white-space: normal; text-align: center; line-height: 1.15; }
 .wrap { display: grid; gap: 12px; padding-inline: 16px; padding-block: 14px 40px; }
 .slot { display: grid; gap: 10px; }
 .slot-top { display: flex; gap: 10px; align-items: center; }
@@ -1555,8 +1563,10 @@ body:has(#layer .overlay) .title-top { visibility: hidden; }
 
 /* ── 도전과제 ── */
 #ach-btn { position: relative; }
-.ach-tabs { display: grid; grid-template-columns: repeat(var(--n, 5), 1fr); margin-bottom: 10px; }
-.ach-tabs button { position: relative; font-size: 13px; padding-inline: 2px; }
+.ach-tabs { display: flex; width: 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; margin-bottom: 10px; }   /* 긴 이름(다른 언어)은 옆으로 밀어 본다 — 화면 폭을 넓히지 않게 */
+.ach-tabs::-webkit-scrollbar { display: none; }
+.ach-tabs button { position: relative; flex: 1 0 auto; font-size: 13px; padding-inline: 6px; white-space: nowrap; }
+.ach-list > *, .ach-card > * { min-width: 0; }
 .ach-tabs .daily-dot { top: -3px; right: -3px; width: 8px; height: 8px; }
 .ach-list { display: grid; gap: 6px; }
 .ach-card { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 10px 8px; background: #140F36;
@@ -1840,3 +1850,19 @@ html:lang(en) .quest.ok::after { content: 'Done!'; }
 html:lang(ja) .quest.ok::after { content: '達成！'; }
 html:lang(en) .skin-preview.flat::after { content: '3D preview not available on this device'; }
 html:lang(ja) .skin-preview.flat::after { content: 'この端末では3Dプレビューを使えません'; }
+html:lang(zh-Hans) .quest.ok::after { content: '完成！'; }
+html:lang(zh-Hans) .skin-preview.flat::after { content: '此设备无法使用3D预览'; }
+html:lang(zh-Hant) .quest.ok::after { content: '完成！'; }
+html:lang(zh-Hant) .skin-preview.flat::after { content: '此裝置無法使用3D預覽'; }
+html:lang(es) .quest.ok::after { content: '¡Hecho!'; }
+html:lang(es) .skin-preview.flat::after { content: 'Vista previa 3D no disponible en este dispositivo'; }
+html:lang(pt) .quest.ok::after { content: 'Feito!'; }
+html:lang(pt) .skin-preview.flat::after { content: 'Prévia 3D indisponível neste aparelho'; }
+html:lang(ru) .quest.ok::after { content: 'Готово!'; }
+html:lang(ru) .skin-preview.flat::after { content: '3D-просмотр недоступен на этом устройстве'; }
+html:lang(de) .quest.ok::after { content: 'Geschafft!'; }
+html:lang(de) .skin-preview.flat::after { content: '3D-Vorschau auf diesem Gerät nicht verfügbar'; }
+html:lang(fr) .quest.ok::after { content: 'Fait !'; }
+html:lang(fr) .skin-preview.flat::after { content: 'Aperçu 3D indisponible sur cet appareil'; }
+html:lang(id) .quest.ok::after { content: 'Selesai!'; }
+html:lang(id) .skin-preview.flat::after { content: 'Pratinjau 3D tidak tersedia di perangkat ini'; }
