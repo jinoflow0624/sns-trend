@@ -495,7 +495,7 @@ export const potionInfo = id => POTIONS.find(p => p.id === id);
 export const HEX = {
   burn:    { ko: tL('화염 숨결'),  icon: 'fire',   desc: n => TR('첫 굴림 뒤 가장 높은 주사위 {0}개가 1로 탄다', n) },
   freeze:  { ko: tL('얼음'),       icon: 'snow',   desc: n => TR('첫 굴림 뒤 주사위 {0}개가 얼어 다시 굴릴 수 없다 (뒤집기 · 조정은 된다)', n) },
-  seal:    { ko: tL('봉인'),       icon: 'chain',  desc: n => TR('첫 굴림 뒤 주사위 {0}개가 봉인된다 (잡기 · 뒤집기 · 조정 불가, 다시 굴리면 풀림)', n) },
+  seal:    { ko: tL('봉인'),       icon: 'chain',  desc: n => TR('첫 굴림 뒤 주사위 {0}개가 봉인된다 (잡기 · 뒤집기 · 조정 불가, 다음 굴림에서도 그 눈 그대로 — 그 굴림이 끝나면 풀림)', n) },
   twist:   { ko: tL('운명 비틀기'), icon: 'vortex', desc: n => TR('두 번째 굴림 뒤 주사위 {0}개가 뒤집힌다 (7-눈)', n) },
   reverse: { ko: tL('운명 역전'),  icon: 'vortex', desc: () => TR('두 번째 굴림 뒤 가장 많이 나온 눈이 전부 뒤집힌다 (7-눈)') },
   drums:   { ko: tL('전쟁의 북'),  icon: 'drum',   desc: () => TR('이번 턴 굴림 기회 -1') },
@@ -2139,7 +2139,7 @@ export const EVENTS = [
     O(tL('강화한다'), tL('카드 1장 강화 (무료)'), R => { R.pick = { why: 'upgrade', from: 'event', done: TR('대장장이가 카드를 반짝반짝 벼려 주었다.') }; return null; }, R => R.deck.some(canUpgrade)),
     O(tL('녹인다'), tL('카드 1장 제거 · 체력 8 잃음'), R => { R.pick = { why: 'remove', from: 'event', hp: 8, done: TR('카드를 녹여 없앴다. 손이 좀 쓰리다.') }; return null; }, R => R.deck.length > 5 && R.hp > 8),
     O(tL('떠난다'), tL('아무 일도 없다'), () => TR('대장장이에게 손을 흔들고 떠났다.'))]),
-  E_('gamble', tL('고블린 도박사'), 'coins', tL('"주사위 다섯 개, 합이 18 이상이면 두 배로 돌려주지! 어때, 30골드?" 고블린이 이를 드러내며 웃는다.'), [
+  E_('gamble', tL('고블린 도박사'), 'coins', tL('"30골드를 걸고 주사위 다섯 개를 굴려. 합이 18 이상이면 75골드를 주지! 어때?" 고블린이 이를 드러내며 웃는다.'), [
     O(tL('건다 (30골드)'), tL('주사위 5개 합 18 이상이면 75골드'), R => {
       R.gold -= 30;
       const d = [die(R), die(R), die(R), die(R), die(R)];
