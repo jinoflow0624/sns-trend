@@ -262,7 +262,57 @@ def c10():
     fg = up(fg)
     return bg, place_logo(fg, 5, 176)
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10]
+def die_hd(size, v, rot=0, face=(255, 253, 248), side=(190, 172, 236), pip=(56, 30, 120), px=4):
+    """새 주사위: 둥근 모서리 · 위쪽 빛 · 아래 · 오른쪽 두께 · 둥근 눈 → 살짝 기울여 도트(px 칸)로"""
+    k = 4; n = size * k; pad = n // 5
+    im = Image.new('RGBA', (n + pad * 2, n + pad * 2), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    o = pad; r = int(n * 0.2); dep = int(n * 0.1); ln = max(4, int(n * 0.045))
+    d.rounded_rectangle([o - ln, o - ln, o + n + dep + ln, o + n + dep + ln], radius=r + ln, fill=INK)        # 외곽선
+    d.rounded_rectangle([o + dep, o + dep, o + n + dep, o + n + dep], radius=r, fill=side)                     # 두께
+    d.rounded_rectangle([o, o, o + n, o + n], radius=r, fill=face)                                            # 앞면
+    d.rounded_rectangle([o + ln, o + ln, o + n - ln * 2, o + n * 0.42], radius=r, fill=(255, 255, 255))       # 위쪽 빛
+    d.rounded_rectangle([o + ln * 0.6, o + n * 0.55, o + n - ln, o + n - ln * 0.6], radius=r, fill=(240, 234, 252))   # 아래쪽 옅은 그늘
+    pr = n * 0.085; m = n * 0.27
+    for gx, gy in PIPS[v]:
+        cx = o + n / 2 + (gx - 1) * m; cy = o + n / 2 + (gy - 1) * m
+        c = (226, 52, 84) if v == 1 else pip; rr = pr * (1.35 if v == 1 else 1)
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=c)
+        d.ellipse([cx - rr * 0.45, cy - rr * 0.6, cx + rr * 0.05, cy - rr * 0.1], fill=(255, 255, 255, 110) if v == 1 else (120, 96, 190))
+    im = im.rotate(rot, resample=Image.BICUBIC, expand=True)
+    w, h = im.size
+    small = im.resize((max(1, w // k // px), max(1, h // k // px)), Image.LANCZOS)   # 도트 칸(px)으로 줄였다가
+    small.putalpha(small.split()[3].point(lambda v: 255 if v > 110 else 0))
+    return small.resize((small.width * px, small.height * px), Image.NEAREST)         # 칸째로 키운다
+
+def logo_w(width):
+    """로고를 가로 width 로 (도트가 고르게 — 칸 크기를 정수 근처로)"""
+    im = Image.open(os.path.join(ROOT, 'assets', 'logo', 'logo.webp')).convert('RGBA')
+    h = round(im.height * width / im.width)
+    return im.resize((width, h), Image.NEAREST)
+
+def c11(mask=False):
+    """7번 개선: 밝고 채도 높은 보라 햇살, 앱 테두리에 꽉 차는 로고, 작고 둥근 새 주사위 두 개"""
+    bg = grid(); rays(bg, 32, 33, (104, 54, 222), (134, 84, 250), 14, 0.12)
+    bg = up(bg)
+    bg = glow(bg, 256, 258, 240, (226, 150, 255), 120)   # 가운데 분홍빛 보라 (금빛을 넓게 깔면 보라와 섞여 칙칙한 베이지가 됐다)
+    bg = glow(bg, 256, 256, 96, (255, 232, 150), 95)     # 로고 뒤 작은 금빛
+    vg = Image.new('L', (S, S), 0); ImageDraw.Draw(vg).ellipse([-90, -90, S + 90, S + 90], fill=255)   # 가장자리만 살짝 어둡게 (깊이)
+    vg = vg.filter(ImageFilter.GaussianBlur(60)); edge = Image.new('RGBA', (S, S), (54, 20, 130, 150)); edge.putalpha(vg.point(lambda v: int((255 - v) * .55)))
+    bg = Image.alpha_composite(bg, edge)
+    fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    sz, (ax, ay), (bx, by) = (66, (126, 112), (386, 400)) if mask else (78, (92, 86), (420, 424))
+    for (cx, cy), v, rot in [((ax, ay), 5, 14), ((bx, by), 6, -12)]:
+        dd = die_hd(sz, v, rot); fg.alpha_composite(dd, (cx - dd.width // 2, cy - dd.height // 2))
+    sp = grid(); sparkles(ImageDraw.Draw(sp), [(52, 12, 2), (12, 50, 2), (44, 54, 1), (20, 8, 1)]); fg.alpha_composite(up(sp))
+    lg = logo_w(440 if mask else 492); x = (S - lg.width) // 2; y = 256 - lg.height // 2
+    sh = Image.new('RGBA', (S, S), (0, 0, 0, 0)); a = Image.new('L', (S, S), 0); a.paste(lg.split()[3], (x, y))
+    a = a.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(12)).point(lambda v: int(v * .8))
+    sh.paste((26, 8, 70, 255), (0, 0), a); fg.alpha_composite(sh)
+    fg.alpha_composite(lg, (x, y))
+    return bg, fg
+c11.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
@@ -300,5 +350,7 @@ if __name__ == '__main__':
         full = compose(bg, fg).convert('RGB')
         full.save(os.path.join(ROOT, 'icons', 'icon-512.png'), optimize=True)
         full.resize((192, 192), Image.LANCZOS).save(os.path.join(ROOT, 'icons', 'icon-192.png'), optimize=True)
-        compose(bg, fg, safe=0.8).convert('RGB').save(os.path.join(ROOT, 'icons', 'icon-maskable-512.png'), optimize=True)
+        if getattr(c, 'maskable', False):   # 안드로이드 둥근 잘림용을 따로 그린다 (로고는 크게 · 주사위는 안쪽으로)
+            bm, fm = c(mask=True); compose(bm, fm).convert('RGB').save(os.path.join(ROOT, 'icons', 'icon-maskable-512.png'), optimize=True)
+        else: compose(bg, fg, safe=0.8).convert('RGB').save(os.path.join(ROOT, 'icons', 'icon-maskable-512.png'), optimize=True)
         print('icons written')
