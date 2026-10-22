@@ -1121,7 +1121,7 @@ async function coinToss(side, h) {
   document.body.appendChild(el);
   sfx.whoosh?.();
   await wait(min ? 150 : 1150);
-  sfx.coin();
+  if (head) sfx.coin(); else sfx.coinBad?.();   // 뒷면은 김빠지는 소리
   el.classList.add('landed');
   el.querySelector('.ct-text').innerHTML = head ? TR('앞면! 점수 +100%') : TR('뒷면… 점수 −{0}%', low);
   if (!min) {
