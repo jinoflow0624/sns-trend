@@ -1,7 +1,7 @@
 // 원정 화면. /*TEST{*/ … /*}TEST*/ · // @test-only{ … // }@test-only 구간은 배포판 빌드가 잘라낸다 (시험 원정 · 시험용 승천).
 // app.js 가 init(도구) 로 트레이 · 알림 · 저장소 같은 공용 도구를 넘겨 주고,
 // 'run-' 으로 시작하는 행동과 원정 중의 주사위 터치를 onAct 로 보낸다. 규칙은 rules.js (순수 로직).
-import { t as TR } from '../i18n.js';
+import { t as TR, tL } from '../i18n.js';
 import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
@@ -32,7 +32,7 @@ const FOE_COLOR = { jester: '#3EE6E0', slime: '#3EE6B4', goblin: '#7CC24A', bat:
   skeleton: '#EEE6D0', ghost: '#7CA8D8', wisp: '#7CE0FF', knight: '#6A6A9A', golem: '#A8A090', imp: '#E8435A', hound: '#FF8A1A',
   gargoyle: '#8A8FA8', shade: '#9A6AFF', champion: '#C21E56' };
 const foeColor = id => bossInfo(id)?.color || FOE_COLOR[id] || '#9486FF';
-const KIND_KO = { normal: '', elite: TR('엘리트'), boss: TR('보스'), special: '' };
+const KIND_KO = { normal: '', elite: tL('엘리트'), boss: tL('보스'), special: '' };
 // 시공 광대의 스킬은 한 번 이기기 전까지 ??? (이긴 기록은 이 사람의 원정 기록 best.jester)
 const jKnown = () => (Prog.progress()?.best?.jester || 0) > 0 || (R?.stats?.jester || 0) > 0;
 const jMask = () => R?.C?.e?.id === 'jester' && !jKnown();
@@ -67,6 +67,9 @@ export const reloadProgress = () => { Prog.reload(); if (ui.view === 'select' &&
 // 메인 메뉴 원정 카드 그림 (app.js runMenu): 1막 숲 배경 · 지도 칸 아이콘 (warm() 이 받아 둔다)
 export const menuArt = () => ({ bg: actBgURL(1), nodes: ['node_fight', 'node_rest', 'node_boss'].map(uiArtURL) });
 export const refreshSelect = () => { if (ui.view === 'select' && !R) paintSelect(); };
+// 언어를 바꾼 뒤 지금 화면을 새 언어로 다시 그린다 (판 상태는 그대로)
+export const renameHero = ren => { if (R?.name) { R.name = ren(R.name); save(); } };
+export const redraw = () => { if (R) enterView(false); else if (ui.view === 'select') paintSelect(); };
 // 원정 직업이 열렸나: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석으로 산 직업
 function runOpen(id, b = best()) { return Run.runClassOpen(id, b.feats, X.ownsRun); }   // 서버 xStart 와 같은 규칙
 // 잠긴 직업을 여는 방법 (한 줄)
@@ -2134,7 +2137,7 @@ function showDeck() {
 // @test-only{
 // ── 시험 원정 샌드박스 (테스트판 전용 · 배포판 빌드는 잘라낸다) ──
 // 유물 · 카드 · 소모품 · 적 · 징조 · 주사위를 마음대로 바꾸고, 손패 카드의 점수 계산을 줄줄이 본다.
-const SB_TABS = [['score', TR('점수')], ['relic', TR('유물')], ['card', TR('카드')], ['item', TR('소모품')], ['foe', TR('적')], ['event', TR('이벤트')], ['omen', TR('징조')]];
+const SB_TABS = [['score', tL('점수')], ['relic', tL('유물')], ['card', tL('카드')], ['item', tL('소모품')], ['foe', tL('적')], ['event', tL('이벤트')], ['omen', tL('징조')]];
 const sbState = () => (ui.sb ||= { tab: R.phase === 'combat' ? 'score' : 'relic', cat: 'ones', up: 0, kws: [], seal: '' });
 function showSandbox() {
   const sb = sbState(), C = R.phase === 'combat' && R.C?.phase === 'roll' ? R.C : null;

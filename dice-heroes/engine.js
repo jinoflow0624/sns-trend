@@ -1,4 +1,4 @@
-import { t as TR } from './i18n.js';
+import { t as TR, tL } from './i18n.js';
 // 키보리아 룰 엔진.
 // 요트(Yacht) 주사위 12라운드 + 경험치·레벨업·특성 카드 + 공용 퀘스트 보드 + 라운드 이벤트.
 // DOM/네트워크 의존이 없는 순수 로직이라 브라우저, Node 테스트, 밸런스 시뮬레이션에서 똑같이 돈다.
@@ -18,18 +18,18 @@ export const xpToNext = level => 25 + 15 * (level - 1);
 
 // ── 요트 점수표 ──────────────────────────────────────────────────────────────
 export const CATS = [
-  { id: 'ones',   ko: TR('에이스'),       up: 1 },
-  { id: 'twos',   ko: TR('듀스'),         up: 2 },
-  { id: 'threes', ko: TR('트레이⟪족보⟫'),       up: 3 },
-  { id: 'fours',  ko: TR('포'),           up: 4 },
-  { id: 'fives',  ko: TR('파이브'),       up: 5 },
-  { id: 'sixes',  ko: TR('식스'),         up: 6 },
-  { id: 'choice', ko: TR('초이스'),       hint: TR('5개 합') },
-  { id: 'four',   ko: TR('포카인드'),     hint: TR('같은 눈 4개 → 5개 합') },
-  { id: 'full',   ko: TR('풀하우스'),     hint: TR('3개+2개 → 5개 합') },
-  { id: 'sstr',   ko: TR('스몰 스트레이트'), hint: TR('연속 4개 → 15') },
-  { id: 'lstr',   ko: TR('라지 스트레이트'), hint: TR('연속 5개 → 30') },
-  { id: 'yacht',  ko: TR('요트'),         hint: TR('5개 모두 같음 → 50') },
+  { id: 'ones',   ko: tL('에이스'),       up: 1 },
+  { id: 'twos',   ko: tL('듀스'),         up: 2 },
+  { id: 'threes', ko: tL('트레이⟪족보⟫'),       up: 3 },
+  { id: 'fours',  ko: tL('포'),           up: 4 },
+  { id: 'fives',  ko: tL('파이브'),       up: 5 },
+  { id: 'sixes',  ko: tL('식스'),         up: 6 },
+  { id: 'choice', ko: tL('초이스'),       hint: tL('5개 합') },
+  { id: 'four',   ko: tL('포카인드'),     hint: tL('같은 눈 4개 → 5개 합') },
+  { id: 'full',   ko: tL('풀하우스'),     hint: tL('3개+2개 → 5개 합') },
+  { id: 'sstr',   ko: tL('스몰 스트레이트'), hint: tL('연속 4개 → 15') },
+  { id: 'lstr',   ko: tL('라지 스트레이트'), hint: tL('연속 5개 → 30') },
+  { id: 'yacht',  ko: tL('요트'),         hint: tL('5개 모두 같음 → 50') },
 ];
 export const CAT_IDS = CATS.map(c => c.id);
 export const catInfo = id => CATS.find(c => c.id === id);
@@ -83,24 +83,24 @@ export function fiveSets(d) {
 //   dealMin / dealMinEarly: 타짜 봇이 밑장빼기를 쓰는 최소 이득 (마지막 굴림 / 굴림이 남았을 때)
 export const CLASS_TUNE = { danceNeed: 25, betMul: 1.45, rushMul: 1.4, dealMin: 6, dealMinEarly: 15 };
 export const CLASSES = [
-  { id: 'warrior', ko: TR('전사'),     icon: '🗡️', color: '#FF6B5B',
-    desc: TR('상단 보너스 조건이 63 → 50점으로 쉬워진다') },
-  { id: 'rogue',   ko: TR('도적'),     icon: '🗝️', color: '#3EE6B4',
-    desc: TR('뒤집기 1회를 들고 시작한다') },
-  { id: 'mage',    ko: TR('마법사'),   icon: '🔮', color: '#B36BFF',
-    desc: TR('얻는 경험치 +30%') },
-  { id: 'bard',    ko: TR('음유시인'), icon: '🎻', color: '#4FB3FF',
-    desc: TR('의뢰를 깬 턴에 기록하는 점수 +1, 의뢰 보상 조정 +1') },
-  { id: 'gambler', ko: TR('도박사'),   icon: '🎲', color: '#FFC83D',
-    desc: TR('배팅: 매 라운드 굴리기 전에 족보 하나를 고른다. 그 족보에 적으면 점수 ×{0}, 다른 칸에 적거나 0점이면 점수 없음', CLASS_TUNE.betMul) },
-  { id: 'monk',    ko: TR('수도승'),   icon: '📿', color: '#FF9A1F',
-    desc: TR('점수를 기록할 때 남은 굴림 1회당 조정 +1') },
-  { id: 'dancer',  ko: TR('무희'),     icon: '💃', color: '#FF6FB5',
-    desc: TR('춤사위: {0}점 이상 기록하면 버프 1개 (쌓임). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로) · 라운드당 1번', CLASS_TUNE.danceNeed) },
-  { id: 'outlaw',  ko: TR('무법자'),   icon: '🤠', color: '#E08A3C',
+  { id: 'warrior', ko: tL('전사'),     icon: '🗡️', color: '#FF6B5B',
+    desc: tL('상단 보너스 조건이 63 → 50점으로 쉬워진다') },
+  { id: 'rogue',   ko: tL('도적'),     icon: '🗝️', color: '#3EE6B4',
+    desc: tL('뒤집기 1회를 들고 시작한다') },
+  { id: 'mage',    ko: tL('마법사'),   icon: '🔮', color: '#B36BFF',
+    desc: tL('얻는 경험치 +30%') },
+  { id: 'bard',    ko: tL('음유시인'), icon: '🎻', color: '#4FB3FF',
+    desc: tL('의뢰를 깬 턴에 기록하는 점수 +1, 의뢰 보상 조정 +1') },
+  { id: 'gambler', ko: tL('도박사'),   icon: '🎲', color: '#FFC83D',
+    desc: tL('배팅: 매 라운드 굴리기 전에 족보 하나를 고른다. 그 족보에 적으면 점수 ×{0}, 다른 칸에 적거나 0점이면 점수 없음', CLASS_TUNE.betMul) },
+  { id: 'monk',    ko: tL('수도승'),   icon: '📿', color: '#FF9A1F',
+    desc: tL('점수를 기록할 때 남은 굴림 1회당 조정 +1') },
+  { id: 'dancer',  ko: tL('무희'),     icon: '💃', color: '#FF6FB5',
+    desc: tL('춤사위: {0}점 이상 기록하면 버프 1개 (쌓임). 굴린 뒤 써서 모든 주사위 눈 +1 (6은 그대로) · 라운드당 1번', CLASS_TUNE.danceNeed) },
+  { id: 'outlaw',  ko: tL('무법자'),   icon: '🤠', color: '#E08A3C',
     get desc() { return TR('속전속결: 첫 굴림 그대로(다시 굴리지 않고) 포카인드 · 풀하우스 · 스몰/라지 스트레이트 · 요트 중 하나를 완성해 적으면 그 점수 ×{0}. 다른 칸은 효과 없음', CLASS_TUNE.rushMul); } },
-  { id: 'sharper', ko: TR('타짜'),     icon: '🃏', color: '#4FD6C8',
-    desc: TR('밑장빼기: 굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다 (라운드당 1번). 대신 이번에 적는 족보로는 경험치를 못 얻는다') },
+  { id: 'sharper', ko: tL('타짜'),     icon: '🃏', color: '#4FD6C8',
+    desc: tL('밑장빼기: 굴린 뒤 주사위 1개를 원하는 눈으로 바꾼다 (라운드당 1번). 대신 이번에 적는 족보로는 경험치를 못 얻는다') },
 ];
 export const classInfo = id => CLASSES.find(c => c.id === id);
 // 직업 능력: 클래식 야추에서는 직업이 겉모습뿐이라 능력이 없다
@@ -116,27 +116,27 @@ export function isCombo(cat, d) {
 // ── 특성 카드 (레벨업 보상) ──────────────────────────────────────────────────
 // rarity: 1 일반 / 2 희귀 / 3 전설.  max: 중복 획득 한도
 export const PERKS = [
-  { id: 'flip',     ko: TR('뒤집기 두루마리'), icon: '🔄', rarity: 1, max: 9, desc: TR('주사위 1개를 반대 면(7-눈)으로 뒤집는 기술 2회 충전') },
-  { id: 'nudge',    ko: TR('미세 조정'),       icon: '🎯', rarity: 1, max: 9, desc: TR('주사위 1개를 ±1 바꾸는 기술 2회 충전') },
-  { id: 'basic',    ko: TR('기초 수련'),       icon: '🥋', rarity: 1, max: 2, desc: TR('상단(에이스~식스) 점수 ×1.2 (기록한 칸에도 소급)') },
-  { id: 'choice',   ko: TR('선택의 달인'),     icon: '🍀', rarity: 1, max: 2, desc: TR('초이스 ×1.35 (기록한 칸에도 소급)') },
-  { id: 'fame',     ko: TR('의뢰 전문가'),     icon: '📜', rarity: 1, max: 2, desc: TR('의뢰 보상(뒤집기·조정)이 두 배') },
-  { id: 'fast',     ko: TR('빠른 성장'),       icon: '⚡', rarity: 1, max: 2, desc: TR('얻는 경험치 +25%') },
-  { id: 'insure',   ko: TR('보험'),            icon: '🛡️', rarity: 1, max: 1, desc: TR('0점을 기록하면 경험치 +20, 뒤집기 +1') },
-  { id: 'full',     ko: TR('풀하우스 장인'),   icon: '🏠', rarity: 2, max: 2, desc: TR('풀하우스 ×1.5 (기록한 칸에도 소급)') },
-  { id: 'straight', ko: TR('질주'),            icon: '🏃', rarity: 2, max: 2, desc: TR('두 스트레이트 ×1.3 (기록한 칸에도 소급)') },
-  { id: 'fourk',    ko: TR('사냥 본능'),       icon: '🐺', rarity: 2, max: 2, desc: TR('포카인드 ×1.5 (기록한 칸에도 소급)') },
-  { id: 'reroll',   ko: TR('재굴림 +1'),       icon: '♻️', rarity: 2, max: 2, desc: TR('매 턴 굴림 기회 +1') },
-  { id: 'lucky',    ko: TR('행운의 부적'),     icon: '🧿', rarity: 2, max: 1, desc: TR('매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴린다 (굴림 기회는 그대로)') },
-  { id: 'chain',    ko: TR('연쇄 의뢰'),       icon: '⛓️', rarity: 2, max: 1, desc: TR('한 턴에 퀘스트를 2개까지 깬다') },
-  { id: 'scholar',  ko: TR('현자의 눈'),       icon: '👁️', rarity: 2, max: 1, desc: TR('이후 레벨업 때 카드 4장 중에 고른다') },
-  { id: 'sixth',    ko: TR('여섯 번째 주사위'), icon: '🌟', rarity: 3, max: 1, desc: TR('주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1') },
-  { id: 'midas',    ko: TR('황금손'),          icon: '👑', rarity: 3, max: 1, desc: TR('내 턴이 시작될 때마다 조정 +1') },
-  { id: 'yacht',    ko: TR('요트 신봉자'),     icon: '⛵', rarity: 3, max: 1, desc: TR('요트 ×1.4 (기록한 칸에도 소급), 뒤집기 1회 충전') },
+  { id: 'flip',     ko: tL('뒤집기 두루마리'), icon: '🔄', rarity: 1, max: 9, desc: tL('주사위 1개를 반대 면(7-눈)으로 뒤집는 기술 2회 충전') },
+  { id: 'nudge',    ko: tL('미세 조정'),       icon: '🎯', rarity: 1, max: 9, desc: tL('주사위 1개를 ±1 바꾸는 기술 2회 충전') },
+  { id: 'basic',    ko: tL('기초 수련'),       icon: '🥋', rarity: 1, max: 2, desc: tL('상단(에이스~식스) 점수 ×1.2 (기록한 칸에도 소급)') },
+  { id: 'choice',   ko: tL('선택의 달인'),     icon: '🍀', rarity: 1, max: 2, desc: tL('초이스 ×1.35 (기록한 칸에도 소급)') },
+  { id: 'fame',     ko: tL('의뢰 전문가'),     icon: '📜', rarity: 1, max: 2, desc: tL('의뢰 보상(뒤집기·조정)이 두 배') },
+  { id: 'fast',     ko: tL('빠른 성장'),       icon: '⚡', rarity: 1, max: 2, desc: tL('얻는 경험치 +25%') },
+  { id: 'insure',   ko: tL('보험'),            icon: '🛡️', rarity: 1, max: 1, desc: tL('0점을 기록하면 경험치 +20, 뒤집기 +1') },
+  { id: 'full',     ko: tL('풀하우스 장인'),   icon: '🏠', rarity: 2, max: 2, desc: tL('풀하우스 ×1.5 (기록한 칸에도 소급)') },
+  { id: 'straight', ko: tL('질주'),            icon: '🏃', rarity: 2, max: 2, desc: tL('두 스트레이트 ×1.3 (기록한 칸에도 소급)') },
+  { id: 'fourk',    ko: tL('사냥 본능'),       icon: '🐺', rarity: 2, max: 2, desc: tL('포카인드 ×1.5 (기록한 칸에도 소급)') },
+  { id: 'reroll',   ko: tL('재굴림 +1'),       icon: '♻️', rarity: 2, max: 2, desc: tL('매 턴 굴림 기회 +1') },
+  { id: 'lucky',    ko: tL('행운의 부적'),     icon: '🧿', rarity: 2, max: 1, desc: tL('매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴린다 (굴림 기회는 그대로)') },
+  { id: 'chain',    ko: tL('연쇄 의뢰'),       icon: '⛓️', rarity: 2, max: 1, desc: tL('한 턴에 퀘스트를 2개까지 깬다') },
+  { id: 'scholar',  ko: tL('현자의 눈'),       icon: '👁️', rarity: 2, max: 1, desc: tL('이후 레벨업 때 카드 4장 중에 고른다') },
+  { id: 'sixth',    ko: tL('여섯 번째 주사위'), icon: '🌟', rarity: 3, max: 1, desc: tL('주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1') },
+  { id: 'midas',    ko: tL('황금손'),          icon: '👑', rarity: 3, max: 1, desc: tL('내 턴이 시작될 때마다 조정 +1') },
+  { id: 'yacht',    ko: tL('요트 신봉자'),     icon: '⛵', rarity: 3, max: 1, desc: tL('요트 ×1.4 (기록한 칸에도 소급), 뒤집기 1회 충전') },
   // 대체 보상 — 고를 만한 특성이 모자랄 때만 나온다 (보유 목록에 남지 않고 즉시 받는다)
-  { id: 'toolkit',  ko: TR('모험가 공구함'),   icon: '🧰', rarity: 1, max: 99, instant: true, filler: true, desc: TR('뒤집기 1회 + 조정 1회 충전') },
-  { id: 'nudgeBag', ko: TR('조정 꾸러미'),     icon: '🎒', rarity: 1, max: 99, instant: true, filler: true, desc: TR('조정 3회 충전') },
-  { id: 'bigKit',   ko: TR('장인의 공구함'),   icon: '🎖️', rarity: 2, max: 99, instant: true, filler: true, desc: TR('뒤집기 2회 + 조정 2회 충전') },
+  { id: 'toolkit',  ko: tL('모험가 공구함'),   icon: '🧰', rarity: 1, max: 99, instant: true, filler: true, desc: tL('뒤집기 1회 + 조정 1회 충전') },
+  { id: 'nudgeBag', ko: tL('조정 꾸러미'),     icon: '🎒', rarity: 1, max: 99, instant: true, filler: true, desc: tL('조정 3회 충전') },
+  { id: 'bigKit',   ko: tL('장인의 공구함'),   icon: '🎖️', rarity: 2, max: 99, instant: true, filler: true, desc: tL('뒤집기 2회 + 조정 2회 충전') },
 ];
 // 특정 점수 칸에만 붙는 특성 — 그 칸을 모두 채웠으면 효과가 없으므로 후보에서 뺀다
 const PERK_CATS = {
@@ -155,43 +155,43 @@ export const perkUseless = (p, id) => !!PERK_CATS[id] && PERK_CATS[id].every(c =
 // 지금 고르면 이미 기록한 칸에 바로 더해질 점수 (카드에 표시)
 export const perkRetro = (p, id) => (PERK_CATS[id] || []).filter(c => p.scores[c] > 0).reduce((a, c) => a + Math.round(baseOf(p, c) * (PERK_MUL[id] || 0)), 0);
 export const perkInfo = id => PERKS.find(p => p.id === id);
-export const RARITY = { 1: { ko: TR('일반'), w: 60 }, 2: { ko: TR('희귀'), w: 30 }, 3: { ko: TR('전설'), w: 10 } };
+export const RARITY = { 1: { ko: tL('일반'), w: 60 }, 2: { ko: tL('희귀'), w: 30 }, 3: { ko: tL('전설'), w: 10 } };
 
 // ── 퀘스트 (공용 보드, 먼저 깬 사람이 가져간다) ───────────────────────────────
 // test(info, dice) → 조건 충족 여부.  diff = 난이도 점수(보상 등급을 정함), xp = 경험치
 const Q = (id, ko, icon, desc, diff, xp, test, turn = null) => ({ id, ko, icon, desc, diff, xp, test, turn });
 // turn(s): 주사위 말고 이번 턴의 진행(굴린 횟수·도구 사용)도 보는 의뢰
 export const QUESTS = [
-  Q('pairs',   TR('쌍둥이 사냥'),  '👯', TR('두 쌍 이상'),               3, 10, x => x.counts.filter(c => c >= 2).length >= 2),
-  Q('triple',  TR('삼연격'),       '⚔️', TR('같은 눈 3개 이상'),         3, 10, x => x.maxCount >= 3),
-  Q('high',    TR('고지 점령'),    '⛰️', TR('합계 25 이상'),             3, 10, x => x.sum >= 25),
-  Q('high2',   TR('용의 둥지'),    '🐉', TR('합계 28 이상'),             6, 18, x => x.sum >= 28),
-  Q('low',     TR('낮은 포복'),    '🐍', TR('합계 12 이하'),             4, 12, x => x.sum <= 12),
-  Q('low2',    TR('지하 감옥'),    '🕳️', TR('합계 9 이하'),              7, 20, x => x.sum <= 9),
-  Q('even',    TR('짝수 기사단'),  '🛡️', TR('모두 짝수'),                5, 15, x => x.counts[1] + x.counts[3] + x.counts[5] === 0),
-  Q('odd',     TR('홀수 도적단'),  '🗡️', TR('모두 홀수'),                5, 15, x => x.counts[2] + x.counts[4] + x.counts[6] === 0),
-  Q('rainbow', TR('무지개 다리'),  '🌈', TR('5개 모두 다른 눈'),         3, 10, x => x.distinct === 5),
-  Q('house',   TR('여관 습격'),    '🏠', TR('풀하우스'),                 4, 12, x => x.shape === '32'),
-  Q('sstr',    TR('추격전'),       '🏇', TR('연속 4개'),                 3, 10, x => x.small),
-  Q('lstr',    TR('대행진'),       '🎺', TR('연속 5개'),                 6, 18, x => x.large),
-  Q('quad',    TR('포위 섬멸'),    '🏰', TR('같은 눈 4개 이상'),         7, 20, x => x.maxCount >= 4),
-  Q('six3',    TR('럭키 식스'),    '🎰', TR('6이 3개 이상'),             6, 18, x => x.counts[6] >= 3),
-  Q('one3',    TR('뱀눈의 저주'),  '💀', TR('1이 3개 이상'),             6, 18, x => x.counts[1] >= 3),
-  Q('middle',  TR('중용의 길'),    '☯️', TR('모두 3 또는 4'),            7, 20, x => x.counts[3] + x.counts[4] === 5),
-  Q('sum20',   TR('정확한 저울'),  '⚖️', TR('합계가 정확히 20'),         4, 12, x => x.sum === 20),
-  Q('sum17',   TR('행운의 17'),    '🍀', TR('합계가 정확히 17'),         4, 12, x => x.sum === 17),
-  Q('noSix',   TR('겸손한 영웅'),  '🙇', TR('6 없이 합계 18 이상'),      5, 15, x => x.counts[6] === 0 && x.sum >= 18),
-  Q('twoSix',  TR('쌍검술'),       '🤺', TR('6이 정확히 2개'),           2,  8, x => x.counts[6] === 2),
-  Q('big3',    TR('거인 셋'),      '🗿', TR('5 이상이 3개 이상'),        3, 10, x => x.counts[5] + x.counts[6] >= 3),
-  Q('small4',  TR('꼬마 원정대'),  '🐭', TR('3 이하가 4개 이상'),        3, 10, x => x.counts[1] + x.counts[2] + x.counts[3] >= 4),
-  Q('yacht',   TR('전설의 항해'),  '⛵', TR('요트 (5개 모두 같음)'),     12, 30, x => x.maxCount === 5),
+  Q('pairs',   tL('쌍둥이 사냥'),  '👯', tL('두 쌍 이상'),               3, 10, x => x.counts.filter(c => c >= 2).length >= 2),
+  Q('triple',  tL('삼연격'),       '⚔️', tL('같은 눈 3개 이상'),         3, 10, x => x.maxCount >= 3),
+  Q('high',    tL('고지 점령'),    '⛰️', tL('합계 25 이상'),             3, 10, x => x.sum >= 25),
+  Q('high2',   tL('용의 둥지'),    '🐉', tL('합계 28 이상'),             6, 18, x => x.sum >= 28),
+  Q('low',     tL('낮은 포복'),    '🐍', tL('합계 12 이하'),             4, 12, x => x.sum <= 12),
+  Q('low2',    tL('지하 감옥'),    '🕳️', tL('합계 9 이하'),              7, 20, x => x.sum <= 9),
+  Q('even',    tL('짝수 기사단'),  '🛡️', tL('모두 짝수'),                5, 15, x => x.counts[1] + x.counts[3] + x.counts[5] === 0),
+  Q('odd',     tL('홀수 도적단'),  '🗡️', tL('모두 홀수'),                5, 15, x => x.counts[2] + x.counts[4] + x.counts[6] === 0),
+  Q('rainbow', tL('무지개 다리'),  '🌈', tL('5개 모두 다른 눈'),         3, 10, x => x.distinct === 5),
+  Q('house',   tL('여관 습격'),    '🏠', tL('풀하우스'),                 4, 12, x => x.shape === '32'),
+  Q('sstr',    tL('추격전'),       '🏇', tL('연속 4개'),                 3, 10, x => x.small),
+  Q('lstr',    tL('대행진'),       '🎺', tL('연속 5개'),                 6, 18, x => x.large),
+  Q('quad',    tL('포위 섬멸'),    '🏰', tL('같은 눈 4개 이상'),         7, 20, x => x.maxCount >= 4),
+  Q('six3',    tL('럭키 식스'),    '🎰', tL('6이 3개 이상'),             6, 18, x => x.counts[6] >= 3),
+  Q('one3',    tL('뱀눈의 저주'),  '💀', tL('1이 3개 이상'),             6, 18, x => x.counts[1] >= 3),
+  Q('middle',  tL('중용의 길'),    '☯️', tL('모두 3 또는 4'),            7, 20, x => x.counts[3] + x.counts[4] === 5),
+  Q('sum20',   tL('정확한 저울'),  '⚖️', tL('합계가 정확히 20'),         4, 12, x => x.sum === 20),
+  Q('sum17',   tL('행운의 17'),    '🍀', tL('합계가 정확히 17'),         4, 12, x => x.sum === 17),
+  Q('noSix',   tL('겸손한 영웅'),  '🙇', tL('6 없이 합계 18 이상'),      5, 15, x => x.counts[6] === 0 && x.sum >= 18),
+  Q('twoSix',  tL('쌍검술'),       '🤺', tL('6이 정확히 2개'),           2,  8, x => x.counts[6] === 2),
+  Q('big3',    tL('거인 셋'),      '🗿', tL('5 이상이 3개 이상'),        3, 10, x => x.counts[5] + x.counts[6] >= 3),
+  Q('small4',  tL('꼬마 원정대'),  '🐭', tL('3 이하가 4개 이상'),        3, 10, x => x.counts[1] + x.counts[2] + x.counts[3] >= 4),
+  Q('yacht',   tL('전설의 항해'),  '⛵', tL('요트 (5개 모두 같음)'),     12, 30, x => x.maxCount === 5),
   // 은퇴한 의뢰: 새 판에는 나오지 않는다 (예전 저장·온라인 방에 남아 있어도 깨지지 않게 정의는 둔다)
-  { ...Q('ends', TR('양날의 검'), '🪓', TR('1과 6이 둘 다 있음'), 2, 8, x => x.counts[1] > 0 && x.counts[6] > 0), retired: true },
-  Q('oneShot', TR('일격필살'),     '⚡', TR('재굴림 없이 풀하우스·스트레이트·포카인드'), 7, 20, x => x.shape === '32' || x.small || x.maxCount >= 4, s => (s.rollNo || 0) <= 1),
-  Q('bare',    TR('맨손 승부'),    '👊', TR('뒤집기·조정 없이 합계 25 이상'), 4, 12, x => x.sum >= 25, s => !s.toolUsed),
-  Q('last',    TR('막판 역전'),    '⏳', TR('마지막 굴림에서 연속 4개'),   5, 15, x => x.small, s => s.rollsLeft === 0),
-  Q('twin',    TR('쌍둥이 별'),    '✨', TR('5와 6이 각각 2개 이상'),      4, 12, x => x.counts[5] >= 2 && x.counts[6] >= 2),
-  Q('sum15',   TR('절반의 미학'),  '🎖️', TR('합계가 정확히 15'),          4, 12, x => x.sum === 15),
+  { ...Q('ends', tL('양날의 검'), '🪓', tL('1과 6이 둘 다 있음'), 2, 8, x => x.counts[1] > 0 && x.counts[6] > 0), retired: true },
+  Q('oneShot', tL('일격필살'),     '⚡', tL('재굴림 없이 풀하우스·스트레이트·포카인드'), 7, 20, x => x.shape === '32' || x.small || x.maxCount >= 4, s => (s.rollNo || 0) <= 1),
+  Q('bare',    tL('맨손 승부'),    '👊', tL('뒤집기·조정 없이 합계 25 이상'), 4, 12, x => x.sum >= 25, s => !s.toolUsed),
+  Q('last',    tL('막판 역전'),    '⏳', tL('마지막 굴림에서 연속 4개'),   5, 15, x => x.small, s => s.rollsLeft === 0),
+  Q('twin',    tL('쌍둥이 별'),    '✨', tL('5와 6이 각각 2개 이상'),      4, 12, x => x.counts[5] >= 2 && x.counts[6] >= 2),
+  Q('sum15',   tL('절반의 미학'),  '🎖️', tL('합계가 정확히 15'),          4, 12, x => x.sum === 15),
 ];
 export const questInfo = id => QUESTS.find(q => q.id === id);
 
@@ -203,20 +203,20 @@ export function questMet(qid, d, st = null) {
 
 // ── 라운드 이벤트 (매 라운드 1장, 모두에게 적용) ─────────────────────────────
 export const EVENTS = [
-  { id: 'calm',     ko: TR('평온한 하루'), icon: '🌤️', desc: TR('특별한 일은 없다') },
-  { id: 'festival', ko: TR('수확 축제'),   icon: '🎉', desc: TR('이번 라운드 경험치 2배') },
-  { id: 'fog',      ko: TR('짙은 안개'),   icon: '🌫️', desc: TR('굴림 기회 -1') },
-  { id: 'wind',     ko: TR('순풍'),        icon: '🍃', desc: TR('굴림 기회 +1') },
-  { id: 'bounty',   ko: TR('현상금'),      icon: '💰', desc: TR('이번 라운드 의뢰 보상 두 배') },
-  { id: 'zen',      ko: TR('명상의 날'),   icon: '🧘', desc: TR('0점을 기록해도 경험치 +20') },
-  { id: 'jackpot',  ko: TR('요트 잭팟'),   icon: '🎰', desc: TR('요트 +50') },
-  { id: 'harvest',  ko: TR('풍년'),        icon: '🌾', desc: TR('상단(에이스~식스) 점수 +5') },
-  { id: 'duel',     ko: TR('결투 대회'),   icon: '🏆', desc: TR('이번 라운드 최고 득점자 뒤집기 +1 · 조정 +1') },
-  { id: 'refresh',  ko: TR('게시판 갱신'), icon: '📋', desc: TR('퀘스트 보드가 전부 새로 바뀐다') },
-  { id: 'blessing', ko: TR('여신의 축복'), icon: '✨', desc: TR('모두 뒤집기 1회 충전') },
+  { id: 'calm',     ko: tL('평온한 하루'), icon: '🌤️', desc: tL('특별한 일은 없다') },
+  { id: 'festival', ko: tL('수확 축제'),   icon: '🎉', desc: tL('이번 라운드 경험치 2배') },
+  { id: 'fog',      ko: tL('짙은 안개'),   icon: '🌫️', desc: tL('굴림 기회 -1') },
+  { id: 'wind',     ko: tL('순풍'),        icon: '🍃', desc: tL('굴림 기회 +1') },
+  { id: 'bounty',   ko: tL('현상금'),      icon: '💰', desc: tL('이번 라운드 의뢰 보상 두 배') },
+  { id: 'zen',      ko: tL('명상의 날'),   icon: '🧘', desc: tL('0점을 기록해도 경험치 +20') },
+  { id: 'jackpot',  ko: tL('요트 잭팟'),   icon: '🎰', desc: tL('요트 +50') },
+  { id: 'harvest',  ko: tL('풍년'),        icon: '🌾', desc: tL('상단(에이스~식스) 점수 +5') },
+  { id: 'duel',     ko: tL('결투 대회'),   icon: '🏆', desc: tL('이번 라운드 최고 득점자 뒤집기 +1 · 조정 +1') },
+  { id: 'refresh',  ko: tL('게시판 갱신'), icon: '📋', desc: tL('퀘스트 보드가 전부 새로 바뀐다') },
+  { id: 'blessing', ko: tL('여신의 축복'), icon: '✨', desc: tL('모두 뒤집기 1회 충전') },
   // 마왕전 짝수 라운드 전용 (덱에는 없다)
-  { id: 'haki', ko: TR('패기 발동'), icon: '👁️', desc: TR('마왕의 패기! 이번 라운드 뒤집기·조정 금지') },
-  { id: 'midnight', ko: TR('미드나잇'), icon: '🌑', desc: TR('마신의 밤! 이번 라운드 뒤집기·조정 금지 · 0점을 적으면 마신이 체력을 회복한다') },
+  { id: 'haki', ko: tL('패기 발동'), icon: '👁️', desc: tL('마왕의 패기! 이번 라운드 뒤집기·조정 금지') },
+  { id: 'midnight', ko: tL('미드나잇'), icon: '🌑', desc: tL('마신의 밤! 이번 라운드 뒤집기·조정 금지 · 0점을 적으면 마신이 체력을 회복한다') },
 ];
 export const eventInfo = id => EVENTS.find(e => e.id === id);
 // 12라운드에 쓸 덱. 평온은 둘, 나머지는 한 장씩 (첫 라운드는 항상 평온)
@@ -227,9 +227,9 @@ const EVENT_DECK = ['calm', 'festival', 'fog', 'wind', 'bounty', 'zen', 'jackpot
 // 의뢰 보상(뒤집기·조정)으로 더 좋은 족보를 만들어 피해를 키운다. 12라운드 안에 쓰러뜨리면 승리.
 // 난이도 d: 0 쉬움 / 1 보통 / 2 어려움.  능력 수치는 [쉬움, 보통, 어려움] 순서.
 export const DIFFS = [
-  { id: 0, ko: TR('쉬움'),        hp: 176, color: '#3EE6B4' },
-  { id: 1, ko: TR('보통'),        hp: 213, color: '#FFC83D' },
-  { id: 2, ko: TR('어려움'),      hp: 244, color: '#E8435A' },
+  { id: 0, ko: tL('쉬움'),        hp: 176, color: '#3EE6B4' },
+  { id: 1, ko: tL('보통'),        hp: 213, color: '#FFC83D' },
+  { id: 2, ko: tL('어려움'),      hp: 244, color: '#E8435A' },
 ];
 
 // 체력 추가 배율 [보스][난이도][인원-1] — v0.8에서 모든 난이도 승률을 절반으로 낮추며 봇 시뮬레이션으로 맞춘 값.
@@ -246,103 +246,103 @@ HP_TUNE.hydra = HP_TUNE.dragon; HP_TUNE.cyclops = HP_TUNE.orc; HP_TUNE.overlord 
 
 export const BOSSES = [
   {
-    id: 'dragon', ko: TR('화염룡 이그니스'), title: TR('붉은 산의 재앙'), color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
+    id: 'dragon', ko: tL('화염룡 이그니스'), title: tL('붉은 산의 재앙'), color: '#E8435A', hpMul: [1.22, 1.1, 1.01],
     // 인원별 체력 (v0.33: 2~4인 승률이 1인과 같게)
     partyAdj: [[1, 1.025, 1.03, 1.03], [1, 1.007, 1.014, 1.01], [1, 1.009, 1.026, 1.024]],
     skills: [
-      { id: 'breath', icon: '🔥', ko: TR('화염 숨결'),
+      { id: 'breath', icon: '🔥', ko: tL('화염 숨결'),
         desc: d => TR('4라운드마다 모두의 첫 굴림에서 가장 높은 주사위 1개가 1로 타 버린다') },
-      { id: 'scale', icon: '🛡️', ko: TR('용린 갑옷'),
+      { id: 'scale', icon: '🛡️', ko: tL('용린 갑옷'),
         desc: d => TR('에이스~식스로 주는 피해가 25% 줄어든다') },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 화염 숨결을 2라운드마다 쓴다') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 화염 숨결을 2라운드마다 쓴다') : TR('어려움에서만 쓴다') },
     ],
   },
   {
-    id: 'orc', ko: TR('오크 대장 그로크'), title: TR('약탈자 군단의 우두머리'), color: '#6BBE45', hpMul: [1.26, 1.17, 1.1],
+    id: 'orc', ko: tL('오크 대장 그로크'), title: tL('약탈자 군단의 우두머리'), color: '#6BBE45', hpMul: [1.26, 1.17, 1.1],
     // 인원별 체력 (v0.33: 2~4인 승률이 1인과 같게)
     partyAdj: [[1, 1.058, 1.029, 1.021], [1, 1.04, 1.022, 1.011], [1, 1.046, 1.012, 0.998]],
     skills: [
-      { id: 'drums', icon: '🥁', ko: TR('전쟁의 북'),
+      { id: 'drums', icon: '🥁', ko: tL('전쟁의 북'),
         desc: d => TR('3라운드마다 모두의 굴림 기회가 1 줄어든다') },
-      { id: 'plunder', icon: '💰', ko: TR('약탈'),
+      { id: 'plunder', icon: '💰', ko: tL('약탈'),
         desc: d => TR('누군가 0점을 기록하면 체력을 10 회복한다') },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 약탈 회복량이 두 배') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 약탈 회복량이 두 배') : TR('어려움에서만 쓴다') },
     ],
   },
   {
-    id: 'lich', ko: TR('리치 왕 모르가스'), title: TR('잊힌 무덤의 주인'), color: '#9486FF', hpMul: [1.22, 1.03, 0.87],
+    id: 'lich', ko: tL('리치 왕 모르가스'), title: tL('잊힌 무덤의 주인'), color: '#9486FF', hpMul: [1.22, 1.03, 0.87],
     // 운명 비틀기가 두 번째 굴림으로 바뀐 뒤 여럿이 할수록 어려워져서, 인원별로 체력을 따로 깎는다 [1인, 2인, 3인, 4인]
     partyAdj: [[1, 0.955, 0.979, 0.991], [1.01, 0.937, 0.94, 0.954], [1, 0.948, 0.939, 0.942]],
     skills: [
-      { id: 'twist', icon: '🌀', ko: TR('운명 비틀기'),
+      { id: 'twist', icon: '🌀', ko: tL('운명 비틀기'),
         desc: d => TR('3라운드마다 두 번째 굴림 직후 주사위 1개를 뒤집어 버린다 (7-눈)') },
-      { id: 'bone', icon: '💀', ko: TR('뼈 방패'),
+      { id: 'bone', icon: '💀', ko: tL('뼈 방패'),
         desc: d => TR('4라운드마다 인원 1명당 12의 보호막을 두른다 (체력보다 먼저 깎임)') },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 운명 비틀기가 주사위 2개를 뒤집는다') : TR('어려움에서만 쓴다') },
     ],
   },
   // ── 강화 보스: 원래 보스를 어려움으로 깨면 열린다. 보통 · 어려움만 (diffs). 승률은 원래 보스보다 3~5%p 낮게 (sim/coop.mjs) ──
   {
-    id: 'hydra', ko: TR('세머리 용 트리글라브'), title: TR('불 · 얼음 · 독, 세 숨결의 재앙'), color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1.208, 1.113],
+    id: 'hydra', ko: tL('세머리 용 트리글라브'), title: tL('불 · 얼음 · 독, 세 숨결의 재앙'), color: '#7A5CFF', base: 'dragon', diffs: [1, 2], hpMul: [1, 1.208, 1.113],
     partyAdj: [[1, 1, 1, 1], [0.97, 1.029, 1.005, 1.015], [0.99, 1.037, 1.031, 1.025]],
     skills: [
-      { id: 'heads', icon: '🐉', ko: TR('세 머리의 숨결'),
+      { id: 'heads', icon: '🐉', ko: tL('세 머리의 숨결'),
         desc: d => TR('라운드마다 불 → 얼음 → 독 머리가 차례로 숨결을 뿜는다. 불: 첫 굴림의 가장 높은 주사위 1개가 1로 · 얼음: 첫 굴림 뒤 주사위 2개가 얼어 다시 굴릴 수 없다(뒤집기 · 조정은 가능) · 독: 15점 이하 기록은 피해 절반') },
-      { id: 'behead', icon: '⚔️', ko: TR('머리 베기'),
+      { id: 'behead', icon: '⚔️', ko: tL('머리 베기'),
         desc: d => TR('한 번에 {0}점 이상 피해를 주면 그 라운드의 머리가 잘려 다시는 숨결을 뿜지 못한다', HYDRA_CUT) },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 잘린 머리 하나가 다시 자란다 (한 번)') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 잘린 머리 하나가 다시 자란다 (한 번)') : TR('어려움에서만 쓴다') },
     ],
   },
   {
-    id: 'cyclops', ko: TR('키클롭스 폴리페모스'), title: TR('외눈으로 전장을 지배하는 거인'), color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1.043, 0.948],
+    id: 'cyclops', ko: tL('키클롭스 폴리페모스'), title: tL('외눈으로 전장을 지배하는 거인'), color: '#4FA3C8', base: 'orc', diffs: [1, 2], hpMul: [1, 1.043, 0.948],
     partyAdj: [[1, 1, 1, 1], [0.99, 1.103, 1.098, 1.101], [0.95, 1.082, 1.082, 1.071]],
     skills: [
-      { id: 'gaze', icon: '👁️', ko: TR('외눈 응시'),
+      { id: 'gaze', icon: '👁️', ko: tL('외눈 응시'),
         desc: d => TR('라운드마다(마지막 라운드 제외) 점수표 칸 하나를 노려본다. 그 칸에 적으면 점수는 남지만 피해는 0') },
-      { id: 'rock', icon: '🪨', ko: TR('바위 투척'),
+      { id: 'rock', icon: '🪨', ko: tL('바위 투척'),
         desc: d => TR('3라운드마다(마지막 라운드 제외) 각자 빈칸 하나에 바위가 떨어져 그 차례엔 그 칸을 쓸 수 없다') },
-      { id: 'plunder', icon: '💰', ko: TR('약탈'), desc: d => TR('누군가 0점을 기록하면 체력을 {0} 회복한다', CYCLOPS_PLUNDER) },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 노려보는 칸이 2개') : TR('어려움에서만 쓴다') },
+      { id: 'plunder', icon: '💰', ko: tL('약탈'), desc: d => TR('누군가 0점을 기록하면 체력을 {0} 회복한다', CYCLOPS_PLUNDER) },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 노려보는 칸이 2개') : TR('어려움에서만 쓴다') },
     ],
   },
   {
-    id: 'overlord', ko: TR('오버로드 네크라스'), title: TR('죽은 칸을 군대로 일으키는 자'), color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 0.92, 0.712],
+    id: 'overlord', ko: tL('오버로드 네크라스'), title: tL('죽은 칸을 군대로 일으키는 자'), color: '#B8304A', base: 'lich', diffs: [1, 2], hpMul: [1, 0.92, 0.712],
     partyAdj: [[1, 1, 1, 1], [1.055, 0.995, 1.004, 0.995], [1.09, 1.054, 1.053, 1.032]],
     skills: [
-      { id: 'necro', icon: '⚰️', ko: TR('사령술'),
+      { id: 'necro', icon: '⚰️', ko: tL('사령술'),
         desc: d => TR('0점으로 버린 칸 하나마다 해골병이 일어나 라운드가 끝날 때마다 체력을 {0}씩 회복시킨다', NECRO_HEAL) },
-      { id: 'reverse', icon: '🌀', ko: TR('운명 역전'),
+      { id: 'reverse', icon: '🌀', ko: tL('운명 역전'),
         desc: d => TR('3라운드마다 두 번째 굴림 직후, 가장 많이 나온 눈이 전부 뒤집힌다 (7-눈)') },
-      { id: 'throne', icon: '💀', ko: TR('뼈의 왕좌'),
+      { id: 'throne', icon: '💀', ko: tL('뼈의 왕좌'),
         desc: d => TR('4라운드마다 인원 1명당 {0}의 보호막. 보호막이 남아 있으면 운명 역전이 주사위 1개를 더 뒤집는다', THRONE_SHIELD) },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 한 번, 그 라운드에 받은 피해의 절반을 되돌린다 (시간 역행)') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 한 번, 그 라운드에 받은 피해의 절반을 되돌린다 (시간 역행)') : TR('어려움에서만 쓴다') },
     ],
   },
   {
     // 세 보스의 어려움을 모두 깨면 나타난다. 승률은 다른 보스의 약 70% (봇 시뮬레이션), 보석 보상 1.2배
-    id: 'demon', ko: TR('마왕 릴리스'), title: TR('봉인에서 깨어난 밤의 여왕'), color: '#C21E56', hpMul: [1, 1, 1], final: true,
+    id: 'demon', ko: tL('마왕 릴리스'), title: tL('봉인에서 깨어난 밤의 여왕'), color: '#C21E56', hpMul: [1, 1, 1], final: true,
     // 인원별 체력 (v0.33: 2~4인 승률이 1인과 같게)
     partyAdj: [[1, 0.986, 0.967, 0.963], [1, 0.974, 0.943, 0.936], [1, 0.984, 0.961, 0.939]],
     skills: [
-      { id: 'seal', icon: '⛓️', ko: TR('봉인'),
+      { id: 'seal', icon: '⛓️', ko: tL('봉인'),
         desc: d => TR('홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인되어 재굴림·뒤집기·조정을 할 수 없다 (다시 굴리면 풀림)') },
-      { id: 'haki', icon: '👁️', ko: TR('패기'),
+      { id: 'haki', icon: '👁️', ko: tL('패기'),
         desc: d => TR('짝수 라운드: 라운드 이벤트 대신 패기 발동 — 뒤집기·조정 금지 (굴림은 그대로)') },
-      { id: 'rage', icon: '💢', ko: TR('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 변신 — 봉인이 주사위 2개로') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('분노'), desc: d => d === 2 ? TR('체력이 절반 아래면 변신 — 봉인이 주사위 2개로') : TR('어려움에서만 쓴다') },
     ],
   },
   {
     // 마왕을 어려움으로 깨면 나타난다 (그전에는 ??? 로 숨긴다). 보통 · 어려움만. 승률은 마왕보다 7~10%p 낮게
-    id: 'archdemon', ko: TR('마신 릴리스'), title: TR('봉인을 삼킨 밤의 신'), color: '#7A0E3A', base: 'demon', diffs: [1, 2], final: true, hpMul: [1, 0.988, 1.03],
+    id: 'archdemon', ko: tL('마신 릴리스'), title: tL('봉인을 삼킨 밤의 신'), color: '#7A0E3A', base: 'demon', diffs: [1, 2], final: true, hpMul: [1, 0.988, 1.03],
     partyAdj: [[1, 1, 1, 1], [1, 0.978, 0.925, 0.913], [1, 0.975, 0.942, 0.902]],
     skills: [
-      { id: 'eternal', icon: '⛓️', ko: TR('영겁의 봉인'),
+      { id: 'eternal', icon: '⛓️', ko: tL('영겁의 봉인'),
         desc: d => TR('홀수 라운드: 첫 굴림 뒤 주사위 1개가 봉인된다. 다시 굴려도 풀리지 않고, 뒤집기 1회를 쓰면 풀린다 (미드나잇에도 풀 수 있다). 풀린 주사위는 바로 다시 굴리거나 조정할 수 있다') },
-      { id: 'midnight', icon: '🌑', ko: TR('미드나잇'),
+      { id: 'midnight', icon: '🌑', ko: tL('미드나잇'),
         desc: d => TR('짝수 라운드: 뒤집기 · 조정 금지. 이 라운드에 0점을 적으면 마신이 체력 {0} 회복', MIDNIGHT_HEAL) },
-      { id: 'curse', icon: '🩸', ko: TR('피의 저주'),
+      { id: 'curse', icon: '🩸', ko: tL('피의 저주'),
         desc: d => TR('판 시작 때 큰 족보 2칸(포카인드 · 풀하우스 · 스트레이트 · 요트)을 저주한다. 저주 칸에 적은 점수는 피해 대신 마신을 회복시킨다. 단, 첫 굴림 그대로 완성해 적으면 저주를 끊고 피해 2배') },
-      { id: 'rage', icon: '💢', ko: TR('진(眞) 각성'), desc: d => d === 2 ? TR('체력이 절반 아래면 각성 — 영겁의 봉인이 매 라운드, 저주 칸 1개 추가') : TR('어려움에서만 쓴다') },
+      { id: 'rage', icon: '💢', ko: tL('진(眞) 각성'), desc: d => d === 2 ? TR('체력이 절반 아래면 각성 — 영겁의 봉인이 매 라운드, 저주 칸 1개 추가') : TR('어려움에서만 쓴다') },
     ],
   },
 ];
@@ -353,7 +353,7 @@ export const CURSE_CATS = ['four', 'full', 'sstr', 'lstr', 'yacht'];
 export const cursed = (s, cat) => s.boss?.id === 'archdemon' && !!s.boss.curse?.includes(cat);
 export const HYDRA_CUT = 30, CYCLOPS_PLUNDER = 15, NECRO_HEAL = 3, THRONE_SHIELD = 15;
 export const HEADS = ['fire', 'ice', 'poison'];
-export const HEAD_KO = { fire: TR('불'), ice: TR('얼음'), poison: TR('독') };
+export const HEAD_KO = { fire: tL('불'), ice: tL('얼음'), poison: tL('독') };
 // 세머리 용: 이번 라운드에 숨결을 뿜는 머리 (잘렸으면 null)
 export const hydraHead = s => {
   const h = HEADS[(s.round - 1) % 3];
@@ -375,7 +375,7 @@ const every = (s, k) => s.round % k === 0;
 
 // 보스 예고: 그 라운드에 때가 되어 쓰는 공격 · 방해 목록 [{ id: 스킬 칩, ko, what }].
 // 화면이 한 라운드 전에 경고한다. 분노 여부는 지금 체력으로 본다 (그 사이 분노하면 바뀔 수 있다)
-const HEAD_WHAT = { fire: TR('첫 굴림의 가장 높은 주사위 1개가 1로 탄다'), ice: TR('첫 굴림 뒤 주사위 2개가 얼어붙는다'), poison: TR('15점 이하 기록은 피해 절반') };
+const HEAD_WHAT = { fire: tL('첫 굴림의 가장 높은 주사위 1개가 1로 탄다'), ice: tL('첫 굴림 뒤 주사위 2개가 얼어붙는다'), poison: tL('15점 이하 기록은 피해 절반') };
 export function bossPlan(s, round = s.round) {
   const b = s.boss;
   if (!b || round < 1 || round > ROUNDS) return [];

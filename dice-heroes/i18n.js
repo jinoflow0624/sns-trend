@@ -29,23 +29,30 @@ export function fromDevice(n) {
   return LANGS.some(([k]) => k === base) ? base : 'en';
 }
 
-export const LANG = typeof window === 'undefined' ? 'ko' : detect();
+export let LANG = typeof window === 'undefined' ? 'ko' : detect();
 // 고른 언어 설정값 ('auto' = 기기 언어)
 export function langPref() { try { return localStorage.getItem(KEY) || 'auto'; } catch { return 'auto'; } }
 
 let dict = null;
+const cache = {};
+const loadDict = async l => (l === 'ko' ? null : (cache[l] ||= (await import(`./lang/${l}.js`)).default));
 if (LANG !== 'ko') {
-  try { dict = (await import(`./lang/${LANG}.js`)).default; } catch (e) { console.warn('[i18n]', e); }
+  try { dict = await loadDict(LANG); } catch (e) { console.warn('[i18n]', e); }
 }
-if (typeof document !== 'undefined') {
+function applyDoc() {
+  if (typeof document === 'undefined') return;
   document.documentElement.lang = LANG;
-  // 중국어: 한자 서체를 첫 화면 전에 받아 둔다 (늦게 오면 글자가 바뀌어 보인다)
+  // 중국어: 한자 서체를 미리 받아 둔다 (늦게 오면 글자가 바뀌어 보인다)
   if (LANG.startsWith('zh')) {
-    const l = document.createElement('link');
-    Object.assign(l, { rel: 'preload', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous', href: `fonts/KyboriaHanzi-${LANG === 'zh-Hant' ? 'TC' : 'SC'}.woff2` });
-    document.head.appendChild(l);
+    const href = `fonts/KyboriaHanzi-${LANG === 'zh-Hant' ? 'TC' : 'SC'}.woff2`;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const l = document.createElement('link');
+      Object.assign(l, { rel: 'preload', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous', href });
+      document.head.appendChild(l);
+    }
   }
 }
+applyDoc();
 
 // 번역: 없으면 원문 그대로. {n} 자리에 값
 // 같은 한국어가 뜻이 둘이면 원문 끝에 ⟪문맥⟫ 을 붙여 열쇠를 나눈다 (예: '트레이⟪족보⟫' = 3 족보, '트레이' = 주사위 트레이). 화면엔 안 보인다
@@ -55,10 +62,36 @@ export function t(s, ...a) {
   return o;
 }
 
-// 언어 바꾸기: 저장하고 다시 불러온다 (모든 화면 · 데이터 표가 새 언어로 다시 만들어지게)
-export function setLang(l) {
-  try { if (l === 'auto') localStorage.removeItem(KEY); else localStorage.setItem(KEY, l); } catch { /* 무시 */ }
-  location.reload();
+// 살아 있는 글자: 파일을 불러올 때 만들어 두는 표(카드 · 유물 · 적 이름 등)는 이것으로 만든다 (tL).
+// 글자로 쓰일 때마다(`${}` · + · .replace · textContent · JSON) 그때 언어로 번역하므로, 언어를 바꿔도 다시 불러올 필요가 없다.
+//   · typeof 는 'object' · === 비교는 같은 객체끼리만 → 번역 글자를 === 로 비교하지 말 것 (id 로 비교)
+//   · 서버 · node 시험에서는 그냥 글자(한국어)를 돌려준다
+class Live {
+  constructor(f) { this.f = f; }
+  toString() { return this.f(); }
+  valueOf() { return this.f(); }
+  toJSON() { return this.f(); }
+  [Symbol.toPrimitive]() { return this.f(); }
+  get length() { return this.f().length; }
 }
+Object.setPrototypeOf(Live.prototype, String.prototype);   // .replace · .slice · .includes … 를 그대로 쓴다 (그때 글자로 바뀌어 돈다)
+const LIVE = typeof window !== 'undefined';
+export const tL = (s, ...a) => (LIVE ? new Live(() => t(s, ...a)) : t(s, ...a));
+// 여러 글자를 이어 붙인 것도 살아 있게: live(() => `${a} ${b}`)
+export const live = f => (LIVE ? new Live(f) : f());
+
 // 숫자 · 날짜 표시용 지역 코드
-export const LOCALE = { ko: 'ko-KR', en: 'en-US', ja: 'ja-JP', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-TW', es: 'es-ES', pt: 'pt-BR', ru: 'ru-RU', de: 'de-DE', fr: 'fr-FR', id: 'id-ID' }[LANG];
+const LOCALES = { ko: 'ko-KR', en: 'en-US', ja: 'ja-JP', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-TW', es: 'es-ES', pt: 'pt-BR', ru: 'ru-RU', de: 'de-DE', fr: 'fr-FR', id: 'id-ID' };
+export let LOCALE = LOCALES[LANG];
+
+// 언어 바꾸기: 다시 불러오지 않고 바로 바꾼다. 번역표를 받은 뒤 'langchange' 를 알리면 화면이 다시 그린다
+export async function setLang(l) {
+  try { if (l === 'auto') localStorage.removeItem(KEY); else localStorage.setItem(KEY, l); } catch { /* 무시 */ }
+  const next = l === 'auto' ? fromDevice((navigator.languages?.[0] || navigator.language)) : l;
+  if (next === LANG) return false;
+  dict = await loadDict(next);
+  LANG = next; LOCALE = LOCALES[LANG];
+  applyDoc();
+  window.dispatchEvent(new CustomEvent('langchange', { detail: LANG }));
+  return true;
+}
