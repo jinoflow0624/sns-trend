@@ -93,3 +93,35 @@ export function breakThen(next) {
     });
   } catch { finish(); }
 }
+
+// 보상형 광고 (입장권 +1). 끝까지 보면 'viewed', 중간에 닫으면 'skipped',
+// 광고가 꺼져 있거나 · 광고 제거 권리가 있거나 · 불러올 광고가 없으면 'none' (그때는 광고 없이 보상을 준다)
+export function rewardAd() {
+  return new Promise(resolve => {
+    if (busy || !opt.enabled || !live()) return resolve('none');
+    busy = true;
+    let done = false, timer = 0;
+    const finish = r => {
+      if (done) return;
+      done = true; busy = false;
+      clearTimeout(timer);
+      opt.onPause(false);
+      resolve(r);
+    };
+    let got = false;
+    timer = setTimeout(() => finish('none'), WAIT_MS * 2);
+    try {
+      q().requestNonPersonalizedAds = opt.personalized ? 0 : 1;
+      q().push({   // adBreak (reward)
+        type: 'reward',
+        name: 'ticket',
+        beforeAd() { clearTimeout(timer); timer = setTimeout(() => finish(got ? 'viewed' : 'skipped'), MAX_MS); opt.onPause(true); },
+        afterAd() { opt.onPause(false); },
+        beforeReward(showAdFn) { clearTimeout(timer); timer = setTimeout(() => finish('none'), MAX_MS); showAdFn(); },
+        adDismissed() { finish('skipped'); },
+        adViewed() { got = true; finish('viewed'); },
+        adBreakDone(info) { finish(got ? 'viewed' : info?.breakStatus === 'viewed' ? 'viewed' : info?.breakStatus === 'dismissed' ? 'skipped' : 'none'); },
+      });
+    } catch { finish('none'); }
+  });
+}

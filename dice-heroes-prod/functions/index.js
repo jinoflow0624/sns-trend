@@ -44,9 +44,10 @@ function fix(w, now) {
   const today = R.dayOf(now);
   if (w.vs?.day !== today) w.vs = { day: today, n: 0 };
   if (w.daily?.day !== today) w.daily = { day: today, n: 0 };
+  R.fixTix(w, now);                         // 입장권: 하루 채움 · 광고 횟수
   return w;
 }
-const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null, ach: w.ach || null, run: w.run || null });
+const view = w => ({ gems: w.gems, vs: w.vs, owned: w.owned || {}, clears: w.clears || {}, daily: w.daily, bonus: w.bonus || null, ach: w.ach || null, run: w.run || null, tix: w.tix || null });
 
 // 지갑을 바꾼다. mutate 가 문자열을 돌려주면 그 이유로 취소
 async function change(uid, mutate) {
@@ -64,6 +65,12 @@ async function change(uid, mutate) {
   if (why) fail(why);
   if (!res.committed) fail('서버가 바빠 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', 'aborted');
   return { wallet: view(res.snapshot.val()), out };
+}
+
+// 입장권 1장 쓰기. 없으면 resource-exhausted (앱이 입장권 창을 연다)
+async function spendTix(uid) {
+  try { return await change(uid, (w, now) => R.useTicket(w, now)); }
+  catch (e) { if (e.code === 'failed-precondition') throw new HttpsError('resource-exhausted', e.message); throw e; }
 }
 
 export const wallet = onCall(async req => {
@@ -85,9 +92,12 @@ export const startRun = onCall(async req => {
   const drop = {};
   old.forEach(c => { drop[c.key] = null; });
   if (Object.keys(drop).length) await runs.update(drop);
+  // 협동 보스전(봇과 함께)은 입장권 1장. 대전은 무료
+  let tix = null;
+  if (mode === 'coop') tix = (await spendTix(uid)).wallet.tix;
   const ref = runs.push();
   await ref.set({ mode, boss: mode === 'coop' ? boss : null, diff: mode === 'coop' ? diff : null, t: now });
-  return { rid: ref.key };
+  return { rid: ref.key, tix };
 });
 
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(v) || 0)));
@@ -126,6 +136,8 @@ export const claimRun = onCall(async req => {
     const claimed = await db().ref(`claims/${uid}/${r.key}`).transaction(cur => (cur ? undefined : now));
     if (!claimed.committed) fail('이미 정산한 판이에요.', 'already-exists');
     info = r.info; verified = true; st = r.st;
+    // 온라인 협동 판은 방장이 입장권을 쓴 판만 보석을 준다 (roomTix)
+    if (info.mode === 'coop' && !(await db().ref(`tixRooms/${r.key.replace(':', '_')}`).get()).exists()) fail('방장이 입장권을 쓰지 않은 판이라 보석이 없어요.');
   } else {
     if (typeof d.rid !== 'string' || !/^[-\w]{10,40}$/.test(d.rid)) fail('시작 기록이 없어 보석을 받을 수 없어요.', 'invalid-argument');
     const runRef = db().ref(`runs/${uid}/${d.rid}`);
@@ -227,8 +239,9 @@ export const xStart = onCall(async req => {
   const seed = randomInt(1, 2 ** 31);
   const id = `${Date.now().toString(36)}${randomInt(1e6).toString(36)}`;
   const meta = X.progressMeta(p);
+  const { wallet: wl } = await spendTix(uid);   // 원정 입장권 1장
   await db().ref(`xruns/${uid}`).set({ id, seed, cls, asc: a, meta, t: Date.now() });
-  return { id, seed, meta };
+  return { id, seed, meta, tix: wl.tix };
 });
 
 // 앱이 보낸 행동 기록을 같은 규칙으로 처음부터 다시 돌려 결과를 서버가 직접 계산한다
@@ -260,3 +273,35 @@ export const xBuy = onCall(async req => {
   return { run: wallet.run };
 });
 
+
+// ── 입장권 ───────────────────────────────────────────────────────────────────
+// 보상형 광고 한 번에 +1 (하루 10번 · 서버가 센다). 광고를 끝까지 봤는지는 앱이 알려 준다 (H5 광고는 서버 확인이 없다)
+export const adTix = onCall(async req => {
+  const uid = needUser(req);
+  const { wallet } = await change(uid, (w, now) => R.adTicket(w, now) || undefined);
+  return { wallet };
+});
+
+// 온라인 협동 방: 방장이 판을 시작하면 1장 쓴다 (친구는 무료). 같은 판은 한 번만
+export const roomTix = onCall(async req => {
+  const uid = needUser(req);
+  const code = req.data?.room;
+  if (typeof code !== 'string' || !/^[A-Z0-9]{4,8}$/.test(code)) fail('방 코드가 이상해요.', 'invalid-argument');
+  const snap = await db().ref(`rooms/DH-${code}/state`).get();
+  if (!snap.exists()) fail('방 기록을 찾지 못했어요.', 'not-found');
+  let room;
+  try { room = JSON.parse(snap.val()); } catch { fail('방 기록을 읽지 못했어요.'); }
+  const g = room?.game;
+  if (!g || g.mode !== 'coop') fail('협동 판이 아니에요.');
+  if (room.host !== uid) fail('방장만 입장권을 써요.', 'permission-denied');
+  const ref = db().ref(`tixRooms/${code}_${g.seed}`);
+  if ((await ref.get()).exists()) { const { wallet } = await change(uid, () => undefined); return { wallet }; }
+  const { wallet } = await spendTix(uid);
+  await ref.set({ uid, t: Date.now() });
+  // 하루 지난 기록은 몇 개씩 정리한다
+  const old = await db().ref('tixRooms').orderByChild('t').endAt(Date.now() - 86400000).limitToFirst(20).get();
+  const drop = {};
+  old.forEach(c => { drop[c.key] = null; });
+  if (Object.keys(drop).length) await db().ref('tixRooms').update(drop);
+  return { wallet };
+});
