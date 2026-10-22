@@ -164,6 +164,18 @@ class FxLayer {
     }, dur);
   }
 
+  // 빛나는 얇은 파동: 넓고 옅은 빛 띠 + 가늘고 밝은 선 (그림자 흐림 없이 선 두 번 — 가볍다)
+  wave(x, y, { color = '#FF5A64', core = '#FFE6E0', r0 = 8, r1 = 600, dur = 800 } = {}) {
+    return this.add((g, k) => {
+      const r = r0 + (r1 - r0) * ease(k), a = k < 0.08 ? k / 0.08 : 1 - (k - 0.08) / 0.92;
+      g.beginPath(); g.arc(x, y, r, 0, TAU);
+      g.strokeStyle = color; g.globalAlpha = 0.22 * a; g.lineWidth = 12; g.stroke();
+      g.globalAlpha = 0.45 * a; g.lineWidth = 5; g.stroke();
+      g.strokeStyle = core; g.globalAlpha = 0.95 * a; g.lineWidth = 1.6; g.stroke();
+      g.globalAlpha = 1;
+    }, dur);
+  }
+
   // 반짝: 십자 모양 별빛이 커졌다가 사라진다 (주사위 궤적)
   glint(x, y, { color = '#FFFFFF', size = 10, dur = 380 } = {}) {
     return this.add((g, k) => {
