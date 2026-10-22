@@ -104,6 +104,22 @@ test('턴 시작: 손패 4장(마법사 5장), 굴림 3번, 적 의도', () => {
   const M = run('mage');
   assert.equal(intoFight(M).hand.length, 5);
 });
+test('넘친 피해: 화면엔 공격 수치 그대로, 적 체력은 0까지만', () => {
+  for (let k = 0; k < 60; k++) {
+    const R = run('warrior', 100 + k);
+    intoFight(R);
+    Run.roll(R);
+    R.C.e.hp = 1; R.C.e.block = 0;
+    Run.drainFx(R);
+    Run.playCard(R, 0, 'enemy');
+    const ev = Run.drainFx(R).find(f => f.hit > 1 && f.dmg === 1);
+    if (!ev) continue;                                       // 이번 카드는 공격이 아니었다
+    assert.ok(!R.C || R.C.e.hp === 0 || R.phase !== 'combat');
+    assert.equal(ev.dmg, 1);                                  // 실제로 깎인 체력
+    return;
+  }
+  assert.fail('넘친 피해 장면을 못 만들었다');
+});
 test('굴리기 전에는 카드를 낼 수 없고, 굴리면 낼 수 있다', () => {
   const R = run('warrior');
   intoFight(R);

@@ -1522,7 +1522,7 @@ function resolvePlay(R, hi, target, gold = 0) {
   // 피해
   if (p.atk > 0 && p.dmg > 0) {
     const r = hitEnemy(R, p.dmg, { pierce: p.pierce, why: 'card', quiet: true });
-    ev.dmg = r.dmg; ev.blocked = r.blocked;
+    ev.dmg = r.dmg; ev.hit = r.hit; ev.blocked = r.blocked;
     if (r.dodge) ev.dodge = true;
     R.stats.maxHit = Math.max(R.stats.maxHit, p.dmg);
     R.stats.atkSum += p.dmg; R.stats.atkN++;
@@ -1630,13 +1630,14 @@ function hitEnemy(R, amount, { pierce = false, why = '', quiet = false } = {}) {
   const blocked = pierce ? 0 : Math.min(e.block, left);
   e.block -= blocked;
   left -= blocked;
-  const dmg = Math.min(e.hp, left);
+  const dmg = Math.min(e.hp, left);   // 체력은 0 아래로 안 내려간다
   e.hp -= dmg;
   R.stats.dmg += dmg;
   R.C.dealt += dmg;
-  if (!quiet) fx(R, { type: 'hit', dmg, blocked, why });
+  // hit: 화면에 보이는 피해 (넘친 만큼도 그대로 — 체력 10 남은 적에게 30이면 30). 기록 · 판정은 dmg (실제로 깎인 체력)
+  if (!quiet) fx(R, { type: 'hit', dmg, hit: left, blocked, why });
   checkRage(R);
-  return { dmg, blocked };
+  return { dmg, hit: left, blocked };
 }
 function checkRage(R) {
   const e = R.C.e, def = ENEMIES[e.id];
@@ -1709,14 +1710,14 @@ function enemyTurn(R) {
       for (let k = 0; k < (m.hits || 1); k++) {
         const r = hurtHero(R, per, 'atk');
         act.hits.push(r);
-        if (hasRelic(R, 'thorn') && e.hp > 0) { const t = hitEnemy(R, 4, { pierce: true, quiet: true }); act.thorn = (act.thorn || 0) + t.dmg; }
+        if (hasRelic(R, 'thorn') && e.hp > 0) { const t = hitEnemy(R, 4, { pierce: true, quiet: true }); act.thorn = (act.thorn || 0) + t.hit; }
         if (R.hp <= 0 || e.hp <= 0) break;
       }
       e.weak = 0;
       // 반격의 문장: 공격을 보호막으로 다 막았으면 남은 보호막만큼 되돌려 준다
       if (hasRelic(R, 'counter') && act.hits.length && act.hits.every(h => h.dmg === 0) && C.block > 0 && e.hp > 0) {
         const t = hitEnemy(R, C.block, { quiet: true });
-        act.counter = t.dmg;
+        act.counter = t.hit;
       }
     }
     if (m.block) { e.block += m.block; act.block = m.block; }
