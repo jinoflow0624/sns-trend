@@ -1,4 +1,4 @@
-// 원정 (로그라이크) 룰 엔진 — 테스트판 전용 (배포판 빌드에는 run/ 폴더를 넣지 않는다).
+// 원정 (로그라이크) 룰 엔진. // @test-only{ … // }@test-only 구간은 배포판 빌드가 잘라낸다 (시험 원정).
 //
 // 한 판 = 영웅 하나로 3막을 끝까지 가는 원정. 막마다 갈림길 지도(6층 + 보스)를 골라 가며
 // 전투 · 엘리트 · 이벤트 · 상점 · 휴식 · 보물 칸을 지나고, 막 끝에서 보스를 쓰러뜨린다.
@@ -2662,6 +2662,7 @@ export function botCardValue(R, c) {
   const same = R.deck.filter(x => x.cat === c.cat).length;
   return v - same * 1.5;
 }
+// @test-only{
 // 시험 원정 (테스트판 전용 버튼): 특별 카드 3장 + 전용 유물 3개를 들고 출발. 정식 출시 전에 버튼과 함께 지울 것
 export function trialKit(R) {
   R.deck = R.deck.filter(c => !isSpecial(c.cat));
@@ -2754,6 +2755,7 @@ export const sandbox = {
   foeHp(R, hp) { const C = sbCombat(R); C.e.hp = C.e.maxHp = Math.max(1, Math.round(hp)); },
   clearHex(R) { const C = sbCombat(R); C.hex = null; C.sealed = []; C.frozen = []; C.gazed = []; C.weak = 0; },
 };
+// }@test-only
 // 원정 진행(지도 · 보상 · 상점 · 휴식 · 이벤트)을 한 걸음 진행한다
 export function botRunStep(R, rng = Math.random) {
   if (R.pick?.why === 'face') {             // 가장 낮은 면을 6으로

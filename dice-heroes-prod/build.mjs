@@ -9,7 +9,8 @@
 //   4. twa/assetlinks.json 이 있으면 .well-known/ 에 넣는다 (구글 플레이 앱 ↔ 사이트 연결)
 //   5. 서버(functions/shared/)에 보상 규칙 · 엔진 사본을 넣는다
 //   6. 애드센스: 사이트 소유 확인용 메타 태그와 ads.txt 를 넣는다 (광고 스크립트는 게임이 필요할 때만 불러온다)
-import { cpSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { cpSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +28,25 @@ if (conf.includes('REPLACE_ME')) {
   conf = conf.replaceAll('REPLACE_ME', 'demo-diceheroes').replace(/databaseURL: '[^']*'/, "databaseURL: 'http://127.0.0.1:9100?ns=demo-diceheroes-default-rtdb'");
 }
 
+// 테스트판 전용 코드 잘라내기: 「// @test-only{」 ~ 「// }@test-only」 줄 구간과 /*TEST{*/ … /*}TEST*/ 를 지운다
+// (시험 원정 · 다이아 무제한 · 잠금 되돌리기 · 시험용 승천 · ?demon · ?debug — 배포판에는 코드째로 넣지 않는다)
+const TEST_LEFT = ['trialKit', 'sandbox', 'showSandbox', 'sbAct', 'TEST_GEMS', 'relockLocal', "data-act=\"relock\"", '__dh', "has('demon')", "['dancer']"];
+function stripTest(dir) {
+  const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.js') ? [join(d, e.name)] : []));
+  for (const f of walk(dir)) {
+    if (/[\\/](vendor|lang|node_modules)[\\/]/.test(f)) continue;
+    const s = readFileSync(f, 'utf8');
+    if (!s.includes('@test-only') && !s.includes('TEST{')) continue;
+    let o = s.replace(/\/\*TEST\{\*\/[\s\S]*?\/\*\}TEST\*\//g, '');
+    o = o.replace(/^[ \t]*\/\/ @test-only\{[^\n]*\n[\s\S]*?^[ \t]*\/\/ \}@test-only[^\n]*\n/gm, '');
+    if (/^[ \t]*\/\/ (@test-only\{|\}@test-only)/m.test(o) || /\/\*\}?TEST\{?\*\//.test(o)) throw new Error(`테스트 구간 표시가 짝이 안 맞아요: ${f}`);
+    const left = TEST_LEFT.filter(k => o.includes(k));
+    if (left.length) throw new Error(`테스트 전용 코드가 남았어요 (${left.join(', ')}): ${f}`);
+    writeFileSync(f, o);
+    execFileSync(process.execPath, ['--check', f]);   // 잘라낸 뒤에도 문법이 맞는지
+  }
+}
+
 // run/ = 원정(로그라이크) 모드 — 배포판에도 넣는다 (서버 xStart · xFinish 가 기록 · 별조각을 지킨다)
 const SKIP = new Set(['test', 'sim', 'tools', 'node_modules', 'README.md', 'CLAUDE.md', 'DESIGN-HANDOFF.md', 'package.json', 'package-lock.json']);
 rmSync(join(here, 'dist'), { recursive: true, force: true });
@@ -36,6 +56,7 @@ cpSync(src, out, { recursive: true, filter: p => { const rel = p.slice(src.lengt
 writeFileSync(join(out, 'env.js'), "// 배포판 빌드 (dice-heroes-prod/build.mjs 가 만든 파일)\nexport const ENV = 'prod';\n");
 writeFileSync(join(out, 'fireconfig.js'), conf);
 rmSync(join(out, 'vendor', 'firebase.js'));   // 배포판은 전체판만 쓴다
+stripTest(out);
 
 const sw = join(out, 'sw.js');
 writeFileSync(sw, readFileSync(sw, 'utf8').replace("'vendor/firebase.js'", "'vendor/firebase-full.js'"));
@@ -57,6 +78,7 @@ for (const f of ['wallet-rules.js', 'engine.js', 'achievements.js', 'i18n.js']) 
 mkdirSync(join(shared, 'run'), { recursive: true });
 cpSync(join(src, 'run', 'rules.js'), join(shared, 'run', 'rules.js'));
 writeFileSync(join(shared, 'package.json'), '{ "type": "module" }\n');
+stripTest(shared);
 
 // 6. 애드센스 게시자 ID (비밀 값 아님) — 게임의 ads.js 와 같은 값을 쓴다. 사이트 소유 확인 + ads.txt 용.
 //    광고 자체는 게임(ads.js)이 Remote Config ads_enabled 가 켜졌을 때만 불러온다.

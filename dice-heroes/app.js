@@ -456,7 +456,7 @@ function modeCards(o) {
 
 // 마왕: 화염룡·오크·리치의 어려움을 모두 한 번씩 깨면 봉인이 풀린다
 // 테스트판 ?demon: 마왕과 마왕 난이도 전부를 바로 열어 둔다 (배포판에서는 무시)
-const DEMON_TEST = !PROD && new URLSearchParams(location.search).has('demon');
+const DEMON_TEST = false/*TEST{*/ || (!PROD && new URLSearchParams(location.search).has('demon'))/*}TEST*/;
 // 테스트판 ?demon=all: 마왕의 쉬움·보통·어려움까지 전부 열어 둔다 (분노·봉인 2개 확인용)
 const DEMON_ALL = DEMON_TEST && new URLSearchParams(location.search).get('demon') === 'all';
 if (DEMON_TEST) Object.assign(opts, { mode: 'coop', boss: 'demon' });   // '새 게임'을 누르면 바로 협동 · 마왕이 골라져 있다
@@ -3535,7 +3535,7 @@ function showSettings(inGame = false) {
     ${PROD && !inGame ? `<div class="set-row account" id="account-row">${TR('계정')} <small>${TR('확인 중…')}</small></div>` : ''}
     <p class="hint diag">${TR('v{0} · 그래픽 {1}{2}', GAME.version, esc(gfxNote || TR('아직 안 씀')), lastErr ? `<br>${TR('최근 오류: {0}', esc(lastErr))}` : '')}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">${TR('개인정보 처리방침')}</a><button class="linkish" data-act="wipe">${TR('내 데이터 지우기')}</button></div>`}
-    ${PROD || inGame ? '' : `<div class="set-links test-only"><b>${TR('테스트판')}</b><button class="linkish" data-act="relock" data-kinds="cls,run">${TR('직업 잠금 되돌리기')}</button><button class="linkish" data-act="relock" data-kinds="dice,tray">${TR('주사위 · 트레이 잠금 되돌리기')}</button></div>`}
+    ${''/*TEST{*/ + (PROD || inGame ? '' : `<div class="set-links test-only"><b>${TR('테스트판')}</b><button class="linkish" data-act="relock" data-kinds="cls,run">${TR('직업 잠금 되돌리기')}</button><button class="linkish" data-act="relock" data-kinds="dice,tray">${TR('주사위 · 트레이 잠금 되돌리기')}</button></div>`)/*}TEST*/}
     ${online ? `<p class="hint">${TR('온라인 방 {0}{1}', online.code, inGame && S && !S.ended ? `<br>${TR('1분 안에 돌아오면 이어서')}` : '')}</p>` : ''}
     <div class="modal-actions">
       ${inGame ? `<button class="pbtn gold" data-act="close">${TR('계속하기')}</button><button class="pbtn" data-act="quit">${online ? TR('방 나가기') : TR('메인 메뉴로')}</button>` :
@@ -4172,6 +4172,7 @@ function onAct(act, t) {
       paintAccount();
     }, err => { t.disabled = false; if (err?.code !== 'auth/popup-closed-by-user') toast(ico('warn'), TR('연결하지 못했어요'), String(err?.message || err).slice(0, 80), 2400); });
   }
+// @test-only{
   if (act === 'relock') {          // 테스트판: 산 직업(또는 스킨)을 다시 잠그고 보석을 돌려준다
     const kinds = t.dataset.kinds.split(',');
     const r = Wal.relockLocal(kinds);
@@ -4189,6 +4190,7 @@ function onAct(act, t) {
     sfx.select();
     return toast(ico('lock'), TR('{0} {1}개를 다시 잠갔어요', kinds.includes('cls') ? TR('직업') : TR('주사위 · 트레이'), r.out.n), TR('보석 {0} 돌려받음', r.out.back.toLocaleString()), 2000);
   }
+// }@test-only
   if (act === 'wipe') {
     sfx.select();
     layer.innerHTML = `<div class="overlay" data-act="close-bg"><div class="modal frame" data-act="noop">
@@ -4461,4 +4463,6 @@ if (q.has('demo')) {
 }
 
 // ?debug 로 열면 자동 점검 스크립트가 상태와 주사위 위치를 읽을 수 있다
+// @test-only{
 if (q.has('debug')) window.__dh = { get run() { return runMod?.state(); }, runMod: () => runMod, get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox(), results: () => showResults() };
+// }@test-only
