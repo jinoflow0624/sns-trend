@@ -2020,4 +2020,6 @@ export default {"키보리아":"KYBORIA",
 "직업 능력 · 의뢰 게시판 · 레벨업":"Class skills · Quest board · Level up",
 "주사위만으로 겨루는 순수 야추":"Pure Yacht — dice only",
 "인원 {0}/4":"Players {0}/4",
-"첫 판을 끝내면 직업별 기록이 쌓여요":"Finish your first run to start class records"};
+"첫 판을 끝내면 직업별 기록이 쌓여요":"Finish your first run to start class records",
+"거대 일격!":"Massive Hit!",
+"완벽 방어!":"Perfect Block!"};

@@ -2020,4 +2020,6 @@ export default {"키보리아":"KYBORIA",
 "직업 능력 · 의뢰 게시판 · 레벨업":"Skill kelas · Papan misi · Naik level",
 "주사위만으로 겨루는 순수 야추":"Yacht Murni — hanya dadu",
 "인원 {0}/4":"Pemain {0}/4",
-"첫 판을 끝내면 직업별 기록이 쌓여요":"Selesaikan permainan pertama untuk mulai mencatat per kelas"};
+"첫 판을 끝내면 직업별 기록이 쌓여요":"Selesaikan permainan pertama untuk mulai mencatat per kelas",
+"거대 일격!":"Serangan Dahsyat!",
+"완벽 방어!":"Blok Sempurna!"};

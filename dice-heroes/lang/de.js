@@ -2020,4 +2020,6 @@ export default {"키보리아":"KYBORIA",
 "직업 능력 · 의뢰 게시판 · 레벨업":"Klassenfähigkeiten · Auftragsbrett · Levelaufstiege",
 "주사위만으로 겨루는 순수 야추":"Reines Yacht — nur Würfel",
 "인원 {0}/4":"Spieler {0}/4",
-"첫 판을 끝내면 직업별 기록이 쌓여요":"Beende deinen ersten Lauf, um Klassenstatistiken zu starten"};
+"첫 판을 끝내면 직업별 기록이 쌓여요":"Beende deinen ersten Lauf, um Klassenstatistiken zu starten",
+"거대 일격!":"Gewaltiger Treffer!",
+"완벽 방어!":"Perfekt geblockt!"};
