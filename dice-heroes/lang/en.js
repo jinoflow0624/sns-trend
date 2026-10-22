@@ -2043,4 +2043,5 @@ export default {"키보리아":"KYBORIA",
 "지금 {0}장":"Now {0}",
 "입장권이 없어요.":"You're out of tickets.",
 "오늘 광고 보상은 다 받았어요.":"You've claimed all ad rewards today.",
-"곧 열려요":"Coming soon"};
+"곧 열려요":"Coming soon",
+"무지개 해금!":"Rainbow unlocked!"};

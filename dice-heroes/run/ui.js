@@ -405,7 +405,7 @@ function heroStrip() {
       <div class="rh-gold" id="r-gold" ${X.tipAttr(TR('골드'), TR('상점에서 써요'))}>${ico('coins', 'xs')}<b>${R.gold}</b></div>
       <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(TR('방어도 {0}', blk), TR('적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요'))}>${ico('shield', 'xs')}<b>${blk}</b></div>
     </div>
-    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; return `<button class="relic r${r.r}${rent ? ' rent' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ` ${TR('(대여)')}` : ''}">${relicIco(r)}</button>`; }).join('') || `<span class="dim">${TR('유물 없음')}</span>`}</div>
+    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; const pl = id === 'palette' ? Run.paletteLeft(R) : 0; return `<button class="relic r${r.r}${rent ? ' rent' : ''}${pl ? ' sealed' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ` ${TR('(대여)')}` : ''}">${relicIco(r)}${pl ? `<b class="relic-cnt">${pl}</b>` : ''}</button>`; }).join('') || `<span class="dim">${TR('유물 없음')}</span>`}</div>
   </section>`;
 }
 
@@ -1324,6 +1324,39 @@ const heroAt = () => center($('rh-por'));
 function setShow(patch) { if (ui.show) Object.assign(ui.show, patch); }
 // 연출 중에는 적 · 영웅 칸을 통째로 다시 그리지 않고 숫자 · 막대만 바꾼다
 // (맞는 애니메이션이 끊기지 않고, 깎인 체력만큼 흰 띠가 남았다가 따라 줄어든다)
+// 무지개 팔레트: 아이콘 가운데 숫자를 하나 줄인다 (톡 튀며)
+function paletteTick(left) {
+  const btn = X.app.querySelector('.rh-relics .relic[data-id="palette"]');
+  if (!btn) return;
+  let n = btn.querySelector('.relic-cnt');
+  if (!left) { n?.remove(); return; }
+  if (!n) { n = document.createElement('b'); n.className = 'relic-cnt'; btn.appendChild(n); }
+  n.textContent = left;
+  n.classList.remove('tick'); void n.offsetWidth; n.classList.add('tick');
+  sfx.tap?.();
+}
+// 무지개 팔레트 봉인 해제: 화면 가운데에 크게 「무지개 해금!」 (탭하거나 2.4초 뒤 닫힘)
+function paletteUnlock() {
+  const btn = X.app.querySelector('.rh-relics .relic[data-id="palette"]');
+  btn?.classList.remove('sealed'); btn?.querySelector('.relic-cnt')?.remove();
+  btn?.classList.add('unsealed');
+  sfx.legend?.();
+  X.bigHit?.(2);
+  const el = document.createElement('div');
+  el.className = 'pal-unlock';
+  const sparks = Array.from({ length: 16 }, (_, i) => `<i class="pu-sp" style="--a:${i * 22.5}deg;--h:${i * 22.5}"></i>`).join('');
+  el.innerHTML = `<div class="pu-stage"><i class="pu-rays"></i><i class="pu-ring"></i>${sparks}<span class="pu-art">${relicIco(Run.relicInfo('palette'), 'lg')}</span></div>
+    <b class="pu-title">${TR('무지개 해금!')}</b><small class="pu-sub">${TR('이제 모든 카드 +50%')}</small>`;
+  document.body.appendChild(el);
+  if (X.prefs.fx !== 'min') { const r = el.querySelector('.pu-art').getBoundingClientRect(); FX().burst(r.x + r.width / 2, r.y + r.height / 2, { n: 60, pal: PALETTES.rainbow, speed: [120, 380], life: [0.4, 1], grav: 120 }); }
+  return new Promise(res => {
+    let t = 0;
+    const close = () => { if (!el.isConnected) return; clearTimeout(t); el.classList.add('out'); setTimeout(() => { el.remove(); res(); }, 260); };
+    t = setTimeout(close, 2400);
+    el.addEventListener('click', close);
+  });
+}
+
 function repaintBars() {
   if (!ui.show || !$('rc')) return;
   updFoe();
@@ -1596,7 +1629,8 @@ async function playOne(f) {
       if (f.moon) floatAt(h.x, h.y - 100, TR('달빛 복사본 +{0}', f.moon), 'sky');
       if (f.grow) floatAt(h.x - 30, h.y - 90, TR('{0}주인공 기본 점수 +{1}', ico('crown', 'xs'), f.grow), 'gold');
       if (f.pilgrim) floatAt(h.x + 20, h.y - 110, TR('{0}순례 · 골드 +15 · 최대 체력 +2', ico('scroll', 'xs')), 'gold');
-      if (f.palette) { sfx.legend?.(); X.toast(relicIco(Run.relicInfo('palette')), TR('무지개 팔레트 완성!'), TR('이제 모든 카드 +50%'), 2200); }
+      if (f.paletteLeft != null) paletteTick(f.paletteLeft);
+      if (f.palette) await paletteUnlock();
       if (f.temp) moonset(f.target === 'enemy' ? e : h);   // 달빛 복사본은 달이 지듯 스르륵
       await wait(f.target === 'enemy' ? 420 : 260);
       return;

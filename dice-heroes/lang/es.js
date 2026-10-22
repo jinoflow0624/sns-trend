@@ -2043,4 +2043,5 @@ export default {"키보리아":"KYBORIA",
 "지금 {0}장":"Ahora {0}",
 "입장권이 없어요.":"No te quedan entradas.",
 "오늘 광고 보상은 다 받았어요.":"Ya recibiste todas las recompensas de anuncios hoy.",
-"곧 열려요":"Próximamente"};
+"곧 열려요":"Próximamente",
+"무지개 해금!":"¡Arcoíris desbloqueado!"};

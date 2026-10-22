@@ -2043,4 +2043,5 @@ export default {"키보리아":"KYBORIA",
 "지금 {0}장":"Sekarang {0}",
 "입장권이 없어요.":"Tiketmu habis.",
 "오늘 광고 보상은 다 받았어요.":"Hadiah iklan hari ini sudah diambil semua.",
-"곧 열려요":"Segera hadir"};
+"곧 열려요":"Segera hadir",
+"무지개 해금!":"Pelangi terbuka!"};
