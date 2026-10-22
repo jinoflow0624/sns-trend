@@ -1881,3 +1881,23 @@ html:lang(id) .skin-preview.flat::after { content: 'Pratinjau 3D tidak tersedia 
 /* 언어 이름은 그 언어 글꼴로 (중국어 이름 한자) */
 .lang-opt[lang="zh-Hans"] .lo-name { font-family: 'KyboriaHanziSC', 'Galmuri11', sans-serif; }
 .lang-opt[lang="zh-Hant"] .lo-name { font-family: 'KyboriaHanziTC', 'Galmuri11', sans-serif; }
+
+/* 입장권 (원정 · 협동 공용) */
+.tix-chip { background: #3A2A0A; box-shadow: inset 0 0 0 2px #C8860E; color: #FFE27A; }
+.tix-cost { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; padding: 0 5px; background: rgba(0,0,0,.28); font-size: .8em; vertical-align: middle; }
+.tix-cost .ico { width: 12px; height: 12px; }
+.tix-pop { z-index: 52; }   /* 알림(55)이 위에 보이게 */
+.tix-box { max-width: 340px; width: calc(100% - 32px); text-align: center; }
+.tix-box h2 { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tix-have { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 6px 0 2px; font-size: 28px; color: #FFE27A; }
+.tix-have .ico { width: 32px; height: 32px; }
+.tix-opts { display: grid; gap: 8px; margin: 10px 0; }
+.tix-opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; background: #1E1638; border: 2px solid var(--ink); box-shadow: inset 0 0 0 2px #5645D0; color: #fff; text-align: left; font: inherit; }
+.tix-opt:not(:disabled):active { transform: translateY(1px); }
+.tix-opt:disabled { opacity: .5; }
+.tix-txt { display: grid; min-width: 0; }
+.tix-txt b, .tix-txt small { overflow-wrap: anywhere; }
+.tix-txt small { color: #C9D3E8; font-size: 11px; }
+.tix-get { color: #FFE27A; font-weight: 700; white-space: nowrap; }
+.tix-ready { color: #3EE6B4; margin: 4px 0; }
+body:has(.tix-pop) .title-top { visibility: hidden; }

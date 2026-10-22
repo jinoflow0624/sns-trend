@@ -75,3 +75,11 @@
 - 그래서 **판의 상태를 바꾸는 행동은 반드시 `act('이름', fn)` 으로 감싼 함수로만** 한다 (화면에서 `R` 을 직접 고치면 서버 다시 돌리기와 어긋난다).
   `node test/run.test.mjs` 의 다시 돌리기 테스트가 지켜 본다. 배포판 빌드는 `run/rules.js` 를 `functions/shared/run/` 에 복사한다.
 - 서버 함수(xProgress · xStart · xFinish · xBuy)는 `run/rules.js` 를 바꾸면 함께 배포한다 (`,functions`).
+
+## 입장권 (원정 · 협동 보스전 공용)
+- 규칙 · 수치는 `wallet-rules.js` `TICKET` (처음 10장 · 매일 0시(한국) 5장 미만이면 5장까지 · 광고 +1 하루 10번). 바꾸면 `,functions` 함께 배포.
+- 쓰는 곳: 원정 시작(서버 `xStart`) · 봇 협동 시작(서버 `startRun` mode coop) · 온라인 협동 방은 방장만(`roomTix`, 친구 무료). **대전 · 시험 원정은 무료.**
+  온라인 협동 판의 보석 정산(`claimRun` room)은 `tixRooms/<방코드>_<시드>` 기록이 있어야 준다. 인터넷 없는 판은 입장권 없이 하지만 보석 · 기록도 없다.
+- 앱: 시작 버튼은 `ticketGate(go)` 로 감싼다 (없으면 입장권 창 `showTickets` → 광고 보고 받으면 바로 이어서 시작). 원정은 `X.ticketGate` · `X.ticketUsed`.
+- 보상형 광고는 `ads.js` `rewardAd()` (H5 `type: 'reward'`). 광고가 꺼져 있거나 없으면 광고 없이 준다 (하루 10번 한도는 그대로).
+- 유료 묶음(10장 ₩2,000)은 창에 '곧 열려요'로만 보인다 — 결제는 결제 세션이 붙인다 (`wallet.js` 에 지급 함수를 더하고 서버가 영수증 확인 뒤 `tix.n` 을 늘린다).

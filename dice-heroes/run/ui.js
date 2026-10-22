@@ -249,7 +249,7 @@ function paintSelect() {
     </div>
     <div class="rs-go">
       <button class="meta-btn market" data-act="run-meta"><i class="mk-awning" aria-hidden="true"></i><span class="mk-board">${TR('{0} 출정 채비', runIco('node', 'shop', 'coins', 'xs'))} <b>${starIco()}${b.meta.stars}</b></span></button>
-      ${runOpen(sel, bb) ? `<button class="pbtn gold big" data-act="run-go">${TR('원정 떠나기')}</button>`
+      ${runOpen(sel, bb) ? `<button class="pbtn gold big" data-act="run-go">${TR('원정 떠나기')}${X.tixCost?.() || ''}</button>`
         : Run.RUN_UNLOCK[sel]?.feat ? `<p class="rs-lockhow">${unlockHow(sel)}</p>`
         : `<button class="pbtn gold big" data-act="run-unlock" data-id="${sel}">${TR('{0} {1}에 해금', ico('gem', 'xs'), X.runPrice(sel).toLocaleString())}</button>`}
       ${''/*TEST{*/ + (PROD ? '' : `<button class="pbtn small trial-btn" data-act="run-trial">${TR('시험 원정 · 특별 카드')}</button>`)/*}TEST*/}
@@ -2496,9 +2496,13 @@ export function onAct(act, t) {
     const cls = act === 'run-again' ? R?.cls || ui.cls : ui.cls;
     const lv = act === 'run-again' && R ? R.asc || 0 : ui.asc || 0;
     if (ui.starting) return;
+    // 입장권 1장 (시험 원정은 무료). 없으면 입장권 창 → 받으면 이어서 출발
+    if (!trial && !t?.dataset?.tixOk) return X.ticketGate(() => onAct(act, { dataset: { ...(t?.dataset || {}), tixOk: '1' } }));
     ui.starting = true;
     // 배포판은 서버가 시드를 정하고 그때의 원정 준비를 적어 둔다 (끝날 때 행동 기록을 다시 돌려 맞춰 본다)
     return Prog.startRun(cls, lv).then(s => {
+      if (s.noTicket) return X.ticketShop(() => onAct(act, t));   // 서버에서 입장권이 모자랐다
+      if (!trial && !s.offline) X.ticketUsed(s.tix);
       R = Run.createRun({ cls, name: X.name(), asc: lv, seed: s.seed, meta: s.meta });
       R.xid = s.id;
 // @test-only{

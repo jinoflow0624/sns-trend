@@ -69,3 +69,32 @@ export function dailyGems(dice) {
 
 // 오늘 = 한국 시간 자정 기준 날짜 번호
 export const dayOf = now => Math.floor((now + 9 * 3600 * 1000) / 86400000);
+
+// ── 입장권 (원정 · 협동 보스전 공용) ───────────────────────────────────────────
+// 처음 10장. 날마다(서버 시간 · 한국 자정) 5장보다 적으면 5장까지 채운다 (많으면 그대로).
+// 보상형 광고 한 번에 +1, 하루 10번까지 (서버가 센다). 원정 · 협동 시작에 1장. 대전은 무료.
+// 온라인 협동 방은 방장만 1장 (초대받은 친구는 무료). 인터넷 없는 협동 판은 입장권 없이 하지만 보석도 없다.
+// 수치를 바꾸면 서버도 함께 배포 (,functions)
+export const TICKET = { start: 10, daily: 5, adMax: 10, max: 999 };
+// 오늘 날짜로 맞춘다 (하루 채움 · 광고 횟수 초기화). 지갑에 tix 가 없으면 처음 10장
+export function fixTix(w, now) {
+  const d = dayOf(now);
+  if (!w.tix || typeof w.tix.n !== 'number') w.tix = { n: TICKET.start, day: d, ads: 0 };
+  else if (w.tix.day !== d) w.tix = { n: Math.max(w.tix.n, TICKET.daily), day: d, ads: 0 };
+  return w.tix;
+}
+// 1장 쓰기 — 없으면 이유 문자열
+export function useTicket(w, now) {
+  const t = fixTix(w, now);
+  if (t.n < 1) return TR('입장권이 없어요.');
+  t.n--;
+  return null;
+}
+// 광고 보상 1장 — 오늘 다 받았으면 이유 문자열
+export function adTicket(w, now) {
+  const t = fixTix(w, now);
+  if (t.ads >= TICKET.adMax) return TR('오늘 광고 보상은 다 받았어요.');
+  t.ads++;
+  t.n = Math.min(TICKET.max, t.n + 1);
+  return null;
+}

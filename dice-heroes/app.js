@@ -165,7 +165,7 @@ function showTitle() {
   <div class="screen title-screen">
     <canvas class="scene" aria-hidden="true"></canvas>
     <div class="title-ui">
-      ${unlocked ? `<div class="title-top">${dailyBtn()}<button class="gem-chip" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button></div>` : ''}
+      ${unlocked ? `<div class="title-top">${dailyBtn()}<button class="gem-chip tix-chip" data-act="tix" aria-label="${TR('입장권')}">${ico('ticket', 'xs')}<b id="tix-count">${Wal.tickets()}</b></button><button class="gem-chip" data-act="skins">${ico('gem', 'xs')}<b id="gem-count">${Wal.gems().toLocaleString()}</b></button></div>` : ''}
       <div class="logo">
         <h1 class="logo-main" aria-label="${esc(GAME.en)}"><img src="${LOGO_URL}" alt="" width="92" height="27" draggable="false" crossorigin="anonymous"></h1>
         <span class="logo-ko">${esc(GAME.name)}</span>
@@ -245,7 +245,8 @@ function loadRun() {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
       app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
-      owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(), runPrice: id => Wal.priceOf('run', id),
+      owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(),
+      ticketGate, ticketShop: showTickets, tixCost, ticketUsed: tix => (PROD ? Wal.applyTix(tix) : Wal.spendLocalTicket()), runPrice: id => Wal.priceOf('run', id),
       name: () => myName, sealSigil: SEAL_SIGIL,
     });
     runMod = m;
@@ -284,6 +285,8 @@ function healCode(err) {
 // 지갑이 바뀌면: 시작 화면 보석 숫자 갱신, 안 산 스킨을 쓰고 있었으면 기본으로
 Wal.onWallet(w => {
   const el = document.getElementById('gem-count'); if (el) el.textContent = Wal.gems().toLocaleString();
+  const tc = document.getElementById('tix-count'); if (tc) tc.textContent = Wal.tickets();
+  if (document.querySelector('.tix-pop')) paintTickets();
   const db = document.getElementById('daily-btn'); if (db && !layer.querySelector('.daily')) db.outerHTML = dailyBtn();
   const ab = document.getElementById('ach-btn'); if (ab) ab.outerHTML = dashBtn();
   if (screen === 'ach' && !document.querySelector('[data-act=ach-claim]:disabled:focus')) showAchievements();
@@ -602,7 +605,7 @@ function showSetup() {
       ${optsSummary(o)}
       ${setup.map((pl, i) => seatCard(pl, i, { editable: true, removable: setup.length > 1, humanToggle: true })).join('')}
       <button class="pbtn small" data-act="add" ${setup.length >= 4 ? 'disabled' : ''}>${TR('＋ {0} 추가', o.mode === 'coop' ? TR('동료') : TR('상대'))}</button>
-      <button class="pbtn gold big" data-act="start">${o.mode === 'coop' ? TR('토벌 출발') : TR('모험 출발')}</button>`;
+      <button class="pbtn gold big" data-act="start">${o.mode === 'coop' ? TR('토벌 출발') + tixCost() : TR('모험 출발')}</button>`;
   app.innerHTML = `
   <div class="screen page">
     <header class="page-head">
@@ -714,6 +717,7 @@ function onSetupAct(act, t) {
     setup.push({ name: botNames().find(n => !setup.some(p => p.name === n)) || TR('동료'), cls: E.CLASSES.find(c => !used.has(c.id))?.id || 'mage', bot: true });
   }
   if (act === 'start') {
+    if (opts.mode === 'coop' && !t.dataset?.tixOk) return ticketGate(() => onSetupAct(act, { dataset: { ...t.dataset, tixOk: '1' } }));   // 협동은 입장권 1장
     if (opts.mode === 'coop') clampDiff(opts);
     syncOwned();
     setup.forEach((p, k) => { p.name = (p.name || '').trim() || (p.bot ? botNames()[k] : TR('영웅{0}', k + 1)); });
@@ -952,7 +956,7 @@ function showLobby() {
         return seatCard(s, i, { editable: me && !s.ready, removable: host && !me, humanToggle: false, tag });
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>${TR('＋ 봇 추가')}</button>` : ''}
-      ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>${TR('게임 시작')}</button>
+      ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>${TR('게임 시작')}${room.opts?.mode === 'coop' ? tixCost() : ''}</button>
                 ${!allReady ? `<p class="waiting">${TR('준비 {0} / {1}', shownN, people.length)}</p>` : ''}`
              : `<button class="pbtn big ${mine?.ready ? '' : 'gold'}" data-act="lobby-ready">${mine?.ready ? TR('준비 취소') : TR('준비 완료!')}</button>
                 <p class="waiting">${mine?.ready ? (allReady ? TR('방장이 시작하기를 기다리는 중…') : TR('다른 사람이 준비하기를 기다리는 중…')) : TR('캐릭터를 고르고 준비 버튼을 눌러 주세요')}</p>`}
@@ -962,7 +966,7 @@ function showLobby() {
 
 function lobbyTxn(fn) {
   return online.backend.txn(online.code, (room, fail) => { fn(room, fail); return room; })
-    .then(res => { if (!res.ok) toast(ico('warn'), TR('할 수 없어요'), res.failure); });
+    .then(res => { if (!res.ok) toast(ico('warn'), TR('할 수 없어요'), res.failure); return res.ok; });
 }
 
 function onLobbyAct(act, t) {
@@ -1007,7 +1011,10 @@ function onLobbyAct(act, t) {
     return;
   }
   if (act === 'lobby-start' && isHost()) {
+    const coop = online.room?.opts?.mode === 'coop';
+    if (coop && !t.dataset?.tixOk) return ticketGate(() => onAct(act, { dataset: { tixOk: '1' } }));   // 협동 방은 방장만 입장권 1장
     sfx.start();
+    const code = online.code;
     return lobbyTxn((r, fail) => {
       if (r.started) return;
       if (r.seats.length < 1) return fail(TR('참가자가 없습니다.'));
@@ -1018,7 +1025,7 @@ function onLobbyAct(act, t) {
       r.fxId = 1;
       r.game = g;
       r.started = true;
-    });
+    }).then(ok => { if (ok && coop && navigator.onLine) Wal.roomTicket(code).then(r => { if (!r.ok) toast(ico('warn'), TR('입장권을 쓰지 못했어요'), TR('이번 판은 보석이 없어요 · {0}', r.why), 2600); }); });
   }
   if (act === 'room-leave') { sfx.back(); leaveRoom(); return showTitle(); }
 }
@@ -4342,7 +4349,11 @@ function onAct(act, t) {
     S = null; layer.innerHTML = '';
     return showTitle();
   }
-  if (act === 'again') { sfx.start(); return startGame(E.createGame(setup, undefined, opts)); }
+  if (act === 'again') {
+    if (opts.mode === 'coop' && !t.dataset?.tixOk) return ticketGate(() => onAct(act, { dataset: { ...t.dataset, tixOk: '1' } }));   // 협동은 입장권 1장
+    sfx.start(); return startGame(E.createGame(setup, undefined, opts));
+  }
+  if (act === 'tix') { sfx.select(); return showTickets(); }
   if (act === 'room-again' && isHost()) {
     sfx.start();
     layer.innerHTML = '';
@@ -4524,3 +4535,66 @@ if (q.has('demo')) {
 // @test-only{
 if (q.has('debug')) window.__dh = { get run() { return runMod?.state(); }, runMod: () => runMod, get S() { return S; }, get tray() { return tray; }, get tut() { return tut; }, get online() { return online; }, get ui() { return ui; }, get skinPreview() { return skinPreview; }, claimGems: i => claimGems(i), gemsBox: () => gemsBox(), results: () => showResults() };
 // }@test-only
+
+// ── 입장권 (원정 · 협동 공용) ─────────────────────────────────────────────────
+// 규칙은 wallet-rules.js TICKET. 대전은 무료. 인터넷이 없으면 입장권 없이 하지만 보석 · 기록도 없다.
+// 입장권 창은 어느 화면(원정 포함) 위에도 뜨도록 body 에 따로 붙인다
+function tixCost() { return ` <span class="tix-cost">${ico('ticket', 'xs')}1</span>`; }
+async function ticketGate(go) {
+  if (!navigator.onLine) return go();
+  if (!Wal.wallet()) { try { await Wal.loadWallet(); } catch { return go(); } }
+  if (Wal.hasTicket()) return go();
+  showTickets(go);
+}
+let tixThen = null, tixBusy = false;
+function showTickets(then = null) {
+  tixThen = then;
+  document.querySelector('.tix-pop')?.remove();
+  const el = document.createElement('div');
+  el.className = 'tix-pop overlay';
+  el.addEventListener('click', e => {
+    const a = e.target.closest('[data-tix]')?.dataset.tix;
+    if (e.target === el || a === 'close') { sfx.back(); return closeTickets(); }
+    if (a === 'ad') return watchTicketAd();
+  });
+  document.body.appendChild(el);
+  paintTickets();
+  if (!Wal.wallet()) Wal.loadWallet().then(paintTickets, () => {});
+}
+function closeTickets() { document.querySelector('.tix-pop')?.remove(); tixThen = null; }
+function paintTickets() {
+  const el = document.querySelector('.tix-pop');
+  if (!el) return;
+  const n = Wal.tickets(), left = Wal.adTixLeft(), T = Wal.TICKET;
+  el.innerHTML = `<div class="modal frame tix-box">
+    <h2>${ico('ticket')} ${TR('입장권')}</h2>
+    <div class="tix-have">${ico('ticket')}<b>${n}</b></div>
+    <p class="hint">${TR('원정 · 협동 보스전을 시작할 때 1장씩 써요. 대전은 무료!')}<br>${TR('매일 0시에 {0}장보다 적으면 {0}장까지 채워 줘요.', T.daily)}</p>
+    <div class="tix-opts">
+      <button class="tix-opt" data-tix="ad" ${left && !tixBusy ? '' : 'disabled'}>
+        <span class="tix-ico">${ico('sparkle')}</span><span class="tix-txt"><b>${TR('광고 보고 1장')}</b><small>${left ? TR('오늘 {0}/{1}번 남음', left, T.adMax) : TR('오늘은 다 받았어요')}</small></span><span class="tix-get">+1</span>
+      </button>
+      <button class="tix-opt" disabled>
+        <span class="tix-ico">${ico('money')}</span><span class="tix-txt"><b>${TR('입장권 {0}장', 10)}</b><small>${TR('곧 열려요')}</small></span><span class="tix-get">₩2,000</span>
+      </button>
+    </div>
+    ${tixThen && n > 0 ? `<p class="tix-ready">${TR('입장권이 생겼어요!')}</p>` : ''}
+    <div class="modal-actions"><button class="pbtn" data-tix="close">${TR('닫기')}</button></div>
+  </div>`;
+}
+async function watchTicketAd() {
+  if (tixBusy) return;
+  if (!navigator.onLine) return toast(ico('warn'), TR('인터넷 연결이 필요해요.'), '', 1600);
+  tixBusy = true; paintTickets();
+  sfx.select();
+  const how = await Ads.rewardAd();
+  if (how === 'skipped') { tixBusy = false; paintTickets(); return toast(ico('warn'), TR('광고를 끝까지 봐야 받아요'), '', 1800); }
+  const r = await Wal.adTicket();
+  tixBusy = false;
+  if (!r.ok) { paintTickets(); sfx.back(); return toast(ico('warn'), TR('받을 수 없어요'), r.why, 2000); }
+  sfx.coin();
+  toast(ico('ticket'), TR('입장권 +1'), TR('지금 {0}장', Wal.tickets()), 1400);
+  const go = tixThen;
+  if (go && Wal.hasTicket()) { closeTickets(); return go(); }   // 시작하려다 열린 창: 받으면 바로 이어서 출발
+  paintTickets();
+}

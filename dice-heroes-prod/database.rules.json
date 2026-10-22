@@ -53,6 +53,7 @@
         ".write": "auth != null && auth.uid === $uid && !newData.exists()"
       }
     },
+    "tixRooms": { ".indexOn": ["t"] },
     "runs": {
       "$uid": { ".indexOn": ["t"] }
     },

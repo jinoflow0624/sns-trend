@@ -77,6 +77,7 @@ function fix(w) {
   w.clears ||= {};
   w.vs ||= { day: 0, n: 0 };
   if (w.vs.day !== today()) w.vs = { day: today(), n: 0 };
+  if (!PROD || w.tix) R.fixTix(w, serverNow());   // 입장권 하루 채움 (배포판은 서버 값이 올 때까지 기다린다)
   return w;
 }
 
@@ -167,13 +168,41 @@ export async function buy(kind, id) {
   });
 }
 
+// ── 입장권 (원정 · 협동 공용, 규칙은 wallet-rules.js TICKET) ──
+export const tickets = () => W?.tix?.n ?? 0;
+export const adTixLeft = () => Math.max(0, R.TICKET.adMax - (W?.tix?.ads ?? 0));
+export const hasTicket = () => tickets() > 0;
+// 서버가 돌려준 입장권 수를 반영한다 (xStart · startRun)
+export function applyTix(tix) { if (tix && W) { W.tix = tix; writeLocal(W); emit(); } }
+// 테스트판: 이 기기에서 1장 쓴다 (배포판은 서버가 원정 · 협동 시작 때 쓴다)
+export function spendLocalTicket() {
+  if (PROD) return true;
+  return changeLocal(w => R.useTicket(w, serverNow())).ok;
+}
+// 보상형 광고를 다 본 뒤 1장 받기
+export async function adTicket() {
+  try { await loadWallet(); } catch { return { ok: false, why: TR('인터넷 연결이 필요해요.') }; }
+  if (PROD) {
+    try { set((await callServer('adTix')).wallet); return { ok: true }; }
+    catch (err) { return { ok: false, why: why(err) }; }
+  }
+  return changeLocal(w => R.adTicket(w, serverNow()));
+}
+// 온라인 협동 방: 방장이 판을 시작하면 1장 (친구는 무료)
+export async function roomTicket(code) {
+  if (!PROD) return { ok: spendLocalTicket() };
+  try { set((await callServer('roomTix', { room: code })).wallet); return { ok: true }; }
+  catch (err) { return { ok: false, why: why(err) }; }
+}
+
 // 한 판 시작: 배포판은 서버에 시작 시각을 남긴다 (오프라인 판 정산에 필요). 온라인 방 판은 방 기록으로 확인하니 필요 없다
 let run = null;
 export function beginRun({ mode, boss = null, diff = null }) {
   run = null;
-  if (!PROD || !navigator.onLine) return;
+  if (!navigator.onLine) return;                       // 인터넷 없는 판: 입장권 없이 · 보석도 없다
+  if (!PROD) { if (mode === 'coop') spendLocalTicket(); return; }
   const me = run = { rid: null };
-  callServer('startRun', { mode, boss, diff }).then(r => { me.rid = r.rid; }, err => console.warn('[startRun]', err));
+  callServer('startRun', { mode, boss, diff }).then(r => { me.rid = r.rid; applyTix(r.tix); }, err => console.warn('[startRun]', err));   // 협동은 서버가 입장권 1장
 }
 
 // 한 판 보상 받기. info: { mode, win, online, room, humans, score, flip, nudge, boss, diff }

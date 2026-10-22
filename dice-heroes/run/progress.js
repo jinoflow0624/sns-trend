@@ -46,8 +46,9 @@ export async function startRun(cls, asc) {
   if (!PROD) return { seed: (Math.random() * 2 ** 32) >>> 0, meta: Run.progressMeta(progress()), id: null };
   try {
     const r = await callServer('xStart', { cls, asc });
-    return { seed: r.seed, meta: r.meta, id: r.id };
+    return { seed: r.seed, meta: r.meta, id: r.id, tix: r.tix };
   } catch (e) {
+    if (/resource-exhausted/.test(e?.code || '')) return { noTicket: true };   // 입장권 없음 (서버가 셌다)
     console.warn('[run start]', e);
     return { seed: (Math.random() * 2 ** 32) >>> 0, meta: Run.progressMeta(progress()), id: null, offline: true };
   }
