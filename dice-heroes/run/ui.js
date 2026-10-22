@@ -1554,7 +1554,7 @@ async function playOne(f) {
       } else if (f.target === 'enemy') {
         const pal = f.score >= 40 ? PALETTES.rainbow : f.score >= 28 ? PALETTES.arcane : f.score >= 18 ? PALETTES.gold : PALETTES.fire;
         const power = f.score >= 40 ? 3 : f.score >= 28 ? 2.2 : f.score >= 18 ? 1.6 : 1.1;
-        if (f.dmg > 0 || f.blocked > 0) {
+        if ((f.hit ?? f.dmg) > 0 || f.blocked > 0) {
           if (fxOn) FX().impact(e.x, e.y, pal, power);
           if (power >= 3 || f.cat === 'yacht') X.bigHit?.(3);        // 큰 한 방: 히트스톱 · 화면 당김 · 가장자리 어둡게
           sfx.strike?.(power);
@@ -1564,12 +1564,13 @@ async function playOne(f) {
           art?.classList.remove('hit'); void art?.offsetWidth; art?.classList.add('hit');
           shake($('rc'), power * 0.8);
           const sr = ui.show.eblk > 0 && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
-          setShow({ ehp: ui.show.ehp - f.dmg, eblk: Math.max(0, ui.show.eblk - f.blocked) });
+          setShow({ ehp: Math.max(0, ui.show.ehp - f.dmg), eblk: Math.max(0, ui.show.eblk - f.blocked) });
           repaintBars();
           shieldBreak(sr);
           if (f.blocked) floatAt(e.x + 30, e.y - 20, `${ico('shield', 'xs')}${f.blocked}`, 'dim');
-          floatAt(e.x, e.y - 10, `${f.dmg}`, `dmg big${power >= 2 ? ' huge' : ''}`);
-          if (f.dmg > 0) centerCall('atk', f.dmg, f.dmg * 4 >= (R.C?.e?.maxHp || Infinity));
+          const shown = f.hit ?? f.dmg;   // 넘친 피해도 그대로 보여 준다 (체력은 0까지만)
+          floatAt(e.x, e.y - 10, `${shown}`, `dmg big${power >= 2 ? ' huge' : ''}`);
+          if (shown > 0) centerCall('atk', shown, shown * 4 >= (R.C?.e?.maxHp || Infinity));
           if (f.behead) { await wait(250); floatAt(e.x, e.y + 30, TR('머리 베기!'), 'gold'); sfx.slash?.(); if (fxOn) FX().slash?.(e, 140); }
         } else {
           floatAt(e.x, e.y - 10, '0', 'dim');
@@ -1650,7 +1651,7 @@ async function playOne(f) {
         // 적의 공격을 하나도 안 맞고 다 막았다 → 크게
         { const got = f.hits.reduce((a, h) => a + (h.dmg || 0), 0), blk = f.hits.reduce((a, h) => a + (h.blocked || 0), 0);
           if (!got && blk > 0) { centerCall('def', blk, true, 0, false); await wait(500); } }
-        if (f.thorn) { setShow({ ehp: ui.show.ehp - f.thorn }); repaintBars(); floatAt(e.x, e.y, `${f.thorn}`, 'dmg'); }
+        if (f.thorn) { setShow({ ehp: Math.max(0, ui.show.ehp - f.thorn) }); repaintBars(); floatAt(e.x, e.y, `${f.thorn}`, 'dmg'); }
       }
       if (f.block) { if (fxOn) FX().shield(e); setShow({ eblk: f.block }); repaintBars(); floatAt(e.x, e.y - 30, `${ico('shield', 'xs')}+${f.block}`, 'sky'); sfx.hold(); await wait(380); }
       if (f.str) { floatAt(e.x, e.y - 40, TR('{0}힘 +{1}', ico('up', 'xs'), f.str), 'dmg'); sfx.powerUp?.(1); if (fxOn) FX().burst(e.x, e.y, { n: 20, pal: PALETTES.fire, grav: -120 }); await wait(380); }
@@ -1664,10 +1665,10 @@ async function playOne(f) {
     }
     case 'hit': {
       const e = foeAt();
-      if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.dmg}${f.blocked ? ` <small>${TR('{0}{1} 막힘', ico('shield', 'xs'), f.blocked)}</small>` : ''}`, 'dmg'); sfx.fire?.(); }
-      else if (f.why === 'potion') { if (fxOn) FX().impact(e.x, e.y, PALETTES.fire, 1.8); floatAt(e.x, e.y - 10, `${f.dmg}`, 'dmg big'); sfx.boom?.(1); }
+      if (f.why === 'burn') { if (fxOn) FX().fire?.([e], 500); floatAt(e.x, e.y - 10, `${ico('fire', 'xs')}${f.hit ?? f.dmg}${f.blocked ? ` <small>${TR('{0}{1} 막힘', ico('shield', 'xs'), f.blocked)}</small>` : ''}`, 'dmg'); sfx.fire?.(); }
+      else if (f.why === 'potion') { if (fxOn) FX().impact(e.x, e.y, PALETTES.fire, 1.8); floatAt(e.x, e.y - 10, `${f.hit ?? f.dmg}`, 'dmg big'); sfx.boom?.(1); }
       const sr = ui.show.eblk > 0 && f.blocked && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
-      setShow({ ehp: ui.show.ehp - f.dmg, eblk: Math.max(0, ui.show.eblk - f.blocked) });
+      setShow({ ehp: Math.max(0, ui.show.ehp - f.dmg), eblk: Math.max(0, ui.show.eblk - f.blocked) });
       repaintBars();
       shieldBreak(sr);
       await wait(380);
