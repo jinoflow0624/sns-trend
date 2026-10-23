@@ -2044,4 +2044,5 @@ export default {"키보리아":"KYBORIA",
 "입장권이 없어요.":"Você está sem ingressos.",
 "오늘 광고 보상은 다 받았어요.":"Você já recebeu todas as recompensas de anúncio hoje.",
 "곧 열려요":"Em breve",
-"무지개 해금!":"Arco-íris desbloqueado!"};
+"무지개 해금!":"Arco-íris desbloqueado!",
+"승리⟪배너⟫":"VITÓRIA"};

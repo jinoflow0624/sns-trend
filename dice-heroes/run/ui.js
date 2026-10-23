@@ -2427,8 +2427,32 @@ function showEnd() {
   paintEnd(false);
   if (fresh) {
     playBgm(won ? 'run_win' : 'run_lose');
-    if (won && X.prefs.fx !== 'min') { FX().burst(innerWidth / 2, innerHeight * 0.3, { n: 90, pal: PALETTES.rainbow, speed: [100, 420] }); sfx.levelup?.(); }
+    if (won && X.prefs.fx !== 'min') { FX().burst(innerWidth / 2, innerHeight * 0.3, { n: 90, pal: PALETTES.rainbow, speed: [100, 420] }); sfx.levelup?.(); winFireworks(); }
   }
+}
+// 원정 성공: 몇 초 동안 화면 여기저기서 폭죽이 터진다 (결과 화면을 떠나면 멈춘다)
+function winFireworks() {
+  const pals = [PALETTES.gold, PALETTES.rainbow, PALETTES.arcane, PALETTES.fire];
+  for (let i = 0; i < 9; i++) setTimeout(() => {
+    if (!X.app.querySelector('.run-end.won')) return;
+    const x = innerWidth * (0.15 + Math.random() * 0.7), y = innerHeight * (0.12 + Math.random() * 0.3);
+    FX().burst(x, y, { n: 50, pal: pals[i % pals.length], speed: [80, 300], life: [0.5, 1.1], grav: 160 });
+    if (i % 3 === 0) sfx.boom?.(0.5);
+  }, 500 + i * 650);
+}
+// 숫자를 0에서 차르륵 올린다 (처음 그릴 때만)
+function countUp(root) {
+  root.querySelectorAll('[data-count]').forEach((el, k) => {
+    const to = Number(el.dataset.count) || 0, t0 = performance.now() + 250 + k * 120, dur = 900;
+    el.textContent = '0';
+    const step = now => {
+      if (!el.isConnected) return;
+      const p = Math.max(0, Math.min(1, (now - t0) / dur));
+      el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
 function paintEnd(arrived) {
   const won = R.won, out = ui.end;
@@ -2438,23 +2462,30 @@ function paintEnd(arrived) {
     : out.offline ? `<p class="end-stars off">${TR('{0} 오프라인 원정 · 별조각 없음', starIco())}</p>`
     : `<p class="end-stars">${TR('{0} 별조각', starIco())} <b>+${out.stars || 0}</b>${out.gems ? ` ${TR('&nbsp; {0} 보석', ico('gem', 'xs'))} <b>+${out.gems}</b>` : ''}</p>`;
   const st = R.stats;
+  // 별조각 결과가 늦게 와서 다시 그릴 때는 등장 연출을 되풀이하지 않는다 (곧바로 오면 그대로)
+  const again = !!X.app.querySelector('.run-end') && performance.now() - (ui.endAt || 0) > 1200;
+  if (!X.app.querySelector('.run-end')) ui.endAt = performance.now();
+  const confetti = won ? `<div class="end-confetti" aria-hidden="true">${Array.from({ length: 28 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i * 0.29) % 3.2}s;--s:${3.2 + (i % 5) * 0.5}s;--c:${['#FFC83D', '#FF5A6A', '#3EE6B4', '#4FB3FF', '#B98CFF', '#FFFFFF'][i % 6]};--r:${(i * 53) % 360}deg"></i>`).join('')}</div>` : '';
   X.layer.innerHTML = '';
   X.app.innerHTML = `
-  <div class="screen run-end ${won ? 'won' : 'lost'}">
+  <div class="screen run-end ${won ? 'won' : 'lost'}${again ? ' again' : ''}">
+    ${won ? `<div class="end-glow" aria-hidden="true"><i class="end-rays"></i></div>${confetti}` : ''}
     <div class="end-box">
+      ${won ? `<div class="end-ribbon"><span>${TR('승리⟪배너⟫')}</span></div>` : ''}
       <h1>${won ? TR('원정 성공!') : TR('원정 실패')}</h1>
-      <div class="end-hero">${hero(R.cls)}<b>${esc(classInfo(R.cls).ko)}</b><small>${won ? TR('마왕을 쓰러뜨리고 돌아왔다!') : TR('{0}막 {1}층에서 쓰러졌다', R.act, Math.min(Run.ROWS + 1, Run.floorOf(R)))}</small></div>
+      <div class="end-hero">${won ? `<i class="end-crown">${ico('crown')}</i>` : ''}${hero(R.cls)}${won ? '<i class="end-podium"></i>' : ''}<b>${esc(classInfo(R.cls).ko)}</b><small>${won ? TR('마왕을 쓰러뜨리고 돌아왔다!') : TR('{0}막 {1}층에서 쓰러졌다', R.act, Math.min(Run.ROWS + 1, Run.floorOf(R)))}</small></div>
       <div class="end-stats">
-        <span><b>${st.fights}</b>${TR('일반')}</span><span><b>${st.elites}</b>${TR('엘리트')}</span><span><b>${st.bosses}</b>${TR('보스')}</span>
-        <span><b>${st.dmg}</b>${TR('준 피해')}</span><span><b>${st.maxHit}</b>${TR('최고 한 방')}</span><span><b>${st.turns}</b>${TR('턴')}</span>
+        <span><b data-count="${st.fights}">${st.fights}</b>${TR('일반')}</span><span><b data-count="${st.elites}">${st.elites}</b>${TR('엘리트')}</span><span><b data-count="${st.bosses}">${st.bosses}</b>${TR('보스')}</span>
+        <span><b data-count="${st.dmg}">${st.dmg}</b>${TR('준 피해')}</span><span><b data-count="${st.maxHit}">${st.maxHit}</b>${TR('최고 한 방')}</span><span><b data-count="${st.turns}">${st.turns}</b>${TR('턴')}</span>
       </div>
-      <div class="end-relics">${R.relics.map(id => relicIco(Run.relicInfo(id))).join('')}</div>
+      <div class="end-relics">${R.relics.map((id, k) => `<span style="--k:${k}">${relicIco(Run.relicInfo(id))}</span>`).join('')}</div>
       <p class="hint">${TR('{0}덱 {1}장 · 골드 {2} 획득', R.asc ? `${TR('하드모드 {0} ·', R.asc)} ` : '', R.deck.length, st.gold)}</p>
       ${stars}
       ${opened ? `<p class="asc-open">${TR('{0} {1} 하드모드 {2} 열림!', ico('up', 'xs'), esc(classInfo(R.cls).ko), (R.asc || 0) + 1)}</p>` : ''}
       <div class="res-actions"><button class="pbtn" data-act="run-home">${TR('메인으로')}</button><button class="pbtn gold" data-act="run-again">${TR('다시 원정')}</button></div>
     </div>
   </div>`;
+  if (!again && won && X.prefs.fx !== 'min') countUp(X.app.querySelector('.end-stats'));
   if (arrived && out?.stars) setTimeout(() => sfx.stars?.(out.stars), won ? 1100 : 600);
   if (arrived && opened) setTimeout(() => sfx.ascend?.(), 2000);
 }

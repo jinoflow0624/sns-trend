@@ -88,17 +88,89 @@ function ridge(g, w, base, amp, step, color, seed, drift = 0) {
     g.fillRect(x, top, step, 400);
   }
 }
-function castle(g, x, y, c = '#150F33', win = '#FFC83D') {
+// 깃발 (펄럭임): 깃대 꼭대기 (px, py) 에서 오른쪽으로
+function flag(g, px, py, color, t, len = 6, poleH = 7) {
+  g.fillStyle = '#150F33'; g.fillRect(px, py, 1, poleH);
+  g.fillStyle = '#FFE27A'; g.fillRect(px, py - 1, 1, 1);           // 깃대 끝 금빛
+  for (let i = 0; i < len; i++) {
+    const wv = i < 2 ? 0 : Math.sin(t * 5 - i * 0.8) > 0.3 ? 1 : 0;   // 깃대 쪽은 고정, 끝으로 갈수록 살짝 펄럭
+    const h = i >= len - 1 ? 2 : 3;
+    g.fillStyle = color; g.fillRect(px + 1 + i, py + wv, 1, h);
+    if (i === 0) { g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(px + 1, py + wv, 1, 3); }
+  }
+}
+// 이스터 에그 깃발 색: 왼쪽 노랑 (마신 릴리스 어려움) · 가운데 빨강 (원정 하드모드) · 오른쪽 파랑 (원정 첫 클리어)
+const FLAG = { left: '#FFC83D', mid: '#E8435A', right: '#4FB3FF' };
+
+function castle(g, x, y, c = '#150F33', win = '#FFC83D', mk = {}, t = 0) {
   g.fillStyle = c;
   g.fillRect(x, y - 18, 34, 18);
   g.fillRect(x + 4, y - 30, 8, 12); g.fillRect(x + 22, y - 30, 8, 12);
   g.fillRect(x + 13, y - 38, 8, 20);
   for (let i = 0; i < 4; i++) { g.fillRect(x + 4 + i * 2 + (i > 1 ? 0 : 0), y - 32, 1, 2); }
-  g.fillRect(x + 12, y - 41, 10, 3); g.fillRect(x + 16, y - 46, 1, 5);
-  g.fillStyle = '#E8435A'; g.fillRect(x + 17, y - 46, 4, 2);
+  g.fillRect(x + 12, y - 41, 10, 3);
   g.fillStyle = win;
   g.fillRect(x + 7, y - 25, 2, 3); g.fillRect(x + 25, y - 25, 2, 3); g.fillRect(x + 16, y - 32, 2, 3);
   g.fillStyle = '#0A0720'; g.fillRect(x + 14, y - 8, 6, 8);
+  // 깃발 (조건을 이루면 올라간다)
+  if (mk.left) flag(g, x + 7, y - 37, FLAG.left, t);
+  if (mk.mid) flag(g, x + 16, y - 48, FLAG.mid, t + 1);
+  if (mk.right) flag(g, x + 25, y - 37, FLAG.right, t + 2);
+}
+// 뾰족 지붕 (삼각형) — 가운데 cx, 밑변 y, 폭 w, 높이 h
+function cone(g, cx, y, w, h) {
+  for (let i = 0; i < h; i++) {
+    const half = Math.max(0, Math.round((w / 2) * (1 - i / h)));
+    g.fillRect(cx - half, y - i - 1, half * 2 + 1, 1);
+  }
+}
+// 톱니 성벽 꼭대기
+function merlons(g, x, y, w, step = 4) { for (let i = 0; i < w; i += step) g.fillRect(x + i, y - 2, 2, 2); }
+// 하드모드 10 클리어: 두 배 크고 화려한 성 (실루엣) · 폭 70
+function grandCastle(g, x, y, c, win, mk, t) {
+  const lit = (wx, wy, k) => { g.fillStyle = Math.sin(t * 3 + k * 1.7) > -0.85 ? win : '#FF9A1F'; g.fillRect(wx, wy, 2, 3); };
+  g.fillStyle = c;
+  // 바깥 작은 탑
+  g.fillRect(x - 2, y - 34, 10, 34); cone(g, x + 3, y - 34, 10, 9);
+  g.fillRect(x + 62, y - 34, 10, 34); cone(g, x + 67, y - 34, 10, 9);
+  // 성벽
+  g.fillRect(x, y - 22, 70, 22); merlons(g, x, y - 22, 70);
+  // 큰 탑 둘
+  g.fillRect(x + 10, y - 54, 13, 54); cone(g, x + 16, y - 54, 15, 13); merlons(g, x + 10, y - 54, 13, 3);
+  g.fillRect(x + 47, y - 54, 13, 54); cone(g, x + 53, y - 54, 15, 13); merlons(g, x + 47, y - 54, 13, 3);
+  // 본성 · 가운데 첨탑
+  g.fillRect(x + 23, y - 64, 24, 64); merlons(g, x + 23, y - 64, 24);
+  g.fillRect(x + 29, y - 78, 12, 14); cone(g, x + 35, y - 78, 16, 16);
+  g.fillRect(x + 34, y - 102, 1, 8);
+  // 날개 다리 (공중 회랑)
+  g.fillRect(x + 22, y - 44, 26, 3);
+  // 금빛 장식: 지붕 끝 · 첨탑 고리
+  g.fillStyle = '#FFE27A';
+  g.fillRect(x + 3, y - 44, 1, 1); g.fillRect(x + 67, y - 44, 1, 1);
+  g.fillRect(x + 16, y - 68, 1, 1); g.fillRect(x + 53, y - 68, 1, 1);
+  g.fillRect(x + 33, y - 80, 5, 1);
+  // 창문 (줄지어 깜빡임)
+  let k = 0;
+  for (const wy of [y - 46, y - 36, y - 26]) { lit(x + 15, wy, k++); lit(x + 52, wy, k++); }
+  for (const wy of [y - 56, y - 48]) for (const wx of [x + 27, x + 34, x + 41]) lit(wx, wy, k++);
+  lit(x + 34, y - 72, k++);
+  lit(x + 2, y - 26, k++); lit(x + 66, y - 26, k++);
+  for (const wx of [x + 25, x + 43]) lit(wx, y - 16, k++);
+  // 성문 (아치)
+  g.fillStyle = '#0A0720'; g.fillRect(x + 30, y - 12, 10, 12); g.fillRect(x + 31, y - 14, 8, 2); g.fillRect(x + 33, y - 15, 4, 1);
+  g.fillStyle = '#FFC83D'; g.fillRect(x + 34, y - 10, 2, 1);
+  // 깃발
+  if (mk.left) flag(g, x + 16, y - 75, FLAG.left, t, 8, 8);
+  if (mk.mid) flag(g, x + 34, y - 110, FLAG.mid, t + 1, 9, 8);
+  if (mk.right) flag(g, x + 53, y - 75, FLAG.right, t + 2, 8, 8);
+  // 반짝이 (첨탑 둘레)
+  for (let i = 0; i < 6; i++) {
+    const a = t * 0.8 + i * 1.05, kk = (Math.sin(t * 2.3 + i * 2) + 1) / 2;
+    if (kk < 0.5) continue;
+    const sx = Math.round(x + 35 + Math.cos(a) * 34), sy = Math.round(y - 70 + Math.sin(a) * 22);
+    g.fillStyle = kk > 0.85 ? '#FFFFFF' : '#FFE27A';
+    g.fillRect(sx, sy, 1, 1); if (kk > 0.8) { g.fillRect(sx - 1, sy, 3, 1); g.fillRect(sx, sy - 1, 1, 3); }
+  }
 }
 function ground(g, w, h, y) {
   g.fillStyle = '#1C3B2E'; g.fillRect(0, y, w, h - y);
@@ -187,7 +259,8 @@ function vignette(g, w, h) {
   g.fillStyle = grad; g.fillRect(0, 0, w, h);
 }
 
-export function titleScene(canvas) {
+// marks(): { left, mid, right, grand } — 타이틀 성의 이스터 에그 (app.js castleMarks)
+export function titleScene(canvas, marks = () => ({})) {
   return new PixelStage(canvas, (g, w, h, t) => {
     sky(g, w, h, '#070520', '#241761', '#6A3A8C');
     stars(g, w, h, t);
@@ -198,8 +271,15 @@ export function titleScene(canvas) {
     shootingStar(g, w, h, t);
     const gy = Math.floor(h * 0.78);
     ridge(g, w, gy - 18, 34, 6, '#35246E', 11, t * 2);
-    castleGlow(g, Math.floor(w * 0.62) + 17, gy - 30, t);
-    castle(g, Math.floor(w * 0.62), gy - 12, '#150F33', Math.sin(t * 7) > -0.92 ? '#FFC83D' : '#FF9A1F');
+    const mk = marks() || {};
+    if (mk.grand) {
+      const cx = Math.max(3, Math.min(Math.floor(w * 0.5) - 25, w - 76));
+      castleGlow(g, cx + 35, gy - 50, t); castleGlow(g, cx + 35, gy - 28, t + 1);
+      grandCastle(g, cx, gy - 12, '#150F33', '#FFC83D', mk, t);
+    } else {
+      castleGlow(g, Math.floor(w * 0.62) + 17, gy - 30, t);
+      castle(g, Math.floor(w * 0.62), gy - 12, '#150F33', Math.sin(t * 7) > -0.92 ? '#FFC83D' : '#FF9A1F', mk, t);
+    }
     ridge(g, w, gy - 4, 18, 4, '#24184F', 5, t * 5);
     mist(g, w, gy, t);
     ground(g, w, h, gy);

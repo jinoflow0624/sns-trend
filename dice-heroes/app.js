@@ -188,7 +188,7 @@ function showTitle() {
     </div>
   </div>`;
   showLiveBar();
-  setStage(titleScene(app.querySelector('.scene')));
+  setStage(titleScene(app.querySelector('.scene'), castleMarks));
   playBgm('title');   // 터치 전이라도 걸어 둔다 — 허락되면 바로, 아니면 첫 터치 순간 흘러나온다
   if (!unlocked) waitBoot();
 }
@@ -480,6 +480,31 @@ function showDemonUnlock() {
   document.body.appendChild(el);
   setTimeout(() => { FX().flash('#C21E56', 600, 0.6); sfx.boom(3); if (el.isConnected) playBgm('boss_demon'); }, 1400);   // 마왕 테마가 깔린다
   setTimeout(() => sfx.legend(), 2600);
+}
+
+// 타이틀 성 이스터 에그: 왼쪽 노랑 깃발 = 마신 릴리스 어려움 클리어 (어떤 직업이든) · 오른쪽 파랑 = 원정 첫 클리어 ·
+// 가운데 빨강 = 원정 하드모드(아무 단계) 클리어 · 하드모드 10 클리어 = 두 배 크고 화려한 성. 한 번 이룬 것은 이 기기에 남겨 둔다
+let castleMemo = null;
+function castleMarks() {
+// @test-only{
+  const qc = new URLSearchParams(location.search).get('castle');   // 테스트판 미리 보기: ?castle=lmr (깃발) · ?castle=all (큰 성까지)
+  if (qc != null) return { left: /l|all/.test(qc), mid: /m|all/.test(qc), right: /r|all/.test(qc), grand: /g|all/.test(qc) };
+// }@test-only
+  if (castleMemo && Date.now() - castleMemo.t < 2000) return castleMemo.v;
+  const w = Wal.wallet();
+  const run = w?.run || (PROD ? null : store.get('diceheroes.runBest'));
+  const asc = Object.values(run?.best?.asc || {}).filter(n => typeof n === 'number');
+  const top = asc.length ? Math.max(...asc) : -1;
+  const seen = store.get('diceheroes.castle') || {};
+  const v = {
+    left: !!seen.left || (loadProfile().bosses?.['archdemon:2']?.wins || 0) > 0 || !!w?.clears?.['archdemon:2'],
+    right: !!seen.right || top >= 0,
+    mid: !!seen.mid || top >= 1,
+    grand: !!seen.grand || top >= 10,
+  };
+  if (Object.keys(v).some(k => v[k] && !seen[k])) store.set('diceheroes.castle', v);
+  castleMemo = { t: Date.now(), v };
+  return v;
 }
 
 // 강화 보스(세머리 용 · 키클롭스 · 오버로드): 원래 보스를 어려움으로 깨면 열린다
