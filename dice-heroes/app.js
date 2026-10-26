@@ -53,6 +53,13 @@ liveConfig().then(v => {
 const FX_RATE = { normal: 1, fast: 1.8, min: 3 };
 const fxRate = () => FX_RATE[prefs.fx] || 1;
 const rollPips = (max, left) => { const n = Math.max(max, left); return n > 5 ? `<i class="on"></i><b>×${left}</b>` : [...Array(n)].map((_, i) => `<i class="${i < left ? 'on' : ''}"></i>`).join(''); };   // 굴리기 칩의 남은 굴림 (6개부터는 ×숫자)
+// 굴리기 칩: 누르면 들어가지 않고 좌우로 살짝 흔들린다. 누르는 순간 화면이 다시 그려져 칩이 새로 생겨도 이어서 흔들리게 시작 시각을 기억한다
+// (원정 조작줄의 칩도 같다). transform 대신 rotate 를 써서 '다 씀' 칩의 내려앉은 자리와 겹치지 않게
+let chipWobAt = -1e9;
+const CHIP_WOB = [{ rotate: '0deg' }, { rotate: '-9deg', offset: .16 }, { rotate: '7deg', offset: .4 }, { rotate: '-4deg', offset: .62 }, { rotate: '2deg', offset: .82 }, { rotate: '0deg' }];
+const chipWob = el => { if (!el || el.__wob || !el.animate) return; el.__wob = 1; const a = el.animate(CHIP_WOB, { duration: 560, easing: 'ease-out' }); a.currentTime = Math.min(559, performance.now() - chipWobAt); a.onfinish = () => { el.__wob = 0; }; };
+document.addEventListener('pointerdown', e => { const c = e.target.closest?.('.pbtn.roll.chip:not(:disabled)'); if (!c || matchMedia('(prefers-reduced-motion: reduce)').matches) return; chipWobAt = performance.now(); c.__wob = 0; chipWob(c); }, true);
+new MutationObserver(() => { if (performance.now() - chipWobAt < 520) chipWob(document.querySelector('.pbtn.roll.chip')); }).observe(document.body, { childList: true, subtree: true });
 function applyPrefs() {
   document.documentElement.classList.toggle('big-text', !!prefs.bigText);
   document.documentElement.classList.toggle('color-assist', !!prefs.colorAssist);

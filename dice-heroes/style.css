@@ -1921,7 +1921,7 @@ body:has(.tix-pop) .title-top { visibility: hidden; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; color: #3B2300; text-align: center; line-height: 1.1; filter: none; }
 :is(.controls.casino, .rctl) .pbtn.roll.chip span { font-size: 14px; font-weight: 700; max-width: 54px; overflow-wrap: anywhere; }
 :is(.controls.casino, .rctl) .pbtn.roll.chip .left-n { font-size: 9px; opacity: .85; }
-:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled) { transform: translateY(3px) rotate(8deg); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 1px 0 var(--ink); }
+:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled) { transform: none; filter: none; }   /* 누르면 들어가지 않고 좌우로 흔들린다 (app.js chipWob) */
 :is(.controls.casino, .rctl) .pbtn.roll.chip:disabled { filter: grayscale(.85) brightness(.6); }
 :is(.controls.casino, .rctl) .pbtn.roll.chip.next, :is(.controls.casino, .rctl) .pbtn.roll.chip.bet-go { animation: chipGlow 1.4s ease-in-out infinite; animation-delay: var(--ph, 0s); }
 @keyframes chipGlow { 50% { box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 4px 0 var(--ink), 0 0 0 3px #FFF0A8, 0 0 22px rgba(255, 200, 61, .95); filter: brightness(1.1); } }
@@ -1968,9 +1968,9 @@ html:not(:lang(ko)) :is(.controls.casino, .rctl) .pbtn.roll.chip span { font-siz
 @keyframes chipSpin { to { transform: rotate(360deg); } }
 @keyframes chipBreath { 50% { box-shadow: 0 5px 0 #7E0E36, 0 5px 0 2px var(--ink), 0 9px 0 rgba(0, 0, 0, .35), 0 0 14px 2px rgba(255, 210, 74, .55); } }
 @keyframes chipGlow2 { 50% { box-shadow: 0 5px 0 #7E0E36, 0 5px 0 2px var(--ink), 0 9px 0 rgba(0, 0, 0, .35), 0 0 0 4px #FFF0A8, 0 0 24px 6px rgba(255, 200, 61, .9); filter: brightness(1.08); } }
-/* 누르면: 두께만큼 내려앉고 겉면이 휙 돈다 */
-:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled) { transform: translateY(5px); animation: none; box-shadow: 0 0 0 #7E0E36, 0 0 0 2px var(--ink), 0 2px 0 rgba(0, 0, 0, .35); filter: none; }
-:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled)::before { animation: none; transform: rotate(-60deg); transition-duration: .12s; }
+/* 누르면: 살짝 밝아지고 좌우로 흔들린다 (app.js chipWob) */
+:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled) { transform: none; filter: brightness(1.08); }
+
 /* 다 썼거나 상대 차례: 펠트에 눌러 박힌 납작한 칩 (회색 대신 어둡게 · 색은 남긴다) */
 :is(.controls.casino, .rctl) .pbtn.roll.chip:disabled, .game.other-turn :is(.controls.casino, .rctl) .pbtn.roll.chip { transform: translateY(5px); filter: saturate(.45) brightness(.62);
   box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 0 transparent, 0 0 0 5px rgba(0, 0, 0, .22); animation: none; }
@@ -2039,3 +2039,56 @@ html:not(:lang(ko)) .rctl.rctl .pbtn.roll.chip span { font-size: 11px; }
   .rctl.rctl .pbtn.roll.chip span, html:not(:lang(ko)) .rctl .pbtn.roll.chip span { font-size: 10px; max-width: 46px; }
   .rctl.rctl .roll-pips i, .rctl.rctl .roll-pips.many i { width: 5px; height: 5px; }
 }
+
+/* ── 점수표 창 (v0.39.85): 보라 창 대신 의뢰 게시판 · 조작판과 같은 재질 — 나무 판 + 금테, 칸은 양피지 쪽지 ──
+   빈 칸 = 누런 쪽지 · 고를 수 있는 칸 = 밝은 쪽지 + 금 테두리 · 적은 칸 = 바랜 쪽지에 잉크 글씨 */
+.sheet-pop.frame { border: 3px solid var(--ink); border-image: none; padding: 10px 10px 8px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .025) 0 3px, transparent 3px 11px), linear-gradient(#3A2414, #2A1A10 40%, #22140B);
+  box-shadow: inset 0 0 0 2px #8A5A26, inset 0 0 0 4px #3A2210, inset 0 0 0 5px rgba(255, 214, 110, .5); }
+.sheet-pop .sheet-head h3 { color: var(--gold); text-shadow: 2px 2px 0 var(--ink); }
+.sheet-pop .sheet-head span { color: #D8C49A; }
+.sheet-pop .sp-close { background: linear-gradient(#FFF6DC, #EAD39F); color: var(--parch-ink); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); }
+.sheet-pop .sp-close:active { transform: translateY(2px); box-shadow: none; }
+.sheet-pop .row { color: var(--parch-ink); border: 2px solid var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45), 0 2px 0 rgba(0, 0, 0, .45);
+  background: repeating-linear-gradient(0deg, #EAD7A8 0 7px, #E2CC98 7px 8px); }
+.sheet-pop .row .nm b { font-weight: 700; }
+.sheet-pop .row .nm small { color: #7A5530; }
+.sheet-pop .row .v { color: #9A8060; }
+.sheet-pop .row .v small { color: #0F7A5A; font-weight: 700; }
+.sheet-pop .row .nm small.bonus-src { color: #0F7A5A; }
+.sheet-pop .row .nm small.zero-warn { color: #C21E56; }
+/* 적은 칸: 바랜 쪽지에 파란 잉크 점수 */
+.sheet-pop .row.done { background: repeating-linear-gradient(0deg, #CDB685 0 7px, #C6AE7C 7px 8px); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+.sheet-pop .row.done .nm { color: #6E5434; }
+.sheet-pop .row.done .nm small { color: #8A7050; }
+.sheet-pop .row.done .v { color: #1E3EA8; }
+/* 고를 수 있는 칸: 밝은 쪽지 + 금 테두리, 점수는 루비 */
+.sheet-pop .row.pick { background: repeating-linear-gradient(0deg, #FFF6DC 0 7px, #F8ECC8 7px 8px); box-shadow: inset 0 0 0 2px #E9A21C, 0 2px 0 rgba(0, 0, 0, .45); }
+.sheet-pop .row.pick .v { color: #C21E56; }
+.sheet-pop .row.pick.zero { background: repeating-linear-gradient(0deg, #EFE0BA 0 7px, #E8D6AA 7px 8px); box-shadow: inset 0 0 0 1px #C8A060, 0 2px 0 rgba(0, 0, 0, .45); }
+.sheet-pop .row.pick.zero .v { color: #9A8060; }
+.sheet-pop .row.pick:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px #E9A21C; }
+.sheet-pop .row.best { box-shadow: inset 0 0 0 3px #E9A21C, 0 0 0 2px #FFE27A, 0 0 14px rgba(255, 200, 61, .75); }
+.sheet-pop .row.combo { background: repeating-linear-gradient(0deg, #E2F8E8 0 7px, #D4F0DC 7px 8px); box-shadow: inset 0 0 0 3px #139B74, 0 0 12px rgba(62, 230, 180, .6); }
+.sheet-pop .row.combo .v { color: #0F7A5A; }
+.sheet-pop .row.combo.best { box-shadow: inset 0 0 0 3px #E9A21C, 0 0 0 2px #FFE27A, 0 0 14px rgba(255, 200, 61, .75); }
+.sheet-pop .row.armed { background: #FFDCE4 !important; box-shadow: inset 0 0 0 3px var(--ruby) !important; }
+.sheet-pop .row.rocked { opacity: .7; background: repeating-linear-gradient(45deg, #A8977A 0 6px, #988769 6px 12px); }
+.sheet-pop .row.gazed { box-shadow: inset 0 0 0 2px #D8202A, 0 2px 0 rgba(0, 0, 0, .45); }
+.sheet-pop .row.cursed { box-shadow: inset 0 0 0 2px #C21E56, 0 2px 0 rgba(0, 0, 0, .45); }
+/* 상단 보너스 · 합계: 나무 판 위 크림색 글씨 */
+.sheet-pop .bonus { color: #F1DDAE; }
+.sheet-pop .bonus .bar { background: #140B05; border-color: var(--ink); box-shadow: inset 0 0 0 1px #5A3A1E; }
+.sheet-pop .bonus .bar i { background: repeating-linear-gradient(90deg, #FFD24A 0 6px, #E9A21C 6px 8px); }
+.sheet-pop .totals { border-top: 2px dashed #8A6A3A; }
+.sheet-pop .totals div { color: #D8C49A; }
+.sheet-pop .totals b { color: #FFF4DC; text-shadow: 2px 2px 0 var(--ink); }
+.sheet-pop .totals .grand b { color: var(--gold); }
+html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .sheet-pop .row.combo .v::after { color: inherit; }
+/* 쪽지 위 반짝임: 보라 배경으로 깜빡이던 것을 테두리 빛으로 */
+.sheet-pop .row.best { animation: sheetBest 1.4s ease-in-out infinite; }
+.sheet-pop .row.combo { animation: sheetCombo 1s ease-in-out infinite; }
+.sheet-pop .row.combo.best { animation: sheetBest 1.4s ease-in-out infinite; }
+@keyframes sheetBest { 50% { box-shadow: inset 0 0 0 3px #E9A21C, 0 0 0 3px #FFE27A, 0 0 22px rgba(255, 200, 61, .95); } }
+@keyframes sheetCombo { 50% { box-shadow: inset 0 0 0 3px #139B74, 0 0 0 2px #8FF5D2, 0 0 20px rgba(62, 230, 180, .9); } }
+@media (prefers-reduced-motion: reduce) { .sheet-pop .row.best, .sheet-pop .row.combo { animation: none; } }
