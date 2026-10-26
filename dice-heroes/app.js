@@ -565,8 +565,8 @@ function bossPicker(o) {
         ? `<button class="boss-pick sealed-boss final hidden-boss" data-act="boss-locked">
           <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${TR('{0} 봉인됨', ico('lock', 'xs'))}</small></button>`
         : !upgradeOpen(b.id)
-        ? `<button class="boss-pick sealed-boss${b.final ? ' final hidden-boss' : ''}" ${b.final ? '' : `style="--c:${b.color}"`} data-act="boss-locked" data-base="${b.base}">
-          ${b.final ? `<span class="bp-seal">${ico('lock')}</span>` : portrait(b.id, 'bp')}<b>${b.final ? '???' : b.ko.split(' ')[0]}</b><small>${TR('{0} {1} 어려움 토벌', ico('lock', 'xs'), E.bossInfo(b.base).ko.split(' ')[0])}</small></button>`
+        ? `<button class="boss-pick sealed-boss hidden-boss${b.final ? ' final' : ''}" data-act="boss-locked" data-base="${b.base}">
+          <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${TR('{0} {1} 어려움 토벌', ico('lock', 'xs'), E.bossInfo(b.base).ko.split(' ')[0])}</small></button>`
         : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
           ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
         </button>`).join('')}
