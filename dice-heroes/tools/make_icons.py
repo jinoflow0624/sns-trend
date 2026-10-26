@@ -444,7 +444,67 @@ def c16(mask=False):
     return bg, fg
 c16.maskable = True
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16]
+# ── 17: 입체 흑요석 주사위(앞 · 윗면 · 옆면 3면) + 더 가까운 마왕 얼굴(가운데보다 조금 위) ──
+def cube_die(sz, front=6, top=2, right=3, px=3, tilt=0):
+    """세 면이 보이는 흑요석 주사위. 윗면은 빛을 받아 밝고 옆면은 그늘, 모서리에 빛 한 줄. 눈은 면마다 원근에 맞게"""
+    k = 4; n = sz * k; t = int(n * 0.44)                      # 앞면 한 변 · 깊이
+    dx, dy = int(t * 0.78), int(t * 0.86)
+    pad = n // 4; W = n + dx + pad * 2; H = n + dy + pad * 2
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    ox, oy = pad, pad + dy
+    F = [(ox, oy), (ox + n, oy), (ox + n, oy + n), (ox, oy + n)]                       # 앞면
+    T = [(ox, oy), (ox + dx, oy - dy), (ox + n + dx, oy - dy), (ox + n, oy)]           # 윗면
+    Rr = [(ox + n, oy), (ox + n + dx, oy - dy), (ox + n + dx, oy + n - dy), (ox + n, oy + n)]   # 옆면
+    ln = max(6, n // 22)
+    d.polygon([(ox, oy + n), (ox, oy), (ox + dx, oy - dy), (ox + n + dx, oy - dy), (ox + n + dx, oy + n - dy), (ox + n, oy + n)], fill=(12, 3, 10), outline=(12, 3, 10), width=ln * 2)
+    def shade(poly, c0, c1):   # 위→아래 그라데이션 면
+        xs = [p[0] for p in poly]; ys = [p[1] for p in poly]
+        g = Image.new('RGBA', (W, H)); gd = ImageDraw.Draw(g); y0, y1 = min(ys), max(ys)
+        for y in range(y0, y1 + 1):
+            q = (y - y0) / max(1, y1 - y0); gd.line([0, y, W, y], fill=tuple(int(a + (b - a) * q) for a, b in zip(c0, c1)) + (255,))
+        m = Image.new('L', (W, H), 0); ImageDraw.Draw(m).polygon(poly, fill=255); im.paste(g, (0, 0), m)
+    shade(T, (168, 128, 178), (112, 78, 124))   # 윗면: 빛
+    shade(F, (86, 52, 90), (42, 22, 46))        # 앞면
+    shade(Rr, (74, 14, 40), (32, 6, 20))        # 옆면: 그늘 (검붉은)
+    # 모서리 빛: 윗면과 앞면이 만나는 선 · 윗면 왼쪽 선 · 위 오른쪽 모서리 (은빛 한 줄 대신 빛이 걸린 모서리)
+    d.line([F[0], F[1]], fill=(226, 206, 236), width=ln); d.line([T[0], T[1]], fill=(170, 140, 186), width=max(3, ln // 2))
+    d.line([F[1], Rr[1]], fill=(150, 90, 130), width=max(3, ln // 2)); d.line([F[1], F[2]], fill=(120, 40, 70), width=max(3, ln // 2))
+    # 면 위 눈: 단위 사각형 좌표 → 면 평행사변형 (원근)
+    def pips(poly, v, scale=1.0, glowc=(255, 50, 70)):
+        A, B, _, D = poly[0], poly[1], poly[2], poly[3]
+        if poly is T: A, B, D = poly[0], poly[3], poly[1]      # 윗면: 앞 모서리 기준
+        def P(u, w): return (A[0] + (B[0] - A[0]) * u + (D[0] - A[0]) * w, A[1] + (B[1] - A[1]) * u + (D[1] - A[1]) * w)
+        r = 0.095 * scale
+        for gx, gy in PIPS[v]:
+            cu, cw = 0.5 + (gx - 1) * 0.25, 0.5 + (gy - 1) * 0.25
+            rr = r * (1.35 if v == 1 else 1)
+            pts = [P(cu + rr * math.cos(a), cw + rr * math.sin(a)) for a in [i * math.pi / 10 for i in range(20)]]
+            hl = [P(cu - rr * .35 + rr * .3 * math.cos(a), cw - rr * .35 + rr * .3 * math.sin(a)) for a in [i * math.pi / 6 for i in range(12)]]
+            d.polygon(pts, fill=glowc); d.polygon(hl, fill=(255, 196, 196))
+    pips(F, front); pips(T, top, glowc=(255, 92, 104)); pips(Rr, right, glowc=(200, 30, 54))
+    # 눈 둘레 붉은 빛 (앞면만 은은하게)
+    if tilt: im = im.rotate(tilt, resample=Image.BICUBIC, expand=True)
+    w, h = im.size
+    small = im.resize((max(1, w // k // px), max(1, h // k // px)), Image.LANCZOS)
+    small.putalpha(small.split()[3].point(lambda a: 255 if a > 120 else 0))
+    dd = small.resize((small.width * px, small.height * px), Image.NEAREST)
+    p2 = 40; out = Image.new('RGBA', (dd.width + p2 * 2, dd.height + p2 * 2), (0, 0, 0, 0))
+    a = Image.new('L', out.size, 0); a.paste(dd.split()[3], (p2, p2)); a = a.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.GaussianBlur(16))
+    g = Image.new('RGBA', out.size, (255, 40, 60, 255)); g.putalpha(a.point(lambda v: int(v * .95)))
+    out.alpha_composite(g); out.alpha_composite(dd, (p2, p2))
+    return out
+
+def c17(mask=False):
+    """마왕 얼굴 더 가까이 (얼굴 가운데가 아이콘 높이 45% 쯤) + 아래 가운데 입체 흑요석 주사위 둘"""
+    bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    fg.alpha_composite(demon_face((182, 110, 348, 276) if mask else (190, 118, 340, 268)))
+    sz = 92 if mask else 108
+    paste_c(fg, cube_die(sz, 6, 2, 3, tilt=6), 186 if mask else 176, 404 if mask else 430)
+    paste_c(fg, cube_die(sz, 1, 3, 2, tilt=-5), 330 if mask else 344, 410 if mask else 436)
+    return bg, fg
+c17.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
