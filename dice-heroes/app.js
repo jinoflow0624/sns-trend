@@ -1444,7 +1444,7 @@ function render() {
       <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
         ${ico('nudge')}<span>${ui.tool === 'nudge' ? TR('사용 중') : TR('조정')}</span><b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>`}</div>
       ${needBet ? `<button class="pbtn gold roll chip bet-go" data-act="bet-open"><span>${TR('배팅하기')}</span><small class="left-n">${TR('족보 고르기')}</small></button>` : `<button class="pbtn gold roll chip${canRoll && !S.rolled ? ' next' : ''}" data-act="roll" ${canRoll ? '' : 'disabled'}>
-        <span>${S.rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n">${TR('남은 {0}회', S.rollsLeft)}</small>
+        <span>${S.rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n roll-pips" role="img" aria-label="${TR('남은 {0}회', S.rollsLeft)}">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</small>
       </button>`}
       <div class="ctl-side ctl-sheet"><button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="${TR('족보 완성 · 점수표 열기')}">
         ${TR('{0}족보 완성{1}', ico('sheet'), combos.length ? `<b>${combos.length}</b>` : '')}</button></div>
