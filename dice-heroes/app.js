@@ -554,8 +554,9 @@ function clampDiff(o) {
   if (!diffOpen(o.boss, o.diff)) o.diff = topOpenDiff(o.boss);
 }
 
-// 마왕 · 마신: 해금하기 전에는 자리(잠금 칸)도 보이지 않는다 (스포일러 방지)
-const finalShown = b => !b.final || (demonOpen() && (!b.base || upgradeOpen(b.id)));
+// 마왕 · 마신 · 강화 보스(세머리 · 키클롭스 · 오버로드): 해금하기 전에는 자리(잠금 칸)도 보이지 않는다 — 완전히 숨긴 보스 (스포일러 방지).
+// 원래 보스를 어려움으로 토벌하면 해금 연출과 함께 처음 나타난다
+const finalShown = b => (!b.final || demonOpen()) && (!b.base || upgradeOpen(b.id));
 function bossPicker(o) {
   clampDiff(o);
   return `
