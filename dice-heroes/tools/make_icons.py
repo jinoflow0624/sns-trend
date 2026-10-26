@@ -603,7 +603,8 @@ c19.maskable = True
 def c20(mask=False, box=None):
     """19 에서 KYBORIA 글자도 뺀다: 마왕 얼굴 클로즈업만"""
     bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    fg.alpha_composite(demon_face_hi(box or ((201, 128, 329, 256) if mask else (207, 133, 322, 248))))
+    # 가슴 중간까지만 (B mid) — 둥근 잘림용도 아래 끝을 같은 높이(239)에 맞춘다
+    fg.alpha_composite(demon_face_hi(box or ((203, 115, 327, 239) if mask else (209, 127, 321, 239))))
     return bg, fg
 c20.maskable = True
 
