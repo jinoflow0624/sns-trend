@@ -600,7 +600,14 @@ def c19(mask=False):
     return bg, fg
 c19.maskable = True
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19]
+def c20(mask=False, box=None):
+    """19 에서 KYBORIA 글자도 뺀다: 마왕 얼굴 클로즈업만"""
+    bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    fg.alpha_composite(demon_face_hi(box or ((201, 128, 329, 256) if mask else (207, 133, 322, 248))))
+    return bg, fg
+c20.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
