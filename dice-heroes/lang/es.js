@@ -2045,4 +2045,8 @@ export default {"키보리아":"KYBORIA",
 "오늘 광고 보상은 다 받았어요.":"Ya recibiste todas las recompensas de anuncios hoy.",
 "곧 열려요":"Próximamente",
 "무지개 해금!":"¡Arcoíris desbloqueado!",
-"승리⟪배너⟫":"VICTORIA"};
+"승리⟪배너⟫":"VICTORIA",
+"{0} 행운의 부적 · 다시 굴리기":"{0} Amuleto de la suerte · Volver a tirar",
+"가장 낮은 주사위 {0}":"Dado más bajo {0}",
+"매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)":"Cada turno, tras la primera tirada, puedes volver a tirar gratis el dado más bajo una vez (tú decides · tiradas sin cambios)",
+"지금은 행운의 부적을 쓸 수 없어요.":"Ahora no puedes usar el Amuleto de la suerte."};

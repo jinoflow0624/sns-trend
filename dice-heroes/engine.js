@@ -127,7 +127,7 @@ export const PERKS = [
   { id: 'straight', ko: tL('질주'),            icon: '🏃', rarity: 2, max: 2, desc: tL('두 스트레이트 ×1.3 (기록한 칸에도 소급)') },
   { id: 'fourk',    ko: tL('사냥 본능'),       icon: '🐺', rarity: 2, max: 2, desc: tL('포카인드 ×1.5 (기록한 칸에도 소급)') },
   { id: 'reroll',   ko: tL('재굴림 +1'),       icon: '♻️', rarity: 2, max: 2, desc: tL('매 턴 굴림 기회 +1') },
-  { id: 'lucky',    ko: tL('행운의 부적'),     icon: '🧿', rarity: 2, max: 1, desc: tL('매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴린다 (굴림 기회는 그대로)') },
+  { id: 'lucky',    ko: tL('행운의 부적'),     icon: '🧿', rarity: 2, max: 1, desc: tL('매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)') },
   { id: 'chain',    ko: tL('연쇄 의뢰'),       icon: '⛓️', rarity: 2, max: 1, desc: tL('한 턴에 퀘스트를 2개까지 깬다') },
   { id: 'scholar',  ko: tL('현자의 눈'),       icon: '👁️', rarity: 2, max: 1, desc: tL('이후 레벨업 때 카드 4장 중에 고른다') },
   { id: 'sixth',    ko: tL('여섯 번째 주사위'), icon: '🌟', rarity: 3, max: 1, desc: tL('주사위 6개를 굴려 가장 좋은 5개로 계산. 대신 굴림 기회 -1') },
@@ -634,6 +634,7 @@ function startTurn(s) {
   s.held = new Array(diceCount(p)).fill(false);
   s.rollsLeft = maxRolls(s, p);
   s.rollNo = 0;
+  s.luckyOpen = false;
   s.toolUsed = false;
   s.sealed = [];
   s.sealPerm = false;
@@ -697,6 +698,7 @@ export function roll(s) {
   if (ab(p) === 'gambler' && !p.bet && !s.rolled) fail(TR('먼저 이번 라운드에 배팅할 족보를 고르세요.'));
   // 튜토리얼처럼 결과를 미리 정해 둔 굴림 (s.script = [[눈...], ...])
   const forced = s.script?.length ? s.script.shift() : null;
+  s.luckyOpen = false;                     // 행운의 부적: 다시 굴리면 기회가 사라진다
   s.dice = s.dice.map((v, i) => {
     if (s.rolled && (s.held[i] || isSealed(s, i) || isFrozen(s, i))) return v;
     if (forced) return forced[i];
@@ -710,17 +712,32 @@ export function roll(s) {
     fx(s, { type: 'boss', skill: 'unseal', dice: s.sealed.slice() });
     s.sealed = [];
   }
-  // 행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로 다시 굴린다 (봉인 · 언 주사위 제외, 이미 6이면 안 굴림)
-  if (!forced && s.rollNo === 1 && perkCount(p, 'lucky')) {
-    const i = s.dice.map((v, k) => k).filter(k => !isSealed(s, k) && !isFrozen(s, k)).sort((a, b) => s.dice[a] - s.dice[b])[0];
-    if (i != null && s.dice[i] < 6) {
-      const from = s.dice.slice();
-      s.dice[i] = die(s);
-      log(s, TR('{0} · 행운의 부적! 주사위 {1} → {2}', p.name, from[i], s.dice[i]));
-      fx(s, { type: 'lucky', player: s.turn, dice: [i], from, to: s.dice[i] });
-    }
-  }
+  // 행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (봉인 · 언 주사위 제외, 이미 6이면 없음).
+  // 사람은 쓸지 말지 고른다 (트레이의 「행운의 부적 · 다시 굴리기」 — 다시 굴리거나 기록하면 사라진다). 봇은 예전처럼 바로 쓴다
+  const lucky = !forced && s.rollNo === 1 && perkCount(p, 'lucky');
+  if (lucky && p.bot) luckyReroll(s, p);   // 봇: 예전처럼 보스 능력보다 먼저 바로
   if (!forced) bossAfterRoll(s);
+  if (lucky && !p.bot && luckyDie(s) != null) s.luckyOpen = true;
+}
+// 행운의 부적으로 다시 굴릴 주사위 (가장 낮은 것, 봉인 · 언 주사위 제외). 없거나 이미 6이면 null
+export function luckyDie(s) {
+  const i = s.dice.map((v, k) => k).filter(k => !isSealed(s, k) && !isFrozen(s, k)).sort((a, b) => s.dice[a] - s.dice[b])[0];
+  return i != null && s.dice[i] < 6 ? i : null;
+}
+export const luckyOpen = s => !!s.luckyOpen && s.phase === 'roll' && s.rolled && luckyDie(s) != null;
+function luckyReroll(s, p) {
+  const i = luckyDie(s);
+  s.luckyOpen = false;
+  if (i == null) return;
+  const from = s.dice.slice();
+  s.dice[i] = die(s);
+  log(s, TR('{0} · 행운의 부적! 주사위 {1} → {2}', p.name, from[i], s.dice[i]));
+  fx(s, { type: 'lucky', player: s.turn, dice: [i], from, to: s.dice[i] });
+}
+// 사람이 행운의 부적을 쓴다
+export function useLucky(s) {
+  if (!luckyOpen(s)) fail(TR('지금은 행운의 부적을 쓸 수 없어요.'));
+  luckyReroll(s, current(s));
 }
 
 export function toggleHold(s, i) {
@@ -1409,6 +1426,7 @@ export function applyBot(s, act) {
     case 'flip': return useFlip(s, act.i);
     case 'nudge': return useNudge(s, act.i, act.d);
     case 'dance': return useDance(s);
+    case 'lucky': return useLucky(s);
     case 'deal': return useDeal(s, act.i, act.v);
     case 'bet': return placeBet(s, act.cat);
     case 'score': return commitScore(s, act.cat);

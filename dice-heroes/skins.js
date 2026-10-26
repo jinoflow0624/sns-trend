@@ -415,7 +415,7 @@ const IMAGE_TRAY = {
   starry: { rail: 0x161C52, trim: 0xE6C35C, glow: 0.8, railGlow: true, oval: 1.7, tube: { tex: 'rail_side', rad: 0.3, rough: 0.35, metal: 0.2, rep: 12, glow: 0.9 } },   // 둥근 성운 고리
   // v0.39.10 새 트레이 7종 (디자인 세션 그림, 장식 없는 재질 하나 · 곧은 난간)
   pixel8: { rail: 0x32233B, trim: 0x967348, glow: 0, pixel: true, rails: { gemColor: 0x967348, rough: 0.8, metal: 0 } },   // 8비트 색 도트 테두리 (그림을 또렷하게)
-  deck: { rail: 0x443024, trim: 0x8E7958, glow: 0, flags: true, rails: { gemColor: 0x8E7958, rough: 0.8, metal: 0.05 } },   // 네 꼭짓점에 펄럭이는 해적 깃발
+  deck: { rail: 0x443024, trim: 0x8E7958, glow: 0, flags: true, ropes: true, rails: { gemColor: 0x8E7958, rough: 0.8, metal: 0.05 } },   // 네 꼭짓점에 펄럭이는 해적 깃발
   // 포커 테이블: 모서리가 둥근 경기장 모양 (oval = 모서리 반지름). 바닥에 파란 펠트 · 마호가니 띠, 둘레는 검은 가죽 쿠션 (cushion.webp) — dice3d.js buildOvalFrame
   casino: { rail: 0x141418, trim: 0x6A2A1A, glow: 0, oval: 1.8 },
   alchemy: { rail: 0x5A4B31, trim: 0x9A8758, trimEnv: true, glow: 0, rails: { gemColor: 0x9A8758, rough: 0.6, metal: 0.25 } },
@@ -431,7 +431,7 @@ export const TRAY_DECOR = {
   sakura: [["blossom_cluster",1.01,136,136,0],["blossom_cluster",1.01,1384,136,0],["single_blossom",1.01,550,132,0],["single_blossom",1.01,970,132,0]],
   pixel8: [["pixel_star",0.94,136,136,0],["pixel_heart",1.11,1384,136,0],["step_block",1.16,450,132,0],["step_block",1.16,1070,132,0]],
   royal: [["crown_point",0.84,300,132,0],["crown_point",0.84,500,132,0],["crown_point",0.84,700,132,0],["crown_point",0.84,900,132,0],["crown_point",0.84,1100,132,0],["crown_point",0.84,1300,132,0],["ruby_setting",0.93,136,136,0],["ruby_setting",0.93,1384,136,0]],
-  deck: [["flag_cloth",1.41,136,136,0],["flag_cloth",1.41,1384,136,0],["flagpole",0.18,136,136,0],["flagpole",0.18,1384,136,0],["rope_knot",1.86,470,132,0],["rope_knot",1.86,1050,132,0]],
+  deck: [["flag_cloth",1.41,136,136,0],["flag_cloth",1.41,1384,136,0],["flagpole",0.18,136,136,0],["flagpole",0.18,1384,136,0]],   // 밧줄 매듭 그림 대신 링 로프 (dice3d.js ringRopes)
   demon: [["demon_horn",0.73,136,136,0],["demon_horn",0.73,1384,136,0],["skull_corner",0.78,400,132,0],["skull_corner",0.78,1120,132,0],["violet_crystal",0.39,760,132,0]],
   lava: [["basalt_cluster",1.25,136,136,0],["basalt_cluster",1.25,1384,136,0],["lava_fissure",0.53,460,132,0],["lava_fissure",0.53,1060,132,0]],
   starry: [["crescent",1.26,1384,136,0],["small_planet",1.32,136,136,0],["star_cluster",0.89,530,132,0],["star_cluster",0.89,990,132,0]],
