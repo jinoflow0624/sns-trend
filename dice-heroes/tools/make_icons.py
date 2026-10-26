@@ -382,7 +382,69 @@ def c14(mask=False):
     return bg, fg
 c14.maskable = True
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14]
+# ── 15~16: 마왕 얼굴 클로즈업(아이콘을 거의 다 채운다) + 마왕과 어울리는 흑요석 주사위 ──
+def demon_face(box):
+    im = Image.open(os.path.join(ROOT, 'assets', 'boss', 'demon.webp')).convert('RGBA').crop(box)
+    bg = Image.new('RGBA', im.size, (0, 0, 0, 0)); bg.alpha_composite(im)
+    big = bg.resize((S, S), Image.LANCZOS)
+    return big.filter(ImageFilter.UnsharpMask(radius=2, percent=60, threshold=2))
+
+def obsidian_die(sz, v, rot, px=3):
+    """흑요석 주사위: 검붉은 몸(위가 조금 밝은 그라데이션) · 은빛 테두리 · 붉게 빛나는 눈 · 둘레 붉은 빛 — 마왕의 뿔 · 왕관 색"""
+    k = 4; n = sz * k; pad = n // 3
+    W = n + pad * 2; im = Image.new('RGBA', (W, W), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    o = pad; r = int(n * 0.2); dep = int(n * 0.11); ln = max(5, int(n * 0.05))
+    d.rounded_rectangle([o - ln, o - ln, o + n + dep + ln, o + n + dep + ln], radius=r + ln, fill=(14, 4, 12))          # 외곽선
+    d.rounded_rectangle([o + dep, o + dep, o + n + dep, o + n + dep], radius=r, fill=(104, 14, 38))                     # 두께 (검붉은)
+    grad = Image.new('RGBA', (n, n)); gd = ImageDraw.Draw(grad)
+    for y in range(n):
+        t = y / n; gd.line([0, y, n, y], fill=(int(70 - 34 * t), int(42 - 24 * t), int(74 - 38 * t), 255))
+    m = Image.new('L', (n, n), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, n - 1, n - 1], radius=r, fill=255)
+    im.paste(grad, (o, o), m)                                                                                           # 앞면
+    d.rounded_rectangle([o + ln, o + ln, o + n - ln, o + n - ln], radius=r - ln, outline=(206, 200, 226), width=ln)    # 은빛 테두리
+    d.rounded_rectangle([o + ln * 3, o + ln * 2.6, o + n * 0.62, o + ln * 4.2], radius=ln, fill=(170, 150, 190))       # 위쪽 윤기 한 줄
+    glow_l = Image.new('L', (W, W), 0); gl = ImageDraw.Draw(glow_l)
+    pr = n * 0.09; mm = n * 0.25
+    pts = [(o + n / 2 + (gx - 1) * mm, o + n / 2 + (gy - 1) * mm) for gx, gy in PIPS[v]]
+    for cx, cy in pts: gl.ellipse([cx - pr * 2, cy - pr * 2, cx + pr * 2, cy + pr * 2], fill=200)
+    glow_l = glow_l.filter(ImageFilter.GaussianBlur(pr))
+    red = Image.new('RGBA', (W, W), (255, 50, 70, 255)); red.putalpha(Image.composite(glow_l, Image.new('L', (W, W), 0), m.resize((W, W)) if False else glow_l))
+    im.alpha_composite(red)
+    for cx, cy in pts:
+        rr = pr * (1.4 if v == 1 else 1)
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=(255, 62, 76))
+        d.ellipse([cx - rr * .45, cy - rr * .55, cx + rr * .15, cy + rr * .05], fill=(255, 200, 200))
+    im = im.rotate(rot, resample=Image.BICUBIC, expand=True)
+    w, h = im.size
+    small = im.resize((max(1, w // k // px), max(1, h // k // px)), Image.LANCZOS)
+    small.putalpha(small.split()[3].point(lambda a: 255 if a > 120 else (a if a > 30 else 0)))
+    dd = small.resize((small.width * px, small.height * px), Image.NEAREST)
+    # 둘레 붉은 빛
+    p2 = 40; out = Image.new('RGBA', (dd.width + p2 * 2, dd.height + p2 * 2), (0, 0, 0, 0))
+    a = Image.new('L', out.size, 0); a.paste(dd.split()[3].point(lambda v: 255 if v > 200 else 0), (p2, p2)); a = a.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.GaussianBlur(14))
+    g = Image.new('RGBA', out.size, (255, 40, 60, 255)); g.putalpha(a.point(lambda v: int(v * .8)))
+    out.alpha_composite(g); out.alpha_composite(dd, (p2, p2))
+    return out
+
+def c15(mask=False):
+    """마왕 얼굴 클로즈업 + 아래 두 구석에 흑요석 주사위"""
+    bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    fg.alpha_composite(demon_face((168, 58, 362, 252) if mask else (182, 72, 348, 238)))
+    sz = 78 if mask else 92
+    paste_c(fg, obsidian_die(sz, 6, 14), 120 if mask else 90, 408 if mask else 432)
+    paste_c(fg, obsidian_die(sz, 1, -12), 392 if mask else 422, 412 if mask else 436)
+    return bg, fg
+c15.maskable = True
+
+def c16(mask=False):
+    """마왕 얼굴 클로즈업 + 오른쪽 아래 불빛 두른 흑요석 주사위 하나"""
+    bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    fg.alpha_composite(demon_face((164, 58, 358, 252) if mask else (176, 72, 342, 238)))
+    paste_c(fg, obsidian_die(100 if mask else 120, 6, -12), 380 if mask else 412, 400 if mask else 422)
+    return bg, fg
+c16.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
