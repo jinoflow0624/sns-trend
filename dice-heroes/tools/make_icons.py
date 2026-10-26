@@ -312,7 +312,77 @@ def c11(mask=False):
     return bg, fg
 c11.maskable = True
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11]
+# ── 12~14: 마왕(릴리스) 얼굴 · 상반신 + 주사위, 글자 없음 ──
+def demon_bust(w, box=(118, 24, 410, 292)):
+    """마왕 그림에서 얼굴 · 상반신만 잘라 가로 w 로 (도트는 부드럽게 키운다)"""
+    im = Image.open(os.path.join(ROOT, 'assets', 'boss', 'demon.webp')).convert('RGBA').crop(box)
+    return im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
+
+def hell_bg(top=(40, 6, 30), mid=(150, 18, 52), hi=(255, 90, 70)):
+    """붉은 지옥 하늘: 위는 검붉게, 가운데 뒤로 붉은 빛 · 아래에서 올라오는 불빛"""
+    bg = grid(); d = ImageDraw.Draw(bg)
+    for y in range(G):
+        t = y / G; c = tuple(int(a + (b - a) * min(1, t * 1.3)) for a, b in zip(top, mid)); d.line([0, y, G, y], fill=c)
+    bg = up(bg)
+    bg = glow(bg, 256, 210, 230, hi, 120)
+    bg = glow(bg, 256, 520, 200, (255, 150, 40), 140)
+    return bg
+
+def glow_die(sz, v, rot, ring=(255, 80, 60)):
+    """붉게 빛나는 주사위 (둘레에 불빛)"""
+    dd = die_hd(sz, v, rot, pip=(150, 14, 40))
+    pad = 40; out = Image.new('RGBA', (dd.width + pad * 2, dd.height + pad * 2), (0, 0, 0, 0))
+    a = Image.new('L', out.size, 0); a.paste(dd.split()[3], (pad, pad)); a = a.filter(ImageFilter.MaxFilter(15)).filter(ImageFilter.GaussianBlur(14))
+    g = Image.new('RGBA', out.size, ring + (255,)); g.putalpha(a.point(lambda v: int(v * .85)))
+    out.alpha_composite(g); out.alpha_composite(dd, (pad, pad))
+    return out
+
+def paste_c(fg, im, cx, cy): fg.alpha_composite(im, (int(cx - im.width / 2), int(cy - im.height / 2)))
+
+def embers(fg, n=26, seed=3):
+    r = random.Random(seed); d = ImageDraw.Draw(fg)
+    for _ in range(n):
+        x, y, s = r.randrange(20, S - 20), r.randrange(40, S - 30), r.choice([4, 4, 6, 8])
+        c = r.choice([(255, 200, 80), (255, 120, 60), (255, 236, 170)])
+        d.rectangle([x, y, x + s - 1, y + s - 1], fill=c + (220,))
+
+def c12(mask=False):
+    """마왕 상반신 정면 + 앞에 붉게 빛나는 주사위 둘"""
+    bg = hell_bg(); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    b = demon_bust(470 if mask else 580); paste_c(fg, outline(b, 5), 256, (238 if mask else 250))
+    embers(fg)
+    sz = 104 if mask else 126
+    paste_c(fg, glow_die(sz, 6, 12), 178 if mask else 160, 392 if mask else 420)
+    paste_c(fg, glow_die(sz, 1, -14), 336 if mask else 356, 396 if mask else 426)
+    return bg, fg
+c12.maskable = True
+
+def c13(mask=False):
+    """마왕이 손 위에 불타는 주사위를 띄운다 (불꽃 자리에 주사위)"""
+    bg = hell_bg(mid=(110, 12, 60), hi=(220, 60, 120)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    w = 480 if mask else 590; b = demon_bust(w); bx, by = (240, 262) if mask else (232, 282)
+    paste_c(fg, outline(b, 5), bx, by)
+    # 오른손(그림 기준) 불꽃 자리 = 원본 (382, 190) → 잘린 그림 안 좌표로
+    hx, hy = (330, 392) if mask else (346, 410)   # 가슴 앞에서 두 손 위로 떠오른 주사위
+    fg = glow(fg, int(hx), int(hy), 90, (255, 120, 40), 200)
+    paste_c(fg, glow_die(120 if mask else 146, 6, -10, ring=(255, 140, 40)), hx, hy - 10)
+    embers(fg, 20, 7)
+    return bg, fg
+c13.maskable = True
+
+def c14(mask=False):
+    """마왕 상반신 + 아래 활처럼 늘어선 6 다섯 개 (요트)"""
+    bg = hell_bg(top=(26, 6, 40), mid=(96, 20, 120), hi=(255, 70, 110)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    b = demon_bust(460 if mask else 560); paste_c(fg, outline(b, 5), 256, 226 if mask else 232)
+    embers(fg, 18, 11)
+    sz = 66 if mask else 80; span = 330 if mask else 404; base = 404 if mask else 432
+    for i in (0, 4, 1, 3, 2):
+        t = i / 4; x = 256 - span / 2 + span * t; y = base - (1 - (2 * t - 1) ** 2) * (26 if mask else 34)
+        paste_c(fg, glow_die(sz, 6, (i - 2) * 7), x, y)
+    return bg, fg
+c14.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
