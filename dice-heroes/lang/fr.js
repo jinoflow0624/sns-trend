@@ -2045,4 +2045,8 @@ export default {"키보리아":"KYBORIA",
 "오늘 광고 보상은 다 받았어요.":"Tu as récupéré toutes les récompenses de pub aujourd'hui.",
 "곧 열려요":"Bientôt",
 "무지개 해금!":"Arc-en-ciel débloqué !",
-"승리⟪배너⟫":"VICTOIRE"};
+"승리⟪배너⟫":"VICTOIRE",
+"{0} 행운의 부적 · 다시 굴리기":"{0} Porte-bonheur · Relancer",
+"가장 낮은 주사위 {0}":"Dé le plus bas {0}",
+"매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)":"À chaque tour, après le premier lancer, tu peux relancer gratuitement le dé le plus bas une fois (au choix · lancers inchangés)",
+"지금은 행운의 부적을 쓸 수 없어요.":"Tu ne peux pas utiliser le Porte-bonheur maintenant."};

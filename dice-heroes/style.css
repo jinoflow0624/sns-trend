@@ -1901,3 +1901,88 @@ html:lang(id) .skin-preview.flat::after { content: 'Pratinjau 3D tidak tersedia 
 .tix-get { color: #FFE27A; font-weight: 700; white-space: nowrap; }
 .tix-ready { color: #3EE6B4; margin: 4px 0; }
 body:has(.tix-pop) .title-top { visibility: hidden; }
+
+/* ── 카지노풍 조작판 (v0.39.78): 가운데 둥근 칩 「굴리기」 · 왼쪽 뒤집기 · 조정 · 오른쪽 카드 모양 「족보」 ──
+   초록 펠트 판 + 나무 · 금테. 굴리기 칩은 빨강 · 상아 줄무늬 테두리에 금빛 가운데 */
+.game .controls.casino { display: grid; grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 8px;
+  background: radial-gradient(ellipse at 50% 40%, #1F7A4E 0%, #145236 60%, #0C3524 100%);
+  border: 3px solid #1A0E06; border-radius: 14px; box-shadow: inset 0 0 0 2px #8A5A26, inset 0 0 0 4px #3A2210, inset 0 0 0 5px rgba(255, 214, 110, .55), 0 3px 0 var(--ink); position: relative; }
+.game .controls.casino::before { content: ''; position: absolute; inset: 6px; border-radius: 10px; pointer-events: none;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 5px); }
+.ctl-side { display: grid; gap: 5px; min-width: 0; position: relative; z-index: 1; }
+.controls.casino .ctl-tools .tool { flex-direction: row; justify-content: flex-start; gap: 4px; min-height: 38px; padding: 2px 6px; font-size: 12px; position: relative; }
+.controls.casino .ctl-tools .tool .ico { width: 20px; height: 20px; margin: 0; }
+.controls.casino .ctl-tools .tool span { flex: 1; min-width: 0; text-align: left; line-height: 1.1; overflow-wrap: anywhere; }
+.controls.casino .ctl-tools .tool b { position: absolute; top: -7px; right: -6px; border-width: 1px; font-size: 9px; padding: 0 3px; min-width: 0; }
+/* 굴리기 칩 */
+.controls.casino .pbtn.roll.chip { position: relative; z-index: 1; width: 88px; height: 88px; min-height: 0; padding: 0 6px; border-radius: 50%; border: 3px solid var(--ink); border-image: none;
+  background: radial-gradient(circle, #FFE27A 0 50%, #FFF0A8 51% 53%, #C8860E 54% 57%, transparent 58%), repeating-conic-gradient(from 7deg, #C21E56 0 22.5deg, #FFF6E0 22.5deg 45deg);
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), inset 0 -4px 0 rgba(0, 0, 0, .18), 0 4px 0 var(--ink), 0 6px 10px rgba(0, 0, 0, .45);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; color: #3B2300; text-align: center; line-height: 1.1; filter: none; }
+.controls.casino .pbtn.roll.chip span { font-size: 14px; font-weight: 700; max-width: 54px; overflow-wrap: anywhere; }
+.controls.casino .pbtn.roll.chip .left-n { font-size: 9px; opacity: .85; }
+.controls.casino .pbtn.roll.chip:active:not(:disabled) { transform: translateY(3px) rotate(8deg); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 1px 0 var(--ink); }
+.controls.casino .pbtn.roll.chip:disabled { filter: grayscale(.85) brightness(.6); }
+.controls.casino .pbtn.roll.chip.next, .controls.casino .pbtn.roll.chip.bet-go { animation: chipGlow 1.4s ease-in-out infinite; animation-delay: var(--ph, 0s); }
+@keyframes chipGlow { 50% { box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 4px 0 var(--ink), 0 0 0 3px #FFF0A8, 0 0 22px rgba(255, 200, 61, .95); filter: brightness(1.1); } }
+.game.other-turn .controls.casino .pbtn.roll.chip { filter: grayscale(.6) brightness(.6); }
+/* 족보 카드 */
+.controls.casino .sheet-btn { min-height: 82px; border-image: none; border: 2px solid var(--ink); border-radius: 8px; color: #2A1240; text-shadow: none;
+  background: linear-gradient(#FFFBEF, #F2E3C0); box-shadow: inset 0 0 0 3px #FFFBEF, inset 0 0 0 4px #C21E56, 0 3px 0 var(--ink); font-size: 12px; font-weight: 700; }
+.controls.casino .sheet-btn::before, .controls.casino .sheet-btn::after { position: absolute; font-size: 11px; color: #C21E56; line-height: 1; }
+.controls.casino .sheet-btn::before { content: '♦'; top: 6px; left: 7px; }
+.controls.casino .sheet-btn::after { content: '♦'; bottom: 6px; right: 7px; transform: rotate(180deg); }
+.controls.casino .sheet-btn.ready { color: #052E22; animation: cardReady .9s ease-in-out infinite; animation-delay: var(--ph, 0s); }
+@keyframes cardReady { 50% { box-shadow: inset 0 0 0 3px #FFFBEF, inset 0 0 0 4px #139B74, 0 3px 0 var(--ink), 0 0 0 3px var(--mint), 0 0 16px rgba(62, 230, 180, .85); } }
+.controls.casino .sheet-btn b { top: -8px; right: -8px; }
+/* 행운의 부적 (트레이 왼쪽 아래 — 오른쪽은 춤사위 · 밑장빼기) */
+.lucky-btn { right: auto; left: 8px; background: #14532F !important; border-color: #6BEA9A !important; }
+@media (prefers-reduced-motion: reduce) { .controls.casino .pbtn.roll.chip, .controls.casino .sheet-btn.ready { animation: none; } }
+.controls.casino .ctl-tools .tool span { font-size: 11px; letter-spacing: -0.2px; overflow-wrap: normal; word-break: keep-all; hyphens: auto; white-space: normal; }
+.controls.casino .pbtn.roll.chip span { white-space: normal; overflow-wrap: normal; word-break: keep-all; hyphens: auto; max-width: 66px; }
+html:not(:lang(ko)) .controls.casino .pbtn.roll.chip span { font-size: 11px; }
+html:not(:lang(ko)) .controls.casino .sheet-btn { font-size: 11px; }
+
+/* 보스전 결과 (v0.39.78): 승리 = 빛줄기 · 색종이 · 리본 · 파티가 단상 위에서 통통 / 패배 = 붉은 빛 속 보스 · 잿빛 파티 */
+.coop-end { overflow: hidden; }
+.coop-end.won { background: radial-gradient(ellipse at 50% 28%, #4A2A8C 0%, #241761 40%, #0E0A2C 78%); }
+.coop-end.lost { background: radial-gradient(ellipse at 50% 30%, #5A0A1C 0%, #1E0816 50%, #080410 85%); }
+.coop-end .results { position: relative; z-index: 1; }
+.cr-glow { position: absolute; left: 50%; top: 26%; width: 0; height: 0; pointer-events: none; }
+.cr-glow i { position: absolute; left: -380px; top: -380px; width: 760px; height: 760px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 214, 110, .2) 0 9deg, transparent 9deg 22deg);
+  -webkit-mask: radial-gradient(circle, #000 12%, transparent 62%); mask: radial-gradient(circle, #000 12%, transparent 62%); animation: crSpin 24s linear infinite; }
+@keyframes crSpin { to { transform: rotate(360deg); } }
+.cr-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.cr-confetti i { position: absolute; left: var(--x); top: -12px; width: 6px; height: 10px; background: var(--c); opacity: .9; animation: crConfetti var(--s) linear var(--d) infinite; }
+.cr-confetti i:nth-child(3n) { width: 8px; height: 4px; }
+@keyframes crConfetti { 0% { transform: translate(0, 0) rotate(var(--r)); } 50% { transform: translate(18px, 52vh) rotate(calc(var(--r) + 360deg)); } 100% { transform: translate(-10px, 105vh) rotate(calc(var(--r) + 720deg)); } }
+.cr-doom { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 26%, rgba(255, 40, 70, .25), transparent 45%); animation: crDoom 2.4s ease-in-out infinite; }
+@keyframes crDoom { 50% { opacity: .45; } }
+.cr-ribbon { justify-self: center; position: relative; padding: 4px 26px; background: #C21E56; color: #FFE9A8; font-size: 14px; letter-spacing: 4px; font-weight: 700;
+  box-shadow: inset 0 -3px 0 #7A0E3A, inset 0 2px 0 #FF6F96, 3px 3px 0 var(--ink); animation: crRibbon .6s cubic-bezier(.2, 1.6, .4, 1) both; }
+.cr-ribbon::before, .cr-ribbon::after { content: ''; position: absolute; top: 6px; width: 14px; height: 100%; background: #8E1440; z-index: -1; }
+.cr-ribbon::before { left: -10px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 40% 50%); }
+.cr-ribbon::after { right: -10px; clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%); }
+@keyframes crRibbon { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+.coop-end.won .results h1 { background: linear-gradient(100deg, #FFE27A 0%, #FFE27A 40%, #FFFFFF 50%, #FFE27A 60%, #FFC83D 100%); background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none;
+  filter: drop-shadow(3px 3px 0 #6B2A00) drop-shadow(3px 3px 0 var(--ink)); animation: zoom .6s cubic-bezier(.2,1.6,.4,1) .15s both, crShine 2.6s ease-in-out 1s infinite; }
+@keyframes crShine { 0% { background-position: 100% 0; } 60%, 100% { background-position: -50% 0; } }
+.coop-end.lost .results h1 { color: #FF9AA8; text-shadow: 3px 3px 0 #5A0A1C, 6px 6px 0 var(--ink); }
+.cr-party { display: flex; justify-content: center; align-items: flex-end; gap: 4px; padding-bottom: 10px; margin-top: 14px; position: relative; }
+.coop-end.won .cr-party::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: 0; height: 10px;
+  background: linear-gradient(#FFD24A, #C86A0E); box-shadow: inset 0 2px 0 #FFF0A8, 0 3px 0 var(--ink), 0 0 18px rgba(255, 200, 61, .5); }
+.cr-hero { display: grid; justify-items: center; position: relative; min-width: 0; }
+.cr-hero img { width: 72px; height: 72px; }
+.cr-party.n4 .cr-hero img { width: 60px; height: 60px; }
+.cr-hero small { font-size: 10px; color: var(--muted); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coop-end.won .cr-hero img { filter: drop-shadow(0 0 8px rgba(255, 214, 110, .5)); animation: crJump .9s ease-in-out infinite; animation-delay: calc(var(--k) * -.22s); }
+@keyframes crJump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-12px); } 55% { transform: translateY(-12px) scaleY(1.03); } }
+.cr-crown { position: absolute; top: -18px; z-index: 2; animation: crCrown .7s cubic-bezier(.3, 1.6, .5, 1) .6s both; }
+.cr-crown .ico { width: 24px; height: 24px; filter: drop-shadow(0 0 6px #FFD24A); }
+@keyframes crCrown { 0% { transform: translateY(-50px) rotate(-20deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.coop-end.lost .cr-hero img { filter: grayscale(.9) brightness(.7); transform: translateY(4px) rotate(-4deg); }
+.coop-end.lost .boss-result img { filter: drop-shadow(0 0 16px rgba(255, 40, 70, .6)); animation: crLoom 2.4s ease-in-out infinite; }
+@keyframes crLoom { 50% { transform: scale(1.04) translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .cr-confetti, .cr-glow { display: none; } .coop-end .cr-hero img, .coop-end .boss-result img { animation: none; } }

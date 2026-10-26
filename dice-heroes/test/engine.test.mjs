@@ -654,23 +654,40 @@ test('강화 보스 봇이 끝까지 둔다', () => {
     assert.ok(s.ended, boss);
   }
 });
-test('행운의 부적: 첫 굴림 뒤 가장 낮은 주사위 1개를 공짜로 다시 굴린다', () => {
+test('행운의 부적: 첫 굴림 뒤 쓸지 고른다 — 쓰면 가장 낮은 주사위 1개를 공짜로 다시 굴린다', () => {
   let hits = 0;
   for (let seed = 1; seed <= 40; seed++) {
     const s = E.createGame([{ name: 'A', cls: 'monk' }], seed);
     s.players[0].perks.lucky = 1;
     E.roll(s);
-    const f = E.drainFx(s).find(x => x.type === 'lucky');
-    if (!f) continue;
+    assert.ok(!E.drainFx(s).some(x => x.type === 'lucky'));   // 사람은 저절로 굴리지 않는다
+    if (!E.luckyOpen(s)) continue;
     hits++;
+    const before = s.dice.slice();
+    E.useLucky(s);
+    const f = E.drainFx(s).find(x => x.type === 'lucky');
     const i = f.dice[0];
-    assert.equal(f.from[i], Math.min(...f.from));          // 가장 낮은 눈을 골랐다
+    assert.equal(before[i], Math.min(...before));            // 가장 낮은 눈을 골랐다
     assert.equal(s.dice[i], f.to);
-    assert.equal(s.rollsLeft, E.maxRolls(s) - 1);           // 굴림 기회는 그대로
-    E.roll(s);
-    assert.ok(!E.drainFx(s).some(x => x.type === 'lucky')); // 두 번째 굴림엔 없다
+    assert.equal(s.rollsLeft, E.maxRolls(s) - 1);             // 굴림 기회는 그대로
+    assert.throws(() => E.useLucky(s));                       // 한 번만
   }
   assert.ok(hits > 30);
+  // 쓰지 않고 다시 굴리면 기회가 사라진다
+  const s = E.createGame([{ name: 'A', cls: 'monk' }], 5);
+  s.players[0].perks.lucky = 1;
+  E.roll(s);
+  if (E.luckyOpen(s)) { E.roll(s); assert.ok(!E.luckyOpen(s)); assert.throws(() => E.useLucky(s)); }
+  // 봇은 예전처럼 바로 쓴다
+  let botHits = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const b = E.createGame([{ name: 'B', cls: 'monk', bot: true }], seed);
+    b.players[0].perks.lucky = 1;
+    E.roll(b);
+    if (E.drainFx(b).some(x => x.type === 'lucky')) botHits++;
+    assert.ok(!E.luckyOpen(b));
+  }
+  assert.ok(botHits > 15);
 });
 
 console.log('\n보스 예고');

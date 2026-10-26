@@ -615,7 +615,9 @@ export class DiceTray {
       s.lineTo(-hw, -hd + r); s.absarc(-hw + r, -hd + r, r, Math.PI, Math.PI * 1.5);
       return s;
     };
-    const fg = new THREE.ShapeGeometry(rr(TRAY_W / 2, TRAY_D / 2, R), 24);
+    // 바닥은 둘레 관의 한가운데까지 넓혀 깐다 (예전엔 벽 선까지만 깔아 관과 바닥 사이로 배경이 비쳤다). 그림 좌표는 원래 크기 기준 그대로
+    const FO = (st.tube?.rad || 0.3) - 0.02;
+    const fg = new THREE.ShapeGeometry(rr(TRAY_W / 2 + FO, TRAY_D / 2 + FO, R + FO), 24);
     const p = fg.attributes.position, uv = fg.attributes.uv;
     for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / TRAY_W + 0.5, p.getY(i) / TRAY_D + 0.5);
     const floor = new THREE.Mesh(fg, this.floorMesh.material);
@@ -653,7 +655,7 @@ export class DiceTray {
     ring.position.z = (bz0 + bz1) / 2;
     grp.add(ring);
     // 주사위 칸 바닥도 쿠션 고리 안쪽에 맞춘 둥근 바닥 (네모 바닥이 쿠션 밖으로 삐져나오지 않게)
-    const bhw = BOX_OUT - 2 * bc + 0.04, bhd = (bz1 - bz0) / 2 - 2 * bc + 0.04;
+    const bhw = BOX_OUT - bc, bhd = (bz1 - bz0) / 2 - bc;   // 고리 한가운데까지 (틈이 안 보이게)
     const bg = new THREE.ShapeGeometry(rr(bhw, bhd, 0.42), 16), bp = bg.attributes.position, buv = bg.attributes.uv;
     for (let i = 0; i < bp.count; i++) buv.setXY(i, bp.getX(i) / (2 * bhw) + 0.5, bp.getY(i) / (2 * bhd) + 0.5);
     const bf = new THREE.Mesh(bg, this.boxFloor.material);
@@ -751,10 +753,11 @@ export class DiceTray {
       for (const q of this.railPts || []) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < bd) { bd = d; best = q; } }
       return best || { x, z, y: 0.7 };
     };
+    const posts = [];
     for (const [n, asp, px, py, front] of list) {
       if (n === 'flagpole') continue;
       const q = seatAt(wx(px), wz(py));
-      if (n === 'flag_cloth') { grp.add(this.makeFlag(id, q.x, q.z, front, q.y)); continue; }
+      if (n === 'flag_cloth') { const f = this.makeFlag(id, q.x, q.z, front, q.y); grp.add(f); posts.push(f); continue; }
       const h = front ? 0.5 : (n.match(/point|spike|horn|icicle|fissure|crystal/) ? 0.95 : 0.8);
       const tex = this.imageTex(trayImage(id, `decor_${n}`)); tex.colorSpace = THREE.SRGBColorSpace;
       if (st.pixel) { tex.magFilter = THREE.NearestFilter; }
@@ -787,7 +790,56 @@ export class DiceTray {
       blob.renderOrder = 1;
       grp.add(blob);
     }
+    if (st.ropes) this.ringRopes(grp, posts, seatAt);
     this.faceDecor();
+  }
+  // 해적선 갑판: 권투 링처럼 양옆 · 뒤 난간 위로 굵은 밧줄 두 가닥을 길게 두른다.
+  // 뒤 두 모서리는 깃대, 앞 두 모서리는 짧은 나무 기둥에 묶는다 (앞쪽은 트여 있어 주사위가 가리지 않는다)
+  ringRopes(grp, flagGroups, seatAt) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+    const g = c.getContext('2d');
+    g.fillStyle = '#B8915A'; g.fillRect(0, 0, 128, 32);
+    for (let i = -32; i < 160; i += 16) {          // 꼬인 밧줄 결 (비스듬한 줄)
+      g.fillStyle = '#8A6634'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 8, 0); g.lineTo(i + 8 + 32, 32); g.lineTo(i + 32, 32); g.fill();
+      g.fillStyle = 'rgba(255, 236, 190, .35)'; g.fillRect(i + 10, 0, 2, 32);
+    }
+    const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace;
+    const wood = new THREE.MeshStandardMaterial({ color: 0x3A2618, roughness: 0.7 });
+    const brass = new THREE.MeshStandardMaterial({ color: 0xC8A060, roughness: 0.35, metalness: 0.7 });
+    // 앞 모서리 기둥
+    const fz = TRAY_D / 2 + RAIL_T / 2, fx = TRAY_W / 2 + RAIL_T / 2, PH = 0.62;
+    const front = [-1, 1].map(sx => {
+      const q = seatAt(sx * fx, fz), p = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, PH, 10), wood); pole.position.y = PH / 2; pole.castShadow = true; p.add(pole);
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), brass); knob.position.y = PH; p.add(knob);
+      p.position.set(q.x, q.y - 0.04, q.z); p.rotation.x = -0.5;
+      grp.add(p);
+      return p;
+    });
+    // 기둥 위 높이 h 지점 (기울어진 깃대 · 기둥을 따라)
+    const at = (post, h) => { post.updateMatrix(); return new THREE.Vector3(0, h, 0).applyMatrix4(post.matrix); };
+    const [bl, br] = flagGroups.length >= 2 ? [...flagGroups].sort((a, b) => a.position.x - b.position.x) : [];
+    if (!bl) return;
+    const [fl, fr] = front;
+    const ropeMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0 });
+    const rope = (a, b, sag) => {
+      const mid = a.clone().lerp(b, 0.5); mid.y -= sag;
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      const len = curve.getLength();
+      const m = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(24, Math.round(len * 12)), 0.07, 10, false), ropeMat.clone());
+      m.material.map = tex.clone(); m.material.map.repeat.set(Math.round(len * 3.5), 1); m.material.map.needsUpdate = true;
+      m.castShadow = true;
+      grp.add(m);
+    };
+    for (const [hb, hf] of [[0.3, 0.26], [0.55, 0.5]]) {
+      rope(at(bl, hb), at(fl, hf), 0.05);        // 왼쪽
+      rope(at(br, hb), at(fr, hf), 0.05);        // 오른쪽
+      rope(at(bl, hb), at(br, hb), 0.1);         // 뒤
+    }
+    // 묶은 자리 매듭 (작은 공)
+    for (const post of [bl, br, fl, fr]) for (const h of post === fl || post === fr ? [0.26, 0.5] : [0.3, 0.55]) {
+      const k = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), ropeMat); k.position.copy(at(post, h)); grp.add(k);
+    }
   }
   // 장식 그림판: 카메라 쪽으로 돌리되 똑바로 서지도 · 완전히 눕지도 않게 40° 만 뒤로 기울인다
   // (카메라를 똑바로 보면 판이 난간 위에 납작하게 깔려 그림자 · 입체감이 없고, 똑바로 서면 위에서 내려다봐 짧아 보인다 — 짧아지는 만큼 세로로 늘린다)
