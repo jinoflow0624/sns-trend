@@ -339,10 +339,10 @@ def glow_die(sz, v, rot, ring=(255, 80, 60)):
 
 def paste_c(fg, im, cx, cy): fg.alpha_composite(im, (int(cx - im.width / 2), int(cy - im.height / 2)))
 
-def embers(fg, n=26, seed=3):
+def embers(fg, n=26, seed=3, ymin=40):
     r = random.Random(seed); d = ImageDraw.Draw(fg)
     for _ in range(n):
-        x, y, s = r.randrange(20, S - 20), r.randrange(40, S - 30), r.choice([4, 4, 6, 8])
+        x, y, s = r.randrange(20, S - 20), r.randrange(ymin, S - 30), r.choice([4, 4, 6, 8])
         c = r.choice([(255, 200, 80), (255, 120, 60), (255, 236, 170)])
         d.rectangle([x, y, x + s - 1, y + s - 1], fill=c + (220,))
 
@@ -504,7 +504,90 @@ def c17(mask=False):
     return bg, fg
 c17.maskable = True
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17]
+# ── 18: 17 개선 — 원본(1254px)에서 잘라 선명한 마왕 얼굴 · 배경과 같은 그림체(부드럽게 칠한) 진홍 주사위를 좌우에 ──
+def demon_face_hi(box):
+    """게임 그림(512) 좌표 box 를 원본 tools/boss-src/demon.webp(1254) 좌표로 바꿔 자른다 → 크게 키워도 깨지지 않는다
+    (make_boss_sprites.py: 원본 테두리 (0,13)~ 를 k = 480/1241 로 줄여 (16, 20) 에 놓았다)"""
+    src = Image.open(os.path.join(HERE, 'boss-src', 'demon.webp')).convert('RGBA')
+    k = 480 / 1241
+    sb = tuple(round(v) for v in ((box[0] - 16) / k, (box[1] - 20) / k + 13, (box[2] - 16) / k, (box[3] - 20) / k + 13))
+    im = src.crop(sb)
+    bg = Image.new('RGBA', im.size, (0, 0, 0, 0)); bg.alpha_composite(im)
+    return bg.resize((S, S), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.4, percent=40, threshold=2))
+
+def paint_die(sz, front=6, top=2, right=3, tilt=0):
+    """배경과 같은 그림체의 진홍 주사위: 부드럽게 칠한 세 면 (윗면은 붉은 빛을 받고 옆면은 어둡게),
+    모서리에 따뜻한 빛, 눈은 불꽃처럼 주황 · 금빛으로 빛난다. 도트로 바꾸지 않는다"""
+    k = 4; n = sz * k; t = int(n * 0.44); dx, dy = int(t * 0.78), int(t * 0.86)
+    pad = n // 3; W = n + dx + pad * 2; H = n + dy + pad * 2
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    ox, oy = pad, pad + dy
+    F = [(ox, oy), (ox + n, oy), (ox + n, oy + n), (ox, oy + n)]
+    T = [(ox, oy), (ox + dx, oy - dy), (ox + n + dx, oy - dy), (ox + n, oy)]
+    Rr = [(ox + n, oy), (ox + n + dx, oy - dy), (ox + n + dx, oy + n - dy), (ox + n, oy + n)]
+    ln = max(5, n // 30)
+    hull = [(ox, oy + n), (ox, oy), (ox + dx, oy - dy), (ox + n + dx, oy - dy), (ox + n + dx, oy + n - dy), (ox + n, oy + n)]
+    d.polygon(hull, fill=(22, 2, 8), outline=(22, 2, 8), width=ln * 2)
+    def shade(poly, c0, c1, horiz=False):
+        xs = [p[0] for p in poly]; ys = [p[1] for p in poly]
+        g = Image.new('RGBA', (W, H)); gd = ImageDraw.Draw(g)
+        a0, a1 = (min(xs), max(xs)) if horiz else (min(ys), max(ys))
+        for v in range(a0, a1 + 1):
+            q = (v - a0) / max(1, a1 - a0); c = tuple(int(x + (y - x) * q) for x, y in zip(c0, c1)) + (255,)
+            gd.line([v, 0, v, H] if horiz else [0, v, W, v], fill=c)
+        m = Image.new('L', (W, H), 0); ImageDraw.Draw(m).polygon(poly, fill=255); im.paste(g, (0, 0), m)
+    shade(T, (196, 70, 84), (120, 26, 46))          # 윗면: 위 붉은 빛을 받아 밝은 진홍
+    shade(F, (92, 16, 36), (36, 4, 16))             # 앞면: 검붉은 (아래로 어둡게)
+    shade(Rr, (52, 8, 24), (20, 2, 10), True)       # 옆면: 더 어두운 그늘
+    # 윗면 윤기 (부드러운 빛 덩어리)
+    gl = Image.new('L', (W, H), 0); ImageDraw.Draw(gl).ellipse([ox + n * .1, oy - dy * .9, ox + n * .75, oy - dy * .25], fill=110)
+    gl = gl.filter(ImageFilter.GaussianBlur(n * .05)); m = Image.new('L', (W, H), 0); ImageDraw.Draw(m).polygon(T, fill=255)
+    gl = Image.composite(gl, Image.new('L', (W, H), 0), m); wht = Image.new('RGBA', (W, H), (255, 214, 200, 255)); wht.putalpha(gl); im.alpha_composite(wht)
+    # 모서리 빛 (따뜻한 색 · 부드럽게)
+    edge = Image.new('RGBA', (W, H), (0, 0, 0, 0)); ed = ImageDraw.Draw(edge)
+    ed.line([F[0], F[1]], fill=(255, 176, 150, 255), width=ln * 2); ed.line([F[1], Rr[1]], fill=(255, 120, 110, 200), width=ln)
+    ed.line([T[0], T[1]], fill=(230, 120, 120, 180), width=ln); ed.line([F[1], F[2]], fill=(170, 40, 60, 200), width=ln)
+    im.alpha_composite(edge.filter(ImageFilter.GaussianBlur(ln * .5)))
+    # 눈: 면마다 원근, 주황 · 금빛 불씨 + 은은한 빛
+    glowL = Image.new('L', (W, H), 0); glD = ImageDraw.Draw(glowL)
+    def pips(poly, v, top_face=False, dim=1.0):
+        A, B, D = (poly[0], poly[3], poly[1]) if top_face else (poly[0], poly[1], poly[3])
+        def P(u, w): return (A[0] + (B[0] - A[0]) * u + (D[0] - A[0]) * w, A[1] + (B[1] - A[1]) * u + (D[1] - A[1]) * w)
+        for gx, gy in PIPS[v]:
+            cu, cw = 0.5 + (gx - 1) * 0.25, 0.5 + (gy - 1) * 0.25; rr = 0.095 * (1.35 if v == 1 else 1)
+            ring = [P(cu + rr * math.cos(a), cw + rr * math.sin(a)) for a in [i * math.pi / 12 for i in range(24)]]
+            core = [P(cu - rr * .25 + rr * .45 * math.cos(a), cw - rr * .25 + rr * .45 * math.sin(a)) for a in [i * math.pi / 8 for i in range(16)]]
+            d.polygon(ring, fill=(int(255 * dim), int(58 * dim), int(76 * dim))); d.polygon(core, fill=(255, int(210 * dim), int(214 * dim)))
+            glD.polygon([P(cu + rr * 1.8 * math.cos(a), cw + rr * 1.8 * math.sin(a)) for a in [i * math.pi / 8 for i in range(16)]], fill=int(170 * dim))
+    pips(F, front); pips(T, top, True, .95); pips(Rr, right, dim=.7)
+    glowL = glowL.filter(ImageFilter.GaussianBlur(n * .03)); og = Image.new('RGBA', (W, H), (255, 50, 70, 255)); og.putalpha(glowL)
+    im = Image.alpha_composite(og, im) if False else im; im.alpha_composite(og)
+    if tilt: im = im.rotate(tilt, resample=Image.BICUBIC, expand=True)
+    w, h = im.size; dd = im.resize((w // k, h // k), Image.LANCZOS)
+    p2 = 44; out = Image.new('RGBA', (dd.width + p2 * 2, dd.height + p2 * 2), (0, 0, 0, 0))
+    a = Image.new('L', out.size, 0); a.paste(dd.split()[3], (p2, p2)); a = a.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(18))
+    g = Image.new('RGBA', out.size, (255, 50, 50, 255)); g.putalpha(a.point(lambda v: int(v * .7)))
+    out.alpha_composite(g); out.alpha_composite(dd, (p2, p2))
+    return out
+
+def c18(mask=False):
+    """마왕 얼굴(원본에서 잘라 선명) 가운데보다 조금 위 + 좌우 양옆에 배경과 같은 그림체의 진홍 주사위 하나씩"""
+    bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    fg.alpha_composite(demon_face_hi((182, 110, 348, 276) if mask else (190, 118, 340, 268)))
+    # 목 아래(옷깃 아래)는 검붉은 어둠 · 불티로 덮는다 — 얼굴에 시선이 모이고 몸은 보이지 않게
+    y0 = 300 if mask else 316          # 옷깃 바로 아래부터 (얼굴 · 목걸이 보석은 남긴다)
+    sh = Image.new('L', (S, S), 0); sd = ImageDraw.Draw(sh)
+    for y in range(y0, S): sd.line([0, y, S, y], fill=min(250, int(255 * ((y - y0) / 120) ** 0.75)))
+    sh = sh.filter(ImageFilter.GaussianBlur(10)); dark = Image.new('RGBA', (S, S), (44, 4, 16, 255)); dark.putalpha(sh); fg.alpha_composite(dark)
+    fg = glow(fg, 256, S + 30, 150, (255, 90, 40), 120)
+    embers(fg, 22, 5, ymin=340)   # 불티는 아래쪽에만 (얼굴 위에 점처럼 보이지 않게)
+    sz = 84 if mask else 98
+    paste_c(fg, paint_die(sz, 6, 2, 3, tilt=10), 112 if mask else 74, 372 if mask else 380)
+    paste_c(fg, paint_die(sz, 5, 3, 1, tilt=-9), 400 if mask else 438, 368 if mask else 376)
+    return bg, fg
+c18.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
