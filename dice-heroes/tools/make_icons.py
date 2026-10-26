@@ -587,7 +587,20 @@ def c18(mask=False):
     return bg, fg
 c18.maskable = True
 
-CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18]
+def c19(mask=False):
+    """18 에서: 주사위 · 가슴 그늘 빼고, 얼굴 30% 더 가까이(가운데보다 조금 위), 가슴께에 KYBORIA 로고"""
+    bg = hell_bg(top=(30, 4, 24), mid=(120, 14, 44)); fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    # 18 의 잘라낸 칸(150px)을 1/1.3 로 → 115px. 얼굴 가운데(265, 185)가 위에서 45% 쯤
+    fg.alpha_composite(demon_face_hi((201, 128, 329, 256) if mask else (207, 133, 322, 248)))
+    lg = logo_w(410 if mask else 470); x = (S - lg.width) // 2; y = (404 if mask else 408) - lg.height // 2
+    sh = Image.new('RGBA', (S, S), (0, 0, 0, 0)); a = Image.new('L', (S, S), 0); a.paste(lg.split()[3], (x, y))
+    a = a.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(v * .85))
+    sh.paste((30, 4, 14, 255), (0, 0), a); fg.alpha_composite(sh)       # 로고 뒤 어두운 번짐 (글자가 또렷하게)
+    fg.alpha_composite(lg, (x, y))
+    return bg, fg
+c19.maskable = True
+
+CANDS = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19]
 
 def compose(bg, fg, safe=1.0, round_mask=False):
     im = bg.copy()
