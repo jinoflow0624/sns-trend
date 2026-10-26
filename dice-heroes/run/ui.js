@@ -71,6 +71,7 @@ export const refreshSelect = () => { if (ui.view === 'select' && !R) paintSelect
 export const renameHero = ren => { if (R?.name) { R.name = ren(R.name); save(); } };
 export const redraw = () => { if (R) enterView(false); else if (ui.view === 'select') paintSelect(); };
 // 원정 직업이 열렸나: 기본(전사 · 도적 · 마법사) · 도전과제(음유시인 · 수도승) · 보석으로 산 직업
+const rollPips = (max, left) => { const n = Math.max(max, left); return n > 5 ? `<i class="on"></i><b>×${left}</b>` : [...Array(n)].map((_, i) => `<i class="${i < left ? 'on' : ''}"></i>`).join(''); };   // 굴리기 칩의 남은 굴림 (6개부터는 ×숫자)
 function runOpen(id, b = best()) { return Run.runClassOpen(id, b.feats, X.ownsRun); }   // 서버 xStart 와 같은 규칙
 // 잠긴 직업을 여는 방법 (한 줄)
 function unlockHow(id) {
@@ -640,7 +641,7 @@ function paint() {
   const locked = Run.toolsLocked(R);
   $('rolls-left').innerHTML = [...Array(Run.maxRolls(R))].map((_, i) => `<i class="${i < C.rollsLeft ? 'on' : ''}"></i>`).join('');
   $('rctl').innerHTML = `
-    <button class="pbtn gold roll${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? TR('배팅 먼저') : rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n">${TR('남은 {0}회', C.rollsLeft)}</small></button>
+    <button class="pbtn gold roll chip${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? TR('배팅 먼저') : rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n roll-pips${Math.max(Run.maxRolls(R), C.rollsLeft) >= 4 ? ' many' : ''}" role="img" aria-label="${TR('남은 {0}회', C.rollsLeft)}">${rollPips(Run.maxRolls(R), C.rollsLeft)}</small></button>
     <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? TR('사용 중') : TR('뒤집기')}<b>${R.flip}</b></button>
     <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? TR('사용 중') : TR('조정')}<b>${R.nudge}</b></button>
     <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? TR('카드 고르기') : TR('교체')}<b>${C.swaps}</b></button>`;

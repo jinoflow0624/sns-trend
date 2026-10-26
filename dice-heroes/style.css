@@ -1915,17 +1915,17 @@ body:has(.tix-pop) .title-top { visibility: hidden; }
 .controls.casino .ctl-tools .tool span { flex: 1; min-width: 0; text-align: left; line-height: 1.1; overflow-wrap: anywhere; }
 .controls.casino .ctl-tools .tool b { position: absolute; top: -7px; right: -6px; border-width: 1px; font-size: 9px; padding: 0 3px; min-width: 0; }
 /* 굴리기 칩 */
-.controls.casino .pbtn.roll.chip { position: relative; z-index: 1; width: 88px; height: 88px; min-height: 0; padding: 0 6px; border-radius: 50%; border: 3px solid var(--ink); border-image: none;
+:is(.controls.casino, .rctl) .pbtn.roll.chip { position: relative; z-index: 1; width: 88px; height: 88px; min-height: 0; padding: 0 6px; border-radius: 50%; border: 3px solid var(--ink); border-image: none;
   background: radial-gradient(circle, #FFE27A 0 50%, #FFF0A8 51% 53%, #C8860E 54% 57%, transparent 58%), repeating-conic-gradient(from 7deg, #C21E56 0 22.5deg, #FFF6E0 22.5deg 45deg);
   box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), inset 0 -4px 0 rgba(0, 0, 0, .18), 0 4px 0 var(--ink), 0 6px 10px rgba(0, 0, 0, .45);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; color: #3B2300; text-align: center; line-height: 1.1; filter: none; }
-.controls.casino .pbtn.roll.chip span { font-size: 14px; font-weight: 700; max-width: 54px; overflow-wrap: anywhere; }
-.controls.casino .pbtn.roll.chip .left-n { font-size: 9px; opacity: .85; }
-.controls.casino .pbtn.roll.chip:active:not(:disabled) { transform: translateY(3px) rotate(8deg); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 1px 0 var(--ink); }
-.controls.casino .pbtn.roll.chip:disabled { filter: grayscale(.85) brightness(.6); }
-.controls.casino .pbtn.roll.chip.next, .controls.casino .pbtn.roll.chip.bet-go { animation: chipGlow 1.4s ease-in-out infinite; animation-delay: var(--ph, 0s); }
+:is(.controls.casino, .rctl) .pbtn.roll.chip span { font-size: 14px; font-weight: 700; max-width: 54px; overflow-wrap: anywhere; }
+:is(.controls.casino, .rctl) .pbtn.roll.chip .left-n { font-size: 9px; opacity: .85; }
+:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled) { transform: translateY(3px) rotate(8deg); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 1px 0 var(--ink); }
+:is(.controls.casino, .rctl) .pbtn.roll.chip:disabled { filter: grayscale(.85) brightness(.6); }
+:is(.controls.casino, .rctl) .pbtn.roll.chip.next, :is(.controls.casino, .rctl) .pbtn.roll.chip.bet-go { animation: chipGlow 1.4s ease-in-out infinite; animation-delay: var(--ph, 0s); }
 @keyframes chipGlow { 50% { box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .28), 0 4px 0 var(--ink), 0 0 0 3px #FFF0A8, 0 0 22px rgba(255, 200, 61, .95); filter: brightness(1.1); } }
-.game.other-turn .controls.casino .pbtn.roll.chip { filter: grayscale(.6) brightness(.6); }
+.game.other-turn :is(.controls.casino, .rctl) .pbtn.roll.chip { filter: grayscale(.6) brightness(.6); }
 /* 족보 카드 */
 .controls.casino .sheet-btn { min-height: 82px; border-image: none; border: 2px solid var(--ink); border-radius: 8px; color: #2A1240; text-shadow: none;
   background: linear-gradient(#FFFBEF, #F2E3C0); box-shadow: inset 0 0 0 3px #FFFBEF, inset 0 0 0 4px #C21E56, 0 3px 0 var(--ink); font-size: 12px; font-weight: 700; }
@@ -1937,11 +1937,58 @@ body:has(.tix-pop) .title-top { visibility: hidden; }
 .controls.casino .sheet-btn b { top: -8px; right: -8px; }
 /* 행운의 부적 (트레이 왼쪽 아래 — 오른쪽은 춤사위 · 밑장빼기) */
 .lucky-btn { right: auto; left: 8px; background: #14532F !important; border-color: #6BEA9A !important; }
-@media (prefers-reduced-motion: reduce) { .controls.casino .pbtn.roll.chip, .controls.casino .sheet-btn.ready { animation: none; } }
+@media (prefers-reduced-motion: reduce) { :is(.controls.casino, .rctl) .pbtn.roll.chip, .controls.casino .sheet-btn.ready { animation: none; } }
 .controls.casino .ctl-tools .tool span { font-size: 11px; letter-spacing: -0.2px; overflow-wrap: normal; word-break: keep-all; hyphens: auto; white-space: normal; }
-.controls.casino .pbtn.roll.chip span { white-space: normal; overflow-wrap: normal; word-break: keep-all; hyphens: auto; max-width: 66px; }
-html:not(:lang(ko)) .controls.casino .pbtn.roll.chip span { font-size: 11px; }
+:is(.controls.casino, .rctl) .pbtn.roll.chip span { white-space: normal; overflow-wrap: normal; word-break: keep-all; hyphens: auto; max-width: 66px; }
+html:not(:lang(ko)) :is(.controls.casino, .rctl) .pbtn.roll.chip span { font-size: 11px; }
 html:not(:lang(ko)) .controls.casino .sheet-btn { font-size: 11px; }
+
+/* 굴리기 칩 다듬기: 두께 있는 포커 칩. 겉면(::before)은 줄무늬 테두리 + 금빛 가운데 — 차례가 오면 천천히 돌고, 누르면 칩이 두께만큼 눌리며 휙 돈다.
+   남은 굴림은 글자 대신 금빛 점 (빈 점 = 쓴 굴림). 다 쓰면 펠트에 눌러 박힌 납작한 칩 */
+:is(.controls.casino, .rctl) .pbtn.roll.chip { background: none; border: 0; overflow: visible; isolation: isolate; gap: 3px; padding: 0 8px 2px; transition: transform .08s, box-shadow .08s;
+  box-shadow: 0 5px 0 #7E0E36, 0 5px 0 2px var(--ink), 0 9px 0 rgba(0, 0, 0, .35); }
+:is(.controls.casino, .rctl) .pbtn.roll.chip::before { content: ''; position: absolute; inset: 0; z-index: -2; border-radius: 50%; border: 2px solid var(--ink);
+  background:
+    radial-gradient(circle, #FFE68A 0 33%, #FFD24A 34% 47%, #E9A21C 48% 50%, #FFF4C4 51% 53%, #9C5A08 54% 56%, transparent 57%),
+    radial-gradient(circle, transparent 0 85%, #9E0F40 86% 88%, transparent 89%),
+    repeating-conic-gradient(from -8deg, #FFF6E0 0 16deg, #E0243F 16deg 60deg);
+  box-shadow: inset 0 0 0 2px #FF8AA8, inset 0 -3px 0 2px rgba(110, 10, 40, .35); transition: transform .5s cubic-bezier(.2, .9, .3, 1.2); }
+/* 겉면 위 빛 (돌지 않는다): 왼쪽 위 반짝 · 아래쪽 살짝 그늘 */
+:is(.controls.casino, .rctl) .pbtn.roll.chip::after { content: ''; position: absolute; inset: 2px; z-index: -1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(ellipse 46% 30% at 34% 22%, rgba(255, 255, 255, .55), transparent 70%), radial-gradient(ellipse at 50% 120%, rgba(60, 20, 0, .28), transparent 60%); }
+:is(.controls.casino, .rctl) .pbtn.roll.chip span { font-size: 15px; line-height: 1.05; color: #3B1E00; text-shadow: 0 1px 0 rgba(255, 255, 255, .7), 0 -1px 0 rgba(140, 80, 0, .35); max-width: 58px; }
+html:not(:lang(ko)) :is(.controls.casino, .rctl) .pbtn.roll.chip span { font-size: 12px; }
+:is(.controls.casino, .rctl) .roll-pips { display: flex; gap: 3px; opacity: 1; line-height: 0; }
+:is(.controls.casino, .rctl) .roll-pips i { width: 7px; height: 7px; border-radius: 50%; background: rgba(110, 60, 0, .25); box-shadow: inset 0 1px 0 rgba(90, 40, 0, .45); }
+:is(.controls.casino, .rctl) .roll-pips i.on { background: #C21E56; box-shadow: inset 0 -1px 0 #6E0A2C, 0 0 0 1px #FFF4C4; }
+/* 차례가 오면: 칩이 숨 쉬듯 빛나고 테두리가 천천히 돈다 (글자는 그대로) */
+:is(.game.my-turn .controls.casino, .my-turn .rctl) .pbtn.roll.chip:not(:disabled) { animation: chipBreath 1.6s ease-in-out infinite; animation-delay: var(--ph, 0s); }
+:is(.game.my-turn .controls.casino, .my-turn .rctl) .pbtn.roll.chip:not(:disabled)::before { animation: chipSpin 14s linear infinite; }
+:is(.controls.casino, .rctl) .pbtn.roll.chip.next, :is(.controls.casino, .rctl) .pbtn.roll.chip.bet-go { animation: chipGlow2 1.4s ease-in-out infinite; animation-delay: var(--ph, 0s); }
+@keyframes chipSpin { to { transform: rotate(360deg); } }
+@keyframes chipBreath { 50% { box-shadow: 0 5px 0 #7E0E36, 0 5px 0 2px var(--ink), 0 9px 0 rgba(0, 0, 0, .35), 0 0 14px 2px rgba(255, 210, 74, .55); } }
+@keyframes chipGlow2 { 50% { box-shadow: 0 5px 0 #7E0E36, 0 5px 0 2px var(--ink), 0 9px 0 rgba(0, 0, 0, .35), 0 0 0 4px #FFF0A8, 0 0 24px 6px rgba(255, 200, 61, .9); filter: brightness(1.08); } }
+/* 누르면: 두께만큼 내려앉고 겉면이 휙 돈다 */
+:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled) { transform: translateY(5px); animation: none; box-shadow: 0 0 0 #7E0E36, 0 0 0 2px var(--ink), 0 2px 0 rgba(0, 0, 0, .35); filter: none; }
+:is(.controls.casino, .rctl) .pbtn.roll.chip:active:not(:disabled)::before { animation: none; transform: rotate(-60deg); transition-duration: .12s; }
+/* 다 썼거나 상대 차례: 펠트에 눌러 박힌 납작한 칩 (회색 대신 어둡게 · 색은 남긴다) */
+:is(.controls.casino, .rctl) .pbtn.roll.chip:disabled, .game.other-turn :is(.controls.casino, .rctl) .pbtn.roll.chip { transform: translateY(5px); filter: saturate(.45) brightness(.62);
+  box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 0 transparent, 0 0 0 5px rgba(0, 0, 0, .22); animation: none; }
+:is(.controls.casino, .rctl) .pbtn.roll.chip:disabled::before { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.controls.casino, .rctl) .pbtn.roll.chip, :is(.controls.casino, .rctl) .pbtn.roll.chip::before { animation: none !important; } }
+:is(.controls.casino, .rctl) .roll-pips.many { gap: 2px; }
+:is(.controls.casino, .rctl) .roll-pips.many i { width: 6px; height: 6px; }
+:is(.controls.casino, .rctl) .roll-pips b { font-size: 10px; line-height: 7px; margin-left: 2px; color: #6E0A2C; }
+/* 클래식 야추: 도구가 없다 → 칩 · 족보 카드 두 칸을 같은 높이로 나란히 (칩은 왼쪽 칸 가운데) */
+.game .controls.casino.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) !important; padding: 8px 10px; }
+.controls.casino.two .ctl-tools { display: none; }
+.controls.casino.two .pbtn.roll.chip { justify-self: center; }
+.controls.casino.two .sheet-btn { min-height: 88px; }
+/* 원정 조작줄: 맨 왼쪽 굴리기도 같은 칩 (조금 작게), 도구 셋은 칩 높이 가운데에 */
+.rctl.rctl { grid-template-columns: 80px repeat(3, minmax(0, 1fr)); align-items: center; padding-bottom: 4px; }
+.rctl.rctl .pbtn.roll.chip { width: 80px; height: 80px; min-height: 0; padding: 0 6px 2px; }
+.rctl.rctl .pbtn.roll.chip span { font-size: 14px; }
+html:not(:lang(ko)) .rctl.rctl .pbtn.roll.chip span { font-size: 11px; }
 
 /* 보스전 결과 (v0.39.78): 승리 = 빛줄기 · 색종이 · 리본 · 파티가 단상 위에서 통통 / 패배 = 붉은 빛 속 보스 · 잿빛 파티 */
 .coop-end { overflow: hidden; }
@@ -1986,3 +2033,9 @@ html:not(:lang(ko)) .controls.casino .sheet-btn { font-size: 11px; }
 .coop-end.lost .boss-result img { filter: drop-shadow(0 0 16px rgba(255, 40, 70, .6)); animation: crLoom 2.4s ease-in-out infinite; }
 @keyframes crLoom { 50% { transform: scale(1.04) translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .cr-confetti, .cr-glow { display: none; } .coop-end .cr-hero img, .coop-end .boss-result img { animation: none; } }
+@media (max-height: 640px) {
+  .rctl.rctl { grid-template-columns: 58px repeat(3, minmax(0, 1fr)); padding-bottom: 2px; }
+  .rctl.rctl .pbtn.roll.chip { width: 58px; height: 58px; padding: 0 4px 1px; gap: 1px; }
+  .rctl.rctl .pbtn.roll.chip span, html:not(:lang(ko)) .rctl .pbtn.roll.chip span { font-size: 10px; max-width: 46px; }
+  .rctl.rctl .roll-pips i, .rctl.rctl .roll-pips.many i { width: 5px; height: 5px; }
+}
