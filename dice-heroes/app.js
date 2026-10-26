@@ -1433,20 +1433,20 @@ function render() {
         ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ` ${TR('(봇)')}` : ''}</span>
       </div>
       <div class="rolls-left" title="${TR('남은 굴림')}">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
-      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && !ui.busy && E.canDance(S) ? `<button class="encore-btn dance-btn" data-act="dance">${TR('{0} 춤사위 ×{1}', ico('sparkle', 'xs'), cur.dance)} <small>${TR('모든 주사위 +1')}</small></button>` : ''}${myTurn && !ui.busy && E.canDeal(S) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? TR('취소') : TR('밑장빼기')} <small>${TR('경험치 포기')}</small></button>` : ''}${E.ab(cur) === 'sharper' && S.dealt ? `<div class="bet-badge deal-badge">${TR('{0} 밑장빼기 · 이번 기록 경험치 0', ico('card', 'xs'))}</div>` : ''}${E.ab(cur) === 'outlaw' && S.phase === 'roll' && (!S.rolled || (S.rollNo === 1 && E.RUSH_CATS.some(c => E.isCombo(c, S.dice)))) ? `<div class="bet-badge rush-badge">${TR('{0} 속전속결 ×{1}{2}', ico('bolt', 'xs'), E.CLASS_TUNE.rushMul, S.rolled ? ` ${TR('· 지금 {0}에 적으면!', E.RUSH_CATS.filter(c => E.isCombo(c, S.dice)).map(c => E.catInfo(c).ko).join(' · '))}` : ` ${TR('· 첫 굴림 포카인드 · 풀하우스 · 스트레이트 · 요트')}`)}</div>` : ''}${E.ab(cur) === 'gambler' && cur.bet ? `<div class="bet-badge">${TR('{0} 배팅', ico('coins', 'xs'))} <b>${E.catInfo(cur.bet).ko}</b> ×${E.CLASS_TUNE.betMul}</div>` : ''}${tray ? '' : `<p class="tray-loading">${TR('주사위 준비 중…')}</p>`}</div>
+      <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && !ui.busy && E.luckyOpen(S) ? `<button class="encore-btn lucky-btn" data-act="lucky">${TR('{0} 행운의 부적 · 다시 굴리기', ico('clover', 'xs'))} <small>${TR('가장 낮은 주사위 {0}', S.dice[E.luckyDie(S)])}</small></button>` : ''}${myTurn && !ui.busy && E.canDance(S) ? `<button class="encore-btn dance-btn" data-act="dance">${TR('{0} 춤사위 ×{1}', ico('sparkle', 'xs'), cur.dance)} <small>${TR('모든 주사위 +1')}</small></button>` : ''}${myTurn && !ui.busy && E.canDeal(S) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? TR('취소') : TR('밑장빼기')} <small>${TR('경험치 포기')}</small></button>` : ''}${E.ab(cur) === 'sharper' && S.dealt ? `<div class="bet-badge deal-badge">${TR('{0} 밑장빼기 · 이번 기록 경험치 0', ico('card', 'xs'))}</div>` : ''}${E.ab(cur) === 'outlaw' && S.phase === 'roll' && (!S.rolled || (S.rollNo === 1 && E.RUSH_CATS.some(c => E.isCombo(c, S.dice)))) ? `<div class="bet-badge rush-badge">${TR('{0} 속전속결 ×{1}{2}', ico('bolt', 'xs'), E.CLASS_TUNE.rushMul, S.rolled ? ` ${TR('· 지금 {0}에 적으면!', E.RUSH_CATS.filter(c => E.isCombo(c, S.dice)).map(c => E.catInfo(c).ko).join(' · '))}` : ` ${TR('· 첫 굴림 포카인드 · 풀하우스 · 스트레이트 · 요트')}`)}</div>` : ''}${E.ab(cur) === 'gambler' && cur.bet ? `<div class="bet-badge">${TR('{0} 배팅', ico('coins', 'xs'))} <b>${E.catInfo(cur.bet).ko}</b> ×${E.CLASS_TUNE.betMul}</div>` : ''}${tray ? '' : `<p class="tray-loading">${TR('주사위 준비 중…')}</p>`}</div>
       ${online ? `<button class="emote-btn" data-act="emote-menu" aria-label="${TR('반응 보내기')}">${TR('{0}반응', ico('party', 'xs'))}</button>` : ''}
     </section>
 
-    <section class="controls${S.classic ? ' two' : ''}">
-      ${needBet ? `<button class="pbtn gold roll bet-go" data-act="bet-open"><span>${TR('배팅하기')}</span><small class="left-n">${TR('족보 고르기')}</small></button>` : `<button class="pbtn gold roll${canRoll && !S.rolled ? ' next' : ''}" data-act="roll" ${canRoll ? '' : 'disabled'}>
+    <section class="controls casino${S.classic ? ' two' : ''}">
+      <div class="ctl-side ctl-tools">${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && (!['haki', 'midnight'].includes(E.event(S)) || (S.sealPerm && S.sealed?.length)) ? '' : 'disabled'}>
+        ${ico('flip')}<span>${ui.tool === 'flip' ? TR('사용 중') : TR('뒤집기')}</span><b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
+      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
+        ${ico('nudge')}<span>${ui.tool === 'nudge' ? TR('사용 중') : TR('조정')}</span><b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>`}</div>
+      ${needBet ? `<button class="pbtn gold roll chip bet-go" data-act="bet-open"><span>${TR('배팅하기')}</span><small class="left-n">${TR('족보 고르기')}</small></button>` : `<button class="pbtn gold roll chip${canRoll && !S.rolled ? ' next' : ''}" data-act="roll" ${canRoll ? '' : 'disabled'}>
         <span>${S.rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n">${TR('남은 {0}회', S.rollsLeft)}</small>
       </button>`}
-      ${S.classic ? '' : `<button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="tool" data-tool="flip" ${myTurn && S.rolled && cur.flip > 0 && (!['haki', 'midnight'].includes(E.event(S)) || (S.sealPerm && S.sealed?.length)) ? '' : 'disabled'}>
-        ${ico('flip')}${ui.tool === 'flip' ? TR('사용 중') : TR('뒤집기')}<b class="${cur.flip >= E.CHARGE_CAP ? 'full' : ''}">${cur.flip}/${E.CHARGE_CAP}</b></button>
-      <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="tool" data-tool="nudge" ${myTurn && S.rolled && cur.nudge > 0 && !['haki', 'midnight'].includes(E.event(S)) ? '' : 'disabled'}>
-        ${ico('nudge')}${ui.tool === 'nudge' ? TR('사용 중') : TR('조정')}<b class="${cur.nudge >= E.CHARGE_CAP ? 'full' : ''}">${cur.nudge}/${E.CHARGE_CAP}</b></button>`}
-      <button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="${TR('족보 완성 · 점수표 열기')}">
-        ${TR('{0}족보 완성{1}', ico('sheet'), combos.length ? `<b>${combos.length}</b>` : '')}</button>
+      <div class="ctl-side ctl-sheet"><button class="pbtn sheet-btn${combos.length || (myTurn && S.rolled && S.rollsLeft === 0) ? ' ready' : ''}" data-act="sheet" aria-label="${TR('족보 완성 · 점수표 열기')}">
+        ${TR('{0}족보 완성{1}', ico('sheet'), combos.length ? `<b>${combos.length}</b>` : '')}</button></div>
     </section>
     <div class="tip">${absent ? `<span>${TR('{0} 님 연결 끊김 · 1분 안에 돌아오지 않으면 {1}', esc(cur.name), S.mode === 'versus' && S.players.length === 2 ? TR('기권패') : TR('봇이 대신 진행'))}</span>` : tip(cur, myTurn, okQuests, combos)}</div>
 
@@ -2920,9 +2920,15 @@ function showCoopResults() {
   const up = E.BOSSES.find(x => x.base === b.id);
   if (b.won && b.diff === 2 && up && !store.get(`diceheroes.seen_${up.id}`)) setTimeout(() => showUpgradeUnlock(up), 3400);
   const order = S.players.map((p, i) => ({ p, i, dmg: Math.round(b.dmg[i] || 0) })).sort((x, y) => y.dmg - x.dmg);
-  layer.innerHTML = `<div class="overlay solid"><div class="results coop-res">
+  const mvp = order[0]?.i;
+  // 승리: 원정 성공 화면처럼 빛줄기 · 색종이 · 리본, 파티 캐릭터가 금빛 단상 위에서 통통 (MVP 는 왕관). 보스 그림을 눕히던 연출은 뺐다
+  // 패배: 보스가 붉은 빛 속에 우뚝, 파티는 잿빛으로
+  const party = `<div class="cr-party n${S.players.length}">${S.players.map((p, i) => `<div class="cr-hero" style="--k:${i};--c:${E.classInfo(p.cls).color}">${b.won && i === mvp ? `<i class="cr-crown">${ico('crown')}</i>` : ''}${portrait(p.cls, 'big')}<small>${esc(p.name)}</small></div>`).join('')}</div>`;
+  const confetti = b.won ? `<div class="cr-confetti" aria-hidden="true">${Array.from({ length: 26 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i * 0.31) % 3.2}s;--s:${3.2 + (i % 5) * 0.5}s;--c:${['#FFC83D', '#FF5A6A', '#3EE6B4', '#4FB3FF', '#B98CFF', '#FFFFFF'][i % 6]};--r:${(i * 53) % 360}deg"></i>`).join('')}</div>` : '';
+  layer.innerHTML = `<div class="overlay solid coop-end ${b.won ? 'won' : 'lost'}">${b.won ? `<div class="cr-glow" aria-hidden="true"><i></i></div>${confetti}` : '<div class="cr-doom" aria-hidden="true"></div>'}<div class="results coop-res">
+    ${b.won ? `<div class="cr-ribbon"><span>${TR('승리⟪배너⟫')}</span></div>` : ''}
     <h1>${b.won ? TR('토벌 성공!') : TR('토벌 실패…')}</h1>
-    <div class="boss-result${b.won ? ' down' : ''}" style="--c:${info.color}">${portrait(b.id, 'boss-big')}</div>
+    ${b.won ? party : `<div class="boss-result" style="--c:${info.color}">${portrait(b.id, 'boss-big')}</div>${party}`}
     <div class="grade g${grade}">${grade}</div>
     <p class="hint">${info.ko} · ${E.DIFFS[b.diff].ko} · ${b.won ? TR('{0}라운드에 쓰러뜨림', S.round) : TR('남은 체력 {0}', b.hp)}</p>
     ${gemsBox()}
@@ -2933,6 +2939,13 @@ function showCoopResults() {
     ${resultActions()}
   </div></div>`;
   countUp(layer);
+  if (b.won && prefs.fx !== 'min') {          // 승리 폭죽 (결과 화면을 떠나면 멈춘다)
+    const pals = [PALETTES.gold, PALETTES.rainbow, PALETTES.arcane];
+    for (let k = 0; k < 7; k++) setTimeout(() => {
+      if (!layer.querySelector('.coop-end.won')) return;
+      FX().burst(innerWidth * (0.15 + Math.random() * 0.7), innerHeight * (0.1 + Math.random() * 0.25), { n: 46, pal: pals[k % 3], speed: [80, 300], life: [0.5, 1.1], grav: 160 });
+    }, 400 + k * 700);
+  }
 }
 function resultActions() {
   if (online) return `<div class="res-actions">
@@ -4141,6 +4154,11 @@ async function onGameAct(act, t) {
     if (!online) { await playFx(E.drainFx(S)); render(); }
     return;
   }
+  if (act === 'lucky') {                      // 행운의 부적: 가장 낮은 주사위를 한 번 더 (쓸지 말지는 사람이 고른다)
+    if (!(await doAct(g => E.useLucky(g)))) return;
+    if (!online) { await playFx(E.drainFx(S)); render(); }
+    return;
+  }
   if (act === 'bet-open') { sfx.select(); return showBetPicker(); }
   if (act === 'bet') {                        // 도박사 배팅
     layer.innerHTML = '';
@@ -4451,16 +4469,22 @@ let dialSwiped = 0;
 document.addEventListener('pointerdown', e => {
   const d = e.target.closest?.('.cls-dial, .rs-dial');
   if (!d) return;
-  const x0 = e.clientX, y0 = e.clientY;
+  const x0 = e.clientX, y0 = e.clientY, id = e.pointerId, t0 = Date.now();
+  // 손가락이 스크롤로 넘어가면(pointercancel) pointerup 이 오지 않는다 — 그때 듣기를 안 지우면, 다음에 아무 데나 누를 때
+  // 예전에 만진 다이얼(대개 1번 자리)이 돌아가 버렸다 (2 · 3번 캐릭터를 바꾸는데 1번도 같이 바뀌는 버그). 같은 손가락 · 짧은 밀기만 받는다
+  const done = () => { removeEventListener('pointerup', up); removeEventListener('pointercancel', done); };
   const up = ev => {
-    removeEventListener('pointerup', up);
+    if (ev.pointerId !== id) return;
+    done();
     const dx = ev.clientX - x0;
-    if (Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(ev.clientY - y0)) return;
+    if (!d.isConnected || Date.now() - t0 > 900 || Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(ev.clientY - y0)) return;
+    if (ev.target.closest?.('.cls-dial, .rs-dial') !== d) return;   // 다른 다이얼 위에서 손을 뗐으면 무시
     clearTimeout(clsHold);
     d.querySelectorAll('.dial-arrow')[dx < 0 ? 1 : 0]?.click();
     dialSwiped = Date.now();
   };
   addEventListener('pointerup', up);
+  addEventListener('pointercancel', done);
 });
 document.addEventListener('click', e => {
   if (clsFired) { clsFired = false; e.preventDefault(); e.stopPropagation(); return; }

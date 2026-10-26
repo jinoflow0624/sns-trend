@@ -2045,4 +2045,8 @@ export default {"키보리아":"KYBORIA",
 "오늘 광고 보상은 다 받았어요.":"Hadiah iklan hari ini sudah diambil semua.",
 "곧 열려요":"Segera hadir",
 "무지개 해금!":"Pelangi terbuka!",
-"승리⟪배너⟫":"MENANG"};
+"승리⟪배너⟫":"MENANG",
+"{0} 행운의 부적 · 다시 굴리기":"{0} Jimat Keberuntungan · Lempar ulang",
+"가장 낮은 주사위 {0}":"Dadu terendah {0}",
+"매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)":"Tiap giliran setelah lemparan pertama, kamu boleh melempar ulang dadu terendah sekali gratis (pilihanmu · lemparan tidak berkurang)",
+"지금은 행운의 부적을 쓸 수 없어요.":"Jimat Keberuntungan tidak bisa dipakai sekarang."};
