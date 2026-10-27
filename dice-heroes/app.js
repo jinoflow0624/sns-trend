@@ -1501,7 +1501,7 @@ function render() {
     document.querySelector('.tray-loading')?.remove();
     t.attach(document.getElementById('tray'));
     turnSkin(t);
-    t.show(ui.dice || S.dice, S.rolled ? S.held : []);
+    t.show(ui.dice || S.dice, S.rolled ? boxedDice() : []);
     t.setTarget(!!ui.tool && myTurn);
     requestAnimationFrame(() => diceOverlay(myTurn));
   });
@@ -4031,11 +4031,14 @@ async function step() {
   }
 }
 
-// 이번 굴림에서 굴리지 않는 주사위: 고정한 것 + 마왕에게 봉인된 것.
+// 함(보관함)에 들어가 있는 주사위: 고정한 것 + 얼어붙은 것 (얼음은 이번 차례에 다시 굴릴 수 없어 함으로 옮겨 둔다)
+const boxedDice = (g = S) => g.held.map((h, i) => !!h || E.isFrozen(g, i));
+// 이번 굴림에서 굴리지 않는 주사위: 고정한 것 + 얼어붙은 것 + 마왕에게 봉인된 것.
+// (예전엔 언 주사위도 같이 굴러갔다가 원래 눈으로 돌아왔다 — 엔진은 언 주사위 눈을 바꾸지 않는다)
 // 봉인된 주사위는 굴리는 동안 트레이 제자리에서 반투명해지고 쇠사슬 표시는 그대로 남는다 (ui.sealRoll)
 function rollMask(g = S, same = g.rolled, n = g.dice.length) {
   ui.sealRoll = same ? (g.sealed || []).slice() : [];
-  return Array.from({ length: n }, (_, i) => !(same && (g.held[i] || ui.sealRoll.includes(i))));
+  return Array.from({ length: n }, (_, i) => !(same && (g.held[i] || E.isFrozen(g, i) || ui.sealRoll.includes(i))));
 }
 
 async function rollAnimated(mask, list = S.fx) {
