@@ -8,6 +8,7 @@
 //   ads_enabled  true 면 결과 화면 뒤 전면 광고를 켠다 (기본 false — 켜기 전엔 광고 스크립트도 안 불러옴)
 //   ads_every    몇 판마다 광고 한 번 (기본 1 = 한 판마다)
 import { PROD, fireApp } from './fire.js';
+import { noteEvent } from './telemetry.js';
 
 const DEFAULTS = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 1 };
 let rc = null;
@@ -46,7 +47,7 @@ export function older(a, b) {
   return false;
 }
 
-// 사용 통계 — 설정에서 동의했을 때만 켠다 (기본은 꺼짐). 개인 식별 정보는 보내지 않는다
+// 사용 통계 — 설정 → 사용 통계 보내기 (기본 켜짐 · 유럽 시간대는 기본 꺼짐, telemetry.js defaultOn). 개인 식별 정보는 보내지 않는다
 export async function setAnalytics(on) {
   if (!PROD) return;
   try {
@@ -59,6 +60,8 @@ export async function setAnalytics(on) {
   } catch (err) { console.warn('[analytics]', err); }
 }
 
+// 게임 이벤트: Google Analytics(동의했을 때) + 플레이 통계(telemetry.js — 리텐션 · 접속 시간 · 이탈 지점)
 export function track(name, params = {}) {
   try { logFn?.(name, params); } catch {}
+  try { noteEvent(name, params); } catch {}
 }

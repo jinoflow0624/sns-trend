@@ -1,0 +1,40 @@
+name: KYBORIA 관리자 등록
+
+# 배포판 유저 테스트 통계 화면(?stats)을 볼 수 있는 관리자를 등록한다.
+# 통계 화면에 나오는 '이 기기의 번호'(익명 로그인 번호)를 넣고 실행 → 데이터베이스 admins/<번호> = true
+on:
+  workflow_dispatch:
+    inputs:
+      uid:
+        description: '통계 화면에 나온 번호'
+        required: true
+      remove:
+        description: 'true 면 등록 해제'
+        default: 'false'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 관리자 등록
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DICEHEROES }}
+          UID_IN: ${{ inputs.uid }}
+          REMOVE: ${{ inputs.remove }}
+        run: |
+          if ! [[ "$UID_IN" =~ ^[A-Za-z0-9]{10,64}$ ]]; then echo "::error::번호 형식이 이상해요"; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          if [ "$REMOVE" = "true" ]; then
+            npx -y firebase-tools@14 database:remove "/admins/$UID_IN" --project diceheroes-4fbbb --force
+          else
+            npx -y firebase-tools@14 database:set "/admins/$UID_IN" --data true --project diceheroes-4fbbb --force
+          fi
