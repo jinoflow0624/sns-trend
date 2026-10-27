@@ -6,7 +6,7 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
-import { hasMotion, bustURL, bossBustURL, bossTurns } from '../motion.js';
+import { hasMotion, bustURL, bossBustURL, bossFaceCls } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
@@ -693,7 +693,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img${bossBustURL(e.id) ? ' bust-b' : ''}${bossTurns(e.id) ? ' turn-r' : ''}" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : bossBustURL(e.id) || foeURL(e.id)}" alt=""></div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img${bossBustURL(e.id) ? ' bust-b' : ''}${bossFaceCls(e.id)}" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : bossBustURL(e.id) || foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="${TR('보호막')}">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>

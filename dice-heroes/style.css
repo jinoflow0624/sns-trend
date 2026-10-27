@@ -2224,3 +2224,5 @@ img.spr.bust-b { object-fit: cover; object-position: 50% 30%; border-radius: 6px
 .boss-art:has(img.turn-r), .foe-art:has(img.turn-r), .actor.boss-actor.turn-r { perspective: 520px; }
 img.turn-r { rotate: y 24deg; translate: 3% 0; }
 .actor.boss-actor.turn-r .actor-body { rotate: y 24deg; }
+/* 왼쪽을 보는 보스(오크)는 좌우를 뒤집어 오른쪽 영웅을 본다 (scale 속성 — 동작 transform 과 겹친다) */
+img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .af { scale: -1 1; }

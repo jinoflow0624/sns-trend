@@ -6,7 +6,7 @@ import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL, HERO_ART } from './pixel.js';
-import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, bustURL, bossBustURL, bossTurns, FRAME, ORIGIN, FIG_H } from './motion.js';
+import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, bustURL, bossBustURL, bossFaceCls, FRAME, ORIGIN, FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -119,7 +119,7 @@ const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' sp
 // 작은 초상화 칸 (28~48px): v8 영웅은 상반신 그림 — 전신을 줄이면 얼굴이 몇 픽셀뿐이라 누군지 안 보였다. 보스 · 예전 그림은 그대로
 const bust = (id, cl = '') => (HERO_ART !== 'v1' && hasMotion(id) ? `<img class="spr spr-hi bust ${cl}" data-spr="${id}" src="${bustURL(id)}" alt="">` : portrait(id, cl));
 // 보스: 체력바 옆 칸 · 알림에는 상반신 (전신은 보스가 공격할 때 크게 — bossIn)
-const bossBust = (id, cl = '') => (bossBustURL(id) ? `<img class="spr spr-hi bust-b${bossTurns(id) ? ' turn-r' : ''} ${cl}" data-spr="${id}" src="${bossBustURL(id)}" alt="">` : portrait(id, cl));
+const bossBust = (id, cl = '') => (bossBustURL(id) ? `<img class="spr spr-hi bust-b${bossFaceCls(id)} ${cl}" data-spr="${id}" src="${bossBustURL(id)}" alt="">` : portrait(id, cl));
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
 const eventIco = (id, cls) => ico(EVENT_ICON[id], cls);
@@ -2256,7 +2256,7 @@ function bossIn(id, color = '#E8435A') {
   const at = bossSpot(), spd = FX().speed || 1;
   const src = spriteURL(id, 4);
   const el = document.createElement('div');
-  el.className = `actor boss-actor in${bossTurns(id) ? ' turn-r' : ''}`;
+  el.className = `actor boss-actor in${bossFaceCls(id)}`;
   el.style.cssText = `left:${at.x}px;top:${at.y}px;--sz:${at.sz}px;--c:${color};--spd:${spd}`;
   el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')"><img class="spr spr-hi" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i></div></div>`;
   document.body.appendChild(el);

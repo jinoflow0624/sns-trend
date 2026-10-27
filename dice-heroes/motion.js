@@ -20,7 +20,11 @@ export const hasMotion = id => IDS.includes(id);
 // 보스 상반신 (체력바 옆 칸 · tools/make_boss_bust.py). 전신은 보스가 공격할 때 크게 나온다
 const BOSS_IDS = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'];
 // 정면을 보는 보스는 몸을 오른쪽(영웅 쪽)으로 살짝 돌려 그린다 (화염룡 · 세머리 용은 원래 오른쪽을 본다)
-export const bossTurns = id => BOSS_IDS.includes(id) && !['dragon', 'hydra'].includes(id);
+// 왼쪽을 보는 보스(오크)는 좌우를 뒤집는다
+export const bossFlips = id => id === 'orc';
+export const bossTurns = id => BOSS_IDS.includes(id) && !['dragon', 'hydra', 'orc'].includes(id);
+// 보스 그림에 붙일 class (뒤집기 · 돌리기)
+export const bossFaceCls = id => (bossFlips(id) ? ' flip-x' : bossTurns(id) ? ' turn-r' : '');
 export const bossBustURL = id => (BOSS_IDS.includes(id) ? `assets/boss/${id}_bust.webp?v=${GAME.version}` : null);
 
 const sheets = {};
