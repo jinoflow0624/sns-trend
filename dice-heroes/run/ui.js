@@ -9,7 +9,7 @@ import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
 import { hasMotion, bustURL } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
+import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -693,7 +693,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="${TR('보호막')}">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
@@ -1578,7 +1578,7 @@ async function playOne(f) {
       if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −25% (공격 · 방어 모두)
       // 시공 광대가 피하는 카드: 카드가 닿기 직전에 몸을 빼고, 닿는 순간 '회피!' (맞는 연출 없이)
       if (f.dodge) setTimeout(() => { const a = $('foe-art'); a?.classList.remove('dodge'); void a?.offsetWidth; a?.classList.add('dodge'); sfx.whoosh?.(); }, 150);
-      // 공격 카드: 주사위판 왼쪽 아래에 영웅이 크게 나와 직업 동작으로 친다 (칼 · 주문 · 총 …). 동작이 닿는 순간 카드가 날아간다
+      // 공격 카드: 주사위판 오른쪽 아래에 영웅이 크게 나와 직업 동작으로 친다 (칼 · 주문 · 총 …). 동작이 닿는 순간 카드가 날아간다
       const act = f.target === 'enemy' && X.actor?.ok() ? X.actor.in(R.cls, e) : null;
       let swing = null;
       if (act) { await wait(200); swing = X.actor.pose(act, 'attack', 640); await wait(140 / (FX().speed || 1)); }
