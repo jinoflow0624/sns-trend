@@ -2174,14 +2174,15 @@ async function trayReady() {
 }
 
 // ── 큰 영웅: 기운 받기 · 공격 · 피격 동작 ─────────────────────────────────────
-// 게임 화면의 초상화는 28~32px 라 동작이 안 보인다 → 연출 동안 주사위판 왼쪽 아래에 영웅을 크게 세워 움직인다.
+// 게임 화면의 초상화는 28~32px 라 동작이 안 보인다 → 연출 동안 주사위판 오른쪽 아래에 영웅을 크게 세워 움직인다.
 // v8 도트 영웅은 16프레임 모션(motion.js)으로 칼을 휘두르고 · 주문을 쏘고 · 맞고 휘청인다. 몸 전체를 덤벼들게 하는 움직임(.actor CSS)은 그 위에 살짝만.
 // 모션 시트가 없으면(예전 그림 ?art=v1) 기본 그림 하나를 늘이고 기울여 동작을 만든다.
 function actorSpot(mo = false) {
   const r = document.getElementById('tray')?.getBoundingClientRect();
   // 모션 도트는 정확히 1.5배(좁은 화면 1.25배)로 그린다 — 폰(화면 밀도 2~3배)에서 도트 한 칸이 고르게 3 · 2.5칸이 되어 또렷하다. 키 약 126px
   const sz = mo ? Math.round(motionW(r?.width) * FIG_H / FRAME / 0.92) : Math.round(Math.min(120, Math.max(84, (r?.width || 360) * 0.27)));
-  return r ? { x: r.left + sz * 0.62, y: r.bottom - 8, sz } : { x: innerWidth * 0.25, y: innerHeight * 0.62, sz };
+  // 몬스터(보스 · 원정 적)는 화면 왼쪽 위에 있다 → 영웅은 주사위판 오른쪽 아래에 서서 왼쪽(몬스터 쪽)을 보고 친다 · 맞는다
+  return r ? { x: r.right - sz * 0.62, y: r.bottom - 8, sz } : { x: innerWidth * 0.75, y: innerHeight * 0.62, sz };
 }
 const motionW = w => FRAME * ((w || 360) >= 340 ? 1.5 : 1.25);
 const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });

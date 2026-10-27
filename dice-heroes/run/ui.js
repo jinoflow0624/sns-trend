@@ -1578,7 +1578,7 @@ async function playOne(f) {
       if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −25% (공격 · 방어 모두)
       // 시공 광대가 피하는 카드: 카드가 닿기 직전에 몸을 빼고, 닿는 순간 '회피!' (맞는 연출 없이)
       if (f.dodge) setTimeout(() => { const a = $('foe-art'); a?.classList.remove('dodge'); void a?.offsetWidth; a?.classList.add('dodge'); sfx.whoosh?.(); }, 150);
-      // 공격 카드: 주사위판 왼쪽 아래에 영웅이 크게 나와 직업 동작으로 친다 (칼 · 주문 · 총 …). 동작이 닿는 순간 카드가 날아간다
+      // 공격 카드: 주사위판 오른쪽 아래에 영웅이 크게 나와 직업 동작으로 친다 (칼 · 주문 · 총 …). 동작이 닿는 순간 카드가 날아간다
       const act = f.target === 'enemy' && X.actor?.ok() ? X.actor.in(R.cls, e) : null;
       let swing = null;
       if (act) { await wait(200); swing = X.actor.pose(act, 'attack', 640); await wait(140 / (FX().speed || 1)); }
