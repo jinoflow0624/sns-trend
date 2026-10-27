@@ -19,7 +19,7 @@ export const BGM_FILES = {
   boss_demon:  `assets/bgm/boss_demon.ogg${AV}`,    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
   // 강화 보스 (Suno). 곡 첫 박부터 틀고, BGM_LOOP 지점부터 끝까지를 반복한다 (오버로드는 곡 전체가 루프)
   boss_cyclops:   `assets/bgm/boss_cyclops.ogg${AV}`,   // 키클롭스 · 1~12마디 도입 + 13~40마디(28마디) 반복, 131BPM
-  boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~16마디 도입 + 17~40마디(24마디) 반복, 129.635BPM (곡 끝까지 다 튼 뒤 17마디로 — 앞뒤 소리가 가장 닮은 이음매)
+  boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~10마디 도입 + 11~26마디(16마디) 반복, 129.635BPM (화음 · 음색이 가장 닮은 이음매)
   boss_overlord:  `assets/bgm/boss_overlord.ogg${AV}`,  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
   boss_archdemon: `assets/bgm/boss_archdemon.ogg${AV}`, // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
   boss_jester:    `assets/bgm/boss_jester.ogg${AV}`,    // 원정 히든 보스 시공 광대 · 1~32마디 도입 + 33~62마디(30마디) 반복, 156.5BPM
@@ -32,11 +32,11 @@ export const BGM_FILES = {
 };
 // 도입부가 있는 곡: 처음 한 번은 첫 박부터, 그다음부터는 이 시각(초)부터 파일 끝까지를 반복한다.
 // 파일 끝 0.04초는 루프 시작 직전 소리로 미리 섞어 두어 이음매가 매끄럽다
-export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 29.870625, boss_archdemon: 32.741604,
+export const BGM_LOOP = { boss_cyclops: 22.212, boss_hydra: 18.762521, boss_archdemon: 32.741604,
   run_map: 24.676896, run_battle: 3.528, run_elite: 3.314792, boss_jester: 49.401708 };
 // 반복이 끝나는 지점 (초). 곡 끝에 무음 꼬리가 있는 곡 — 그대로 반복하면 0.5초쯤 조용했다가 다시 시작했다. 마디 수 × 박자로 맞춘다
 export const BGM_LOOP_END = { run_win: 15 * 4 * 60 / 135, run_lose: 17 * 4 * 60 / 91,
-  boss_hydra: 3566548 / 48000 };   // 세머리 용: 파일 끝 정확한 샘플 (브라우저가 끝에 44샘플을 더 붙여 읽어서 그대로 두면 이음매에 틱 소리)
+  boss_hydra: 2322439 / 48000 };   // 세머리 용: 파일 끝 정확한 샘플 (브라우저가 끝에 44샘플을 더 붙여 읽어서 그대로 두면 이음매에 틱 소리)
 // 협동모드 보스 곡: 보스별 파일이나 칩튠 곡이 있으면 그것, 없으면 공용 보스전 곡
 // 강화 보스는 자기 곡이 없으면 원래 보스 곡을 쓴다
 const SONG_BASE = { hydra: 'dragon', cyclops: 'orc', overlord: 'lich', archdemon: 'demon' };
