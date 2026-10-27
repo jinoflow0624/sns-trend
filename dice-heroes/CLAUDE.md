@@ -83,3 +83,10 @@
 - 앱: 시작 버튼은 `ticketGate(go)` 로 감싼다 (없으면 입장권 창 `showTickets` → 광고 보고 받으면 바로 이어서 시작). 원정은 `X.ticketGate` · `X.ticketUsed`.
 - 보상형 광고는 `ads.js` `rewardAd()` (H5 `type: 'reward'`). 광고가 꺼져 있거나 없으면 광고 없이 준다 (하루 10번 한도는 그대로).
 - 유료 묶음(10장 ₩2,000)은 창에 '곧 열려요'로만 보인다 — 결제는 결제 세션이 붙인다 (`wallet.js` 에 지급 함수를 더하고 서버가 영수증 확인 뒤 `tix.n` 을 늘린다).
+
+## 유저 테스트 통계 (리텐션 · 접속 시간)
+- 게임 이벤트는 `live.js` `track(이름, 값)` 한 곳으로 보낸다 → Google Analytics + `telemetry.js` (플레이 통계, 배포판만).
+- `telemetry.js`: 기기마다 날짜(한국 자정)별 세션 · 플레이 시간(1분 안에 만진 시간) · 화면별 체류 · 모드별 판 수 · 처음 해 본 시각(이정표) · 앱을 내린 화면을 모아 1분마다 `tele/<uid>` 에 덮어쓴다.
+  화면 이름은 `app.js` `screenName()` (원정은 `run/ui.js` `where()`). 새 화면을 만들면 이름이 잡히는지 본다. 새 기능을 넣으면 `track` 을 더하고, 첫 경험 단계로 볼 것이면 `telemetry.js` `MILESTONE` · `stats.js` `FUNNEL` 에도.
+- 설정 → 사용 통계 보내기 (기본 켜짐 · 유럽 시간대는 기본 꺼짐). 내 데이터 지우기는 `tele/<uid>` 도 지운다. 개인정보처리방침(privacy.html)과 맞춘다.
+- 보기: 배포판 `?stats` (관리자만 — `admins/<uid> = true`, Actions 'KYBORIA 관리자 등록'). Firebase 콘솔 → Analytics 에서도 리텐션 · 참여 시간.

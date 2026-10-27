@@ -13,6 +13,7 @@ import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
 import { PROD } from '../fire.js';
+import { track } from '../live.js';
 import { initTour, tour, replayTours, tourForced, tourRunEnded } from './tour.js';
 
 const SAVE = 'diceheroes.run';
@@ -2426,6 +2427,7 @@ function showEnd() {
   }
   X.store.del(SAVE);
   paintEnd(false);
+  if (fresh && !R.trial) track('run_end', { won: won ? 1 : 0, cls: R.cls, asc: R.asc || 0, act: R.act, floor: Run.floorOf(R), turns: R.stats.turns });
   if (fresh) {
     playBgm(won ? 'run_win' : 'run_lose');
     if (won && X.prefs.fx !== 'min') { FX().burst(innerWidth / 2, innerHeight * 0.3, { n: 90, pal: PALETTES.rainbow, speed: [100, 420] }); sfx.levelup?.(); winFireworks(); }
@@ -2564,6 +2566,7 @@ export function onAct(act, t) {
     return Prog.startRun(cls, lv).then(s => {
       if (s.noTicket) return X.ticketShop(() => onAct(act, t));   // 서버에서 입장권이 모자랐다
       if (!trial && !s.offline) X.ticketUsed(s.tix);
+      if (!trial) track('run_start', { cls, asc: lv, again: act === 'run-again' ? 1 : 0 });
       R = Run.createRun({ cls, name: X.name(), asc: lv, seed: s.seed, meta: s.meta });
       R.xid = s.id;
 // @test-only{
@@ -2588,6 +2591,7 @@ export function onAct(act, t) {
   if (act === 'run-tourre') { sfx.select(); replayTours(); X.layer.innerHTML = ''; X.toast?.(ico('scroll'), TR('안내를 다시 보여 줄게요'), TR('화면마다 처음 볼 때 한 번씩'), 1800); return enterView(); }
   if (act === 'run-giveup') {
     if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = TR('한 번 더 누르면 포기해요'); sfx.select(); return; }
+    if (!R.trial) track('run_giveup', { act: R.act, floor: Run.floorOf(R) });
     try { Run.giveUp(R); } catch { /* 이미 끝남 */ }
     X.layer.innerHTML = '';
     return showEnd();
@@ -2944,3 +2948,5 @@ export function back() {
 }
 export const active = () => !!R || ui.view === 'select';
 export const state = () => R;
+// 지금 원정 화면 이름 (플레이 통계: 화면별 체류 · 이탈 지점)
+export const where = () => (R ? R.phase : ui.view || 'select');

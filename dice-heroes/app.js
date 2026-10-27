@@ -15,6 +15,7 @@ import { setAmbientSource, ambientSurge, setTrayAura } from './ambient.js';
 import { ico, PERK_ICON, QUEST_ICON, EVENT_ICON, SKILL_ICON } from './icons.js';
 import { PROD, deleteAccount, linkGoogle, accountInfo } from './fire.js';
 import { liveConfig, older, setAnalytics, track } from './live.js';
+import { initTelemetry, setTelemetry, defaultOn as statsDefault } from './telemetry.js';
 import { webglOK, DiceTray2D } from './dice2d.js';
 import * as Wal from './wallet.js';
 import * as AC from './achievements.js';
@@ -40,7 +41,15 @@ if (LANG !== 'ko') document.title = TR('KYBORIA · 요트 주사위 RPG');   // 
 const prefs = { fx: 'normal', lowGfx: false, bigText: false, colorAssist: false, analytics: false, adsPersonal: false, shake: false, diceSkin: 'classic', traySkin: 'classic', ...(store.get(KEYS.prefs) || {}) };
 preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이가 처음부터 그림을 입고 나오게
 preloadTray(traySkin(prefs.traySkin).id).catch(() => {});
-if (prefs.analytics) setAnalytics(true);
+// 사용 통계 (설정 → 사용 통계 보내기): 기본 켜짐 · 유럽 시간대는 기본 꺼짐. Google Analytics + 플레이 통계(telemetry.js — 유저 테스트용 리텐션 · 접속 시간)
+const statsOn = () => prefs.stats ?? statsDefault();
+if (statsOn()) setAnalytics(true);
+// 지금 화면 이름 (플레이 시간 · 이탈 지점을 화면별로 센다). 원정은 원정 안의 화면까지, 결과 창 · 일시정지 창도 구분
+const screenName = () => {
+  const s = screen === 'run' ? `run_${runMod?.where?.() || 'select'}` : screen || 'boot';
+  return layer?.querySelector?.('.results') ? `${s}_results` : layer?.querySelector?.('.tix-pop, .overlay') && screen === 'game' ? `${s}_popup` : s;
+};
+setTimeout(() => initTelemetry({ enabled: statsOn(), version: GAME.version, language: LANG, screen: screenName }), 0);
 // 배포판: 서버 공지 · 점검 · 최소 버전 (Remote Config). 타이틀을 열 때 받아 둔다
 let live = { notice: '', maintenance: false, min_version: '', ads_enabled: false, ads_every: 1 };
 // 광고: 테스트판은 늘 테스트 광고, 배포판은 Remote Config ads_enabled 가 켜졌을 때만. 광고 제거 권리 = 지갑 owned.pass.no_ads
@@ -803,6 +812,7 @@ async function createRoom() {
   store.set(KEYS.name, myName);
   const backend = await connect();
   if (!backend) return;
+  track('room_create');
   let code = Net.makeCode();
   try { for (let i = 0; i < 3 && await backend.exists(code); i++) code = Net.makeCode(); }
   catch (err) { const w = Net.explain(err); return showOnlineMenu(w.text, String(err?.code || err?.message || '').slice(0, 120)); }
@@ -822,6 +832,7 @@ async function createRoom() {
 async function joinRoom(code) {
   code = Net.normalizeCode(code);
   if (!code) return showOnlineMenu(TR('방 코드를 입력해 주세요.'));
+  track('room_join');
   const input = document.getElementById('my-name');
   if (input) { myName = input.value.trim().slice(0, 10) || myName; store.set(KEYS.name, myName); }
   const backend = await connect();
@@ -3060,6 +3071,7 @@ async function claimAchUI(id, btn) {
   if (btn) btn.disabled = true;
   const r = await Wal.claimAch(id);
   if (!r.ok) { sfx.back(); toast(ico('warn'), TR('받지 못했어요'), r.why || '', 1800); if (btn) btn.disabled = false; return; }
+  track('ach_claim', { id });
   sfx.coin(); buzz(40);
   const a = AC.achInfo(id);
   const next = AC.achBlocks(Wal.ach(), achOpen()).find(b => b.steps.includes(a));
@@ -3521,6 +3533,7 @@ async function buyItem(kind, id, btn) {
   const r = await Wal.buy(kind, id).catch(err => ({ ok: false, why: navigator.onLine ? (err?.message || TR('서버 오류')) : TR('인터넷 연결이 필요해요.') }));
   if (btn) btn.toggleAttribute('disabled', false);
   if (!r.ok) { sfx.back(); return toast(ico('warn'), TR('살 수 없어요'), r.why, 2000); }
+  track('shop_buy', { kind, id });
   sfx.coin();
   unlockReveal(kind, id);
   if (kind === 'cls') { layer.innerHTML = ''; return afterClassBuy?.(id); }
@@ -3587,7 +3600,7 @@ function showSettings(inGame = false) {
     <label class="set-row">${TR('그래픽 절약')} <small>${TR('배터리·발열↓')}</small><input id="set-low" type="checkbox" ${prefs.lowGfx ? 'checked' : ''}></label>
     ${SHAKE_OK ? `<label class="set-row">${TR('흔들어 굴리기')} <small>${TR('폰을 흔들면 굴림')}</small><input id="set-shake" type="checkbox" ${prefs.shake ? 'checked' : ''}></label>` : ''}
     ${adsOn() ? `<label class="set-row">${TR('맞춤형 광고')} <small>${TR('끄면 관심사와 상관없는 광고')}</small><input id="set-adp" type="checkbox" ${prefs.adsPersonal ? 'checked' : ''}></label>` : ''}
-    ${PROD ? `<label class="set-row">${TR('사용 통계 보내기')} <small>${TR('익명 · 게임 개선용')}</small><input id="set-stats" type="checkbox" ${prefs.analytics ? 'checked' : ''}></label>` : ''}
+    ${PROD ? `<label class="set-row">${TR('사용 통계 보내기')} <small>${TR('익명 · 게임 개선용')}</small><input id="set-stats" type="checkbox" ${statsOn() ? 'checked' : ''}></label>` : ''}
     ${PROD && !inGame ? `<div class="set-row account" id="account-row">${TR('계정')} <small>${TR('확인 중…')}</small></div>` : ''}
     <p class="hint diag">${TR('v{0} · 그래픽 {1}{2}', GAME.version, esc(gfxNote || TR('아직 안 씀')), lastErr ? `<br>${TR('최근 오류: {0}', esc(lastErr))}` : '')}</p>
     ${inGame ? '' : `<div class="set-links"><a href="privacy.html" target="_blank" rel="noopener">${TR('개인정보 처리방침')}</a><button class="linkish" data-act="wipe">${TR('내 데이터 지우기')}</button></div>`}
@@ -3621,6 +3634,7 @@ const defaultNames = () => [TR('나'), ...botNames(), TR('모험가'), TR('동�
 async function pickLang(code) {
   if (langBusy) return;
   langBusy = true;
+  track('lang_change', { lang: code });
   const before = defaultNames();
   try {
     if (!(await setLang(code))) { showLangPicker(); return; }
@@ -3759,6 +3773,7 @@ function showCredits() {
 
 // ── 튜토리얼 코치 ────────────────────────────────────────────────────────────
 function startTutorial() {
+  track('tutorial_begin');
   tut = { step: 0, shown: -1 };
   const name = setup.find(p => !p.bot)?.name || TR('나');
   startGame(createTutorialGame(name));
@@ -4321,7 +4336,7 @@ function onAct(act, t) {
   if (act === 'wipe-yes') {
     leaveRoom(false);
     setAnalytics(false);
-    Wal.deleteWallet().catch(err => console.warn('[wipe wallet]', err)).then(() => deleteAccount()).catch(err => console.warn('[wipe]', err)).finally(() => {
+    Wal.deleteWallet().catch(err => console.warn('[wipe wallet]', err)).then(() => import('./stats.js').then(m => m.deleteTele())).then(() => deleteAccount()).catch(err => console.warn('[wipe]', err)).finally(() => {
       try { Object.keys(localStorage).filter(k => k.startsWith('diceheroes') || k.startsWith('dh.')).forEach(k => localStorage.removeItem(k)); } catch {}
       location.reload();
     });
@@ -4395,6 +4410,7 @@ function onAct(act, t) {
     return Ads.breakThen(() => onAct(act, { dataset: { ...t.dataset, adDone: '1' } }));
   }
   if (act === 'home' || act === 'quit') {
+    if (S && !S.ended && !S.tutorial) track('game_quit', { mode: S.mode, round: S.round, online: online ? 1 : 0 });   // 판 도중에 나감
     sfx.back();
     tut = null; coachEl.innerHTML = '';
     if (online) leaveRoom();
@@ -4519,7 +4535,7 @@ document.addEventListener('input', e => {
     if (!prefs.drama) { slowFx(false); document.body.classList.remove('bighit'); }
   }
   if (id === 'set-adp') { prefs.adsPersonal = e.target.checked; store.set(KEYS.prefs, prefs); Ads.setPersonalized(prefs.adsPersonal); }
-  if (id === 'set-stats') { prefs.analytics = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.analytics); }
+  if (id === 'set-stats') { prefs.stats = e.target.checked; store.set(KEYS.prefs, prefs); setAnalytics(prefs.stats); setTelemetry(prefs.stats); }
   if (id === 'set-big' || id === 'set-ca' || id === 'set-low') {
     if (id === 'set-big') prefs.bigText = e.target.checked;
     if (id === 'set-ca') prefs.colorAssist = e.target.checked;
@@ -4578,7 +4594,10 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 
 // ?demo 봇 대결, ?skip 타이틀로 바로, ?demon 마왕 바로 열기 (화면 점검용)
 const q = new URLSearchParams(location.search);
-if (q.has('demo')) {
+if (q.has('stats')) {          // 유저 테스트 통계 (배포판 · 관리자만, stats.js)
+  screen = 'stats';
+  import('./stats.js').then(m => m.showStats(app)).catch(err => { app.textContent = String(err); });
+} else if (q.has('demo')) {
   unlocked = true;
   const mode = q.get('demo') === 'coop' ? { mode: 'coop', boss: q.get('boss') || 'dragon', diff: 1 } : q.get('demo') === 'classic' ? { rule: 'classic' } : {};
   startGame(E.createGame([{ name: TR('고블린 봇'), cls: 'rogue', bot: true }, { name: TR('슬라임 봇'), cls: 'mage', bot: true }], undefined, mode));
@@ -4607,6 +4626,7 @@ async function ticketGate(go) {
 let tixThen = null, tixBusy = false;
 function showTickets(then = null) {
   tixThen = then;
+  track('ticket_popup', { need: then ? 1 : 0, have: Wal.tickets() });
   document.querySelector('.tix-pop')?.remove();
   const el = document.createElement('div');
   el.className = 'tix-pop overlay';
@@ -4646,6 +4666,7 @@ async function watchTicketAd() {
   tixBusy = true; paintTickets();
   sfx.select();
   const how = await Ads.rewardAd();
+  track('ticket_ad', { how });
   if (how === 'skipped') { tixBusy = false; paintTickets(); return toast(ico('warn'), TR('광고를 끝까지 봐야 받아요'), '', 1800); }
   const r = await Wal.adTicket();
   tixBusy = false;

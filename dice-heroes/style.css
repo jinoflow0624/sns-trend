@@ -2092,3 +2092,21 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 @keyframes sheetBest { 50% { box-shadow: inset 0 0 0 3px #E9A21C, 0 0 0 3px #FFE27A, 0 0 22px rgba(255, 200, 61, .95); } }
 @keyframes sheetCombo { 50% { box-shadow: inset 0 0 0 3px #139B74, 0 0 0 2px #8FF5D2, 0 0 20px rgba(62, 230, 180, .9); } }
 @media (prefers-reduced-motion: reduce) { .sheet-pop .row.best, .sheet-pop .row.combo { animation: none; } }
+
+/* 유저 테스트 통계 화면 (?stats · stats.js) — 개발자용, 스크롤되는 표 */
+.stats-page { position: fixed; inset: 0; overflow: auto; padding: 16px 12px 40px; background: #0E0A2C; color: #E8E4FF; font-size: 12px; z-index: 5; -webkit-user-select: text; user-select: text; }
+.stats-page h1 { font-size: 20px; color: var(--gold); margin: 0 0 4px; }
+.stats-page h2 { font-size: 15px; color: #FFE27A; margin: 18px 0 6px; border-bottom: 1px solid #2A2270; padding-bottom: 3px; }
+.stats-page h3 { font-size: 13px; color: #C9D3E8; margin: 12px 0 4px; }
+.st-note, .st-hint { color: #9A93C8; font-size: 11px; margin: 4px 0; }
+.st-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin-top: 8px; }
+.st-card { display: grid; padding: 6px 8px; background: #1C1446; border: 2px solid #2A2270; }
+.st-card small { color: #9A93C8; font-size: 10px; } .st-card b { font-size: 20px; color: #fff; } .st-card i { font-style: normal; font-size: 10px; color: #9A93C8; }
+.st-t { width: 100%; border-collapse: collapse; font-size: 11px; }
+.st-t th, .st-t td { padding: 4px 5px; border-bottom: 1px solid #221A55; text-align: right; white-space: nowrap; vertical-align: top; }
+.st-t th { color: #9A93C8; font-weight: 400; } .st-t td.l, .st-t th:first-child, .st-t td:first-child { text-align: left; white-space: normal; }
+.st-t td small { display: block; color: #7A73A8; font-size: 10px; } .st-t td.na { color: #4A4290; }
+.st-bar { display: inline-block; height: 8px; width: calc(var(--w) * .6); max-width: 60%; margin-right: 6px; background: linear-gradient(90deg, #3EE6B4, #FFC83D); vertical-align: middle; }
+.st-split { line-height: 1.7; }
+.st-uid code, .st-how code { background: #1C1446; padding: 2px 6px; font-size: 12px; word-break: break-all; }
+.st-how { padding-left: 18px; line-height: 1.8; } .st-err { color: #FF9AA8; font-size: 10px; }
