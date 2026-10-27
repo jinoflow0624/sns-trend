@@ -2189,3 +2189,16 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 .modal.skins .skin-card.trying { box-shadow: inset 0 0 0 2px #FFB060, inset 0 0 18px rgba(255, 160, 60, .55), 0 0 12px rgba(255, 160, 60, .55); }
 .modal.skins .skin-card b { text-shadow: 1px 1px 0 var(--ink), 0 0 4px rgba(0, 0, 0, .8); }
 .modal.skins .skin-tag.price { left: 0; top: 0; }   /* .skin-tag 의 left: 4px 이 relative 에서는 오른쪽으로 4px 밀었다 */
+
+/* ── 큰 영웅 v8 모션 (v0.39.90): 캔버스에 16프레임 도트 동작을 그린다 (motion.js). 몸 전체 움직임은 동작 그림이 하므로 CSS 는 살짝만 ── */
+.actor-cv { position: absolute; image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.actor.mo.charge .actor-fig { animation: actorChargeMo var(--dur) steps(8, jump-none) both; }
+@keyframes actorChargeMo { 0% { transform: none; } 25% { transform: scale(1.04, .95) translateX(-1px); } 50% { transform: scale(1.05, .94) translateX(1px); } 75% { transform: scale(1.06, .93) translateX(-1px); } 100% { transform: scale(.98, 1.03) translateY(-2px); } }
+/* 공격: 동작 그림이 칼을 휘두르는 동안 몸은 목표 쪽으로 반 걸음만 */
+.actor.mo.attack .actor-fig { animation: actorAttackMo var(--dur) cubic-bezier(.3, 0, .2, 1) both; }
+@keyframes actorAttackMo { 0% { transform: none; } 15% { transform: translateX(-4px); } 30% { transform: translate(calc(var(--lx) * .6), calc(var(--ly) * .6)); } 70% { transform: translate(calc(var(--lx) * .5), calc(var(--ly) * .5)); } 100% { transform: none; } }
+/* 피격: 동작 그림이 휘청이는 동안 몸은 뒤로 조금 밀린다 */
+.actor.mo.hurt .actor-fig { animation: actorHurtMo var(--dur) linear both; }
+@keyframes actorHurtMo { 0% { transform: none; } 12% { transform: translateX(-10px); } 40% { transform: translateX(-8px); } 70% { transform: translateX(-3px); } 100% { transform: none; } }
+/* 상반신 초상화: 가로가 조금 넓다(96×80) — 칸 안에 다 보이게, 아래(가슴)에 붙여 */
+img.spr.bust { object-fit: contain; object-position: 50% 100%; }

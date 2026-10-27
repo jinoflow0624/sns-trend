@@ -5,7 +5,8 @@
 import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.js';
 import * as E from './engine.js';
 import { GAME } from './config.js';
-import { spriteURL, isImgSprite, heroPoseURL } from './pixel.js';
+import { spriteURL, isImgSprite, heroPoseURL, HERO_ART } from './pixel.js';
+import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, bustURL, FRAME, ORIGIN, FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -21,6 +22,7 @@ import * as Wal from './wallet.js';
 import * as AC from './achievements.js';
 import * as Ads from './ads.js';
 import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, dieFaceURL, preloadDice, preloadTray } from './skins.js';
+preloadMotion();   // 영웅 모션 시트 · 상반신 (9종 합쳐 약 180KB) — 첫 연출 전에 받아 둔다
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -114,6 +116,8 @@ const shownHp = () => (S?.boss ? ui.hpHold ?? S.boss.hp : 0);
 const bossRaging = () => !!S?.boss && S.boss.diff === 2 && shownHp() * 2 < S.boss.maxHp && shownHp() > 0;
 const bossArt = () => S?.boss?.id;
 const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
+// 작은 초상화 칸 (28~48px): v8 영웅은 상반신 그림 — 전신을 줄이면 얼굴이 몇 픽셀뿐이라 누군지 안 보였다. 보스 · 예전 그림은 그대로
+const bust = (id, cl = '') => (HERO_ART !== 'v1' && hasMotion(id) ? `<img class="spr spr-hi bust ${cl}" data-spr="${id}" src="${bustURL(id)}" alt="">` : portrait(id, cl));
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
 const eventIco = (id, cls) => ico(EVENT_ICON[id], cls);
@@ -265,6 +269,7 @@ function loadRun() {
       owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(),
       ticketGate, ticketShop: showTickets, tixCost, ticketUsed: tix => (PROD ? Wal.applyTix(tix) : Wal.spendLocalTicket()), runPrice: id => Wal.priceOf('run', id),
       name: () => myName, sealSigil: SEAL_SIGIL,
+      actor: { in: (cls, face) => actorIn(cls, face), pose: actorPose, out: actorOut, ok: () => bigActor() },   // 큰 영웅 공격 · 피격 (협동 보스전과 같은 연출)
     });
     runMod = m;
     return m;
@@ -1423,7 +1428,7 @@ function render() {
       ${(() => { if (!ui.crownFreeze) crownShown = leaders(); lastPts = S.players.map((_, i) => shownPts(i)); return ''; })()}
       ${S.players.map((p, i) => `
         <button class="member${i === S.turn ? ' turn' : ''}${ui.sheet && i === viewIdx ? ' viewing' : ''}" data-act="view" data-i="${i}" data-cls="${p.cls}" style="--c:${E.classInfo(p.cls).color}">
-          <div class="m-por">${portrait(p.cls)}${S.classic ? '' : `<span class="lv">${p.level}</span>`}${crownShown.includes(i) ? `<span class="crown">${ico('crown', 'xs')}</span>` : ''}</div>
+          <div class="m-por">${bust(p.cls)}${S.classic ? '' : `<span class="lv">${p.level}</span>`}${crownShown.includes(i) ? `<span class="crown">${ico('crown', 'xs')}</span>` : ''}</div>
           <div class="m-info"><span class="name">${esc(p.name)}${online && p.token === online.token ? ` ${TR('(나)')}` : ''}</span>
             <b class="pts">${ptsHTML(i)}</b></div>
           ${online && !p.bot && !alive(p.token) ? `<span class="off">${TR('끊김 {0}초', Math.ceil(dropLeft(p.token) / 1000))}</span>` : ''}
@@ -1450,7 +1455,7 @@ function render() {
 
     <section class="table">
       <div class="turn-tag" style="--c:${E.classInfo(cur.cls).color}">
-        ${portrait(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ` ${TR('(봇)')}` : ''}</span>
+        ${bust(cur.cls, 'tiny')}<span>${esc(cur.name)}${cur.bot ? ` ${TR('(봇)')}` : ''}</span>
       </div>
       <div class="rolls-left" title="${TR('남은 굴림')}">${[...Array(E.maxRolls(S, cur))].map((_, i) => `<i class="${i < S.rollsLeft ? 'on' : ''}"></i>`).join('')}</div>
       <div id="tray" class="tray${ui.tool ? ' tooling' : ''}"><div class="dice-ovl" id="dice-ovl"></div>${myTurn && !ui.busy && E.luckyOpen(S) ? `<button class="encore-btn lucky-btn" data-act="lucky">${TR('{0} 행운의 부적 · 다시 굴리기', ico('clover', 'xs'))} <small>${TR('가장 낮은 주사위 {0}', S.dice[E.luckyDie(S)])}</small></button>` : ''}${myTurn && !ui.busy && E.canDance(S) ? `<button class="encore-btn dance-btn" data-act="dance">${TR('{0} 춤사위 ×{1}', ico('sparkle', 'xs'), cur.dance)} <small>${TR('모든 주사위 +1')}</small></button>` : ''}${myTurn && !ui.busy && E.canDeal(S) ? `<button class="encore-btn deal-btn${ui.tool === 'deal' ? ' on' : ''}" data-act="tool" data-tool="deal">${ico('card', 'xs')} ${ui.tool === 'deal' ? TR('취소') : TR('밑장빼기')} <small>${TR('경험치 포기')}</small></button>` : ''}${E.ab(cur) === 'sharper' && S.dealt ? `<div class="bet-badge deal-badge">${TR('{0} 밑장빼기 · 이번 기록 경험치 0', ico('card', 'xs'))}</div>` : ''}${E.ab(cur) === 'outlaw' && S.phase === 'roll' && (!S.rolled || (S.rollNo === 1 && E.RUSH_CATS.some(c => E.isCombo(c, S.dice)))) ? `<div class="bet-badge rush-badge">${TR('{0} 속전속결 ×{1}{2}', ico('bolt', 'xs'), E.CLASS_TUNE.rushMul, S.rolled ? ` ${TR('· 지금 {0}에 적으면!', E.RUSH_CATS.filter(c => E.isCombo(c, S.dice)).map(c => E.catInfo(c).ko).join(' · '))}` : ` ${TR('· 첫 굴림 포카인드 · 풀하우스 · 스트레이트 · 요트')}`)}</div>` : ''}${E.ab(cur) === 'gambler' && cur.bet ? `<div class="bet-badge">${TR('{0} 배팅', ico('coins', 'xs'))} <b>${E.catInfo(cur.bet).ko}</b> ×${E.CLASS_TUNE.betMul}</div>` : ''}${tray ? '' : `<p class="tray-loading">${TR('주사위 준비 중…')}</p>`}</div>
@@ -1471,7 +1476,7 @@ function render() {
     <div class="tip">${absent ? `<span>${TR('{0} 님 연결 끊김 · 1분 안에 돌아오지 않으면 {1}', esc(cur.name), S.mode === 'versus' && S.players.length === 2 ? TR('기권패') : TR('봇이 대신 진행'))}</span>` : tip(cur, myTurn, okQuests, combos)}</div>
 
     <section class="hero-strip" style="--c:${E.classInfo(cur.cls).color}">
-      <div class="hs-por">${portrait(cur.cls)}${S.classic ? '' : `<span class="lv">${cur.level}</span>`}</div>
+      <div class="hs-por">${bust(cur.cls)}${S.classic ? '' : `<span class="lv">${cur.level}</span>`}</div>
       <div class="hs-main">
         <div class="hs-name"><b>${esc(cur.name)}</b><span>${S.classic ? TR('클래식 야추') : E.classInfo(cur.cls).ko}</span></div>
         ${S.classic ? `<div class="xpbar upbar" style="--w:${Math.min(100, (E.upperSum(cur) / E.upperNeed(cur)) * 100)}%"><i></i><em>${TR('상단 보너스 {0} / {1}{2}', E.upperSum(cur), E.upperNeed(cur), E.upperSum(cur) >= E.upperNeed(cur) ? ' · +35' : '')}</em></div>`
@@ -2170,25 +2175,34 @@ async function trayReady() {
 
 // ── 큰 영웅: 기운 받기 · 공격 · 피격 동작 ─────────────────────────────────────
 // 게임 화면의 초상화는 28~32px 라 동작이 안 보인다 → 연출 동안 주사위판 왼쪽 아래에 영웅을 크게 세워 움직인다.
-// 동작은 기본 그림 하나를 늘이고 기울여 만든다 (style.css .actor). pixel.js HERO_POSES 에 동작 그림을 적으면 그 그림으로 바뀐다.
-function actorSpot() {
+// v8 도트 영웅은 16프레임 모션(motion.js)으로 칼을 휘두르고 · 주문을 쏘고 · 맞고 휘청인다. 몸 전체를 덤벼들게 하는 움직임(.actor CSS)은 그 위에 살짝만.
+// 모션 시트가 없으면(예전 그림 ?art=v1) 기본 그림 하나를 늘이고 기울여 동작을 만든다.
+function actorSpot(mo = false) {
   const r = document.getElementById('tray')?.getBoundingClientRect();
-  const sz = Math.round(Math.min(120, Math.max(84, (r?.width || 360) * 0.27)));
+  // 모션 도트는 정확히 1.5배(좁은 화면 1.25배)로 그린다 — 폰(화면 밀도 2~3배)에서 도트 한 칸이 고르게 3 · 2.5칸이 되어 또렷하다. 키 약 126px
+  const sz = mo ? Math.round(motionW(r?.width) * FIG_H / FRAME / 0.92) : Math.round(Math.min(120, Math.max(84, (r?.width || 360) * 0.27)));
   return r ? { x: r.left + sz * 0.62, y: r.bottom - 8, sz } : { x: innerWidth * 0.25, y: innerHeight * 0.62, sz };
 }
+const motionW = w => FRAME * ((w || 360) >= 340 ? 1.5 : 1.25);
 const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });
-function actorIn(cls, face = null) {
+const actorScreen = () => screen === 'game' || screen === 'run';
+function actorIn(cls, face = null, spot = null) {
   clearActors();
-  const at = actorSpot(), spd = FX().speed || 1;
+  const mo = HERO_ART !== 'v1' && hasMotion(cls) && motionReady(cls);
+  const at = spot || actorSpot(mo), spd = FX().speed || 1;
   const el = document.createElement('div');
-  el.className = 'actor in';
+  el.className = `actor in${mo ? ' mo' : ''}`;
   el.style.cssText = `left:${at.x}px;top:${at.y}px;--sz:${at.sz}px;--c:${E.classInfo(cls).color};--spd:${spd}`;
   // 동작은 transform 과 opacity 만 움직인다 (필터 애니메이션은 폰에서 매 프레임 다시 그려 버벅였다).
-  // 번쩍임·붉게 깜빡임은 그림 모양으로 오린 색 판(mask)을 겹쳐 투명도만 바꾼다
+  // 번쩍임·붉게 깜빡임: 모션은 캔버스에 칸 모양 그대로 덧칠, 예전 그림은 그림 모양으로 오린 색 판(mask)을 겹쳐 투명도만 바꾼다
   const src = spriteURL(cls, 4);
-  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')"><img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i></div></div>`;
+  // 모션 칸(128)에서 캐릭터 키는 FIG_H — 예전 그림과 같은 크기(상자 높이의 약 92%)로 보이게 캔버스를 키우고, 발밑 기준점을 상자 아래 가운데에 맞춘다
+  const W = mo && !spot ? motionW(document.getElementById('tray')?.getBoundingClientRect().width) : Math.round(at.sz * 0.92 * FRAME / FIG_H);
+  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')">${mo
+    ? `<canvas class="actor-cv" style="width:${W}px;height:${W}px;left:${Math.round(at.sz / 2 - W * ORIGIN.x / FRAME)}px;top:${Math.round(at.sz - W * ORIGIN.y / FRAME)}px"></canvas>`
+    : `<img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i>`}</div></div>`;
   document.body.appendChild(el);
-  const a = { el, cls, ...at, img: el.querySelector('img') };
+  const a = { el, cls, ...at, img: el.querySelector('img'), mo: mo ? new HeroMotion(el.querySelector('canvas'), cls) : null };
   if (face) actorFace(a, face);
   return a;
 }
@@ -2199,24 +2213,31 @@ function actorFace(a, tgt) {
   a.el.style.setProperty('--lx', `${Math.round((Math.abs(dx) / d) * a.sz * 0.22)}px`);   // 몸이 뒤집히므로 가로는 늘 앞쪽(+)
   a.el.style.setProperty('--ly', `${Math.round((dy / d) * a.sz * 0.22)}px`);
 }
-// 동작 하나 (ms 뒤 끝난다). 동작 그림이 있으면 그동안 그 그림으로
-function actorPose(a, pose, ms) {
-  if (!a?.el.isConnected || screen !== 'game') { a?.el.remove(); return Promise.resolve(); }
-  const spd = FX().speed || 1, dur = ms / spd;
-  const posed = isImgSprite(`${a.cls}_${pose}`) && heroPoseURL(a.cls, pose);
+// 동작 하나 (ms 뒤 끝난다). 모션이 있으면 공격 · 피격은 원화 동작 길이만큼 (공격 640ms · 피격 460ms), 기운 받기는 대기 동작에 하얗게 달아오름
+// onContact: 공격 칸이 닿는 순간 (공격 시작 140ms 뒤 · 한 번)
+function actorPose(a, pose, ms, { onContact = null } = {}) {
+  if (!a?.el.isConnected || !actorScreen()) { a?.el.remove(); onContact?.(); return Promise.resolve(); }
+  const spd = FX().speed || 1;
+  const clip = a.mo && CLIPS[pose] ? clipMs(pose) : 0;
+  const dur = Math.max(ms, clip) / spd;
+  const posed = !a.mo && isImgSprite(`${a.cls}_${pose}`) && heroPoseURL(a.cls, pose);
   if (posed) a.img.src = posed;
   a.el.classList.remove('in', 'charge', 'attack', 'hurt');
   void a.el.offsetWidth;
   a.el.style.setProperty('--dur', `${dur}ms`);
   a.el.classList.add(pose);
+  if (a.mo) {
+    if (CLIPS[pose]) a.mo.play(pose, { spd, tint: TINTS[pose], onContact });
+    else a.mo.glow(TINTS[pose] || null);
+  } else if (onContact) setTimeout(onContact, 140 / spd);
   return new Promise(r => setTimeout(() => { if (posed) a.img.src = spriteURL(a.cls, 4); r(); }, dur));
 }
 function actorOut(a, delay = 0) {
   if (!a) return;
   setTimeout(() => { a.el.classList.add('out'); setTimeout(() => a.el.remove(), 260); }, delay / (FX().speed || 1));
-  if (screen !== 'game') a.el.remove();
+  if (!actorScreen()) a.el.remove();
 }
-const bigActor = () => screen === 'game' && prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const bigActor = () => actorScreen() && prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 // 게임을 나가면 연출 중이던 큰 영웅도 지운다 (예전엔 메인 메뉴에 남았다)
 function clearActors() { document.querySelectorAll('.actor').forEach(el => el.remove()); }
 
@@ -2843,7 +2864,7 @@ function turnAlert() {
   const el = document.createElement('div');
   el.className = 'turn-alert';
   el.style.setProperty('--c', E.classInfo(cur.cls).color);
-  el.innerHTML = `${portrait(cur.cls, 'ta')}<b>${hotseat ? TR('{0}의 차례!', esc(cur.name)) : TR('내 차례!')}</b>`;
+  el.innerHTML = `${bust(cur.cls, 'ta')}<b>${hotseat ? TR('{0}의 차례!', esc(cur.name)) : TR('내 차례!')}</b>`;
   const r = document.getElementById('tray')?.getBoundingClientRect();
   el.style.top = `${r ? r.top + r.height / 2 : innerHeight / 2}px`;
   document.querySelectorAll('.turn-alert').forEach(x => x.remove());
@@ -2915,7 +2936,7 @@ function showResults() {
     ${rank.map((r, k) => {
       const b = E.breakdown(r.p);
       return `<div class="frame rank${k === 0 ? ' first' : ''}">
-        <span class="medal m${k}">${r.out ? TR('기권') : medals[k]}</span>${portrait(r.p.cls)}
+        <span class="medal m${k}">${r.out ? TR('기권') : medals[k]}</span>${bust(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)}${S.classic ? '' : ` <small>Lv.${r.p.level}</small>`}</b>
           <span>${S.classic ? TR('점수표 {0} · 상단 보너스 {1}', b.card, b.bonus ? '+35' : TR('없음')) : TR('점수표 {0}{1} · 레벨 +{2} · 의뢰 {3}', b.card, b.bonus ? '+35' : '', b.level, r.p.questsDone.length)}</span></div>
         <span class="tot" data-n="${r.total}">${r.total}</span></div>`;
@@ -2953,7 +2974,7 @@ function showCoopResults() {
     <p class="hint">${info.ko} · ${E.DIFFS[b.diff].ko} · ${b.won ? TR('{0}라운드에 쓰러뜨림', S.round) : TR('남은 체력 {0}', b.hp)}</p>
     ${gemsBox()}
     ${order.map((r, k) => `<div class="frame rank${k === 0 ? ' first' : ''}">
-        <span class="medal m${k}">${k === 0 ? 'MVP' : k + 1}</span>${portrait(r.p.cls)}
+        <span class="medal m${k}">${k === 0 ? 'MVP' : k + 1}</span>${bust(r.p.cls)}
         <div class="who"><b>${esc(r.p.name)} <small>Lv.${r.p.level}</small></b><span>${TR('점수표 {0} · 의뢰 {1}', E.cardTotal(r.p), r.p.questsDone.length)}</span></div>
         <span class="tot">${ico('sword')}<i data-n="${r.dmg}">${r.dmg}</i></span></div>`).join('')}
     ${resultActions()}
@@ -3153,9 +3174,9 @@ function showDashboard() {
       <section class="frame">
         <h3 class="dash-h">${TR('직업')}</h3>
         ${prof.games ? `<div class="dash-cls">
-          ${E.CLASSES.map(c => `<div class="dc-row" style="--c:${c.color}">${portrait(c.id, 'mini')}<span>${c.ko}</span>
+          ${E.CLASSES.map(c => `<div class="dc-row" style="--c:${c.color}">${bust(c.id, 'mini')}<span>${c.ko}</span>
             <div class="bar"><i style="width:${((prof.classes[c.id] || 0) / maxCls) * 100}%"></i></div><b>${prof.classes[c.id] || 0}</b></div>`).join('')}
-        </div>` : `<div class="dash-empty"><div class="de-row">${E.CLASSES.map(c => portrait(c.id, 'mini')).join('')}</div><p>${TR('첫 판을 끝내면 직업별 기록이 쌓여요')}</p></div>`}
+        </div>` : `<div class="dash-empty"><div class="de-row">${E.CLASSES.map(c => bust(c.id, 'mini')).join('')}</div><p>${TR('첫 판을 끝내면 직업별 기록이 쌓여요')}</p></div>`}
       </section>
 
       <section class="frame">
@@ -3181,7 +3202,7 @@ function showDashboard() {
       <section class="frame">
         <h3 class="dash-h">${TR('최근 기록')}</h3>
         ${prof.recent.length ? `<div class="dash-recent">${prof.recent.map(r => `<div class="dr-row">
-          <small>${date(r.date)}</small>${portrait(r.cls, 'mini')}
+          <small>${date(r.date)}</small>${bust(r.cls, 'mini')}
           <span>${r.mode === 'coop' ? TR('협동 · {0} {1}', bossShort(r.boss), E.DIFFS[r.diff]?.ko || '') : r.classic ? TR('클래식 야추') : TR('대전')}${r.online ? ` ${TR('· 온라인')}` : ''}</span>
           <b>${TR('{0}점', r.score)}</b><em class="${r.mode === 'coop' ? `g${r.grade}` : r.win ? 'win' : 'lose'}">${r.mode === 'coop' ? r.grade : r.win ? TR('승리') : TR('패배')}</em></div>`).join('')}</div>`
         : `<p class="hint">${TR('아직 기록이 없어요.')}</p>`}
