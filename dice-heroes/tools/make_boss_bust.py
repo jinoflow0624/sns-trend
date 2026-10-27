@@ -9,7 +9,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(HERE, '..', 'assets', 'boss')
-BOX = {   # 머리를 가운데 · 조금 위에 두고 어깨까지
+BOX = {   # 머리를 가운데 · 조금 위에 두고 어깨까지 (키클롭스 눈동자는 오른쪽 영웅 쪽으로 옮겨 그렸다)
     'dragon':    (150, 48, 236),
     'orc':       (192, 72, 256),
     'lich':      (150, 60, 236),

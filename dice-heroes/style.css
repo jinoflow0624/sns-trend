@@ -2220,3 +2220,7 @@ img.spr.bust-b { object-fit: cover; object-position: 50% 30%; border-radius: 6px
 }
 @keyframes bossFlash { 0% { opacity: 0; } 25% { opacity: .55; } 40% { opacity: .2; } 50%, 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .actor.boss-actor .actor-fig, .actor.boss-actor .af { animation: none !important; } }
+/* 정면 보스를 오른쪽 영웅 쪽으로 돌린다: 오른쪽이 살짝 멀어지게 3D 로 기울이고 조금 오른쪽으로 (숨쉬기 · 맞기 transform 과 겹치게 rotate 속성으로) */
+.boss-art:has(img.turn-r), .foe-art:has(img.turn-r), .actor.boss-actor.turn-r { perspective: 520px; }
+img.turn-r { rotate: y 24deg; translate: 3% 0; }
+.actor.boss-actor.turn-r .actor-body { rotate: y 24deg; }
