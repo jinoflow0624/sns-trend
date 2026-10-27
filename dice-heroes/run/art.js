@@ -316,6 +316,9 @@ export function foeURL(id, scale = 6) {
   if (!cache.has(key)) cache.set(key, draw(id, scale));
   return cache.get(key);
 }
+// 왼쪽을 보는 적 그림: 화면 오른쪽 아래에 서는 영웅과 마주 보게 좌우를 뒤집어 그린다 (정면을 보는 그림은 그대로)
+export const FACE_LEFT = ['wolf', 'hound'];
+export const facesLeft = id => FACE_LEFT.includes(id);
 export const isPixelFoe = id => !!MON[id] && !FILES.includes(id) && id !== 'jester';
 
 // 원정 전용 아이콘 그림 (assets/run/ui/<kind>_<id>.webp, 128px). 그림이 없으면 공용 12×12 아이콘
