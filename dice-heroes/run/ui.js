@@ -5,7 +5,8 @@ import { t as TR, tL } from '../i18n.js';
 import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
-import { spriteURL, isImgSprite } from '../pixel.js';
+import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
+import { hasMotion, bustURL } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
@@ -29,6 +30,8 @@ const wait = ms => X.wait(ms);
 const $ = id => document.getElementById(id);
 const center = el => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height } : { x: innerWidth / 2, y: innerHeight / 2, w: 0, h: 0 }; };
 const hero = cls => `<img class="spr${isImgSprite(cls) ? ' spr-hi' : ''}" src="${spriteURL(cls, 4)}" alt="">`;
+// 아래 영웅 칸 (44px): v8 영웅은 상반신 그림 (app.js bust 와 같다)
+const heroBust = cls => (HERO_ART !== 'v1' && hasMotion(cls) ? `<img class="spr spr-hi bust" src="${bustURL(cls)}" alt="">` : hero(cls));
 const FOE_COLOR = { jester: '#3EE6E0', slime: '#3EE6B4', goblin: '#7CC24A', bat: '#8A5CC8', wolf: '#9AA4B8', shaman: '#B36BFF', mimic: '#FFC83D',
   skeleton: '#EEE6D0', ghost: '#7CA8D8', wisp: '#7CE0FF', knight: '#6A6A9A', golem: '#A8A090', imp: '#E8435A', hound: '#FF8A1A',
   gargoyle: '#8A8FA8', shade: '#9A6AFF', champion: '#C21E56' };
@@ -398,7 +401,7 @@ function heroStrip() {
   const hp = shownHp(), blk = R.phase === 'combat' ? shownBlk() : 0;
   const weak = R.C?.weak > 0 && R.phase === 'combat';
   return `<section class="rhero" id="rhero" style="--c:${info.color}">
-    <div class="rh-por" id="rh-por" data-rcls="${R.cls}">${hero(R.cls)}</div>
+    <div class="rh-por" id="rh-por" data-rcls="${R.cls}">${heroBust(R.cls)}</div>
     <div class="rh-main">
       <div class="rh-name"><b>${esc(R.name)}</b><button class="rh-skill" data-act="run-skill">${ico('star', 'xs')}${ci.skill}</button>${weak ? `<span class="st weak" ${X.tipAttr(TR('약화 {0}턴', R.C.weak), TR('카드 점수 ×0.75'))}>${TR('{0}약화 {1}', ico('snow', 'xs'), R.C.weak)}</span>` : ''}</div>
       <div class="hp rh-hp${hp / R.maxHp < 0.3 ? ' low' : ''}"><i style="width:${(hp / R.maxHp) * 100}%"></i><em>${hp} / ${R.maxHp}</em></div>
@@ -1575,6 +1578,10 @@ async function playOne(f) {
       if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −25% (공격 · 방어 모두)
       // 시공 광대가 피하는 카드: 카드가 닿기 직전에 몸을 빼고, 닿는 순간 '회피!' (맞는 연출 없이)
       if (f.dodge) setTimeout(() => { const a = $('foe-art'); a?.classList.remove('dodge'); void a?.offsetWidth; a?.classList.add('dodge'); sfx.whoosh?.(); }, 150);
+      // 공격 카드: 주사위판 왼쪽 아래에 영웅이 크게 나와 직업 동작으로 친다 (칼 · 주문 · 총 …). 동작이 닿는 순간 카드가 날아간다
+      const act = f.target === 'enemy' && X.actor?.ok() ? X.actor.in(R.cls, e) : null;
+      let swing = null;
+      if (act) { await wait(200); swing = X.actor.pose(act, 'attack', 640); await wait(140 / (FX().speed || 1)); }
       await hand.launch(f.u, tgt, f.target);           // 카드가 날아가 꽂힌다
       if (f.target === 'enemy' && f.dodge) {
         jBanner(TR('회피!'), 'dodge');
@@ -1634,6 +1641,7 @@ async function playOne(f) {
       if (f.paletteLeft != null) paletteTick(f.paletteLeft);
       if (f.palette) await paletteUnlock();
       if (f.temp) moonset(f.target === 'enemy' ? e : h);   // 달빛 복사본은 달이 지듯 스르륵
+      if (act) { await swing; X.actor.out(act, 40); }
       await wait(f.target === 'enemy' ? 420 : 260);
       return;
     }
@@ -1653,6 +1661,8 @@ async function playOne(f) {
         // 적이 달려든다 → 할퀸 자국 · 붉은 번쩍임 · 체력바가 깎이며 흰 띠가 따라 줄어든다. 막으면 방패가 '쨍'
         art?.classList.remove('lunge'); void art?.offsetWidth; art?.classList.add('lunge');
         sfx.whoosh?.();
+        // 실제로 맞는 공격이 있으면 영웅이 크게 나와 맞고 휘청인다 (다 막으면 나오지 않는다)
+        const ha = f.hits.some(x => x.dmg > 0) && X.actor?.ok() ? X.actor.in(R.cls, e) : null;
         await wait(190);
         for (const hit of f.hits) {
           const big = hit.dmg >= 15;
@@ -1663,6 +1673,7 @@ async function playOne(f) {
             popBlk();
           }
           if (hit.dmg) {
+            if (ha) X.actor.pose(ha, 'hurt', 460);
             sfx.hurt?.(Math.min(2, hit.dmg / 12));
             buzz(big ? 140 : 70);
             if (fxOn) {
@@ -1678,6 +1689,7 @@ async function playOne(f) {
           await wait(f.hits.length > 1 ? 260 : 340);
         }
         art?.classList.remove('lunge');
+        if (ha) X.actor.out(ha, 160);
         // 적의 공격을 하나도 안 맞고 다 막았다 → 크게
         { const got = f.hits.reduce((a, h) => a + (h.dmg || 0), 0), blk = f.hits.reduce((a, h) => a + (h.blocked || 0), 0);
           if (!got && blk > 0) { centerCall('def', blk, true, 0, false); await wait(500); } }

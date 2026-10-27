@@ -2110,3 +2110,95 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 .st-split { line-height: 1.7; }
 .st-uid code, .st-how code { background: #1C1446; padding: 2px 6px; font-size: 12px; word-break: break-all; }
 .st-how { padding-left: 18px; line-height: 1.8; } .st-err { color: #FF9AA8; font-size: 10px; }
+
+/* ── 꾸미기 상점 (v0.39.90): 중세 8비트 상점 — 돌벽 · 사슬에 매단 나무 간판 · 나무 선반 진열장 · 양피지 가격표 · 영수증 같은 구매 창 ── */
+.modal.skins { border: 3px solid var(--ink); border-image: none; padding: 12px 10px 10px; gap: 10px;
+  background:
+    radial-gradient(ellipse 70% 30% at 50% 0%, rgba(255, 180, 80, .16), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' shape-rendering='crispEdges'%3E%3Crect width='32' height='32' fill='%23241A2E'/%3E%3Crect x='0' y='0' width='15' height='15' fill='%232C2138'/%3E%3Crect x='16' y='0' width='16' height='15' fill='%23281D33'/%3E%3Crect x='0' y='16' width='7' height='15' fill='%23281D33'/%3E%3Crect x='8' y='16' width='16' height='15' fill='%232E2239'/%3E%3Crect x='25' y='16' width='7' height='15' fill='%232A1F35'/%3E%3Crect x='1' y='1' width='13' height='1' fill='%23382B46'/%3E%3Crect x='9' y='17' width='14' height='1' fill='%23382B46'/%3E%3C/svg%3E") 0 0 / 32px 32px;
+  box-shadow: inset 0 0 0 2px #8A5A26, inset 0 0 0 5px #3A2210, inset 0 0 0 6px rgba(255, 214, 110, .45), inset 0 0 40px rgba(0, 0, 0, .6), 0 6px 0 var(--ink); }
+/* 간판: 사슬에 매단 나무 판 */
+.modal.skins > h2 { position: relative; align-self: center; margin: 14px 0 2px; padding: 6px 16px 7px; display: flex; align-items: center; gap: 8px;
+  font-size: 18px; color: #FFE27A; text-shadow: 2px 2px 0 var(--ink);
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .12) 0 2px, transparent 2px 7px), linear-gradient(#8A5A26, #5A3416);
+  border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #B07A3A, 0 4px 0 var(--ink); }
+.modal.skins > h2::before, .modal.skins > h2::after { content: ''; position: absolute; top: -17px; width: 4px; height: 14px;
+  background: repeating-linear-gradient(#C8C0D8 0 3px, #6A6280 3px 5px); border: 1px solid var(--ink); }
+.modal.skins > h2::before { left: 18%; } .modal.skins > h2::after { right: 18%; }
+.modal.skins > h2 .gem-chip { margin-left: 0; background: #1A0E06; border-color: var(--ink); }
+/* 미리 보기: 나무 계산대 틀 */
+.modal.skins .skin-preview { border: 3px solid var(--ink); background: #0B0824;
+  box-shadow: inset 0 0 0 3px #8A5A26, inset 0 0 0 6px #3A2210, 0 4px 0 var(--ink); }
+/* 탭: 매달린 나무 판 두 장 */
+.modal.skins .skin-tabs { border: 0; gap: 8px; }
+.modal.skins .skin-tabs button { padding: 6px 18px; font-size: 13px; font-weight: 700; color: #D8C49A; border: 3px solid var(--ink);
+  background: linear-gradient(#5A3416, #3A2210); box-shadow: inset 0 0 0 1px #8A5A26, 0 3px 0 var(--ink); }
+.modal.skins .skin-tabs button.on { color: #3B2300; background: linear-gradient(#FFE27A, #E9A21C); box-shadow: inset 0 0 0 1px #FFF4C4, 0 3px 0 var(--ink); transform: translateY(-2px); }
+/* 진열장: 칸마다 어두운 나무 틀 + 아래 선반 판자 (판자는 옆 칸과 이어져 한 줄 선반처럼) */
+.modal.skins .skin-grid { gap: 18px 6px; padding: 4px 4px 12px; }
+.modal.skins .skin-card { overflow: visible; padding: 6px 4px 8px; min-height: 112px; justify-content: flex-end; border: 3px solid var(--ink);
+  background: radial-gradient(ellipse 70% 50% at 50% 40%, rgba(255, 190, 110, .12), transparent 70%), linear-gradient(#2A180C, #1C0F07);
+  box-shadow: inset 0 0 0 2px #5A3416, inset 0 8px 10px rgba(0, 0, 0, .55); }
+.modal.skins .skin-card::after { content: ''; position: absolute; left: -6px; right: -6px; bottom: -13px; height: 10px; z-index: 1; pointer-events: none;
+  background: linear-gradient(#B07A3A 0 2px, #8A5A26 2px 6px, #5A3416 6px); border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+.modal.skins .skin-card img { margin-top: 2px; filter: drop-shadow(0 4px 0 rgba(0, 0, 0, .5)); }
+.modal.skins .skin-card b { color: #F1DDAE; text-shadow: 1px 1px 0 var(--ink); }
+.modal.skins .skin-card.locked img { filter: saturate(.6) brightness(.8) drop-shadow(0 4px 0 rgba(0, 0, 0, .5)); }
+/* 가격표: 끈에 매단 양피지 꼬리표 */
+.modal.skins .skin-tag.price { position: relative; order: 3; margin-top: 3px; padding: 1px 6px 1px 10px; font-size: 10px; font-weight: 700; color: var(--parch-ink); border: 2px solid var(--ink);
+  background: linear-gradient(#FFF4D6, #EAD39F); clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 50%); }
+.modal.skins .skin-tag.price::before { content: ''; position: absolute; left: 5px; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%; background: var(--ink); }
+.modal.skins .skin-tag:not(.price) { background: #2EA86A; color: #fff; border: 2px solid var(--ink); left: 3px; top: 3px; }
+/* 사용 중: 금테 + 금빛 리본 */
+.modal.skins .skin-card.on { border-color: var(--ink); box-shadow: inset 0 0 0 2px #FFD24A, inset 0 0 14px rgba(255, 200, 61, .45), 0 0 0 2px #FFD24A, 0 0 14px rgba(255, 200, 61, .5); }
+.modal.skins .skin-on { right: -4px; top: -8px; z-index: 2; padding: 1px 6px; font-weight: 700; border: 2px solid var(--ink); background: linear-gradient(#FFE27A, #E9A21C); color: #3B2300; }
+/* 미리 보는 중: 촛불 빛 */
+.modal.skins .skin-card.trying { box-shadow: inset 0 0 0 2px #FFB060, inset 0 0 18px rgba(255, 160, 60, .55), 0 0 12px rgba(255, 160, 60, .55); }
+/* 닫기: 나무 판 버튼 */
+.modal.skins > .pbtn[data-act=close] { border: 3px solid var(--ink); border-image: none; color: #F1DDAE; text-shadow: 1px 1px 0 var(--ink);
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .1) 0 2px, transparent 2px 7px), linear-gradient(#8A5A26, #5A3416); box-shadow: inset 0 0 0 2px #B07A3A; }
+/* 구매 창: 양피지 영수증 */
+.skin-pop.frame { border: 3px solid var(--ink); border-image: none; color: var(--parch-ink);
+  background: repeating-linear-gradient(0deg, #F1DDAE 0 7px, #EAD39F 7px 8px); }
+.skin-pop.frame::before { content: ''; position: absolute; left: 0; right: 0; top: -7px; height: 7px;
+  background: linear-gradient(135deg, transparent 50%, #F1DDAE 50%) 0 0 / 10px 7px, linear-gradient(225deg, transparent 50%, #F1DDAE 50%) 0 0 / 10px 7px; }
+.skin-pop .sp-x { color: #6A4520; }
+.skin-pop .sp-txt b { color: #9A1A1A; text-shadow: none; }
+.skin-pop .sp-txt p { color: #5A3A1A; }
+.skin-pop img { filter: drop-shadow(0 3px 0 rgba(60, 30, 10, .4)); }
+.skin-pop .sp-own { background: #2EA86A; color: #fff; }
+.modal.skins .skin-grid { align-items: stretch; }
+.modal.skins .skin-roll { border: 3px solid var(--ink); border-image: none; color: #3B2300; text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+  background: linear-gradient(#FFE27A, #E9A21C); box-shadow: inset 0 0 0 1px #FFF4C4; }
+/* 가격표 → 양 끝이 V자로 파인 붉은 천 리본 (가운데 정렬 · 점 없음). 바깥(테두리색)과 안(::before 천)을 같은 모양으로 잘라 테두리를 그린다 */
+.modal.skins .skin-tag.price { align-self: center; isolation: isolate; padding: 2px 12px; gap: 3px; color: #FFF4D6; text-shadow: 1px 1px 0 #5A0A14;
+  background: var(--ink); border: 0; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%, 6px 50%); }
+.modal.skins .skin-tag.price::before { left: 2px; right: 2px; top: 2px; bottom: 2px; width: auto; height: auto; margin: 0; border-radius: 0; z-index: -1;
+  background: linear-gradient(#E8424F 0 30%, #C21E3A 30% 80%, #8E1028 80%);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 50%, 100% 100%, 0 100%, 5px 50%); }
+.modal.skins .skin-tag.price .ico { filter: drop-shadow(1px 1px 0 #5A0A14); }
+/* 주사위 뒤 가판대: 세로 나무 판자 (판자마다 색이 조금씩 · 이음매 · 나뭇결) */
+.modal.skins .skin-card {
+  background:
+    radial-gradient(ellipse 75% 55% at 50% 38%, rgba(255, 200, 120, .16), transparent 70%),
+    linear-gradient(rgba(0, 0, 0, .35), transparent 22%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .07) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, #5C3818 0 1px, #7A4C22 1px 32%, #3A2210 32% 34%, #6E431D 34% 66%, #3A2210 66% 68%, #75481F 68% calc(100% - 1px), #5C3818 calc(100% - 1px));
+  box-shadow: inset 0 0 0 2px #2A1508, inset 0 10px 12px rgba(0, 0, 0, .45); }
+.modal.skins .skin-card.on { box-shadow: inset 0 0 0 2px #FFD24A, inset 0 0 14px rgba(255, 200, 61, .45), 0 0 0 2px #FFD24A, 0 0 14px rgba(255, 200, 61, .5); }
+.modal.skins .skin-card.trying { box-shadow: inset 0 0 0 2px #FFB060, inset 0 0 18px rgba(255, 160, 60, .55), 0 0 12px rgba(255, 160, 60, .55); }
+.modal.skins .skin-card b { text-shadow: 1px 1px 0 var(--ink), 0 0 4px rgba(0, 0, 0, .8); }
+.modal.skins .skin-tag.price { left: 0; top: 0; }   /* .skin-tag 의 left: 4px 이 relative 에서는 오른쪽으로 4px 밀었다 */
+
+/* ── 큰 영웅 v8 모션 (v0.39.90): 캔버스에 16프레임 도트 동작을 그린다 (motion.js). 몸 전체 움직임은 동작 그림이 하므로 CSS 는 살짝만 ── */
+.actor-cv { position: absolute; image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.actor.mo.charge .actor-fig { animation: actorChargeMo var(--dur) steps(8, jump-none) both; }
+@keyframes actorChargeMo { 0% { transform: none; } 25% { transform: scale(1.04, .95) translateX(-1px); } 50% { transform: scale(1.05, .94) translateX(1px); } 75% { transform: scale(1.06, .93) translateX(-1px); } 100% { transform: scale(.98, 1.03) translateY(-2px); } }
+/* 공격: 동작 그림이 칼을 휘두르는 동안 몸은 목표 쪽으로 반 걸음만 */
+.actor.mo.attack .actor-fig { animation: actorAttackMo var(--dur) cubic-bezier(.3, 0, .2, 1) both; }
+@keyframes actorAttackMo { 0% { transform: none; } 15% { transform: translateX(-4px); } 30% { transform: translate(calc(var(--lx) * .6), calc(var(--ly) * .6)); } 70% { transform: translate(calc(var(--lx) * .5), calc(var(--ly) * .5)); } 100% { transform: none; } }
+/* 피격: 동작 그림이 휘청이는 동안 몸은 뒤로 조금 밀린다 */
+.actor.mo.hurt .actor-fig { animation: actorHurtMo var(--dur) linear both; }
+@keyframes actorHurtMo { 0% { transform: none; } 12% { transform: translateX(-10px); } 40% { transform: translateX(-8px); } 70% { transform: translateX(-3px); } 100% { transform: none; } }
+/* 상반신 초상화: 가로가 조금 넓다(96×80) — 칸 안에 다 보이게, 아래(가슴)에 붙여 */
+img.spr.bust { object-fit: contain; object-position: 50% 100%; }

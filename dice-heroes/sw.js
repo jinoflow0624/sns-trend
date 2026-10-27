@@ -8,7 +8,7 @@ const BGM_VER = 'b4';   // audio.js 의 BGM_VER 와 같아야 한다 (곡을 바
 const ART_VER = 'b1';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 · 트레이 그림을 바꾸면 둘 다 올린다)
 const CACHE = 'dh-cache-3';   // v0.37.5: 버전이 안 붙은 예전 보스 곡(도입부 없는 루프)을 지운다
 const FILES = [
-  './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js',
+  './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js', 'motion.js',
   'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'ambient.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'telemetry.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest', 'i18n.js', 'lang/en.js', 'lang/ja.js',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
   'assets/logo/logo.webp?v=l1', 'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
