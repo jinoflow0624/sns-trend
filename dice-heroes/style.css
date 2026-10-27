@@ -2170,3 +2170,21 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 .modal.skins .skin-grid { align-items: stretch; }
 .modal.skins .skin-roll { border: 3px solid var(--ink); border-image: none; color: #3B2300; text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
   background: linear-gradient(#FFE27A, #E9A21C); box-shadow: inset 0 0 0 1px #FFF4C4; }
+/* 가격표 → 양 끝이 V자로 파인 붉은 천 리본 (가운데 정렬 · 점 없음). 바깥(테두리색)과 안(::before 천)을 같은 모양으로 잘라 테두리를 그린다 */
+.modal.skins .skin-tag.price { align-self: center; isolation: isolate; padding: 2px 12px; gap: 3px; color: #FFF4D6; text-shadow: 1px 1px 0 #5A0A14;
+  background: var(--ink); border: 0; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%, 6px 50%); }
+.modal.skins .skin-tag.price::before { left: 2px; right: 2px; top: 2px; bottom: 2px; width: auto; height: auto; margin: 0; border-radius: 0; z-index: -1;
+  background: linear-gradient(#E8424F 0 30%, #C21E3A 30% 80%, #8E1028 80%);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 50%, 100% 100%, 0 100%, 5px 50%); }
+.modal.skins .skin-tag.price .ico { filter: drop-shadow(1px 1px 0 #5A0A14); }
+/* 주사위 뒤 가판대: 세로 나무 판자 (판자마다 색이 조금씩 · 이음매 · 나뭇결) */
+.modal.skins .skin-card {
+  background:
+    radial-gradient(ellipse 75% 55% at 50% 38%, rgba(255, 200, 120, .16), transparent 70%),
+    linear-gradient(rgba(0, 0, 0, .35), transparent 22%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .07) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, #5C3818 0 1px, #7A4C22 1px 32%, #3A2210 32% 34%, #6E431D 34% 66%, #3A2210 66% 68%, #75481F 68% calc(100% - 1px), #5C3818 calc(100% - 1px));
+  box-shadow: inset 0 0 0 2px #2A1508, inset 0 10px 12px rgba(0, 0, 0, .45); }
+.modal.skins .skin-card.on { box-shadow: inset 0 0 0 2px #FFD24A, inset 0 0 14px rgba(255, 200, 61, .45), 0 0 0 2px #FFD24A, 0 0 14px rgba(255, 200, 61, .5); }
+.modal.skins .skin-card.trying { box-shadow: inset 0 0 0 2px #FFB060, inset 0 0 18px rgba(255, 160, 60, .55), 0 0 12px rgba(255, 160, 60, .55); }
+.modal.skins .skin-card b { text-shadow: 1px 1px 0 var(--ink), 0 0 4px rgba(0, 0, 0, .8); }
