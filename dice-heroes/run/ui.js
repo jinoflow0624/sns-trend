@@ -6,7 +6,7 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
-import { hasMotion, bustURL } from '../motion.js';
+import { hasMotion, bustURL, bossBustURL } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
@@ -693,7 +693,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : foeURL(e.id)}" alt=""></div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img${bossBustURL(e.id) ? ' bust-b' : ''}" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : bossBustURL(e.id) || foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="${TR('보호막')}">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
@@ -1661,9 +1661,12 @@ async function playOne(f) {
         // 적이 달려든다 → 할퀸 자국 · 붉은 번쩍임 · 체력바가 깎이며 흰 띠가 따라 줄어든다. 막으면 방패가 '쨍'
         art?.classList.remove('lunge'); void art?.offsetWidth; art?.classList.add('lunge');
         sfx.whoosh?.();
+        // 보스: 체력바 옆은 상반신 → 공격할 때 주사위판 왼쪽에 전신이 크게 나와 덤벼든다
+        const ba = bossBustURL(R.C.e.id) && X.actor?.ok() ? X.actor.boss(R.C.e.id, foeColor(R.C.e.id)) : null;
         // 실제로 맞는 공격이 있으면 영웅이 크게 나와 맞고 휘청인다 (다 막으면 나오지 않는다)
-        const ha = f.hits.some(x => x.dmg > 0) && X.actor?.ok() ? X.actor.in(R.cls, e) : null;
-        await wait(190);
+        const ha = f.hits.some(x => x.dmg > 0) && X.actor?.ok() ? X.actor.in(R.cls, ba ? X.actor.center(ba) : e) : null;
+        const lunge = ba ? X.actor.lunge(ba, 620) : null;
+        await wait(ba ? 280 : 190);
         for (const hit of f.hits) {
           const big = hit.dmg >= 15;
           if (hit.blocked) {
@@ -1689,7 +1692,9 @@ async function playOne(f) {
           await wait(f.hits.length > 1 ? 260 : 340);
         }
         art?.classList.remove('lunge');
+        if (lunge) await lunge;
         if (ha) X.actor.out(ha, 160);
+        if (ba) X.actor.out(ba, 100);
         // 적의 공격을 하나도 안 맞고 다 막았다 → 크게
         { const got = f.hits.reduce((a, h) => a + (h.dmg || 0), 0), blk = f.hits.reduce((a, h) => a + (h.blocked || 0), 0);
           if (!got && blk > 0) { centerCall('def', blk, true, 0, false); await wait(500); } }

@@ -2202,3 +2202,21 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 @keyframes actorHurtMo { 0% { transform: none; } 12% { transform: translateX(-10px); } 40% { transform: translateX(-8px); } 70% { transform: translateX(-3px); } 100% { transform: none; } }
 /* 상반신 초상화: 가로가 조금 넓다(96×80) — 칸 안에 다 보이게, 아래(가슴)에 붙여 */
 img.spr.bust { object-fit: contain; object-position: 50% 100%; }
+
+/* ── 큰 보스 (v0.39.92): 체력바 옆은 상반신, 공격할 때만 주사위판 왼쪽 아래에 전신이 크게 (app.js bossIn) ── */
+img.spr.bust-b { object-fit: cover; object-position: 50% 30%; border-radius: 6px; }
+.actor.boss-actor { z-index: 28; }
+.actor.boss-actor::after { left: 12%; right: 12%; height: 12px; bottom: -4px; }
+.boss-actor .actor-fig img { width: 100%; height: 100%; display: block; image-rendering: auto; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c) 70%, transparent)); }
+.actor.boss-actor.battack .actor-fig { animation: bossLungeK var(--dur) cubic-bezier(.3, 0, .2, 1) both; }
+.actor.boss-actor.battack .af.w { animation: bossFlash var(--dur) steps(8, jump-none) both; }
+.actor.boss-actor.battack .actor-aura { animation: actorAuraOut var(--dur) ease-out both; }
+@keyframes bossLungeK {
+  0% { transform: none; }
+  28% { transform: translateX(-12px) scale(1.05, .95) skewX(6deg); }
+  45% { transform: translateX(34px) scale(1.12, .94) skewX(-8deg); }
+  70% { transform: translateX(22px) scale(1.04, .98) skewX(-3deg); }
+  100% { transform: none; }
+}
+@keyframes bossFlash { 0% { opacity: 0; } 25% { opacity: .55; } 40% { opacity: .2; } 50%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .actor.boss-actor .actor-fig, .actor.boss-actor .af { animation: none !important; } }

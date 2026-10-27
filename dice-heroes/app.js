@@ -6,7 +6,7 @@ import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL, HERO_ART } from './pixel.js';
-import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, bustURL, FRAME, ORIGIN, FIG_H } from './motion.js';
+import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, bustURL, bossBustURL, FRAME, ORIGIN, FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -118,6 +118,8 @@ const bossArt = () => S?.boss?.id;
 const portrait = (id, cl = '') => `<img class="spr ${cl}${isImgSprite(id) ? ' spr-hi' : ''}" data-spr="${id}" src="${spriteURL(id, 4)}" alt="">`;   // spr-hi: 그림 파일 스프라이트는 부드럽게 줄인다
 // 작은 초상화 칸 (28~48px): v8 영웅은 상반신 그림 — 전신을 줄이면 얼굴이 몇 픽셀뿐이라 누군지 안 보였다. 보스 · 예전 그림은 그대로
 const bust = (id, cl = '') => (HERO_ART !== 'v1' && hasMotion(id) ? `<img class="spr spr-hi bust ${cl}" data-spr="${id}" src="${bustURL(id)}" alt="">` : portrait(id, cl));
+// 보스: 체력바 옆 칸 · 알림에는 상반신 (전신은 보스가 공격할 때 크게 — bossIn)
+const bossBust = (id, cl = '') => (bossBustURL(id) ? `<img class="spr spr-hi bust-b ${cl}" data-spr="${id}" src="${bossBustURL(id)}" alt="">` : portrait(id, cl));
 const perkIco = (id, cls) => ico(PERK_ICON[id], cls);
 const questIco = (id, cls) => ico(QUEST_ICON[id], cls);
 const eventIco = (id, cls) => ico(EVENT_ICON[id], cls);
@@ -269,7 +271,7 @@ function loadRun() {
       owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(),
       ticketGate, ticketShop: showTickets, tixCost, ticketUsed: tix => (PROD ? Wal.applyTix(tix) : Wal.spendLocalTicket()), runPrice: id => Wal.priceOf('run', id),
       name: () => myName, sealSigil: SEAL_SIGIL,
-      actor: { in: (cls, face) => actorIn(cls, face), pose: actorPose, out: actorOut, ok: () => bigActor() },   // 큰 영웅 공격 · 피격 (협동 보스전과 같은 연출)
+      actor: { in: (cls, face) => actorIn(cls, face), pose: actorPose, out: actorOut, ok: () => bigActor(), boss: (id, color) => bossIn(id, color), lunge: bossLunge, center: bossCenter },   // 큰 영웅 공격 · 피격 (협동 보스전과 같은 연출)
     });
     runMod = m;
     return m;
@@ -1673,7 +1675,7 @@ function bossPanel() {
   ui.shieldShown = b.shield;
   return `
   <section class="boss-panel${['demon', 'archdemon'].includes(b.id) ? ' big-boss' : ''}${rage ? ' rage' : ''}${b.hp <= 0 && ui.bossGone ? ' gone' : ''}" style="--c:${info.color}">
-    <div class="boss-art" id="boss-art">${portrait(bossArt(), 'boss')}<div class="aura"></div></div>
+    <div class="boss-art" id="boss-art">${bossBust(bossArt(), 'boss')}<div class="aura"></div></div>
     <div class="boss-main">
       <div class="boss-name"><b>${info.ko}</b><span class="diff-chip" style="--c:${d.color}">${d.ko}</span></div>
       <div class="hp-row"><div class="hp"><u style="width:${Math.max(hpPct, ((ui.lagHp ?? b.hp) / b.maxHp) * 100)}%"></u><i style="width:${hpPct}%"></i><s style="left:${hpPct}%;width:${shPct}%"></s>
@@ -2188,7 +2190,7 @@ const motionW = w => FRAME * ((w || 360) >= 340 ? 1.5 : 1.25);
 const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });
 const actorScreen = () => screen === 'game' || screen === 'run';
 function actorIn(cls, face = null, spot = null) {
-  clearActors();
+  clearActors(true);
   const mo = HERO_ART !== 'v1' && hasMotion(cls) && motionReady(cls);
   const at = spot || actorSpot(mo), spd = FX().speed || 1;
   const el = document.createElement('div');
@@ -2239,19 +2241,56 @@ function actorOut(a, delay = 0) {
   if (!actorScreen()) a.el.remove();
 }
 const bigActor = () => actorScreen() && prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-// 게임을 나가면 연출 중이던 큰 영웅도 지운다 (예전엔 메인 메뉴에 남았다)
-function clearActors() { document.querySelectorAll('.actor').forEach(el => el.remove()); }
+// 게임을 나가면 연출 중이던 큰 영웅 · 보스도 지운다 (예전엔 메인 메뉴에 남았다). keepBoss: 영웅만 바꿀 때 (보스와 마주 서는 장면)
+function clearActors(keepBoss = false) { document.querySelectorAll(keepBoss ? '.actor:not(.boss-actor)' : '.actor').forEach(el => el.remove()); }
 
-// 보스에게 맞는 동작: 큰 영웅이 나와 움찔 밀려난다 (스킬 연출과 함께)
+// ── 큰 보스: 공격할 때만 주사위판 왼쪽 아래에 전신이 크게 나와 오른쪽 영웅에게 달려든다 (평소 체력바 옆은 상반신) ──
+// 영웅보다 크게: 주사위판 폭의 절반 (영웅 키 약 126px · 보스 약 180px)
+function bossSpot() {
+  const r = document.getElementById('tray')?.getBoundingClientRect();
+  const sz = Math.round(Math.min(230, Math.max(150, (r?.width || 360) * 0.52)));
+  return r ? { x: r.left + sz * 0.5 - 4, y: r.bottom - 4, sz } : { x: innerWidth * 0.3, y: innerHeight * 0.62, sz };
+}
+function bossIn(id, color = '#E8435A') {
+  document.querySelectorAll('.boss-actor').forEach(el => el.remove());
+  const at = bossSpot(), spd = FX().speed || 1;
+  const src = spriteURL(id, 4);
+  const el = document.createElement('div');
+  el.className = 'actor boss-actor in';
+  el.style.cssText = `left:${at.x}px;top:${at.y}px;--sz:${at.sz}px;--c:${color};--spd:${spd}`;
+  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')"><img class="spr spr-hi" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i></div></div>`;
+  document.body.appendChild(el);
+  return { el, id, ...at };
+}
+// 보스 공격: 몸을 뒤로 젖혔다가(번쩍) 오른쪽으로 덤벼든다. contact = 닿는 순간 (전체의 45%)
+function bossLunge(b, ms = 620, onContact = null) {
+  if (!b?.el.isConnected || !actorScreen()) { b?.el.remove(); onContact?.(); return Promise.resolve(); }
+  const dur = ms / (FX().speed || 1);
+  b.el.classList.remove('in', 'battack');
+  void b.el.offsetWidth;
+  b.el.style.setProperty('--dur', `${dur}ms`);
+  b.el.classList.add('battack');
+  if (onContact) setTimeout(onContact, dur * 0.45);
+  return new Promise(r => setTimeout(r, dur));
+}
+const bossCenter = b => ({ x: b.x, y: b.y - b.sz * 0.45 });
+
+// 보스에게 맞는 동작: 왼쪽에 보스 전신이 나와 덤벼들고, 오른쪽의 큰 영웅이 맞고 휘청인다 (스킬 연출과 함께)
 function actorHurtFx(i, delay = 260) {
   const p = S.players[i];
   if (!p || !bigActor()) return;
-  const a = actorIn(p.cls, (() => { const r = document.getElementById('boss-art')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 60 }; })());
-  setTimeout(() => {
-    actorPose(a, 'hurt', 560).then(() => actorOut(a, 120));
+  const spd = FX().speed || 1;
+  const b = S.boss ? bossIn(bossArt(), E.bossInfo(S.boss.id)?.color) : null;
+  const face = b ? bossCenter(b) : (() => { const r = document.getElementById('boss-art')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 60 }; })();
+  const a = actorIn(p.cls, face);
+  const hit = () => {
+    actorPose(a, 'hurt', 560).then(() => { actorOut(a, 120); if (b) actorOut(b, 60); });
     memberFx(i, 'hurt', 520);
     buzz(40);
-  }, delay / (FX().speed || 1));
+  };
+  // 보스가 덤벼들어 닿는 순간에 영웅이 맞는다 (닿는 때 = 원래 맞던 시각)
+  if (b) setTimeout(() => bossLunge(b, 620, () => { FX().impact?.(a.x, a.y - a.sz * 0.5, PALETTES.fire, 1.2); shake(app.querySelector('.game'), 1); hit(); }), Math.max(0, delay - 280) / spd);
+  else setTimeout(hit, delay / spd);
 }
 
 async function attackFx(f) {
@@ -2787,7 +2826,7 @@ async function playOne(f) {
         if (f.skill === 'unseal') { await skillFx(f); break; }
         const b = E.bossInfo(S.boss.id);
         const extra = f.cats ? ` 「${f.cats.map(c => E.catInfo(c).ko).join('」「')}」` : f.cat ? ` 「${E.catInfo(f.cat).ko}」` : f.head ? ` ${TR('({0} 머리)', E.HEAD_KO[f.head])}` : '';
-        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, portrait(bossArt(), 't-boss'));
+        const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, bossBust(bossArt(), 't-boss'));
         if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;

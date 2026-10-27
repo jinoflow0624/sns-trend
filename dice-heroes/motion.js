@@ -17,6 +17,9 @@ const IDS = ['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'o
 export const motionURL = id => `assets/heroes/${id}_motion.webp?v=${GAME.version}`;
 export const bustURL = id => `assets/heroes/${id}_bust.webp?v=${GAME.version}`;
 export const hasMotion = id => IDS.includes(id);
+// 보스 상반신 (체력바 옆 칸 · tools/make_boss_bust.py). 전신은 보스가 공격할 때 크게 나온다
+const BOSS_IDS = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'];
+export const bossBustURL = id => (BOSS_IDS.includes(id) ? `assets/boss/${id}_bust.webp?v=${GAME.version}` : null);
 
 const sheets = {};
 // 모든 직업 시트를 미리 받아 둔다 (한 장 15~25KB). 연출이 시작될 때 이미 풀려 있어야 한다
@@ -31,6 +34,7 @@ export function preloadMotion() {
     sheets[id] = im;
     const b = new Image(); b.decoding = 'async'; b.src = bustURL(id);   // 작은 초상화 (상반신)
   }
+  for (const id of BOSS_IDS) { const b = new Image(); b.decoding = 'async'; b.src = bossBustURL(id); }
 }
 export const motionReady = id => !!sheets[id]?.complete && sheets[id].naturalWidth > 0;
 
