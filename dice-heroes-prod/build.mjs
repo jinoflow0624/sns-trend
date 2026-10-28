@@ -30,7 +30,7 @@ if (conf.includes('REPLACE_ME')) {
 
 // 테스트판 전용 코드 잘라내기: 「// @test-only{」 ~ 「// }@test-only」 줄 구간과 /*TEST{*/ … /*}TEST*/ 를 지운다
 // (시험 원정 · 다이아 무제한 · 잠금 되돌리기 · 시험용 승천 · ?demon · ?debug — 배포판에는 코드째로 넣지 않는다)
-const TEST_LEFT = ['trialKit', 'sandbox', 'showSandbox', 'sbAct', 'TEST_GEMS', 'relockLocal', "data-act=\"relock\"", '__dh', "get('castle')", "has('demon')", "['dancer']"];
+const TEST_LEFT = ['trialKit', 'sandbox', 'showSandbox', 'sbAct', 'TEST_GEMS', 'TEST_TIX', 'relockLocal', "data-act=\"relock\"", '__dh', "get('castle')", "has('demon')", "['dancer']"];
 function stripTest(dir) {
   const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.js') ? [join(d, e.name)] : []));
   for (const f of walk(dir)) {
