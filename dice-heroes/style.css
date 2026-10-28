@@ -2191,7 +2191,7 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 .modal.skins .skin-tag.price { left: 0; top: 0; }   /* .skin-tag 의 left: 4px 이 relative 에서는 오른쪽으로 4px 밀었다 */
 
 /* ── 큰 영웅 v8 모션 (v0.39.90): 캔버스에 16프레임 도트 동작을 그린다 (motion.js). 몸 전체 움직임은 동작 그림이 하므로 CSS 는 살짝만 ── */
-.actor-cv { position: absolute; image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.actor-cv { position: absolute; image-rendering: auto; display: block; }   /* HD 선화: 부드럽게 */
 .actor.mo.charge .actor-fig { animation: actorChargeMo var(--dur) steps(8, jump-none) both; }
 @keyframes actorChargeMo { 0% { transform: none; } 25% { transform: scale(1.04, .95) translateX(-1px); } 50% { transform: scale(1.05, .94) translateX(1px); } 75% { transform: scale(1.06, .93) translateX(-1px); } 100% { transform: scale(.98, 1.03) translateY(-2px); } }
 /* 공격: 동작 그림이 칼을 휘두르는 동안 몸은 목표 쪽으로 반 걸음만 */

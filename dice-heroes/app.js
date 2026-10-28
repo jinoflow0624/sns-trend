@@ -6,7 +6,7 @@ import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL, HERO_ART } from './pixel.js';
-import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, bustURL, bossBustURL, bossFaceCls, FRAME, ORIGIN, FIG_H } from './motion.js';
+import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, loadMotion, bustURL, bossBustURL, bossFaceCls, FRAME, ORIGIN, FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -22,7 +22,7 @@ import * as Wal from './wallet.js';
 import * as AC from './achievements.js';
 import * as Ads from './ads.js';
 import { DICE_SKINS, TRAY_SKINS, diceSkin, traySkin, diceThumb, trayThumb, dieFaceURL, preloadDice, preloadTray } from './skins.js';
-preloadMotion();   // 영웅 모션 시트 · 상반신 (9종 합쳐 약 180KB) — 첫 연출 전에 받아 둔다
+preloadMotion();   // 영웅 · 보스 상반신 (작은 그림). 모션 시트는 판을 열기 전에 그 판 직업만 (startGame · 원정 preloadRun)
 
 const app = document.getElementById('app');
 const layer = document.getElementById('layer');
@@ -1299,7 +1299,7 @@ async function startGame(state) {
   S = state;
   gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxErr) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
-  await stageReady(skinsOf(state));      // 화면을 열기 전에 트레이 · 그림을 다 준비 (그사이 이전 화면 그대로)
+  await Promise.race([Promise.all([stageReady(skinsOf(state)), loadMotion(state.players.map(p => p.cls))]), sleep(8000)]);   // 화면을 열기 전에 트레이 · 그림 · 이번 판 직업 모션을 다 준비 (그사이 이전 화면 그대로)
   if (S !== state) return;
   Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
@@ -2181,12 +2181,13 @@ async function trayReady() {
 // 모션 시트가 없으면(예전 그림 ?art=v1) 기본 그림 하나를 늘이고 기울여 동작을 만든다.
 function actorSpot(mo = false) {
   const r = document.getElementById('tray')?.getBoundingClientRect();
-  // 모션 도트는 정확히 1.5배(좁은 화면 1.25배)로 그린다 — 폰(화면 밀도 2~3배)에서 도트 한 칸이 고르게 3 · 2.5칸이 되어 또렷하다. 키 약 126px
+  // 모션 영웅 키 150px (좁은 화면 124px) — 보스(약 200px)보다 작게
   const sz = mo ? Math.round(motionW(r?.width) * FIG_H / FRAME / 0.92) : Math.round(Math.min(120, Math.max(84, (r?.width || 360) * 0.27)));
   // 몬스터(보스 · 원정 적)는 화면 왼쪽 위에 있다 → 영웅은 주사위판 오른쪽 아래에 서서 왼쪽(몬스터 쪽)을 보고 친다 · 맞는다
   return r ? { x: r.right - sz * 0.62, y: r.bottom - 8, sz } : { x: innerWidth * 0.75, y: innerHeight * 0.62, sz };
 }
-const motionW = w => FRAME * ((w || 360) >= 340 ? 1.5 : 1.25);
+// 화면에서 영웅 키 (CSS px): 보통 폰 150 · 좁은 폰 124. 캔버스 폭 = 키 × 칸 / 그림 키
+const motionW = w => Math.round(((w || 360) >= 340 ? 150 : 124) * FRAME / FIG_H);
 const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });
 const actorScreen = () => screen === 'game' || screen === 'run';
 function actorIn(cls, face = null, spot = null) {
@@ -2245,10 +2246,10 @@ const bigActor = () => actorScreen() && prefs.fx !== 'min' && !matchMedia('(pref
 function clearActors(keepBoss = false) { document.querySelectorAll(keepBoss ? '.actor:not(.boss-actor)' : '.actor').forEach(el => el.remove()); }
 
 // ── 큰 보스: 공격할 때만 주사위판 왼쪽 아래에 전신이 크게 나와 오른쪽 영웅에게 달려든다 (평소 체력바 옆은 상반신) ──
-// 영웅보다 크게: 주사위판 폭의 절반 (영웅 키 약 126px · 보스 약 180px)
+// 영웅보다 크게: 주사위판 폭의 58% (영웅 키 150px · 보스 약 195px)
 function bossSpot() {
   const r = document.getElementById('tray')?.getBoundingClientRect();
-  const sz = Math.round(Math.min(230, Math.max(150, (r?.width || 360) * 0.52)));
+  const sz = Math.round(Math.min(240, Math.max(160, (r?.width || 360) * 0.58)));
   return r ? { x: r.left + sz * 0.5 - 4, y: r.bottom - 4, sz } : { x: innerWidth * 0.3, y: innerHeight * 0.62, sz };
 }
 function bossIn(id, color = '#E8435A') {

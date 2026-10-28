@@ -6,7 +6,7 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
-import { hasMotion, bustURL, bossBustURL, bossFaceCls } from '../motion.js';
+import { hasMotion, bustURL, bossBustURL, bossFaceCls, loadMotion } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
@@ -164,9 +164,9 @@ const RUN_SONGS = ['run_map', 'run_battle', 'run_elite', 'run_win', 'run_lose'];
 async function preloadRun() {
   const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
   const songs = [...RUN_SONGS, bossSong(R.boss)].map(n => BGM_FILES[n]).filter(Boolean);
-  if (loaded) { preloadBgm(bossSong(R.boss)); await X.stageReady(); return; }
+  if (loaded) { preloadBgm(bossSong(R.boss)); await Promise.all([X.stageReady(), loadMotion([R.cls])]); return; }
   const imgs = [...runAssetURLs(bosses), ...relicURLs()];
-  const total = imgs.length + songs.length + 1;
+  const total = imgs.length + songs.length + 2;
   let done = 0;
   X.layer.innerHTML = '';
   X.app.innerHTML = `<div class="screen run-loading">
@@ -177,7 +177,7 @@ async function preloadRun() {
   const img = url => loadImg(url).then(tick);
   const file = url => fetch(url).then(r => r.arrayBuffer()).catch(() => {}).then(tick);
   // 동시에 6개씩
-  const jobs = [...imgs.map(u => () => img(u)), ...songs.map(u => () => file(u)), () => file(RUN_FONT)];
+  const jobs = [...imgs.map(u => () => img(u)), ...songs.map(u => () => file(u)), () => file(RUN_FONT), () => loadMotion([R.cls]).then(tick)];
   const run = async () => { while (jobs.length) await jobs.shift()(); };
   const t0 = performance.now();
   await Promise.race([Promise.all([...Array(6)].map(run)), wait(25000)]);
