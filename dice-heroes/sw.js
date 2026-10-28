@@ -14,8 +14,8 @@ const FILES = [
   'assets/logo/logo.webp?v=l1', 'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   // 곡은 앱이 부르는 주소 그대로(?v=곡 버전) 받아 둔다 → 처음 설치할 때부터 캐시에 있다 (audio.js 의 BGM_VER 와 같게)
   ...['title', 'versus', 'boss_dragon', 'boss_orc', 'boss_lich', 'boss_demon', 'boss_cyclops', 'boss_hydra', 'boss_overlord', 'boss_archdemon'].map(n => `assets/bgm/${n}.ogg?v=${BGM_VER}`),
-  ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].map(id => `assets/boss/${id}.webp`),
-  ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].map(k => `assets/heroes/${k}.webp`),
+  ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].flatMap(id => [`assets/boss/${id}.webp`, `assets/boss/${id}_bust.webp`]),
+  ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].flatMap(k => [`assets/heroes/${k}.webp`, `assets/heroes/${k}_bust.webp`]),   // 모션 시트(한 장 약 0.8MB)는 미리 넣지 않는다 — 그 직업 판을 열 때 받는다
   // 그림 주사위 · 트레이 스킨: 앱이 부르는 주소 그대로(?v=그림 버전) → 설치할 때부터 캐시에 있어 첫 판부터 바로 뜬다
   ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry', 'pixel8', 'deck', 'alchemy', 'ruins', 'glacier', 'dragonnest'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', ...(['demon', 'lava', 'starry', 'ruins'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
   ...['floor', 'glow', 'box', 'thumb', 'cushion'].map(f => `assets/trays/casino/${f}.webp?v=${ART_VER}`),

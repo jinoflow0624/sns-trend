@@ -1618,6 +1618,7 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 .mnode:not(.t-boss).done .run-ico { opacity: .45; filter: grayscale(.75) drop-shadow(0 2px 0 var(--ink)); }
 /* 왼쪽을 보는 적(늑대 · 지옥개)은 좌우를 뒤집어 오른쪽 아래 영웅과 마주 본다. transform 동작(숨쉬기 · 맞기 · 달려들기)과 겹치도록 scale 속성으로 */
 .foe-art.face-l .foe-img { scale: -1 1; }
+.foe-art .foe-img.bust-b { object-fit: cover; border-radius: 6px; }
 /* 주사위 깎는 노인: 굴릴 때마다 주사위 합을 크게 */
 .ev-sum { display: grid; justify-items: center; line-height: 1; }
 .ev-sum small { font-size: 11px; color: var(--muted); }
