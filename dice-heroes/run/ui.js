@@ -7,7 +7,7 @@ import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
 import { hasMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, loadMotion } from '../motion.js';
-import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES, setBgmDim } from '../audio.js';
+import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
@@ -1478,23 +1478,15 @@ function hurtFlash(big) {
 }
 // 시공 광대의 표정: 비아냥 · 분노 그림으로 잠깐 바뀐다 (말은 하지 않는다)
 // 홀로그램 일렁임: 화면 전체가 지지직 출렁였다가 돌아온다 (히든 보스에 들어갈 때 · 쓰러져 원래 세계로 돌아올 때)
-// ── 위기: 체력 25% 미만이면 천천히 두근거리는 심장 소리 + 화면 가장자리가 붉게 맥박친다 (전투 중에만) ──
-let dangerT = null;
+// ── 위기: 체력 25% 미만이면 화면 가장자리가 붉게 맥박친다 (전투 중에만) ──
 const inDanger = () => {
   if (!R || R.phase !== 'combat' || X.screen?.() !== 'run' || !$('rhero')) return false;
   const hp = ui.show ? shownHp() : R.hp;
   return hp > 0 && hp < R.maxHp * 0.25;
 };
-// 위기 동안 배경음악은 절반으로 줄이고 심장 소리는 크게 (벗어나면 음악을 되돌린다)
-const HEART = 1.8;
+// 위기: 화면 가장자리가 붉게 맥박친다 (소리는 없다 — 심장 소리 · 배경음악 줄이기는 뺐다)
 function dangerCheck() {
-  const on = inDanger();
-  document.body.classList.toggle('run-danger', on);
-  if (on && !dangerT) {
-    setBgmDim(true);
-    sfx.heartbeat?.(HEART);
-    dangerT = setInterval(() => { if (inDanger()) sfx.heartbeat?.(HEART); else { clearInterval(dangerT); dangerT = null; setBgmDim(false); document.body.classList.remove('run-danger'); } }, 1400);
-  } else if (!on && dangerT) { clearInterval(dangerT); dangerT = null; setBgmDim(false); }
+  document.body.classList.toggle('run-danger', inDanger());
 }
 // ── 보스 분노: 가운데서 붉은 파동이 퍼지며 화면이 일렁 → 그 뒤로 보스가 활활 타오른다 ──
 function rageWave() {
