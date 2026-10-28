@@ -92,7 +92,8 @@ export function rumble(v = 5) {
 }
 export const canVibrate = () => typeof navigator.vibrate === 'function';
 
-let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
+let ctx = null, master = null, bgmGain = null, duckGain = null, dimGain = null, sfxGain = null, noiseBuf = null;
+let dimTo = 1;   // 위기 때 배경음악을 줄인다 (setBgmDim)
 // 배경음악은 따로 된 오디오(mctx · 넉넉한 버퍼 'playback')로 튼다. 효과음과 한 오디오를 쓰면 주사위가 부딪힐 때
 // 효과음이 몰려 오디오가 잠깐 밀리면서 음악이 0.1 ~ 0.2초 '늘어지는' 일이 있었다. 효과음은 반응이 빠른 ctx 그대로
 let mctx = null;
@@ -123,7 +124,8 @@ export function unlock() {
     try { const AC = window.AudioContext || window.webkitAudioContext; mctx = new AC({ latencyHint: 'playback' }); } catch { mctx = ctx; }   // 못 만들면 한 오디오로
     const mmaster = mctx.createGain(); mmaster.gain.value = 0.9; mmaster.connect(mctx.destination);
     duckGain = mctx.createGain(); duckGain.connect(mmaster);
-    bgmGain = mctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(duckGain);
+    dimGain = mctx.createGain(); dimGain.gain.value = dimTo; dimGain.connect(duckGain);
+    bgmGain = mctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(dimGain);
     sfxGain = ctx.createGain(); sfxGain.gain.value = settings.sfx * SFX_LEVEL; sfxGain.connect(master);
     waves.p12 = pulseWave(0.125);
     waves.p25 = pulseWave(0.25);
@@ -848,12 +850,14 @@ export const sfx = {
   },
   card() { seq(['G6', 'D7'], 0.04, { type: 'p12', vol: 0.1 }); },
   // 심장 소리 (쿵-쿵): 마지막 주사위 슬로모션 동안 되풀이한다
-  heartbeat() {
+  // k: 세기 (원정 위기는 1.8 — 배경음악을 반으로 줄인 위에 또렷하게 · 낮은 울림을 한 겹 더)
+  heartbeat(k = 1) {
     if (!unlock()) return;
     const t = ctx.currentTime;
-    voice(sfxGain, { type: 'tri', f: 70, slide: 42, t, dur: 0.12, vol: 0.5 });
-    voice(sfxGain, { type: 'tri', f: 62, slide: 38, t: t + 0.17, dur: 0.14, vol: 0.4 });
-    buzz(20);
+    voice(sfxGain, { type: 'tri', f: 70, slide: 42, t, dur: 0.12, vol: Math.min(0.95, 0.5 * k) });
+    voice(sfxGain, { type: 'tri', f: 62, slide: 38, t: t + 0.17, dur: 0.14, vol: Math.min(0.85, 0.4 * k) });
+    if (k > 1) { voice(sfxGain, { type: 'tri', f: 48, slide: 30, t, dur: 0.2, vol: 0.35 * (k - 1) }); voice(sfxGain, { type: 'tri', f: 44, slide: 28, t: t + 0.17, dur: 0.22, vol: 0.3 * (k - 1) }); }
+    buzz(k > 1 ? 35 : 20);
   },
   legend() { seq(['C6', 'E6', 'G6', 'B6', 'D7', 'G7'], 0.05, { type: 'p12', vol: 0.12 }); },
   round() { seq(['G4', null, 'G4', 'C5'], 0.09, { type: 'p50', vol: 0.14 }); },
@@ -1088,3 +1092,11 @@ export const sfx = {
     ['G5', 'D5', 'A4', 'E4'].forEach((n, i) => voice(sfxGain, { type: 'p25', f: freq(n), t: t + 0.08 + i * 0.06, dur: 0.08, vol: 0.06 }));
   },
 };
+
+// 위기(원정 체력 25% 미만): 배경음악을 절반으로 천천히 줄였다가, 벗어나면 되돌린다
+export function setBgmDim(on) {
+  dimTo = on ? 0.5 : 1;
+  if (!dimGain || !mctx) return;
+  const g = dimGain.gain, t = mctx.currentTime;
+  g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(dimTo, t + 0.6);
+}

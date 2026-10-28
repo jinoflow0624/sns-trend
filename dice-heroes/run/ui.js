@@ -7,7 +7,7 @@ import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
 import { hasMotion, bustURL, bossBustURL, bossFaceCls, loadMotion } from '../motion.js';
-import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
+import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES, setBgmDim } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
@@ -1474,13 +1474,16 @@ const inDanger = () => {
   const hp = ui.show ? shownHp() : R.hp;
   return hp > 0 && hp < R.maxHp * 0.25;
 };
+// 위기 동안 배경음악은 절반으로 줄이고 심장 소리는 크게 (벗어나면 음악을 되돌린다)
+const HEART = 1.8;
 function dangerCheck() {
   const on = inDanger();
   document.body.classList.toggle('run-danger', on);
   if (on && !dangerT) {
-    sfx.heartbeat?.();
-    dangerT = setInterval(() => { if (inDanger()) sfx.heartbeat?.(); else { clearInterval(dangerT); dangerT = null; document.body.classList.remove('run-danger'); } }, 1400);
-  } else if (!on && dangerT) { clearInterval(dangerT); dangerT = null; }
+    setBgmDim(true);
+    sfx.heartbeat?.(HEART);
+    dangerT = setInterval(() => { if (inDanger()) sfx.heartbeat?.(HEART); else { clearInterval(dangerT); dangerT = null; setBgmDim(false); document.body.classList.remove('run-danger'); } }, 1400);
+  } else if (!on && dangerT) { clearInterval(dangerT); dangerT = null; setBgmDim(false); }
 }
 // ── 보스 분노: 가운데서 붉은 파동이 퍼지며 화면이 일렁 → 그 뒤로 보스가 활활 타오른다 ──
 function rageWave() {

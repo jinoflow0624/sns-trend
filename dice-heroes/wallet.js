@@ -45,6 +45,7 @@ export function loadWallet() {
     W = readLocal();                            // 먼저 기기 사본으로 화면을 그린다
 // @test-only{
     if (W && !PROD) W.gems = TEST_GEMS;
+    if (W && !PROD) W.tix = { ...(W.tix || {}), n: TEST_TIX };
 // }@test-only
     emit();
     const app = await fireApp();
@@ -68,6 +69,8 @@ export function loadWallet() {
 // @test-only{
 // 테스트판은 보석 무제한: 언제나 이만큼 채워 둔다 (사도 줄지 않는다). 배포판은 서버 지갑 그대로 (배포판 빌드는 이 구간을 잘라낸다)
 const TEST_GEMS = 99999999;
+// 입장권도 무제한: 언제나 999장 (써도 다시 채운다)
+const TEST_TIX = 999;
 // }@test-only
 function fix(w) {
 // @test-only{
@@ -78,6 +81,9 @@ function fix(w) {
   w.vs ||= { day: 0, n: 0 };
   if (w.vs.day !== today()) w.vs = { day: today(), n: 0 };
   if (!PROD || w.tix) R.fixTix(w, serverNow());   // 입장권 하루 채움 (배포판은 서버 값이 올 때까지 기다린다)
+// @test-only{
+  if (!PROD) w.tix = { ...(w.tix || {}), n: TEST_TIX };
+// }@test-only
   return w;
 }
 
@@ -177,6 +183,9 @@ export function applyTix(tix) { if (tix && W) { W.tix = tix; writeLocal(W); emit
 // 테스트판: 이 기기에서 1장 쓴다 (배포판은 서버가 원정 · 협동 시작 때 쓴다)
 export function spendLocalTicket() {
   if (PROD) return true;
+// @test-only{
+  if (!PROD) return true;   // 테스트판: 입장권 무제한 (줄지 않는다)
+// }@test-only
   return changeLocal(w => R.useTicket(w, serverNow())).ok;
 }
 // 보상형 광고를 다 본 뒤 1장 받기
