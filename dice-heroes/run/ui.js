@@ -2793,7 +2793,11 @@ export function onAct(act, t) {
   if (act === 'run-smith') { try { Run.startUpgrade(R); } catch (e) { return X.toast(ico('warn'), TR('할 수 없어요'), e.message, 1400); } sfx.select(); ui.pickU = null; return showPick(); }
   // 덱 고르기
   if (act === 'run-pickcard') { sfx.tap(); ui.pickU = Number(t.dataset.u); return showPick(); }
-  if (act === 'run-pickcancel') { sfx.back(); Run.cancelPick(R); ui.pickU = null; ui.carve = null; X.layer.innerHTML = ''; save(); return enterView(); }
+  if (act === 'run-pickcancel') {   // 한 걸음 뒤로: 강화 효과 → 카드 고르기 · 카드 고르기 → 이벤트 선택지 (상점 · 휴식은 그 화면으로)
+    sfx.back(); const back = R.pick?.why === 'upgrade' && R.pick.opts ? R.pick.u : null; Run.cancelPick(R); ui.carve = null; save();
+    if (R.pick) { ui.pickU = back; return showPick(); }
+    ui.pickU = null; X.layer.innerHTML = ''; return enterView();
+  }
   if (act === 'run-pickok') {
     if (ui.pickU == null) return;
     const why = R.pick?.why;

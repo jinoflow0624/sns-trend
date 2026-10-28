@@ -2086,7 +2086,7 @@ export const pickDeck = act('pickDeck', function pickDeck(R, u) {
   if (pk.why === 'upgrade') {
     if (!canUpgrade(c)) fail(TR('더 강화할 수 없는 카드예요.'));
     pk.u = u;
-    pk.opts = upgradeOpts(R, c);
+    pk.opts = pk.seen?.[u] || upgradeOpts(R, c);
     return;                              // 다음: chooseUpgrade 로 강화 고르기
   }
   if (pk.why === 'remove') {
@@ -2113,11 +2113,21 @@ export const pickDeck = act('pickDeck', function pickDeck(R, u) {
   R.pick = null;
   if (pk.from === 'event') finishEvent(R, pk.done);
 });
-export const cancelPick = act('cancelPick', function cancelPick(R) {
+// 취소 = 한 걸음 뒤로 (이벤트를 떠나지 않는다):
+//   강화 효과 고르기 → 강화할 카드 고르기 · 카드 고르기 → 이벤트 선택지 (그 칸의 다른 선택지를 다시 고를 수 있다)
+//   주사위 깎기는 이미 굴린 뒤라 되돌리지 않고 끝낸다 (다시 굴리지 못하게) · leave: 봇이 고를 카드가 없을 때 이벤트를 끝낸다
+export const cancelPick = act('cancelPick', function cancelPick(R, leave = false) {
   const pk = R.pick;
   if (!pk) return;
+  if (pk.why === 'upgrade' && pk.opts && !leave) {
+    (pk.seen ||= {})[pk.u] = pk.opts;     // 같은 카드를 다시 고르면 같은 효과 후보 (취소로 후보를 다시 뽑지 못하게)
+    delete pk.u; delete pk.opts;
+    return;
+  }
   R.pick = null;
-  if (pk.from === 'event') finishEvent(R, TR('그만두고 떠났다.'));
+  if (pk.from !== 'event') return;
+  if (pk.why === 'face' || leave) return finishEvent(R, pk.why === 'face' ? pk.done : TR('그만두고 떠났다.'));
+  if (R.event) delete R.event.choice;      // 이벤트 선택지로 돌아간다
 });
 
 // ── 이벤트 (? 칸) ────────────────────────────────────────────────────────────
@@ -2763,7 +2773,7 @@ export const sandbox = {
 export function botRunStep(R, rng = Math.random) {
   if (R.pick?.why === 'face') {             // 가장 낮은 면을 6으로
     for (let i = 0; i < 5; i++) { const f = facesOf(R, i), k = f.indexOf(Math.min(...f)); if (f[k] < 6) return carveFace(R, i, k, 6); }
-    return cancelPick(R);
+    return cancelPick(R, true);
   }
   if (R.phase === 'event' && R.event?.yacht && !R.event.yacht.done) {   // 가장 많이 나온 눈을 잡고 다시
     const y = R.event.yacht;
@@ -2782,7 +2792,7 @@ export function botRunStep(R, rng = Math.random) {
       return chooseUpgrade(R, pk.opts.indexOf(pk.opts.slice().sort((a, b) => v(b) - v(a))[0]));
     }
     const cands = R.deck.filter(c => (pk.why === 'upgrade' ? canUpgrade(c) : pk.why === 'seal' ? !c.seal : true));
-    if (!cands.length) return cancelPick(R);
+    if (!cands.length) return cancelPick(R, true);
     const sorted = cands.slice().sort((a, b) => botCardValue(R, a) - botCardValue(R, b));
     return pickDeck(R, (pk.why === 'remove' ? sorted[0] : sorted[sorted.length - 1]).u);
   }

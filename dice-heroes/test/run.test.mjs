@@ -846,6 +846,24 @@ test('2막: 3층은 모두 이벤트이고, 2막의 첫 이벤트는 주사위 �
   assert.equal(Math.max(...R.map.nodes.map(n => n.row)), Run.ROWS + 1);
 });
 
+test('이벤트 취소 = 한 걸음 뒤로: 카드 고르기를 취소하면 이벤트 선택지로 · 강화 효과를 취소하면 카드 고르기로 (같은 후보)', () => {
+  const R = mk({ cls: 'monk', seed: 11 }); R.phase = 'map'; R.reward = null;
+  const ev = Run.EVENTS.find(e => e.opts.some(o => /강화/.test(String(o.ko))));
+  const k = ev.opts.findIndex(o => /강화/.test(String(o.ko)));
+  R.phase = 'event'; R.event = { id: ev.id, result: null, dice: null, fight: null };
+  Run.eventChoose(R, k);
+  assert.equal(R.pick.why, 'upgrade');
+  Run.cancelPick(R);                                   // 카드 고르기 취소 → 이벤트 선택지
+  assert.equal(R.pick, null); assert.equal(R.phase, 'event'); assert.equal(R.event.result, null);
+  Run.eventChoose(R, k);                               // 다시 고를 수 있다
+  const c = R.deck.find(Run.canUpgrade);
+  Run.pickDeck(R, c.u); const opts = R.pick.opts.slice();
+  Run.cancelPick(R);                                   // 강화 효과 취소 → 카드 고르기
+  assert.equal(R.pick.why, 'upgrade'); assert.equal(R.pick.opts, undefined);
+  Run.pickDeck(R, c.u);
+  assert.deepEqual(R.pick.opts, opts);                 // 같은 카드는 같은 후보 (취소로 다시 뽑지 못한다)
+});
+
 console.log('\n특별 카드 (에이스 · 듀스 · 트레이)');
 test('특별 카드는 실버 등급, 일반(브론즈) 보상에는 나오지 않는다', () => {
   const R = run('rogue', 5);
