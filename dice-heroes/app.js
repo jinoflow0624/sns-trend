@@ -382,18 +382,30 @@ function onMotion(e) {
   motion.peaks = [];
   startShakeRoll(x, y, z);
 }
-const rollReady = () => screen === 'game' && !layer.querySelector('.overlay') && document.querySelector('[data-act=roll]:not([disabled])');
+// 지금 흔들어 굴릴 수 있는 굴리기 버튼 (대전 · 협동 = roll, 원정 전투 = run-roll — 예전엔 원정 화면에서는 흔들어도 굴러가지 않았다)
+const rollReady = () => (layer.querySelector('.overlay') ? null
+  : screen === 'game' ? document.querySelector('[data-act=roll]:not([disabled])')
+  : screen === 'run' && runMod?.canRoll?.() ? document.querySelector('[data-act=run-roll]:not([disabled])') : null);
+const pressRoll = btn => (screen === 'run' ? runMod.onAct('run-roll', btn) : onAct('roll', btn));
 // 흔들기 시작: 주사위를 트레이 안에 풀어 놓고, 흔들기를 멈추면(0.45초 동안 약한 움직임뿐) 그 자리에서 굴림을 확정한다
 function startShakeRoll(x, y, z) {
   const btn = rollReady();
   if (!btn) return;
   const now = performance.now();
   motion.last = now;
-  if (!tray?.startShake) return onAct('roll', btn);        // 2D 화면: 바로 굴린다
+  if (!tray?.startShake) return pressRoll(btn);             // 2D 화면: 바로 굴린다
   if (tray.live && !motion.rolling) tray.cancelShake();     // 지난 흔들기가 어중간하게 남아 있으면 정리하고 다시
-  const mask = rollMask();
-  tray.setSealed?.(ui.sealRoll);
-  ui.sealRoll = null;
+  let mask;
+  if (screen === 'run') {                                   // 원정: 원정 규칙의 고정 · 봉인 · 얼음
+    const m = runMod?.shakeMask?.();
+    if (!m) return;
+    mask = m.mask;
+    tray.setSealed?.(m.sealed);
+  } else {
+    mask = rollMask();
+    tray.setSealed?.(ui.sealRoll);
+    ui.sealRoll = null;
+  }
   if (!tray.startShake(mask)) return;
   if (tut) motion.tutShook = true;
   sfx.rollPress();
@@ -412,7 +424,10 @@ function endShake() {
   stopShakeWatch();
   motion.rolling = false;
   const btn = rollReady();
-  if (btn && myControl() && !ui.busy && !ui.sending) onAct('roll', btn);
+  if (screen === 'run') {
+    if (btn) runMod.onAct('run-roll', btn);
+    else { tray?.cancelShake?.(); tray?.setSealed?.([]); runMod?.redraw?.(); }
+  } else if (btn && myControl() && !ui.busy && !ui.sending) onAct('roll', btn);
   else { tray?.cancelShake?.(); render(); }
   motion.last = performance.now();
 }
