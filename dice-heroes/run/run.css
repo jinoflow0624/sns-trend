@@ -1626,3 +1626,11 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 @keyframes sumPop { 0% { transform: scale(.3); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @keyframes sumWait { 50% { opacity: .5; } }
 @media (prefers-reduced-motion: reduce) { .ev-sum b { animation: none !important; } }
+
+/* ── 전투 화면 세로 배치 (v0.39.96): 폰 세로가 짧아져도 트레이는 지키고, 조작줄과 손패 사이 빈칸부터 줄인다 ──
+   1) 안내 한 줄(.rtip)은 자리를 차지하지 않고 손패 위 빈 곳에 겹쳐 쓴다
+   2) 손패 칸 위쪽 빈 곳(부채꼴 카드가 닿지 않는 곳)을 끌어올려 조작줄 바로 아래로
+   3) 그래도 모자라면 그때 트레이가 줄어든다 (트레이 최소 높이 = 화면 높이 − 나머지 칸) */
+.run-combat .rtip { position: relative; z-index: 21; height: 0; min-height: 0; margin: -3px 0 0; overflow: visible; pointer-events: none; }
+.run-combat .hand { margin-top: -18px; }
+.run-combat .rtable { min-height: clamp(150px, calc(100dvh - var(--rc-rest, 508px)), 300px); }
