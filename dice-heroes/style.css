@@ -2205,7 +2205,7 @@ img.spr.bust { object-fit: contain; object-position: 50% 100%; }
 
 /* ── 큰 보스 (v0.39.92): 체력바 옆은 상반신, 공격할 때만 주사위판 왼쪽 아래에 전신이 크게 (app.js bossIn) ── */
 /* 보스 상반신: 둥근 초상화 메달 — 보스 색 고리 · 어두운 바탕 · 원 안에 얼굴 (네모로 잘라 붙인 티가 안 나게) */
-img.spr.bust-b, .foe-art .foe-img.bust-b { object-fit: cover; object-position: 50% 32%; border-radius: 50%; aspect-ratio: 1; height: auto !important;
+img.spr.bust-b, .foe-art .foe-img.bust-b { object-fit: cover; object-position: 50% 50%; border-radius: 50%; aspect-ratio: 1; height: auto !important;
   background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c, #E8435A) 45%, #2A1840) 0%, #160C26 72%);
   border: 3px solid var(--ink); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c, #E8435A) 80%, #FFE27A), 0 0 0 4px var(--ink), 0 0 14px color-mix(in srgb, var(--c, #E8435A) 60%, transparent); }
 .game .boss-art img.boss.bust-b { position: relative; inset: auto; width: 100%; margin: auto 0; }
