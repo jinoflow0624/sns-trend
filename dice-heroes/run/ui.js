@@ -2218,6 +2218,7 @@ function showCarveResult() {
 function yachtView(y) {
   const done = y.done;
   return `<div class="ev-yacht">
+    ${y.dice.some(Boolean) ? `<div class="ev-sum${ui.yRoll ? ' wait' : ui.ySumPop ? ' pop' : ''}"><small>${TR('주사위 합')}</small><b>${ui.yRoll ? '?' : y.dice.reduce((a, v) => a + v, 0)}</b></div>` : ''}
     <div class="ev-dice yacht${ui.yRoll ? ' rolling' : ''}">${y.dice.map((v, i) => `<button class="dd-die${y.held[i] ? ' held' : ''}" data-act="run-yhold" data-i="${i}" ${y.rolls === 3 || done ? 'disabled' : ''}>${v ? miniDie(ui.yRoll && !y.held[i] ? 1 + Math.floor(Math.random() * 6) : v) : '<span class="md q">?</span>'}</button>`).join('')}</div>
     ${done ? `<p class="ev-result">${TR('{0} {1}점 → 주사위 면', esc(Run.cardTitle(done.cat)), done.score)} <b>${done.n}</b>${TR('개 깎기')}</p>`
       : `<p class="ev-carve-rule">${TR('10점 이하 1면 · 20점 이하 2면 · 30점 이하 3면 · 요트 4면')}</p>
@@ -2699,7 +2700,9 @@ export function onAct(act, t) {
       try { Run.eventRoll(R); } catch (e) { return X.toast(ico('warn'), TR('굴릴 수 없어요'), e.message, 1400); }
       Run.drainFx(R); sfx.clack?.(); save();
       if (R.pick?.why === 'face') ui.carveIntro = true;        // 마지막 굴림이었다 → 결과 창부터
+      ui.ySumPop = true;                                       // 굴릴 때마다 주사위 합이 크게 톡
       showEvent(true);
+      ui.ySumPop = false;
     });
   }
   if (act === 'run-yhold') { try { Run.eventHold(R, Number(t.dataset.i)); } catch { return; } sfx.tap(); save(); return showEvent(true); }
@@ -2965,5 +2968,12 @@ export function back() {
 }
 export const active = () => !!R || ui.view === 'select';
 export const state = () => R;
+// 흔들어 굴리기 (app.js startShakeRoll): 지금 굴릴 수 있으면 굴릴 주사위 표시(mask) · 봉인된 주사위, 아니면 null
+export const canRoll = () => canAct() && !!document.querySelector('[data-act=run-roll]:not([disabled])');
+export function shakeMask() {
+  if (!canRoll()) return null;
+  const C = R.C;
+  return { mask: C.dice.map((_, i) => !(C.rolled && (C.held[i] || Run.isSealed(R, i) || Run.isFrozen(R, i)))), sealed: C.rolled ? C.sealed.slice() : [] };
+}
 // 지금 원정 화면 이름 (플레이 통계: 화면별 체류 · 이탈 지점)
 export const where = () => (R ? R.phase : ui.view || 'select');

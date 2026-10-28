@@ -2049,4 +2049,5 @@ export default {"키보리아":"KYBORIA",
 "{0} 행운의 부적 · 다시 굴리기":"{0} Glücksbringer · Neu würfeln",
 "가장 낮은 주사위 {0}":"Niedrigster Würfel {0}",
 "매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)":"Jeden Zug nach dem ersten Wurf darfst du den niedrigsten Würfel einmal gratis neu würfeln (deine Wahl · Würfe unverändert)",
-"지금은 행운의 부적을 쓸 수 없어요.":"Den Glücksbringer kannst du gerade nicht nutzen."};
+"지금은 행운의 부적을 쓸 수 없어요.":"Den Glücksbringer kannst du gerade nicht nutzen.",
+"주사위 합":"Würfelsumme"};
