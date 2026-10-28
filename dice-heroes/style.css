@@ -2204,7 +2204,12 @@ html.color-assist .sheet-pop .row.can:not(.combo) .v::after, html.color-assist .
 img.spr.bust { object-fit: contain; object-position: 50% 100%; }
 
 /* ── 큰 보스 (v0.39.92): 체력바 옆은 상반신, 공격할 때만 주사위판 왼쪽 아래에 전신이 크게 (app.js bossIn) ── */
-img.spr.bust-b { object-fit: cover; object-position: 50% 30%; border-radius: 6px; }
+/* 보스 상반신: 둥근 초상화 메달 — 보스 색 고리 · 어두운 바탕 · 원 안에 얼굴 (네모로 잘라 붙인 티가 안 나게) */
+img.spr.bust-b, .foe-art .foe-img.bust-b { object-fit: cover; object-position: 50% 50%; border-radius: 50%; aspect-ratio: 1; height: auto !important;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c, #E8435A) 45%, #2A1840) 0%, #160C26 72%);
+  border: 3px solid var(--ink); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c, #E8435A) 80%, #FFE27A), 0 0 0 4px var(--ink), 0 0 14px color-mix(in srgb, var(--c, #E8435A) 60%, transparent); }
+.game .boss-art img.boss.bust-b { position: relative; inset: auto; width: 100%; margin: auto 0; }
+.boss-art:has(img.bust-b) { display: grid; align-items: center; }
 .actor.boss-actor { z-index: 28; }
 .actor.boss-actor::after { left: 12%; right: 12%; height: 12px; bottom: -4px; }
 .boss-actor .actor-fig img { width: 100%; height: 100%; display: block; image-rendering: auto; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c) 70%, transparent)); }
@@ -2226,3 +2231,24 @@ img.turn-r { rotate: y 24deg; translate: 3% 0; }
 .actor.boss-actor.turn-r .actor-body { rotate: y 24deg; }
 /* 왼쪽을 보는 보스(오크)는 좌우를 뒤집어 오른쪽 영웅을 본다 (scale 속성 — 동작 transform 과 겹친다) */
 img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .af { scale: -1 1; }
+/* 보스 피격: 하얗게 번쩍 → 왼쪽(뒤)으로 밀리며 기울고 붉게 두 번 깜빡 → 제자리 */
+.actor.boss-actor.bhurt .actor-fig { animation: bossHurtK var(--dur) linear both; }
+.actor.boss-actor.bhurt .af.w { animation: actorHurtW var(--dur) steps(1, end) both; }
+.actor.boss-actor.bhurt .af.r { animation: actorHurtR var(--dur) steps(1, end) both; }
+@keyframes bossHurtK { 0% { transform: none; } 12% { transform: translateX(-16px) rotate(-4deg) scale(1.03, .97); } 40% { transform: translateX(-12px) rotate(-3deg); } 70% { transform: translateX(-4px) rotate(-1deg); } 100% { transform: none; } }
+
+/* ── 대전 · 협동 화면 세로 배치 (v0.39.96): 세로가 짧아도 트레이는 지키고, 아래 빈칸부터 줄인다 (원정과 같은 방식) ──
+   1) 안내 줄이 비었으면 자리를 없앤다 (튜토리얼 · 상대 차례 안내가 있을 때만 보인다)
+   2) 세로 800px 아래: 맨 아래 한 줄 기록은 숨긴다 (기록은 메뉴 → 기록에서 본다) · 카지노 조작판 위아래 여백을 줄인다
+   3) 세로 700px 아래: 조작판 칩 · 버튼을 조금 작게 */
+.game .tip:empty { display: none; }
+@media (max-height: 800px) {
+  .game .log-line { display: none; }
+  .game .controls.casino { padding-block: 3px; }
+}
+@media (max-height: 700px) {
+  .game .controls.casino { grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr); }
+  .controls.casino .pbtn.roll.chip { width: 76px; height: 76px; }
+  .controls.casino .sheet-btn { min-height: 70px; }
+  .controls.casino .ctl-tools .tool { min-height: 32px; }
+}

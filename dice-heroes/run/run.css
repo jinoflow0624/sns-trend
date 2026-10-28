@@ -1612,13 +1612,11 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 .mnode:not(.t-boss) .mlabel { margin-top: 4px; }
 .mnode:not(.t-boss).done { opacity: .6; }
 .mnode:not(.t-boss).done .run-ico { opacity: .7; }
-.mnode:not(.t-boss).done::after { content: '✔'; position: absolute; right: 0; bottom: 2px; width: 15px; height: 15px; display: grid; place-items: center; font-size: 9px; line-height: 1;
-  color: #3B2300; background: var(--gold); border: 2px solid var(--ink); border-radius: 50%; }
+/* 지나온 칸 체크 표시는 뺐다 (바랜 아이콘 · 금빛 발자국으로 충분) */
 .mnode:not(.t-boss).done { opacity: 1; filter: none; }
 .mnode:not(.t-boss).done .run-ico { opacity: .45; filter: grayscale(.75) drop-shadow(0 2px 0 var(--ink)); }
 /* 왼쪽을 보는 적(늑대 · 지옥개)은 좌우를 뒤집어 오른쪽 아래 영웅과 마주 본다. transform 동작(숨쉬기 · 맞기 · 달려들기)과 겹치도록 scale 속성으로 */
 .foe-art.face-l .foe-img { scale: -1 1; }
-.foe-art .foe-img.bust-b { object-fit: cover; border-radius: 6px; }
 /* 주사위 깎는 노인: 굴릴 때마다 주사위 합을 크게 */
 .ev-sum { display: grid; justify-items: center; line-height: 1; }
 .ev-sum small { font-size: 11px; color: var(--muted); }
@@ -1628,3 +1626,11 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 @keyframes sumPop { 0% { transform: scale(.3); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @keyframes sumWait { 50% { opacity: .5; } }
 @media (prefers-reduced-motion: reduce) { .ev-sum b { animation: none !important; } }
+
+/* ── 전투 화면 세로 배치 (v0.39.96): 폰 세로가 짧아져도 트레이는 지키고, 조작줄과 손패 사이 빈칸부터 줄인다 ──
+   1) 안내 한 줄(.rtip)은 자리를 차지하지 않고 손패 위 빈 곳에 겹쳐 쓴다
+   2) 손패 칸 위쪽 빈 곳(부채꼴 카드가 닿지 않는 곳)을 끌어올려 조작줄 바로 아래로
+   3) 그래도 모자라면 그때 트레이가 줄어든다 (트레이 최소 높이 = 화면 높이 − 나머지 칸) */
+.run-combat .rtip { position: relative; z-index: 21; height: 0; min-height: 0; margin: -3px 0 0; overflow: visible; pointer-events: none; }
+.run-combat .hand { margin-top: -18px; }
+.run-combat .rtable { min-height: clamp(150px, calc(100dvh - var(--rc-rest, 508px)), 300px); }

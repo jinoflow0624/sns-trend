@@ -9,19 +9,22 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(HERE, '..', 'assets', 'boss')
-BOX = {   # 머리를 가운데 · 조금 위에 두고 어깨까지 (키클롭스 눈동자는 오른쪽 영웅 쪽으로 옮겨 그렸다)
-    'dragon':    (150, 48, 236),
-    'orc':       (192, 72, 256),
-    'lich':      (150, 60, 236),
-    'hydra':     (76, 70, 360),     # 머리 셋이 다 보이게 넓게
-    'cyclops':   (160, 46, 256),
-    'overlord':  (140, 100, 236),
-    'demon':     (140, 46, 236),
-    'archdemon': (140, 46, 236),
+# 얼굴 중심 (512px 그림 기준 x, y)과 잘라낼 한 변. 둥근 초상화 메달 가운데에 얼굴이 오게 (키클롭스 눈동자는 오른쪽 영웅 쪽으로 옮겨 그렸다)
+FACE = {
+    'dragon':    (296, 220, 210),
+    'orc':       (266, 238, 210),
+    'lich':      (256, 230, 210),
+    'hydra':     (262, 238, 330),   # 머리 셋이 다 들어가게 넓게
+    'cyclops':   (290, 218, 210),
+    'overlord':  (264, 234, 210),
+    'demon':     (254, 196, 180),
+    'archdemon': (244, 192, 180),
 }
+BOX = {i: (cx - n // 2, cy - n // 2, n) for i, (cx, cy, n) in FACE.items()}
 for i, (x, y, n) in BOX.items():
     im = Image.open(os.path.join(D, f'{i}.webp')).convert('RGBA')
-    b = im.crop((x, y, x + n, y + n)).resize((256, 256), Image.LANCZOS)
+    b = Image.new('RGBA', (n, n)); b.alpha_composite(im.crop((x, y, x + n, y + n)))   # 그림 밖은 투명
+    b = b.resize((256, 256), Image.LANCZOS)
     p = os.path.join(D, f'{i}_bust.webp')
     b.save(p, 'WEBP', quality=92, method=6)
     print(i, os.path.getsize(p))
