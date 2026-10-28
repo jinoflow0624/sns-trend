@@ -2236,3 +2236,19 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
 .actor.boss-actor.bhurt .af.w { animation: actorHurtW var(--dur) steps(1, end) both; }
 .actor.boss-actor.bhurt .af.r { animation: actorHurtR var(--dur) steps(1, end) both; }
 @keyframes bossHurtK { 0% { transform: none; } 12% { transform: translateX(-16px) rotate(-4deg) scale(1.03, .97); } 40% { transform: translateX(-12px) rotate(-3deg); } 70% { transform: translateX(-4px) rotate(-1deg); } 100% { transform: none; } }
+
+/* ── 대전 · 협동 화면 세로 배치 (v0.39.96): 세로가 짧아도 트레이는 지키고, 아래 빈칸부터 줄인다 (원정과 같은 방식) ──
+   1) 안내 줄이 비었으면 자리를 없앤다 (튜토리얼 · 상대 차례 안내가 있을 때만 보인다)
+   2) 세로 800px 아래: 맨 아래 한 줄 기록은 숨긴다 (기록은 메뉴 → 기록에서 본다) · 카지노 조작판 위아래 여백을 줄인다
+   3) 세로 700px 아래: 조작판 칩 · 버튼을 조금 작게 */
+.game .tip:empty { display: none; }
+@media (max-height: 800px) {
+  .game .log-line { display: none; }
+  .game .controls.casino { padding-block: 3px; }
+}
+@media (max-height: 700px) {
+  .game .controls.casino { grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr); }
+  .controls.casino .pbtn.roll.chip { width: 76px; height: 76px; }
+  .controls.casino .sheet-btn { min-height: 70px; }
+  .controls.casino .ctl-tools .tool { min-height: 32px; }
+}
