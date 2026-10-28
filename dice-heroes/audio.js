@@ -92,8 +92,7 @@ export function rumble(v = 5) {
 }
 export const canVibrate = () => typeof navigator.vibrate === 'function';
 
-let ctx = null, master = null, bgmGain = null, duckGain = null, dimGain = null, sfxGain = null, noiseBuf = null;
-let dimTo = 1;   // 위기 때 배경음악을 줄인다 (setBgmDim)
+let ctx = null, master = null, bgmGain = null, duckGain = null, sfxGain = null, noiseBuf = null;
 // 배경음악은 따로 된 오디오(mctx · 넉넉한 버퍼 'playback')로 튼다. 효과음과 한 오디오를 쓰면 주사위가 부딪힐 때
 // 효과음이 몰려 오디오가 잠깐 밀리면서 음악이 0.1 ~ 0.2초 '늘어지는' 일이 있었다. 효과음은 반응이 빠른 ctx 그대로
 let mctx = null;
@@ -124,8 +123,7 @@ export function unlock() {
     try { const AC = window.AudioContext || window.webkitAudioContext; mctx = new AC({ latencyHint: 'playback' }); } catch { mctx = ctx; }   // 못 만들면 한 오디오로
     const mmaster = mctx.createGain(); mmaster.gain.value = 0.9; mmaster.connect(mctx.destination);
     duckGain = mctx.createGain(); duckGain.connect(mmaster);
-    dimGain = mctx.createGain(); dimGain.gain.value = dimTo; dimGain.connect(duckGain);
-    bgmGain = mctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(dimGain);
+    bgmGain = mctx.createGain(); bgmGain.gain.value = settings.bgm * BGM_LEVEL; bgmGain.connect(duckGain);
     sfxGain = ctx.createGain(); sfxGain.gain.value = settings.sfx * SFX_LEVEL; sfxGain.connect(master);
     waves.p12 = pulseWave(0.125);
     waves.p25 = pulseWave(0.25);
@@ -1093,10 +1091,3 @@ export const sfx = {
   },
 };
 
-// 위기(원정 체력 25% 미만): 배경음악을 절반으로 천천히 줄였다가, 벗어나면 되돌린다
-export function setBgmDim(on) {
-  dimTo = on ? 0.5 : 1;
-  if (!dimGain || !mctx) return;
-  const g = dimGain.gain, t = mctx.currentTime;
-  g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(dimTo, t + 0.6);
-}
