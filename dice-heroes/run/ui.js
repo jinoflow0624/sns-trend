@@ -488,7 +488,18 @@ function showMap(again = false) {
   // 칸마다 아주 살짝 상하좌우로 흩뜨린다 (반듯한 바둑판이면 지루해서). 원정 · 막 · 칸이 같으면 늘 같은 자리. 보스는 가운데 그대로
   const jit = n => { if (n.row > Run.ROWS) return [0, 0]; const h = mapHash(R.seed, R.act, n.id); return [((h & 1023) / 1023 - 0.5) * 5.4, (((h >>> 10) & 1023) / 1023 - 0.5) * ROW * 0.26]; };
   const pos = n => { const [jx, jy] = jit(n); return { x: 12 + n.col * 25.3 + jx, y: (n.row > Run.ROWS ? MAP_PAD - 6 : H - MAP_PAD - (n.row - 1) * ROW) + jy }; };
-  const visited = new Set(R.path);
+  // 이번 막에 지나온 칸: R.path 는 막이 바뀌어도 이어 쌓이므로(1막 칸 번호가 2막 지도의 같은 번호 칸에 찍혔다)
+  // 지금 칸에서 거꾸로, 지도의 길로 이어지는 데까지만 센다 (막 첫 칸 = 1층에서 끝)
+  const visited = new Set();
+  if (R.pos != null) {
+    let cur = R.pos;
+    for (let k = R.path.length - 1; k >= 0 && R.path[k] === cur; k--) {
+      visited.add(cur);
+      const prev = R.path[k - 1], pn = Run.mapNode(R, prev);
+      if (k === 0 || Run.mapNode(R, cur)?.row <= 1 || !pn || !pn.next.includes(cur)) break;
+      cur = prev;
+    }
+  }
   const edges = nodes.flatMap(n => n.next.map(j => {
     const walked = visited.has(n.id) && visited.has(j);
     const open = R.pos === n.id && next.has(j);

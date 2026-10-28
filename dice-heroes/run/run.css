@@ -1612,8 +1612,7 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 .mnode:not(.t-boss) .mlabel { margin-top: 4px; }
 .mnode:not(.t-boss).done { opacity: .6; }
 .mnode:not(.t-boss).done .run-ico { opacity: .7; }
-.mnode:not(.t-boss).done::after { content: '✔'; position: absolute; right: 0; bottom: 2px; width: 15px; height: 15px; display: grid; place-items: center; font-size: 9px; line-height: 1;
-  color: #3B2300; background: var(--gold); border: 2px solid var(--ink); border-radius: 50%; }
+/* 지나온 칸 체크 표시는 뺐다 (바랜 아이콘 · 금빛 발자국으로 충분) */
 .mnode:not(.t-boss).done { opacity: 1; filter: none; }
 .mnode:not(.t-boss).done .run-ico { opacity: .45; filter: grayscale(.75) drop-shadow(0 2px 0 var(--ink)); }
 /* 왼쪽을 보는 적(늑대 · 지옥개)은 좌우를 뒤집어 오른쪽 아래 영웅과 마주 본다. transform 동작(숨쉬기 · 맞기 · 달려들기)과 겹치도록 scale 속성으로 */
