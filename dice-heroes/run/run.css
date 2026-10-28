@@ -1375,7 +1375,7 @@ body:has(.run-sb) .popover { z-index: 310; }
 .unlock-fx .uf-art.uf-meta .run-ico, .unlock-fx .uf-art.uf-meta img, .unlock-fx .uf-art.uf-meta .ico { width: 120px; height: 120px; image-rendering: pixelated; }
 .unlock-fx.k-meta .uf-txt span { font-size: 12px; max-width: 280px; text-align: center; }
 .unlock-fx .uf-art.uf-meta .uf-gold .ico { width: 110px; height: 110px; filter: drop-shadow(0 0 14px rgba(255,210,74,.8)); }
-.unlock-fx.k-gold .uf-txt b { color: #FFE27A; }
+.unlock-fx.run-get.k-gold .uf-txt b { color: #FFE27A; }
 
 /* 다국어: CSS 안의 글자 (영어 · 일본어) */
 html:lang(en) .foe.drop-on::after { content: 'Attack!'; }
@@ -1634,3 +1634,18 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 .run-combat .rtip { position: relative; z-index: 21; height: 0; min-height: 0; margin: -3px 0 0; overflow: visible; pointer-events: none; }
 .run-combat .hand { margin-top: -18px; }
 .run-combat .rtable { min-height: clamp(150px, calc(100dvh - var(--rc-rest, 508px)), 300px); }
+
+/* ── 획득 연출 글씨 (v0.39.97): 빛줄기 · 지도 위에 바로 쓰면 섞여서 안 보였다 → 어두운 이름판 위에 ──
+   등급(일반 · 희귀 · 보스)은 등급 색 띠, 이름은 크게 흰 글씨, 설명은 밝게 */
+.rv-txt, .unlock-fx.run-get .uf-txt { position: relative; z-index: 2; padding: 12px 18px 14px; min-width: 220px; max-width: min(330px, calc(100vw - 40px));
+  background: linear-gradient(rgba(22, 14, 48, .96), rgba(10, 6, 26, .96)); border: 3px solid var(--ink);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc, var(--c)) 85%, #fff), 0 4px 0 var(--ink), 0 0 24px color-mix(in srgb, var(--rc, var(--c)) 45%, transparent); }
+.rv-txt small, .unlock-fx.run-get .uf-txt small { justify-self: center; align-self: center; display: inline-block; padding: 2px 10px; font-size: 12px; font-weight: 700; letter-spacing: .12em;
+  color: #140A24; background: var(--rc, var(--c)); border: 2px solid var(--ink); text-shadow: none; }
+.rv-txt b, .unlock-fx.run-get .uf-txt b { font-size: 26px; line-height: 1.15; color: #FFFFFF; text-shadow: 0 3px 0 var(--ink), 0 0 12px color-mix(in srgb, var(--rc, var(--c)) 70%, transparent); }
+.unlock-fx.run-get.k-gold .uf-txt b { color: #FFE27A; }
+.rv-txt p, .unlock-fx.run-get .uf-txt span { margin: 0; font-size: 14px; line-height: 1.5; color: #F2EEFF; text-shadow: 0 1px 0 var(--ink); }
+.rv-tap, .unlock-fx.run-get .uf-tap { color: #E0DAFF; text-shadow: 0 1px 0 var(--ink); }
+/* 뒤 배경(지도 · 전투)을 더 어둡게 덮는다 */
+.relic-reveal { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--rc) 18%, rgba(4, 2, 18, .7)), rgba(4, 2, 18, .94) 62%); }
+.unlock-fx.run-get::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(4, 2, 18, .55); pointer-events: none; }

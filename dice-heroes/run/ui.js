@@ -327,7 +327,7 @@ function bigReveal({ cls = '', art, small, name, sub = '', color = '#FFD24A' }) 
   document.querySelector('.unlock-fx')?.remove();
   const sparks = Array.from({ length: 18 }, (_, i) => `<i class="uf-sp" style="--a:${(i * 20 + Math.random() * 10).toFixed(0)}deg;--d:${(90 + Math.random() * 70).toFixed(0)}px;--s:${(3 + Math.random() * 4).toFixed(1)}px"></i>`).join('');
   const el = document.createElement('div');
-  el.className = `unlock-fx is-skin ${cls}`;
+  el.className = `unlock-fx is-skin run-get ${cls}`;
   el.style.setProperty('--c', color);
   el.innerHTML = `<div class="uf-stage"><div class="uf-rays"></div><div class="uf-glow"></div>
       <div class="uf-art uf-meta">${art}</div><div class="uf-flash"></div>${sparks}</div>
