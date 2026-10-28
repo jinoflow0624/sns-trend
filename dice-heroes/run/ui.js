@@ -6,7 +6,7 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
-import { hasMotion, bustURL, bossBustURL, bossFaceCls, loadMotion } from '../motion.js';
+import { hasMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, loadMotion } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES, setBgmDim } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
@@ -693,7 +693,7 @@ function foePanel() {
     return '';
   }).join('');
   return `
-    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img${bossBustURL(e.id) ? ' bust-b' : ''}${bossFaceCls(e.id)}" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : bossBustURL(e.id) || foeURL(e.id)}" alt=""></div>
+    <div class="foe-art${isPixelFoe(e.id) ? ' px' : ''}${facesLeft(e.id) ? ' face-l' : ''}${def.talk ? ' jester' : ''}${e.raged && e.hp > 0 ? ' raged' : ''}" id="foe-art" style="--c:${foeColor(e.id)}"><i class="aura"></i><img class="foe-img${bossBustURL(e.id) ? ' bust-b' : ''}${bossFlips(e.id) ? ' flip-x' : ''}" src="${def.talk ? jesterURL(ui.jmode || (e.raged ? 'rage' : '')) : bossBustURL(e.id) || foeURL(e.id)}" alt=""></div>
     <div class="foe-main">
       <div class="foe-name"><b>${def.talk ? '???' : esc(def.ko)}</b>${KIND_KO[def.kind] ? `<span class="kind-chip k-${def.kind}">${KIND_KO[def.kind]}</span>` : ''}</div>
       <div class="hp-row"><div class="hp foe-hp${e.raged ? ' rage' : ''}"><i style="width:${(hp / e.maxHp) * 100}%"></i>${blk ? `<s style="width:${Math.min(100, (blk / e.maxHp) * 100)}%"></s>` : ''}<em>${hp} / ${e.maxHp}</em></div><span class="foe-blk">${blk ? `<span class="shield-badge run-shield" title="${TR('보호막')}">${runIco('ui', 'shield', 'shield', 'xs')}<b>${blk}</b></span>` : ''}</span></div>
@@ -1576,7 +1576,11 @@ async function playOne(f) {
   const fxOn = X.prefs.fx !== 'min';
   switch (f.type) {
     case 'play': {
-      const e = foeAt(), h = heroAt();
+      let e = foeAt();
+      const h = heroAt();
+      // 보스를 칠 때는 왼쪽에 보스 전신이 크게 나와 맞는다 (영웅은 오른쪽)
+      const ba = f.target === 'enemy' && !f.dodge && bossBustURL(R.C?.e?.id) && X.actor?.ok() ? X.actor.boss(R.C.e.id, foeColor(R.C.e.id)) : null;
+      if (ba) e = X.actor.center(ba);
       const tgt = f.target === 'enemy' ? e : h;
       if (f.coin) await coinToss(f.coin, h);          // 동전 던지기: 앞면 +100% · 뒷면 −25% (공격 · 방어 모두)
       // 시공 광대가 피하는 카드: 카드가 닿기 직전에 몸을 빼고, 닿는 순간 '회피!' (맞는 연출 없이)
@@ -1601,6 +1605,7 @@ async function playOne(f) {
           rumble(Math.min(10, 3 + power * 2));
           const art = $('foe-art');
           art?.classList.remove('hit'); void art?.offsetWidth; art?.classList.add('hit');
+          if (ba) X.actor.hurt(ba, 460);
           shake($('rc'), power * 0.8);
           const sr = ui.show.eblk > 0 && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
           setShow({ ehp: Math.max(0, ui.show.ehp - f.dmg), eblk: Math.max(0, ui.show.eblk - f.blocked) });
@@ -1645,6 +1650,7 @@ async function playOne(f) {
       if (f.palette) await paletteUnlock();
       if (f.temp) moonset(f.target === 'enemy' ? e : h);   // 달빛 복사본은 달이 지듯 스르륵
       if (act) { await swing; X.actor.out(act, 40); }
+      if (ba) X.actor.out(ba, 160);
       await wait(f.target === 'enemy' ? 420 : 260);
       return;
     }
