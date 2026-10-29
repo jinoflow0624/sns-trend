@@ -8,13 +8,21 @@
 // 화면에 보이기 전에 반드시 있어야 하는 것은 여기가 아니라 그 화면을 여는 쪽(stageReady · preloadRun …)이 기다린다.
 const conn = () => (typeof navigator !== 'undefined' && navigator.connection) || {};
 const slowNet = () => conn().saveData || /(^|-)2g$/.test(conn().effectiveType || '');
-const queue = [];          // { key, prio, job, resolve }
+const queue = [];          // { key, prio, job, resolve, big }
 const seen = new Map();    // key → Promise
+const running = new Set(); // 지금 받는 중 (큰 파일은 fg 때 끊고 줄 뒤로 돌린다)
 let active = 0, hold = 0, paused = true;   // 첫 화면이 준비될 때까지는 멈춰 있다 (bgStart)
 
 function start(it) {
   active++;
-  Promise.resolve().then(it.job).catch(() => {}).then(v => { active--; it.resolve(v); pump(); });
+  it.ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  it.cut = false;
+  running.add(it);
+  Promise.resolve().then(() => it.job(it.ctrl?.signal)).catch(() => {}).then(v => {
+    active--; running.delete(it);
+    if (it.cut) queue.push(it); else it.resolve(v);   // 끊긴 것은 나중에 처음부터 다시
+    pump();
+  });
 }
 function pump() {
   if (paused || hold > 0) return;
@@ -27,13 +35,17 @@ function pump() {
 
 // 뒤에서 받을 일 하나 (같은 key 는 한 번만). 끝나면 풀리는 Promise.
 // now: 지금 화면이 바로 기다리는 것 — 줄에 있으면 앞으로 빼서 곧바로 시작한다 (멈춤 · 순서와 상관없이)
-export function bg(key, job, prio = 5, now = false) {
+export function bg(key, job, prio = 5, now = false, big = false) {
   if (seen.has(key)) {
-    if (now) { const i = queue.findIndex(q => q.key === key); if (i >= 0) start(queue.splice(i, 1)[0]); }
+    if (now) {
+      for (const it of running) if (it.key === key) it.big = false;   // 지금 기다리는 것이 됐으니 끊지 않는다
+      const i = queue.findIndex(q => q.key === key);
+      if (i >= 0) { const it = queue.splice(i, 1)[0]; it.big = false; start(it); }
+    }
     return seen.get(key);
   }
   let it;
-  const p = new Promise(resolve => { it = { key, prio, job, resolve }; });
+  const p = new Promise(resolve => { it = { key, prio, job, resolve, big: big && !now }; });
   seen.set(key, p);
   if (now) start(it); else { queue.push(it); pump(); }
   return p;
@@ -51,11 +63,13 @@ export function bgImage(url, prio = 5, now = false) {
 // 파일 하나를 뒤에서 받아 둔다 (곡 · 글꼴 — 브라우저 · 오프라인 캐시에 남는다). 데이터 절약 모드면 큰 파일(곡)은 건너뛴다
 export function bgFile(url, prio = 6, big = false, now = false) {
   if (big && !now && conn().saveData) return Promise.resolve();
-  return bg(url, () => fetch(url).then(r => r.arrayBuffer()).catch(() => {}), prio, now);
+  return bg(url, signal => fetch(url, { signal }).then(r => r.arrayBuffer()), prio, now, big);
 }
-// 지금 화면에 꼭 필요한 것을 받는 동안 뒤에서 받기를 멈춘다
+// 지금 화면에 꼭 필요한 것을 받는 동안 뒤에서 받기를 멈춘다.
+// 받는 중인 큰 파일(곡 1MB 안팎)도 끊는다 — 느린 망에서 곡 두 개가 망을 나눠 쓰면 화면에 필요한 그림이 몇 배 늦게 온다
 export async function fg(promise) {
   hold++;
+  for (const it of running) if (it.big && it.ctrl) { it.cut = true; it.ctrl.abort(); }
   try { return await promise; } finally { hold--; pump(); }
 }
 // 첫 화면(「화면을 터치하세요」)이 준비되면 뒤에서 받기를 시작한다

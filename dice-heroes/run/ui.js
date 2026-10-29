@@ -117,7 +117,8 @@ export function classTip(id) {
 }
 export async function open() {
   warm();
-  await Promise.race([selectReady, wait(1500)]);   // 덱 더미 · 카드 그림이 다 받아진 뒤에 연다 (보통은 시작 화면에서 이미 받아 둠)
+  // 덱 더미 · 카드 그림이 다 받아진 뒤에 연다 (보통은 시작 화면에서 이미 받아 둠 — 아직이면 줄 앞으로 빼서 받고, 오래 걸리면 「불러오는 중」)
+  await X.readyOrWait(fg(Promise.all(selectList().map(u => bgImage(u, 1, true)))));
   ui.view = 'select'; X.setScreen('run'); paintSelect();
   Prog.refresh().then(() => ui.view === 'select' && !R && !X.layer.innerHTML && paintSelect());   // 배포판: 서버 기록 새로 받기
 }
@@ -135,10 +136,6 @@ export async function resume() {
 // 원정에 들어가기 전에 그림(적 · 배경 · 장면 · 아이콘 · 카드 틀 · 유물 · 보스) · 글꼴 · 원정 곡 · 이번 막 보스 곡을 다 받는다.
 // 한 번 받으면 같은 화면에서는 다시 받지 않는다. 나머지 보스 곡은 지도에 들어간 뒤 뒤에서 받는다.
 let loaded = false;
-const keepImgs = [];                      // 받은 그림을 붙잡아 둔다 (메모리 캐시에서 바로 그려진다)
-// 그림 한 장 받기 (같은 주소는 한 번만). 받고 풀어 둔 뒤에 끝난다
-const imgJobs = new Map();
-const loadImg = url => imgJobs.get(url) || (imgJobs.set(url, new Promise(res => { const i = new Image(); keepImgs.push(i); i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(res); i.onerror = res; i.src = url; })), imgJobs.get(url));
 const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_${k + 1}.webp?v=${RUN_ART_VER}`);
 // 미리 받기 (규칙: 그림 · 음악은 사람이 누르기 전에 이미 받아져 있어야 한다 — CLAUDE.md)
 // 시작 화면에 원정 버튼이 보이면 app.js 가 부른다. 화면에 바로 쓰일 것(승천 문장 등)부터, 나머지는 천천히 뒤에서
@@ -148,11 +145,13 @@ const selectURLs = () => {
   const html = Run.RUN_ORDER.map(id => `${classInfoHTML(id, best())}${cardFace(startDeck(id).at(-1))}url(${cardBackURL(id)})`).join('') + `url(${cardBackURL()})`;
   return [...new Set([...html.matchAll(/(?:src="|url\()([^")]+\.(?:webp|png)[^")]*)/g)].map(m => m[1].replace(/&amp;/g, '&')))];
 };
-let warming = null, selectReady = null;
+let warming = null;
+const selectList = () => [...ascURLs(), ...selectURLs()];
 export function warm() {
-  selectReady ||= Promise.all([...ascURLs(), ...selectURLs()].map(loadImg));
   return (warming ||= (async () => {
-    await selectReady;
+    // 직업 고르기 화면 그림 먼저 — 뒤에서 받기 줄로 (예전엔 30여 장을 한꺼번에 받아 그동안 대전 고르기 화면이 느린 망에서 20초 넘게 밀렸다).
+    // 받은 그림은 줄(bgload.js)이 붙잡아 두어 메모리 캐시에서 바로 그려진다
+    await Promise.all(selectList().map(u => bgImage(u, 3)));
     const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
     // 뒤에서 받기 줄로 (bgload.js — 한 번에 2개, 다른 화면이 무언가를 받는 동안은 비켜 준다).
     // 예전엔 60여 장 · 곡 5개를 한꺼번에 받아 그동안 대전 · 보스전 시작이 느린 망에서 9초 넘게 밀렸다

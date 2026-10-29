@@ -280,7 +280,7 @@ function runMenu() {
 function loadRun() {
   return (runLoading ||= import('./run/ui.js').then(async m => {
     await m.init({                      // 원정 스타일을 다 받은 뒤에 넘긴다 (먼저 그리면 꾸밈 없는 화면이 번쩍)
-      app, layer, store, prefs, version: GAME.version, wait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
+      app, layer, store, prefs, version: GAME.version, wait, readyOrWait, ensureTray, bigHit, tray: () => tray, stageReady, turnSkin, toast, nopeDie, tipAttr, popover, closePopover,
       showTitle, setScreen: v => { screen = v; setStage(null); clearActors(); }, screen: () => screen,
       owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(),
       ticketGate, ticketShop: showTickets, tixCost, ticketUsed: tix => (PROD ? Wal.applyTix(tix) : Wal.spendLocalTicket()), runPrice: id => Wal.priceOf('run', id),
@@ -492,7 +492,7 @@ const STEP_SHORT = { mode: tL('모드'), boss: tL('보스'), rule: tL('규칙'),
 // 고르기 화면(직업 다이얼 · 보스 칸)에 나오는 그림을 다 받은 뒤에 연다 (보통은 첫 화면 뒤에 이미 받아 둠 — 기다림 없음)
 const PICK_ART = [...E.CLASSES.map(c => c.id), ...E.BOSSES.map(b => b.id)];
 function beginPick(kind, o, fixed = false) {
-  if (!beginPick.ok) return readyOrWait(spriteReady(PICK_ART)).then(() => { beginPick.ok = true; beginPick(kind, o, fixed); });
+  if (!beginPick.ok) return readyOrWait(fg(spriteReady(PICK_ART))).then(() => { beginPick.ok = true; beginPick(kind, o, fixed); });
   pick = { for: kind, step: fixed ? (o.mode === 'coop' ? 'boss' : 'rule') : 'mode', o, fixed };
   showSetup();
 }
@@ -4502,7 +4502,7 @@ function onAct(act, t) {
     });
     return;
   }
-  if (act === 'solo') { sfx.select(); return readyOrWait(spriteReady(['warrior', 'gambler', 'dragon'])).then(showSolo); }   // 모드 카드 그림을 받은 뒤에 연다
+  if (act === 'solo') { sfx.select(); return readyOrWait(fg(spriteReady(['warrior', 'gambler', 'dragon']))).then(showSolo); }   // 모드 카드 그림을 받은 뒤에 연다
   if (act === 'credits') { sfx.select(); return showCredits(); }
   if (act === 'daily') { sfx.select(); Wal.loadWallet().then(() => { if (layer.querySelector('.daily') && !layer.querySelector('.daily.rolling') && !layer.querySelector('.dd-die.set')) showDaily(); }, () => {}); return showDaily(); }
   if (act === 'daily-roll') return rollDaily();
