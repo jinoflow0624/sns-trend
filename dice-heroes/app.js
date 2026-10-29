@@ -5,10 +5,11 @@
 import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.js';
 import * as E from './engine.js';
 import { GAME } from './config.js';
-import { spriteURL, isImgSprite, heroPoseURL, HERO_ART } from './pixel.js';
+import { spriteURL, isImgSprite, heroPoseURL, HERO_ART, spriteReady } from './pixel.js';
+import { fg, bgStart, bgFile, afterBoot } from './bgload.js';
 import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, loadMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, FRAME, ORIGIN, FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
-import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
+import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong, BGM_FILES } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
 import * as Net from './net.js';
 import { FX, PALETTES, attackStyle, RAGE, shake } from './fx.js';
@@ -45,6 +46,9 @@ preloadDice(diceSkin(prefs.diceSkin).id).catch(() => {});   // 게임 트레이�
 preloadTray(traySkin(prefs.traySkin).id).catch(() => {});
 // 사용 통계 (설정 → 사용 통계 보내기): 기본 켜짐 · 유럽 시간대는 기본 꺼짐. Google Analytics + 플레이 통계(telemetry.js — 유저 테스트용 리텐션 · 접속 시간)
 const statsOn = () => prefs.stats ?? statsDefault();
+// 저사양 폰(메모리 3GB 이하 · 코어 4개 이하)은 3D 해상도를 자동으로 조금 낮춘다 ('auto' — dice3d.js). 설정에서 그래픽 절약을 켜면 더 낮춘다
+const lowEnd = (() => { try { const m = navigator.deviceMemory, c = navigator.hardwareConcurrency; return (m && m <= 3) || (c && c <= 4); } catch { return false; } })();
+const gfxMode = () => (prefs.lowGfx ? true : lowEnd ? 'auto' : false);
 if (statsOn()) setAnalytics(true);
 // 지금 화면 이름 (플레이 시간 · 이탈 지점을 화면별로 센다). 원정은 원정 안의 화면까지, 결과 창 · 일시정지 창도 구분
 const screenName = () => {
@@ -173,10 +177,13 @@ function showTitle() {
   clearActors();
   Wal.loadWallet().then(syncOwned, () => {});
   if (unlocked) setTimeout(showDemonUnlock, 600);     // 이미 조건을 채운 사람(업데이트 전 클리어)에게도 한 번
-  preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
-  warmStage(1500);               // 메뉴에 있는 동안 트레이까지 만들어 둔다 (첫 판을 바로 시작하게)
-  // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게)
-  setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
+  // 첫 화면(곡 · 글꼴)이 준비된 뒤에: 3D 주사위 엔진 → 트레이 → 원정 화면 · 그림 (첫 화면과 다투지 않게 — bgload.afterBoot)
+  afterBoot(() => {
+    preload3d().catch(() => {});   // 3D 주사위 엔진을 미리 받아 둔다
+    warmStage(1500);               // 메뉴에 있는 동안 트레이까지 만들어 둔다 (첫 판을 바로 시작하게)
+    // 원정 화면 · 그림 · 음악을 뒤에서 미리 받아 둔다 (누르기 전에 다 받아져 있게)
+    setTimeout(() => { if (screen === 'title') loadRun().then(m => m.warm?.()).catch(() => {}); }, 1200);
+  });
   layer.innerHTML = '';
   const saved = store.get(KEYS.save);
   const canResume = saved && !saved.ended && !saved.tutorial && saved.v === 1;
@@ -218,7 +225,14 @@ function showTitle() {
 // 첫 화면: 메뉴 곡을 다 받을 때까지 「불러오는 중」 막대를 보여 주고, 다 받으면 「화면을 터치하세요」
 // (예전엔 바로 터치할 수 있어서, 곡을 받는 몇 초 동안 음악 없이 메뉴가 떴다). 너무 오래 걸리면(8초) 그냥 터치를 받는다
 let bootT0 = 0;
-const bootDone = () => bgmState('title').ready || performance.now() - bootT0 > 8000;
+setTimeout(bgStart, 8000);   // 첫 화면을 거치지 않는 길(초대 링크 · ?skip)에서도 뒤에서 받기는 시작한다
+// 판 곡은 뒤에서 미리 (예전엔 서비스워커가 설치하자마자 곡 10개를 한꺼번에 받았다): 지난번 고른 판의 곡 먼저, 그다음 대전 · 보스 곡들
+queueMicrotask(() => {
+  bgFile(BGM_FILES[optsSong(opts)], 2, true);
+  bgFile(BGM_FILES.versus, 5, true);
+  for (const b of E.BOSSES) bgFile(BGM_FILES[bossSong(b.id)], 6, true);
+});
+const bootDone = () => { const d = bgmState('title').ready || performance.now() - bootT0 > 8000; if (d) bgStart(); return d; };   // 첫 화면이 준비되면 뒤에서 받기(bgload) 시작
 function bootGate() {
   if (!bootT0) bootT0 = performance.now();
   if (bootDone()) return `<button class="touch" data-act="touch">${TR('화면을 터치하세요')}</button>`;
@@ -475,7 +489,10 @@ const pickSteps = () => {
 const STEP_TITLE = { mode: tL('모드 선택'), boss: tL('보스 선택'), rule: tL('규칙 선택'), party: tL('캐릭터 선택') };
 const STEP_SHORT = { mode: tL('모드'), boss: tL('보스'), rule: tL('규칙'), party: tL('캐릭터') };
 
+// 고르기 화면(직업 다이얼 · 보스 칸)에 나오는 그림을 다 받은 뒤에 연다 (보통은 첫 화면 뒤에 이미 받아 둠 — 기다림 없음)
+const PICK_ART = [...E.CLASSES.map(c => c.id), ...E.BOSSES.map(b => b.id)];
 function beginPick(kind, o, fixed = false) {
+  if (!beginPick.ok) return readyOrWait(spriteReady(PICK_ART)).then(() => { beginPick.ok = true; beginPick(kind, o, fixed); });
   pick = { for: kind, step: fixed ? (o.mode === 'coop' ? 'boss' : 'rule') : 'mode', o, fixed };
   showSetup();
 }
@@ -1345,7 +1362,10 @@ async function startGame(state) {
   S = state;
   gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxErr) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
-  await Promise.race([Promise.all([stageReady(skinsOf(state)), loadMotion(state.players.map(p => p.cls))]), sleep(8000)]);   // 화면을 열기 전에 트레이 · 그림 · 이번 판 직업 모션을 다 준비 (그사이 이전 화면 그대로)
+  // 화면을 열기 전에 트레이 · 주사위 그림 · 이번 판 직업 모션 · 초상화 · 보스 그림을 다 준비 (덜 받은 그림으로 열지 않는다).
+  // 0.6초 넘게 걸리면 「불러오는 중」 막대를 보여 준다. 뒤에서 받기(bgload)는 그동안 멈춘다
+  await readyOrWait(fg(Promise.all([stageReady(skinsOf(state)), loadMotion([...state.players.map(p => p.cls), state.boss?.id].filter(Boolean)),
+    spriteReady([...state.players.map(p => p.cls), state.boss?.id].filter(Boolean))])));
   if (S !== state) return;
   Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
@@ -1388,7 +1408,7 @@ function trayOpts() {
     onBox: () => sfx.box(),
     onLong: i => (screen === 'run' ? runMod?.dieInfo(i) : dieInfo(i)),
     onFail: err => to2d(TR('그리기 오류: {0}', err?.message || err)),
-    lowGfx: !!prefs.lowGfx,
+    lowGfx: gfxMode(),
     diceSkin: diceSkin(mySkin().dice).id,
     traySkin: traySkin(mySkin().tray).id,
   };
@@ -1418,7 +1438,9 @@ async function makeTray() {
   return tray;
 }
 // 3D 를 기다리는 시간: 처음엔 8초, 이미 한 번 늦었던 기기는 3초
-const tray3dWait = () => (store.get('diceheroes.slow3d') ? 3000 : 8000);
+// 3D 엔진을 기다리는 시간: 화면을 열기 전 「불러오는 중」(readyOrWait)과 같이 넉넉히 25초 — 예전엔 8초만 기다리고 2D 주사위로 바꿔
+// 느린 망에서 처음 한 판(그 뒤로도 slow3d)을 2D 로 했다. 그래도 못 받으면(인터넷 끊김 등) 2D 로 하고, 다음엔 8초만 기다린다
+const tray3dWait = () => (store.get('diceheroes.slow3d') ? 8000 : 25000);
 // 3D 가 게임 도중 그리기에 실패하면 그 자리에서 2D 로 바꿔 계속한다
 function to2d(why) {
   gfxNote = `2D (${why})`; gfxErr = true;
@@ -3330,7 +3352,19 @@ const mySkin = () => {
 const skinsOf = g => [mySkin(), ...(g?.players || []).map(p => p.skin).filter(Boolean)];
 function stageReady(skins = [mySkin()]) {
   const imgs = skins.flatMap(sk => [preloadDice(diceSkin(sk.dice).id), preloadTray(traySkin(sk.tray).id)]);
-  return Promise.race([Promise.all([ensureTray(), ...imgs].map(p => p.catch(() => {}))), sleep(8000)]);
+  return Promise.race([Promise.all([ensureTray(), ...imgs].map(p => p.catch(() => {}))), sleep(25000)]);
+}
+// 화면을 열기 전에 꼭 필요한 것을 기다린다. 0.6초 넘게 걸리면 가운데에 「불러오는 중」 막대 (느린 망에서 아무 반응 없이 멈춘 것처럼 보이지 않게).
+// 25초가 넘으면(인터넷이 끊긴 경우 등) 그냥 연다
+async function readyOrWait(promise, ms = 25000) {
+  let veil = null;
+  const t = setTimeout(() => {
+    veil = document.createElement('div');
+    veil.className = 'load-veil';
+    veil.innerHTML = `<div class="boot-load" role="progressbar" aria-label="${TR('불러오는 중')}"><div class="boot-bar indet"><i></i></div><small>${TR('불러오는 중')}</small></div>`;
+    document.body.appendChild(veil);
+  }, 600);
+  try { await Promise.race([promise, sleep(ms)]); } finally { clearTimeout(t); veil?.remove(); }
 }
 // 다음 화면 미리 준비: 메뉴 · 고르기 화면에 머무는 동안 3D 트레이를 만들어 두고 내 주사위 · 트레이 그림을 받아 둔다
 // → 「시작」을 누르면 stageReady 가 바로 끝나 기다림 없이 싸움 화면이 열린다. 화면이 한가할 때(idle) 한 번만
@@ -3572,7 +3606,7 @@ async function showSkins(tab = 'dice') {
     if (!webglOK()) { host.classList.add('flat'); return; }
     const { DiceTray } = await import('./dice3d.js');
     if (!host.isConnected) return;
-    skinPreview = new DiceTray(host, { lowGfx: !!prefs.lowGfx, diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
+    skinPreview = new DiceTray(host, { lowGfx: gfxMode(), diceSkin: diceSkin(prefs.diceSkin).id, traySkin: traySkin(prefs.traySkin).id, onHit: (v, i) => diceHit(v, i, skinPreview) });
     skinPreview.onTrail = (i, p, sp) => diceTrail(skinPreview, p, sp);
     skinPreview.show([6, 5, 1, 3, 4], [false, false, false, false, true]);
   } catch (err) { console.warn('[skins]', err); host.classList.add('flat'); }
@@ -4468,7 +4502,7 @@ function onAct(act, t) {
     });
     return;
   }
-  if (act === 'solo') { sfx.select(); return showSolo(); }
+  if (act === 'solo') { sfx.select(); return readyOrWait(spriteReady(['warrior', 'gambler', 'dragon'])).then(showSolo); }   // 모드 카드 그림을 받은 뒤에 연다
   if (act === 'credits') { sfx.select(); return showCredits(); }
   if (act === 'daily') { sfx.select(); Wal.loadWallet().then(() => { if (layer.querySelector('.daily') && !layer.querySelector('.daily.rolling') && !layer.querySelector('.dd-die.set')) showDaily(); }, () => {}); return showDaily(); }
   if (act === 'daily-roll') return rollDaily();

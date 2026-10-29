@@ -16,8 +16,34 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <link rel="preload" href="assets/logo/logo.webp?v=l1" as="image" crossorigin>
-<link rel="preload" href="fonts/Galmuri11.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/Galmuri11-core.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
+<!-- modulepreload: 자동 (node tools/preload.mjs) — 첫 화면 코드를 한꺼번에 받는다 -->
+<link rel="modulepreload" href="i18n.js">
+<link rel="modulepreload" href="engine.js">
+<link rel="modulepreload" href="config.js">
+<link rel="modulepreload" href="pixel.js">
+<link rel="modulepreload" href="asset-ver.js">
+<link rel="modulepreload" href="bgload.js">
+<link rel="modulepreload" href="motion.js">
+<link rel="modulepreload" href="scenes.js">
+<link rel="modulepreload" href="audio.js">
+<link rel="modulepreload" href="tutorial.js">
+<link rel="modulepreload" href="net.js">
+<link rel="modulepreload" href="fire.js">
+<link rel="modulepreload" href="env.js">
+<link rel="modulepreload" href="fx.js">
+<link rel="modulepreload" href="ambient.js">
+<link rel="modulepreload" href="icons.js">
+<link rel="modulepreload" href="live.js">
+<link rel="modulepreload" href="telemetry.js">
+<link rel="modulepreload" href="wallet-rules.js">
+<link rel="modulepreload" href="dice2d.js">
+<link rel="modulepreload" href="skins.js">
+<link rel="modulepreload" href="wallet.js">
+<link rel="modulepreload" href="achievements.js">
+<link rel="modulepreload" href="ads.js">
+<!-- /modulepreload -->
 </head>
 <body>
 <main id="app"></main>
