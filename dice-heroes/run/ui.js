@@ -7,6 +7,7 @@ import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
 import { hasMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, loadMotion } from '../motion.js';
+import { bg, bgImage, bgFile, fg } from '../bgload.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
 import { foeURL, foePoseURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
@@ -116,7 +117,8 @@ export function classTip(id) {
 }
 export async function open() {
   warm();
-  await Promise.race([selectReady, wait(1500)]);   // 덱 더미 · 카드 그림이 다 받아진 뒤에 연다 (보통은 시작 화면에서 이미 받아 둠)
+  // 덱 더미 · 카드 그림이 다 받아진 뒤에 연다 (보통은 시작 화면에서 이미 받아 둠 — 아직이면 줄 앞으로 빼서 받고, 오래 걸리면 「불러오는 중」)
+  await X.readyOrWait(fg(Promise.all(selectList().map(u => bgImage(u, 1, true)))));
   ui.view = 'select'; X.setScreen('run'); paintSelect();
   Prog.refresh().then(() => ui.view === 'select' && !R && !X.layer.innerHTML && paintSelect());   // 배포판: 서버 기록 새로 받기
 }
@@ -134,39 +136,39 @@ export async function resume() {
 // 원정에 들어가기 전에 그림(적 · 배경 · 장면 · 아이콘 · 카드 틀 · 유물 · 보스) · 글꼴 · 원정 곡 · 이번 막 보스 곡을 다 받는다.
 // 한 번 받으면 같은 화면에서는 다시 받지 않는다. 나머지 보스 곡은 지도에 들어간 뒤 뒤에서 받는다.
 let loaded = false;
-const keepImgs = [];                      // 받은 그림을 붙잡아 둔다 (메모리 캐시에서 바로 그려진다)
-// 그림 한 장 받기 (같은 주소는 한 번만). 받고 풀어 둔 뒤에 끝난다
-const imgJobs = new Map();
-const loadImg = url => imgJobs.get(url) || (imgJobs.set(url, new Promise(res => { const i = new Image(); keepImgs.push(i); i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(res); i.onerror = res; i.src = url; })), imgJobs.get(url));
 const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_${k + 1}.webp?v=${RUN_ART_VER}`);
 // 미리 받기 (규칙: 그림 · 음악은 사람이 누르기 전에 이미 받아져 있어야 한다 — CLAUDE.md)
 // 시작 화면에 원정 버튼이 보이면 app.js 가 부른다. 화면에 바로 쓰일 것(승천 문장 등)부터, 나머지는 천천히 뒤에서
 // 직업 고르기 화면에 바로 보이는 그림 (모든 직업의 카드 뒷면 · 대표 카드 앞면 · 설명 아이콘) — 화면 글을 만들어 그 안의 주소를 모은다.
 // 새로 설치한 기기에서 이것들이 뒤에 받아지면 덱 더미가 바탕색(예전엔 빨강)으로 비어 보였다
 const selectURLs = () => {
-  const html = Run.RUN_ORDER.map(id => `${classInfoHTML(id, best())}${cardFace(startDeck(id).at(-1))}url(${cardBackURL(id)})`).join('') + `url(${cardBackURL()})`;
+  const html = Run.RUN_ORDER.map(id => `${classInfoHTML(id, best())}${cardFace(startDeck(id).at(-1))}url(${cardBackURL(id)})${hero(id)}`).join('') + `url(${cardBackURL()})`
+    + runIco('ui', 'deck', 'card', 'xs') + runIco('node', 'shop', 'coins', 'xs') + starIco() + ico('trophy', 'xs') + ico('crown', 'xs') + ico('lock', 'xs');   // 화면 틀의 아이콘 (paintSelect)
   return [...new Set([...html.matchAll(/(?:src="|url\()([^")]+\.(?:webp|png)[^")]*)/g)].map(m => m[1].replace(/&amp;/g, '&')))];
 };
-let warming = null, selectReady = null;
+let warming = null;
+const selectList = () => [...ascURLs(), ...selectURLs()];
 export function warm() {
-  selectReady ||= Promise.all([...ascURLs(), ...selectURLs()].map(loadImg));
   return (warming ||= (async () => {
-    await selectReady;
+    // 직업 고르기 화면 그림 먼저 — 뒤에서 받기 줄로 (예전엔 30여 장을 한꺼번에 받아 그동안 대전 고르기 화면이 느린 망에서 20초 넘게 밀렸다).
+    // 받은 그림은 줄(bgload.js)이 붙잡아 두어 메모리 캐시에서 바로 그려진다
+    await Promise.all(selectList().map(u => bgImage(u, 3)));
     const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
-    const jobs = [...runAssetURLs(bosses), ...relicURLs()].map(u => () => loadImg(u));
-    const go = async () => { while (jobs.length) await jobs.shift()(); };
-    await Promise.all([...Array(3)].map(go));
-    [...RUN_SONGS].map(n => BGM_FILES[n]).filter(Boolean).forEach(u => fetch(u).catch(() => {}));
-    document.fonts?.load('12px Galmuri9').catch(() => {});   // 글꼴은 CSS 의 글꼴로 받아야 다시 받지 않는다
+    // 뒤에서 받기 줄로 (bgload.js — 한 번에 2개, 다른 화면이 무언가를 받는 동안은 비켜 준다).
+    // 예전엔 60여 장 · 곡 5개를 한꺼번에 받아 그동안 대전 · 보스전 시작이 느린 망에서 9초 넘게 밀렸다
+    bg('font:Galmuri9', () => document.fonts?.load('12px Galmuri9'), 4);   // 글꼴은 CSS 의 글꼴로 받아야 다시 받지 않는다
+    bgFile(BGM_FILES.run_map, 6, true);                                    // 원정을 열면 처음 트는 곡만 미리 (나머지 곡은 원정 안에서)
+    await Promise.all([...runAssetURLs(bosses), ...relicURLs()].map(u => bgImage(u, 4)));
   })());
 }
-const RUN_SONGS = ['run_map', 'run_battle', 'run_elite', 'run_win', 'run_lose'];
 async function preloadRun() {
   const bosses = [...new Set(Object.values(Run.ACT_INFO).flatMap(a => a.boss))];
-  const songs = [...RUN_SONGS, bossSong(R.boss)].map(n => BGM_FILES[n]).filter(Boolean);
-  if (loaded) { preloadBgm(bossSong(R.boss)); await Promise.all([X.stageReady(), loadMotion([R.cls])]); return; }
+  if (loaded) { preloadBgm(bossSong(R.boss)); await fg(Promise.all([X.stageReady(), loadMotion([R.cls])])); return; }
+  // 원정 그림은 전부 기다린다 (덜 받은 그림이 보이지 않게 — 대개 시작 화면에서 warm() 이 이미 받아 두어 금방 끝난다).
+  // 곡은 처음 트는 지도 곡만 기다리고, 전투 · 엘리트 · 승리 · 패배 · 보스 곡은 원정에 들어간 뒤 뒤에서 받는다.
+  // (예전엔 곡 6개 약 5MB 까지 다 받고 열어서 느린 망에서 원정 시작에 30초 가까이 걸렸다. 곡이 아직이면 앞 곡을 이어 틀다가 바꾼다 — audio.js)
   const imgs = [...runAssetURLs(bosses), ...relicURLs()];
-  const total = imgs.length + songs.length + 2;
+  const total = imgs.length + 4;
   let done = 0;
   X.layer.innerHTML = '';
   X.app.innerHTML = `<div class="screen run-loading">
@@ -174,20 +176,26 @@ async function preloadRun() {
       <div class="rl-bar"><i id="rl-fill"></i></div><small id="rl-n">0%</small>
 </div></div>`;
   const tick = () => { done++; const k = Math.round((done / total) * 100); const f = $('rl-fill'); if (f) f.style.width = `${k}%`; const n = $('rl-n'); if (n) n.textContent = `${k}%`; };
-  const img = url => loadImg(url).then(tick);
-  const file = url => fetch(url).then(r => r.arrayBuffer()).catch(() => {}).then(tick);
-  // 동시에 6개씩
-  const jobs = [...imgs.map(u => () => img(u)), ...songs.map(u => () => file(u)), () => file(RUN_FONT), () => loadMotion([R.cls]).then(tick)];
-  const run = async () => { while (jobs.length) await jobs.shift()(); };
   const t0 = performance.now();
-  await Promise.race([Promise.all([...Array(6)].map(run)), wait(25000)]);
-  // 지도 곡과 이번 막 보스 곡은 바로 틀 수 있게 풀어 둔다
-  await Promise.race([Promise.all([preloadBgm('run_map'), preloadBgm(bossSong(R.boss))]), wait(4000)]);
-  await X.stageReady();                    // 3D 트레이 · 주사위 · 트레이 그림
+  await fg((async () => {
+    // 그림은 6장씩 (뒤에서 받던 것은 줄에서 앞으로 빼 바로 받는다 · 이미 받은 것은 곧바로 끝)
+    const jobs = imgs.map(u => () => bgImage(u, 3, true).then(tick));
+    const pool = async () => { while (jobs.length) await jobs.shift()(); };
+    await Promise.race([Promise.all([
+      ...[...Array(6)].map(pool),
+      bgFile(RUN_FONT, 3, false, true).then(tick),
+      loadMotion([R.cls]).then(tick),
+      preloadBgm('run_map').then(tick),
+      X.stageReady().then(tick),          // 3D 트레이 · 주사위 · 트레이 그림
+    ]), wait(60000)]);
+  })());
   if (performance.now() - t0 < 500) await wait(500 - (performance.now() - t0));   // 너무 짧게 번쩍이지 않게
   loaded = true;
-  // 나머지 보스 곡은 뒤에서 (HTTP 캐시에만)
-  bosses.map(bossSong).map(n => BGM_FILES[n]).filter(u => u && !songs.includes(u)).forEach(u => fetch(u).catch(() => {}));
+  // 나머지 곡은 뒤에서: 첫 전투 곡 먼저, 이번 막 보스 곡, 그다음 엘리트 · 승패, 다른 막 보스 곡
+  bgFile(BGM_FILES.run_battle, 2);
+  bgFile(BGM_FILES[bossSong(R.boss)], 3, true);
+  for (const n of ['run_elite', 'run_win', 'run_lose']) bgFile(BGM_FILES[n], 4, true);
+  bosses.map(bossSong).map(n => BGM_FILES[n]).filter(Boolean).forEach(u => bgFile(u, 7, true));
 }
 
 // R.phase 에 맞는 화면을 연다

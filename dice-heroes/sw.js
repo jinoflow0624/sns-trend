@@ -9,20 +9,14 @@ const ART_VER = 'b1';  // skins.js 의 ART_VER 와 같아야 한다 (주사위 �
 const CACHE = 'dh-cache-3';   // v0.37.5: 버전이 안 붙은 예전 보스 곡(도입부 없는 루프)을 지운다
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js', 'motion.js',
-  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'ambient.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'telemetry.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest', 'i18n.js', 'lang/en.js', 'lang/ja.js',
+  'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'ambient.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'telemetry.js', 'bgload.js', 'asset-ver.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest', 'i18n.js', 'lang/en.js', 'lang/ja.js',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
-  'assets/logo/logo.webp?v=l1', 'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
-  // 곡은 앱이 부르는 주소 그대로(?v=곡 버전) 받아 둔다 → 처음 설치할 때부터 캐시에 있다 (audio.js 의 BGM_VER 와 같게)
-  ...['title', 'versus', 'boss_dragon', 'boss_orc', 'boss_lich', 'boss_demon', 'boss_cyclops', 'boss_hydra', 'boss_overlord', 'boss_archdemon'].map(n => `assets/bgm/${n}.ogg?v=${BGM_VER}`),
-  ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].flatMap(id => [`assets/boss/${id}.webp`, `assets/boss/${id}_bust.webp`]),
-  ...['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'].flatMap(k => [`assets/heroes/${k}.webp`, `assets/heroes/${k}_bust.webp`]),   // 모션 시트(한 장 약 0.8MB)는 미리 넣지 않는다 — 그 직업 판을 열 때 받는다
-  // 그림 주사위 · 트레이 스킨: 앱이 부르는 주소 그대로(?v=그림 버전) → 설치할 때부터 캐시에 있어 첫 판부터 바로 뜬다
-  ...['marble', 'royal', 'deepsea', 'demon', 'sakura', 'lava', 'starry', 'pixel8', 'deck', 'alchemy', 'ruins', 'glacier', 'dragonnest'].flatMap(k => ['floor', 'glow', 'box', 'thumb', 'rail_top', 'rail_side', ...(['demon', 'lava', 'starry', 'ruins'].includes(k) ? ['rail_glow'] : [])].map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),
-  ...['floor', 'glow', 'box', 'thumb', 'cushion'].map(f => `assets/trays/casino/${f}.webp?v=${ART_VER}`),
-  // 테두리 장식 그림 (v0.39.21)
-  ...Object.entries({"deck": ["decor_flag_cloth", "decor_flagpole", "decor_timber_corner"], "deepsea": ["decor_foam_arc", "decor_small_ripple", "decor_wave_corner", "decor_wave_crest"], "demon": ["decor_blade_spike", "decor_demon_horn", "decor_skull_corner", "decor_violet_crystal"], "dragonnest": ["decor_bone_fragment", "decor_egg_coins", "decor_nest_branch", "decor_red_scales"], "glacier": ["decor_ice_cluster", "decor_ice_corner", "decor_icicle", "decor_snow_cap"], "lava": ["decor_basalt_cluster", "decor_basalt_corner", "decor_lava_fissure", "decor_small_rock"], "pixel8": ["decor_corner_block", "decor_pixel_heart", "decor_pixel_star", "decor_step_block"], "royal": ["decor_crown_point", "decor_filigree_corner", "decor_ruby_setting", "decor_sapphire_setting"], "sakura": ["decor_blossom_cluster", "decor_branch_corner", "decor_branch_fork", "decor_single_blossom"], "starry": ["decor_crescent", "decor_nebula_corner", "decor_small_planet", "decor_star_cluster"]}).flatMap(([k, fs]) => fs.map(f => `assets/trays/${k}/${f}.webp?v=${ART_VER}`)),   // 둥근 포커 테이블 (난간 그림 대신 쿠션)
-  ...['openheart', 'gold', 'cosmic', 'black', 'heart', 'keycap', 'clear', 'minimal', 'dragon', 'lava', 'pixel', 'bone', 'slime', 'chip', 'chest', 'porcelain', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}.webp?v=${ART_VER}`)),
-  ...['dragon', 'lava', 'frost', 'rune', 'brass', 'wisp'].flatMap(k => [1, 2, 3, 4, 5, 6].map(v => `assets/dice/${k}/${v}_glow.webp?v=${ART_VER}`)),
+  'assets/logo/logo.webp?v=l1', 'fonts/Galmuri11-core.woff2', 'fonts/Galmuri11-cjk.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
+  // 설치할 때 받는 것은 첫 화면에 필요한 것만: 코드 · 글꼴 · 로고 · 첫 화면 곡.
+  // 예전엔 곡 10개 · 주사위 · 트레이 · 보스 · 영웅 그림 수백 장(약 20MB)을 처음 접속하자마자 한꺼번에 받아서,
+  // 느린 망에서 첫 화면 · 첫 판이 그 뒤에 줄을 섰다. 나머지 그림 · 곡은 앱이 순서대로 뒤에서 받고(bgload.js),
+  // 받는 순간 아래 fetch 가 캐시에 넣어 둔다 → 한 번 받은 것은 다음부터 인터넷 없이도 바로 뜬다
+  `assets/bgm/title.ogg?v=${BGM_VER}`,
 ];
 const NET_WAIT = 2500;   // 약한 신호: 이만큼 기다려도 답이 없으면 캐시로 (첫 화면이 오래 검게 남지 않게)
 let slowUntil = 0;       // 방금 네트워크가 느렸으면 30초 동안은 캐시부터 (파일마다 4초씩 기다리지 않게)

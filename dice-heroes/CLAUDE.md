@@ -90,3 +90,16 @@
   화면 이름은 `app.js` `screenName()` (원정은 `run/ui.js` `where()`). 새 화면을 만들면 이름이 잡히는지 본다. 새 기능을 넣으면 `track` 을 더하고, 첫 경험 단계로 볼 것이면 `telemetry.js` `MILESTONE` · `stats.js` `FUNNEL` 에도.
 - 설정 → 사용 통계 보내기 (기본 켜짐 · 유럽 시간대는 기본 꺼짐). 내 데이터 지우기는 `tele/<uid>` 도 지운다. 개인정보처리방침(privacy.html)과 맞춘다.
 - 보기: 배포판 `?stats` (관리자만 — `admins/<uid> = true`, Actions 'KYBORIA 관리자 등록'). Firebase 콘솔 → Analytics 에서도 리텐션 · 참여 시간.
+
+## 저사양 폰 · 느린 망 (내려받기 순서 · 메모리)
+- **화면은 그 화면에 필요한 그림 · 곡을 다 받은 뒤에 연다 (덜 받은 그림으로 열지 않는다).** 0.6초 넘게 걸리면 `app.js` `readyOrWait` 가 「불러오는 중」 막대를 띄운다 (최대 25초).
+  싸움 화면: `startGame` (트레이 · 주사위 · 모션 · 초상화 · 보스 그림), 원정: `run/ui.js` `preloadRun` (원정 그림 전부 + 지도 곡), 혼자 플레이 창 · 고르기 화면: `spriteReady`.
+- **미리 받기는 `bgload.js` 줄로**: `bgImage(url, 순위)` · `bgFile(url, 순위, 큰파일)`. 한 번에 2개(느린 망 1개), 첫 화면이 준비된 뒤 시작(`bgStart` · `afterBoot`),
+  화면이 꼭 필요한 것을 받는 동안(`fg(약속)`)은 멈춘다. 화면이 기다리는 것은 `now=true` 로 줄에서 앞으로 뺀다. `new Image()` · `fetch` 로 따로 한꺼번에 받지 않는다 (서로 대역폭을 다퉈 시작이 늦어진다).
+- 서비스워커 설치 때는 첫 화면에 필요한 것만 받는다 (`sw.js` FILES). 그림 · 곡은 앱이 받을 때 캐시에 들어간다.
+- **영웅 · 보스 그림 주소의 버전은 파일 내용 해시** (`asset-ver.js`, `node tools/asset-ver.mjs`). `assets/heroes` · `assets/boss` 그림을 바꾸거나 더하면 다시 만든다 (npm test 가 알려 준다).
+  게임 버전(`?v=0.x`)을 그림 주소에 붙이지 않는다 — 업데이트마다 바뀌지 않은 그림까지 다시 받는다.
+- `index.html` 의 modulepreload 는 `node tools/preload.mjs` 로 만든다 (app.js 의 import 를 바꾸면 npm test 가 알려 준다).
+- 갈무리11 보통 굵기는 `fonts/Galmuri11-core.woff2`(늘) + `-cjk.woff2`(가나 · 한자가 화면에 있을 때만). 원본 `Galmuri11.woff2` 를 바꾸면 `python3 tools/split-font.py`.
+- 저사양 폰(메모리 3GB 이하 · 코어 4개 이하)은 3D 해상도 1.5배까지(`gfxMode` 'auto'), 메모리 4GB 이하는 모션 시트를 화면 크기에 맞춰 줄여 둔다 (`motion.js` `shrink`).
+- 점검: 느린 망(1.6Mbps · 왕복 0.15초) + CPU 4배 느리게로 화면별 기다림 · 화면이 뜬 뒤 늦게 받는 그림을 잰다 (Playwright CDP `Network.emulateNetworkConditions` · `Emulation.setCPUThrottlingRate`).
