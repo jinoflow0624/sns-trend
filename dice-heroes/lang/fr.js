@@ -2056,4 +2056,11 @@ export default {"키보리아":"KYBORIA",
 "잠깐만요":"Un instant",
 "조금 뒤에 다시 보낼 수 있어요":"Tu pourras renvoyer dans un moment",
 "보냈어요":"Envoyé",
-"준비 완료! 시작해 주세요":"Prêt ! Lance la partie"};
+"준비 완료! 시작해 주세요":"Prêt ! Lance la partie",
+"각성의 흉터":"Cicatrice de l'éveil",
+"에이스 <주인공>: 체력이 절반 이하면 점수 +200%, 성장도 3배":"As «Protagoniste» : à la moitié des PV ou moins, +200 % de score et croissance triplée",
+"제곱의 서":"Livre des carrés",
+"듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)":"Deux «Doubleur» : chaque 4 compte comme deux 2 (4 = 2 × 2 · jusqu'à cinq 2)",
+"사위일체의 문장":"Blason de la quaternité",
+"트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Trois «Trinité» : en plus d'attaque · blocage · or, une quatrième part : soigne la moitié du score",
+};

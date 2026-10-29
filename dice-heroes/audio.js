@@ -826,16 +826,8 @@ export const sfx = {
   score() { seq(['C5', 'E5', 'G5', 'C6'], 0.06, { vol: 0.15 }); },
   zero() { seq(['E4', 'C4', 'G#3'], 0.1, { type: 'p25', vol: 0.12 }); },
   coin() { seq(['B5', 'E6'], 0.07, { type: 'p50', vol: 0.16, dur: 0.25 }); buzz(25); },
-  // 동전 뒷면: 둔탁하게 떨어지는 소리 + 김빠지는 '빠-바-바밤' 내림 (꽝 느낌)
-  coinBad() {
-    buzz(90);
-    if (!unlock()) return;
-    const t = ctx.currentTime;
-    noise(sfxGain, { t, dur: 0.06, vol: 0.12, hp: 300, lp: 2200 });
-    voice(sfxGain, { type: 'tri', f: 140, slide: 70, t, dur: 0.16, vol: 0.28 });
-    [['G4', 'F#4', 0.12], ['F#4', 'F4', 0.12], ['F4', 'E4', 0.12], ['E4', 'B3', 0.5]].forEach(([a, b, d], i) =>
-      voice(sfxGain, { type: 'p25', f: freq(a), slide: freq(b), t: t + 0.14 + i * 0.15, dur: d, vol: 0.1, vib: i === 3 ? 1 : 0 }));
-  },
+  // 동전 뒷면: 단순한 두 음 내림 '뚜-둥' (앞면 짤랑과 같은 음색 · 낮게)
+  coinBad() { seq(['E4', 'A3'], 0.13, { type: 'p50', vol: 0.15, dur: 0.22 }); buzz(60); },
   quest() { seq(['G5', 'C6', 'E6', 'G6', 'E6', 'G6'], 0.07, { type: 'p25', vol: 0.16 }); buzz(40); },
   // 레벨업 팡파레: 도약 → IV–V–I 로 올라가 C장조로 끝난다. 약 0.9초
   levelup() {

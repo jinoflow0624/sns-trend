@@ -1966,7 +1966,7 @@ html:not(:lang(ko)) :is(.controls.casino, .rctl) .pbtn.roll.chip span { font-siz
 :is(.controls.casino, .rctl) .roll-pips i.on { background: #C21E56; box-shadow: inset 0 -1px 0 #6E0A2C, 0 0 0 1px #FFF4C4; }
 /* 차례가 오면: 칩이 숨 쉬듯 빛나고 테두리가 천천히 돈다 (글자는 그대로) */
 :is(.game.my-turn .controls.casino, .my-turn .rctl) .pbtn.roll.chip:not(:disabled) { animation: chipBreath 1.6s ease-in-out infinite; animation-delay: var(--ph, 0s); }
-:is(.game.my-turn .controls.casino, .my-turn .rctl) .pbtn.roll.chip:not(:disabled)::before { animation: chipSpin 14s linear infinite; }
+:is(.game.my-turn .controls.casino, .my-turn .rctl) .pbtn.roll.chip:not(:disabled)::before { animation: chipSpin 14s linear infinite; animation-delay: var(--ph, 0s); }  /* 다시 그려도 테두리가 처음 자리로 돌아가지 않게 (시계 기준) */
 :is(.controls.casino, .rctl) .pbtn.roll.chip.next, :is(.controls.casino, .rctl) .pbtn.roll.chip.bet-go { animation: chipGlow2 1.4s ease-in-out infinite; animation-delay: var(--ph, 0s); }
 @keyframes chipSpin { to { transform: rotate(360deg); } }
 @keyframes chipBreath { 50% { box-shadow: 0 5px 0 #7E0E36, 0 5px 0 2px var(--ink), 0 9px 0 rgba(0, 0, 0, .35), 0 0 14px 2px rgba(255, 210, 74, .55); } }

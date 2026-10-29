@@ -2056,4 +2056,11 @@ export default {"키보리아":"KYBORIA",
 "잠깐만요":"Espere",
 "조금 뒤에 다시 보낼 수 있어요":"Você poderá enviar de novo em instantes",
 "보냈어요":"Enviado",
-"준비 완료! 시작해 주세요":"Pronto! Pode começar"};
+"준비 완료! 시작해 주세요":"Pronto! Pode começar",
+"각성의 흉터":"Cicatriz do despertar",
+"에이스 <주인공>: 체력이 절반 이하면 점수 +200%, 성장도 3배":"Uns «Protagonista»: com metade da vida ou menos, +200% de pontos e o triplo de crescimento",
+"제곱의 서":"Livro dos quadrados",
+"듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)":"Dois «Dobrador»: cada 4 conta como dois 2 (4 = 2 × 2 · até cinco 2)",
+"사위일체의 문장":"Brasão da quaternidade",
+"트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Três «Trindade»: além de ataque · bloqueio · ouro, uma quarta parte: cura metade dos pontos",
+};
