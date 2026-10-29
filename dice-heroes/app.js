@@ -2227,13 +2227,13 @@ async function trayReady() {
 // 모션 시트가 없으면(예전 그림 ?art=v1) 기본 그림 하나를 늘이고 기울여 동작을 만든다.
 function actorSpot(mo = false) {
   const r = document.getElementById('tray')?.getBoundingClientRect();
-  // 모션 영웅 키 150px (좁은 화면 124px) — 보스(약 200px)보다 작게
+  // 모션 영웅 키 90px (좁은 화면 74px) — 보스(약 140px)보다 작게
   const sz = mo ? Math.round(motionW(r?.width) * FIG_H / FRAME / 0.92) : Math.round(Math.min(120, Math.max(84, (r?.width || 360) * 0.27)));
   // 몬스터(보스 · 원정 적)는 화면 왼쪽 위에 있다 → 영웅은 주사위판 오른쪽 아래에 서서 왼쪽(몬스터 쪽)을 보고 친다 · 맞는다
-  return r ? { x: r.right - sz * 0.62, y: r.bottom - 8, sz } : { x: innerWidth * 0.75, y: innerHeight * 0.62, sz };
+  return r ? { x: r.right - sz * 0.5 - 6, y: r.bottom - 8, sz } : { x: innerWidth * 0.8, y: innerHeight * 0.62, sz };
 }
 // 화면에서 영웅 키 (CSS px): 보통 폰 150 · 좁은 폰 124. 캔버스 폭 = 키 × 칸 / 그림 키
-const motionW = w => Math.round(((w || 360) >= 340 ? 150 : 124) * FRAME / FIG_H);
+const motionW = w => Math.round(((w || 360) >= 340 ? 90 : 74) * FRAME / FIG_H);   // 영웅 키 90px (좁은 화면 74px)
 const actorCenter = a => ({ x: a.x, y: a.y - a.sz * 0.5 });
 const actorScreen = () => screen === 'game' || screen === 'run';
 function actorIn(cls, face = null, spot = null) {
@@ -2292,10 +2292,10 @@ const bigActor = () => actorScreen() && prefs.fx !== 'min' && !matchMedia('(pref
 function clearActors(keepBoss = false) { document.querySelectorAll(keepBoss ? '.actor:not(.boss-actor)' : '.actor').forEach(el => el.remove()); }
 
 // ── 큰 보스: 공격할 때만 주사위판 왼쪽 아래에 전신이 크게 나와 오른쪽 영웅에게 달려든다 (평소 체력바 옆은 상반신) ──
-// 영웅보다 크게: 주사위판 폭의 58% (영웅 키 150px · 보스 약 195px)
+// 영웅보다 크게: 주사위판 폭의 41% (영웅 키 90px · 보스 약 140px)
 function bossSpot() {
   const r = document.getElementById('tray')?.getBoundingClientRect();
-  const sz = Math.round(Math.min(240, Math.max(160, (r?.width || 360) * 0.58)));
+  const sz = Math.round(Math.min(168, Math.max(112, (r?.width || 360) * 0.406)));
   return r ? { x: r.left + sz * 0.5 - 4, y: r.bottom - 4, sz } : { x: innerWidth * 0.3, y: innerHeight * 0.62, sz };
 }
 function bossIn(id, color = '#E8435A') {

@@ -7,7 +7,7 @@ import { GAME } from './config.js';
 
 export const FRAME = 384, COLS = 4, ORIGIN = { x: 174, y: 357 };
 // 캐릭터 키 (칸 384px 중 대기 자세가 차지하는 높이). 화면에서 영웅 크기를 맞출 때 쓴다
-export const FIG_H = 312;
+export const FIG_H = 306;
 export const CLIPS = {
   idle: { frames: [0, 1, 2, 3], ms: [200, 200, 200, 200], loop: true },
   attack: { frames: [4, 5, 6, 7, 8, 9, 10, 11], ms: [70, 70, 60, 60, 90, 90, 100, 100], contact: 2 },

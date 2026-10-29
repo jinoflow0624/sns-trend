@@ -9,7 +9,7 @@ import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
 import { hasMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, loadMotion } from '../motion.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
-import { foeURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
+import { foeURL, foePoseURL, isPixelFoe, facesLeft, runIco, starIco, sceneURL, actBgURL, runAssetURLs, RUN_FONT, RUN_ART_VER, omenWinURL, uiArtURL, cardBackURL, jesterURL, futureIconURL } from './art.js';
 import { relicIco, relicURLs, dotIco } from './relic-art.js';
 import { Hand } from './hand.js';
 import * as Prog from './progress.js';
@@ -1573,6 +1573,14 @@ async function playFx(list, before) {
   }
   ui.show = null;
 }
+// 엘리트: 덤빌 때 · 맞을 때 잠깐 공격 · 피격 자세 그림으로 바꿨다가 되돌린다
+function foePose(pose, ms) {
+  const id = R?.C?.e?.id, url = id && foePoseURL(id, pose), img = $('foe-art')?.querySelector('.foe-img');
+  if (!url || !img) return;
+  const base = foeURL(id);
+  img.src = url;
+  clearTimeout(img.__pose); img.__pose = setTimeout(() => { if (img.isConnected && R?.C?.e?.id === id) img.src = base; }, ms / (FX().speed || 1));
+}
 const HEX_FX = { burn: 'fire', freeze: 'snow', seal: 'chain', twist: 'vortex', reverse: 'vortex', drums: 'drum', gaze: 'eye', haki: 'anger', poison: 'toxic' };
 async function playOne(f) {
   const t = X.tray();
@@ -1608,6 +1616,7 @@ async function playOne(f) {
           rumble(Math.min(10, 3 + power * 2));
           const art = $('foe-art');
           art?.classList.remove('hit'); void art?.offsetWidth; art?.classList.add('hit');
+          foePose('hurt', 450);
           if (ba) X.actor.hurt(ba, 460);
           shake($('rc'), power * 0.8);
           const sr = ui.show.eblk > 0 && ui.show.eblk - f.blocked <= 0 ? shieldRect() : null;
@@ -1672,6 +1681,7 @@ async function playOne(f) {
       if (f.hits.length) {
         // 적이 달려든다 → 할퀸 자국 · 붉은 번쩍임 · 체력바가 깎이며 흰 띠가 따라 줄어든다. 막으면 방패가 '쨍'
         art?.classList.remove('lunge'); void art?.offsetWidth; art?.classList.add('lunge');
+        foePose('attack', 520);
         sfx.whoosh?.();
         // 보스: 체력바 옆은 상반신 → 공격할 때 주사위판 왼쪽에 전신이 크게 나와 덤벼든다
         const ba = bossBustURL(R.C.e.id) && X.actor?.ok() ? X.actor.boss(R.C.e.id, foeColor(R.C.e.id)) : null;
