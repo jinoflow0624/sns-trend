@@ -3,9 +3,8 @@
 //   영웅 모션 시트: 칸 384px(4열 × 8행 = 1536×3072) · 1MB 이하. 화면에서 영웅은 약 113px → 기기 픽셀 3배 폰에서 339px 라
 //     384 칸이면 충분하다 (더 키우면 받는 양 · 메모리만 늘고 눈에 보이는 차이는 없다). webp 품질 84 (tools/make_hero_hd.py)
 //   영웅 전신 512px · 80KB, 상반신 192px · 24KB, 보스 그림 150KB, 그 밖의 그림 한 장 200KB
-//   곡: Vorbis 품질 2.5(약 110kbps) · 한 곡 1.1MB 이하. 곡을 새로 넣을 땐
-//     ffmpeg -i 원본 -map_metadata -1 -c:a libvorbis -q:a 2.5 -ar 48000 곡.ogg
-//     (길이가 표본 단위로 그대로라 루프 지점 BGM_LOOP 이 어긋나지 않는다)
+//   곡: Vorbis 160kbps 그대로 · 한 곡 1.9MB 이하. 다시 압축하지 않는다 — 110kbps 로 줄여 봤더니 높은음이 지직거렸다.
+//     곡은 뒤에서 받기 줄로 차례대로 받고(첫 화면은 메뉴 곡 하나만 기다림), 풀어 둔 크기는 압축과 상관없어 메모리엔 이득이 없다
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -15,7 +14,7 @@ const RULES = [
   { re: /^assets\/heroes\/[^/]+_bust\.webp$/, max: 24 * KB, dim: [192, 192] },
   { re: /^assets\/heroes\/[^/]+\.webp$/, max: 80 * KB, dim: [512, 512] },
   { re: /^assets\/boss\/.+\.webp$/, max: 150 * KB },
-  { re: /^assets\/bgm\/.+\.ogg$/, max: 1100 * KB },
+  { re: /^assets\/bgm\/.+\.ogg$/, max: 1900 * KB },
   { re: /^assets\/.+\.(webp|png|jpg)$/, max: 200 * KB },
 ];
 // webp 그림 크기 (VP8X · VP8 · VP8L 머리)

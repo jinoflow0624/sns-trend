@@ -8,7 +8,7 @@
 // 버전이 없으면 곡을 바꿔 배포해도 예전 파일(도입부 없는 루프)이 한 번 더 재생됐다.
 // 예전엔 게임 버전을 붙여서 업데이트할 때마다 모든 곡을 처음부터 다시 받았다(시작하자마자 메뉴 곡이 안 나옴).
 // 이제 곡 파일을 바꿀 때만 BGM_VER 를 올린다 (곡을 바꾸고 이걸 안 올리면 예전 곡이 나온다)
-export const BGM_VER = 'b6';
+export const BGM_VER = 'b7';
 const AV = `?v=${BGM_VER}`;
 export const BGM_FILES = {
   title:       `assets/bgm/title.ogg${AV}`,         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
