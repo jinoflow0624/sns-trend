@@ -2252,3 +2252,6 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
   .controls.casino .sheet-btn { min-height: 70px; }
   .controls.casino .ctl-tools .tool { min-height: 32px; }
 }
+/* 대기실 재촉 반응 버튼 */
+.poke-btn { justify-self: center; margin-top: 2px; background: #1C1446; }
+.slot { position: relative; }

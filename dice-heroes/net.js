@@ -220,10 +220,12 @@ class FirebaseBackend {
     await this.fb.update(this.fb.ref(this.db), { [`rooms/${PREFIX}${code}/seen/${token}`]: now, [`rooms/${PREFIX}${code}/lastActive`]: now }).catch(() => {});
   }
   watch(code, cb) {
-    let state = null, seen = {}, emote = {};
-    const fire = () => state && cb({ ...state, seen, emote });
+    let state = null, seen = {}, emote = {}, seenIn = false;
+    // 접속 신호(seen)가 처음 들어오기 전에는 화면에 넘기지 않는다 — 방 상태만 먼저 오면 방장이 '오래 안 보인 사람'으로 보여
+    // 새로 들어온 사람이 방장을 가져가 버렸다 (방을 만든 사람이 참가자가 되던 버그)
+    const fire = () => state && seenIn && cb({ ...state, seen, emote });
     const u1 = this.fb.onValue(this.ref(code, '/state'), snap => { state = snap.exists() ? JSON.parse(snap.val()) : null; if (!state) cb(null); else fire(); });
-    const u2 = this.fb.onValue(this.ref(code, '/seen'), snap => { seen = snap.val() || {}; fire(); });
+    const u2 = this.fb.onValue(this.ref(code, '/seen'), snap => { seen = snap.val() || {}; seenIn = true; fire(); });
     const u3 = this.fb.onValue(this.ref(code, '/emote'), snap => { emote = snap.val() || {}; fire(); });
     return () => { u1(); u2(); u3(); };
   }
@@ -273,7 +275,7 @@ export async function getBackend() {
       const { fb, app, emu } = await fireApp();
       const db = fb.getDatabase(app);
       // 로컬 에뮬레이터로 점검할 때: ?fbemu=127.0.0.1:9100
-      if (emu) { const [h, p] = emu.split(':'); fb.connectDatabaseEmulator(db, h, Number(p)); }
+      if (emu) { const [h, p] = emu.split(':'); try { fb.connectDatabaseEmulator(db, h, Number(p)); } catch { /* 지갑(wallet.js)이 이미 연결함 */ } }
       return { fb, db };
     })().catch(err => { fbInit = null; throw err; });
     const { fb, db } = await fbInit;

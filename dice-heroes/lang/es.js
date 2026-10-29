@@ -2050,4 +2050,10 @@ export default {"키보리아":"KYBORIA",
 "가장 낮은 주사위 {0}":"Dado más bajo {0}",
 "매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)":"Cada turno, tras la primera tirada, puedes volver a tirar gratis el dado más bajo una vez (tú decides · tiradas sin cambios)",
 "지금은 행운의 부적을 쓸 수 없어요.":"Ahora no puedes usar el Amuleto de la suerte.",
-"주사위 합":"Suma de dados"};
+"주사위 합":"Suma de dados",
+"준비해 주세요!":"¡Prepárate!",
+"방장에게: 시작해 주세요!":"Al anfitrión: ¡empieza!",
+"잠깐만요":"Espera",
+"조금 뒤에 다시 보낼 수 있어요":"Podrás enviarlo de nuevo en un momento",
+"보냈어요":"Enviado",
+"준비 완료! 시작해 주세요":"¡Listo! Empieza, por favor"};
