@@ -410,7 +410,7 @@ function heroStrip() {
       <div class="rh-gold" id="r-gold" ${X.tipAttr(TR('골드'), TR('상점에서 써요'))}>${ico('coins', 'xs')}<b>${R.gold}</b></div>
       <div class="rh-blk${blk ? ' on' : ''}" id="rh-blk" ${X.tipAttr(TR('방어도 {0}', blk), TR('적의 공격을 먼저 막아요 · 내 턴이 시작되면 사라져요'))}>${ico('shield', 'xs')}<b>${blk}</b></div>
     </div>
-    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; const pl = id === 'palette' ? Run.paletteLeft(R) : 0; return `<button class="relic r${r.r}${rent ? ' rent' : ''}${pl ? ' sealed' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ` ${TR('(대여)')}` : ''}">${relicIco(r)}${pl ? `<b class="relic-cnt">${pl}</b>` : ''}</button>`; }).join('') || `<span class="dim">${TR('유물 없음')}</span>`}</div>
+    <div class="rh-relics">${[...rentRelics(), ...R.relics].map((id, k) => { const r = Run.relicInfo(id), rent = k < rentRelics().length; const pl = id === 'palette' ? Run.paletteLeft(R) : 0; return `<button class="relic r${r.r}${rent ? ' rent' : ''}${pl ? ' sealed' : ''}${!rent && relicWait.has(id) ? ' await' : ''}" data-act="run-relic" data-id="${id}" ${rent ? 'data-rent="1" ' : ''}aria-label="${r.ko}${rent ? ` ${TR('(대여)')}` : ''}">${relicIco(r)}${pl ? `<b class="relic-cnt">${pl}</b>` : ''}</button>`; }).join('') || `<span class="dim">${TR('유물 없음')}</span>`}</div>
   </section>`;
 }
 
@@ -656,7 +656,7 @@ function paint() {
   const locked = Run.toolsLocked(R);
   $('rolls-left').innerHTML = [...Array(Run.maxRolls(R))].map((_, i) => `<i class="${i < C.rollsLeft ? 'on' : ''}"></i>`).join('');
   $('rctl').innerHTML = `
-    <button class="pbtn gold roll chip${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" ${canRoll ? '' : 'disabled'}><span>${needBet ? TR('배팅 먼저') : rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n roll-pips${Math.max(Run.maxRolls(R), C.rollsLeft) >= 4 ? ' many' : ''}" role="img" aria-label="${TR('남은 {0}회', C.rollsLeft)}">${rollPips(Run.maxRolls(R), C.rollsLeft)}</small></button>
+    <button class="pbtn gold roll chip${canRoll && !rolled ? ' next' : ''}" data-act="run-roll" style="--ph:-${(performance.now() / 1000).toFixed(3)}s" ${canRoll ? '' : 'disabled'}><span>${needBet ? TR('배팅 먼저') : rolled ? TR('다시 굴리기') : TR('굴리기')}</span><small class="left-n roll-pips${Math.max(Run.maxRolls(R), C.rollsLeft) >= 4 ? ' many' : ''}" role="img" aria-label="${TR('남은 {0}회', C.rollsLeft)}">${rollPips(Run.maxRolls(R), C.rollsLeft)}</small></button>
     <button class="pbtn tool${ui.tool === 'flip' ? ' on' : ''}" data-act="run-tool" data-tool="flip" ${my && rolled && R.flip > 0 && !locked ? '' : 'disabled'}>${ico('flip')}${ui.tool === 'flip' ? TR('사용 중') : TR('뒤집기')}<b>${R.flip}</b></button>
     <button class="pbtn tool${ui.tool === 'nudge' ? ' on' : ''}" data-act="run-tool" data-tool="nudge" ${my && rolled && R.nudge > 0 && !locked ? '' : 'disabled'}>${ico('nudge')}${ui.tool === 'nudge' ? TR('사용 중') : TR('조정')}<b>${R.nudge}</b></button>
     <button class="pbtn tool swap${ui.tool === 'swap' ? ' on' : ''}" data-act="run-tool" data-tool="swap" ${my && C.swaps > 0 ? '' : 'disabled'}>${ico('swapcard')}${ui.tool === 'swap' ? TR('카드 고르기') : TR('교체')}<b>${C.swaps}</b></button>`;
@@ -1236,8 +1236,17 @@ function drain() {
 //   일반 하늘색 · 희귀 보라 · 보스 금빛. 여러 개면 차례로. 연출 '최소' 는 짧게
 const RELIC_GLOW = { 1: '#8FD3FF', 2: '#C08BFF', 3: '#FFD24A' };
 let relicQ = Promise.resolve();
+// 받는 중인 유물: 날아가서 칸에 닿기 전까지 위 유물 칸에서 감춰 둔다 (닿는 순간 뿅 나타난다)
+const relicWait = new Set();
+const relicLand = id => {
+  relicWait.delete(id);
+  const s = X.app.querySelector(`.rh-relics .relic.await[data-id="${id}"]`);
+  if (s) { s.classList.remove('await'); s.classList.add('pop'); setTimeout(() => s.classList.remove('pop'), 500); }
+};
 export function relicReveal(id) {   // (디버그에서도 부른다)
-  relicQ = relicQ.then(() => relicShow(id)).catch(e => console.warn('[relic]', e));
+  relicWait.add(id);
+  X.app.querySelector(`.rh-relics .relic[data-id="${id}"]:not(.rent)`)?.classList.add('await');
+  relicQ = relicQ.then(() => relicShow(id)).catch(e => console.warn('[relic]', e)).finally(() => relicWait.has(id) && relicLand(id));
   return relicQ;
 }
 function relicShow(id) {
@@ -1273,14 +1282,14 @@ function relicShow(id) {
     const take = () => {
       if (el.classList.contains('out')) return;
       el.classList.add('out');
-      const art = el.querySelector('.rv-art'), slot = X.app.querySelector('.rh-relics .relic:last-child') || $('rhero');
+      const art = el.querySelector('.rv-art'), slot = X.app.querySelector(`.rh-relics .relic[data-id="${id}"]:not(.rent)`) || X.app.querySelector('.rh-relics .relic:last-child') || $('rhero');
       if (art && slot && fxOn) {
         const a = art.getBoundingClientRect(), b = slot.getBoundingClientRect();
         art.style.setProperty('--fx', `${b.left + b.width / 2 - (a.left + a.width / 2)}px`);
         art.style.setProperty('--fy', `${b.top + b.height / 2 - (a.top + a.height / 2)}px`);
         art.classList.add('fly');
-        setTimeout(() => { FX().burst(b.left + b.width / 2, b.top + b.height / 2, { n: 24, pal: [c, '#FFFFFF'], speed: [60, 200], life: [0.25, 0.5] }); sfx.select?.(); slot.classList?.add('pop'); setTimeout(() => slot.classList?.remove('pop'), 500); }, 430);
-      }
+        setTimeout(() => { FX().burst(b.left + b.width / 2, b.top + b.height / 2, { n: 24, pal: [c, '#FFFFFF'], speed: [60, 200], life: [0.25, 0.5] }); sfx.select?.(); relicLand(id); }, 450);
+      } else relicLand(id);
       setTimeout(() => { el.remove(); done(); }, fxOn ? 520 : 200);
     };
     el.addEventListener('click', () => { if (performance.now() - t0 > wait0) take(); });
@@ -1568,10 +1577,13 @@ async function jSay(_text, mode = 'taunt', ms = 1600) {
 }
 async function playFx(list, before) {
   ui.show = { ...before };
+  // 응시가 있으면 눈이 떠서 시선이 닿기 전까지 카드에 응시를 보이지 않는다 (새 손패를 그릴 때도)
+  if (list.some(f => f.type === 'gaze')) ui.hideGaze = true;
   for (const f of list) {
     try { await playOne(f); } catch (err) { console.warn('[run fx]', f.type, err); X.tray()?.restore?.(); }
   }
   ui.show = null;
+  ui.hideGaze = false;
 }
 // 엘리트: 덤빌 때 · 맞을 때 잠깐 공격 · 피격 자세 그림으로 바꿨다가 되돌린다
 function foePose(pose, ms) {
@@ -1807,7 +1819,9 @@ async function playOne(f) {
         sfx.haki?.(); buzz(80);
         // 시선은 응시가 걸린 카드마다 (카드가 움직이면 따라간다). 카드를 못 찾으면 손패 가운데
         const aim = () => { const ps = (f.us || []).map(u => hand.el(u)).filter(Boolean).map(el => center(el)); return ps.length ? ps : center($('hand')); };
-        await FX().eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, aim, 1200);
+        ui.hideGaze = true; hand.refresh();
+        // 시선이 카드에 닿는 순간 응시가 걸린다 (조준 표시가 맺히며 카드가 잿빛으로)
+        await FX().eye({ x: innerWidth / 2, y: innerHeight * 0.4 }, aim, 1200, () => { ui.hideGaze = false; hand.refresh(); buzz(40); });
       } else sfx.select();
       ui.hideGaze = false;
       hand.refresh();
