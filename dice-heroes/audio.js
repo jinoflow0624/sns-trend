@@ -8,7 +8,7 @@
 // 버전이 없으면 곡을 바꿔 배포해도 예전 파일(도입부 없는 루프)이 한 번 더 재생됐다.
 // 예전엔 게임 버전을 붙여서 업데이트할 때마다 모든 곡을 처음부터 다시 받았다(시작하자마자 메뉴 곡이 안 나옴).
 // 이제 곡 파일을 바꿀 때만 BGM_VER 를 올린다 (곡을 바꾸고 이걸 안 올리면 예전 곡이 나온다)
-export const BGM_VER = 'b4';
+export const BGM_VER = 'b5';
 const AV = `?v=${BGM_VER}`;
 export const BGM_FILES = {
   title:       `assets/bgm/title.ogg${AV}`,         // 메인 메뉴 · 32마디 루프, 112BPM (Suno)
@@ -19,7 +19,7 @@ export const BGM_FILES = {
   boss_demon:  `assets/bgm/boss_demon.ogg${AV}`,    // 마왕 · 34마디 루프(곡 첫 박부터), 133BPM (Suno)
   // 강화 보스 (Suno). 곡 첫 박부터 틀고, BGM_LOOP 지점부터 끝까지를 반복한다 (오버로드는 곡 전체가 루프)
   boss_cyclops:   `assets/bgm/boss_cyclops.ogg${AV}`,   // 키클롭스 · 1~12마디 도입 + 13~40마디(28마디) 반복, 131BPM
-  boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~10마디 도입 + 11~26마디(16마디) 반복, 129.635BPM (화음 · 음색이 가장 닮은 이음매)
+  boss_hydra:     `assets/bgm/boss_hydra.ogg${AV}`,     // 세머리 용 · 1~10마디 도입 + 11~26마디(16마디) 반복, 129.635BPM (화음 · 음색이 가장 닮은 이음매) · 다른 곡과 같은 크기로 +5dB
   boss_overlord:  `assets/bgm/boss_overlord.ogg${AV}`,  // 오버로드 · 32마디 루프(곡 첫 박부터), 133BPM
   boss_archdemon: `assets/bgm/boss_archdemon.ogg${AV}`, // 마신 · 1~19마디 도입 + 20~35마디(16마디) 반복, 140BPM
   boss_jester:    `assets/bgm/boss_jester.ogg${AV}`,    // 원정 히든 보스 시공 광대 · 1~32마디 도입 + 33~62마디(30마디) 반복, 156.5BPM

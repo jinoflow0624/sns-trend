@@ -864,6 +864,21 @@ test('이벤트 취소 = 한 걸음 뒤로: 카드 고르기를 취소하면 이
   assert.deepEqual(R.pick.opts, opts);                 // 같은 카드는 같은 후보 (취소로 다시 뽑지 못한다)
 });
 
+test('얼음: 언 주사위는 굴려도 그대로 · 잡지 않은 것이 언 주사위뿐이어도 굴릴 수 있고 굴림만 하나 줄어든다', () => {
+  const R = mk({ cls: 'monk', seed: 21 }); R.phase = 'map'; R.reward = null;
+  Run.startCombat(R, 'slime'); const C = R.C;
+  Run.roll(R);
+  C.frozen = [3, 4]; C.held = [false, false, false, false, false];
+  const d0 = C.dice.slice();
+  Run.roll(R);                                          // 다른 주사위를 굴리면 언 주사위는 그대로
+  assert.equal(C.dice[3], d0[3]); assert.equal(C.dice[4], d0[4]); assert.deepEqual(C.frozen, [3, 4]);
+  C.held = [true, true, true, false, false]; C.rollsLeft = 2;
+  const d1 = C.dice.slice();
+  Run.roll(R);                                          // 언 주사위만 남았다 → 굴릴 수 있다, 아무것도 안 바뀌고 굴림만 줄어든다
+  assert.deepEqual(C.dice, d1); assert.deepEqual(C.frozen, [3, 4]); assert.equal(C.rollsLeft, 1);
+  assert.throws(() => { C.held = [true, true, true, true, true]; Run.roll(R); });
+});
+
 console.log('\n특별 카드 (에이스 · 듀스 · 트레이)');
 test('특별 카드는 실버 등급, 일반(브론즈) 보상에는 나오지 않는다', () => {
   const R = run('rogue', 5);
