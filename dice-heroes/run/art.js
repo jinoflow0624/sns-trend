@@ -6,7 +6,7 @@ import { ico } from '../icons.js';
 
 // 원정 그림 주소의 버전 — 게임 버전이 아니다 (게임 버전으로 하면 업데이트마다 원정 그림 전부를 다시 받아 느려지고 검게 빈다).
 // assets/run/ 의 그림 파일을 바꾸거나 더하면 이것을 올린다 (CLAUDE.md)
-export const RUN_ART_VER = 'r5';
+export const RUN_ART_VER = 'r6';
 const AV = `?v=${RUN_ART_VER}`;
 // 그림 파일이 생긴 적 (예: ['slime', 'goblin'])
 const FILES = ['slime', 'goblin', 'bat', 'wolf', 'shaman', 'mimic', 'skeleton', 'ghost', 'wisp', 'knight', 'golem', 'imp', 'hound', 'gargoyle', 'shade', 'champion'];
@@ -317,7 +317,7 @@ export function foeURL(id, scale = 6) {
   return cache.get(key);
 }
 // 왼쪽을 보는 적 그림: 화면 오른쪽 아래에 서는 영웅과 마주 보게 좌우를 뒤집어 그린다 (정면을 보는 그림은 그대로)
-export const FACE_LEFT = ['wolf', 'hound'];
+export const FACE_LEFT = [];   // 리스타일(r6) 그림은 모두 오른쪽(영웅 쪽)을 본다
 export const facesLeft = id => FACE_LEFT.includes(id);
 export const isPixelFoe = id => !!MON[id] && !FILES.includes(id) && id !== 'jester';
 
@@ -355,9 +355,13 @@ export const sceneURL = id => (SCENES.includes(id) ? `assets/run/scene/${id}.web
 export const actBgURL = act => `assets/run/bg_act${Math.min(3, Math.max(1, act))}.webp${AV}`;
 
 // 원정 시작 전에 미리 받아 둘 그림 · 글꼴 주소 전부 (로딩 화면). bosses: 보스 id (협동 보스 그림)
+// 엘리트 공격 · 피격 자세 (assets/run/<id>_attack|_hurt.webp · tools/make_run_art_v2.py). 적이 덤빌 때 · 맞을 때 잠깐 그 그림으로
+export const FOE_POSES = ['shaman', 'mimic', 'knight', 'golem', 'shade', 'champion'];
+export const foePoseURL = (id, pose) => (FOE_POSES.includes(id) ? `assets/run/${id}_${pose}.webp${AV}` : null);
 export function runAssetURLs(bosses = []) {
   const out = [
     ...FILES.map(id => `assets/run/${id}.webp${AV}`),
+    ...FOE_POSES.flatMap(id => ['attack', 'hurt'].map(p => foePoseURL(id, p))),
     ...[1, 2, 3].map(actBgURL),
     ...SCENES.map(sceneURL),
     ...OMEN_WIN.map(omenWinURL),
