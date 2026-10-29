@@ -944,13 +944,13 @@ test('새 전용 유물: 각성의 흉터 · 제곱의 서 · 사위일체의 �
   A.deck.push({ ...ace }); A.C.hand[0] = { ...ace };
   assert.equal(Run.scoreCard(A, A.C.hand[0]).total, 2);
   A.hp = Math.floor(A.maxHp / 2);
-  assert.equal(Run.scoreCard(A, A.C.hand[0]).total, 4);
+  assert.equal(Run.scoreCard(A, A.C.hand[0]).total, 6);
   Run.playCard(A, 0, 'enemy');
-  assert.equal(A.deck.find(c => c.u === 7101).grow, 4);
-  // 제곱의 서: 4 는 2 두 개 (6개까지)
+  assert.equal(A.deck.find(c => c.u === 7101).grow, 6);
+  // 제곱의 서: 4 는 2 두 개 (5개까지)
   const T = duel(['square']);
   const two = { u: 7102, cat: 'twos', up: 0, kws: [] };
-  for (const [d, v] of [[[2, 4, 1, 3, 5], 8], [[4, 4, 1, 3, 5], 16], [[2, 2, 4, 4, 1], 64], [[4, 4, 4, 4, 4], 64], [[1, 3, 5, 6, 6], 0]]) { T.C.dice = d; assert.equal(Run.scoreCard(T, two).total, v); }
+  for (const [d, v] of [[[2, 4, 1, 3, 5], 8], [[4, 4, 1, 3, 5], 16], [[2, 2, 4, 4, 1], 32], [[4, 4, 4, 4, 4], 32], [[1, 3, 5, 6, 6], 0]]) { T.C.dice = d; assert.equal(Run.scoreCard(T, two).total, v); }
   // 사위일체의 문장: 점수의 절반만큼 회복
   const Q = duel(['quater'], R => { R.C.dice = [3, 3, 3, 5, 6]; R.C.e.block = 0; });
   Q.C.hand[0] = { u: 7103, cat: 'threes', up: 0, kws: [] };

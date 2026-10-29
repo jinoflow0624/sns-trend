@@ -184,12 +184,12 @@ export const isFuture = cat => !!FUTURE[cat];
 const RENT_POOL = ['basic', 'choice', 'insure', 'whet', 'full', 'straight', 'fourk', 'small', 'quad', 'reso', 'parity', 'seven', 'miser', 'beast', 'echodrum', 'pairring', 'combo', 'horn', 'fang', 'scale', 'counter', 'thorn', 'lucky', 'magnet', 'hourglass', 'kaleido'];
 export const isSpecial = cat => SPECIAL_CATS.includes(cat);
 export const HERO_GROW = 2;       // 주인공: 낼 때마다 기본 점수 +2 (회귀자의 망토면 +3)
-// 각성의 흉터: 체력이 절반 이하면 에이스 점수 +100% · 성장 2배
+// 각성의 흉터: 체력이 절반 이하면 에이스 점수 +200% · 성장 3배
 export const scarOn = R => hasRelic(R, 'scar') && R.hp * 2 <= R.maxHp;
-export const heroGrow = R => (HERO_GROW + (hasRelic(R, 'cape') ? 1 : 0)) * (scarOn(R) ? 2 : 1);
+export const heroGrow = R => (HERO_GROW + (hasRelic(R, 'cape') ? 1 : 0)) * (scarOn(R) ? 3 : 1);
 // 두배: 2가 n개면 2^n (세포배양관이면 2^(n+1))
 // 제곱의 서: 4 는 2 두 개 (2 는 SQUARE_CAP 개까지)
-export const SQUARE_CAP = 6;
+export const SQUARE_CAP = 5;
 export const twoN = (R, set) => { const n2 = set.filter(v => v === 2).length; return hasRelic(R, 'square') ? Math.min(SQUARE_CAP, n2 + 2 * set.filter(v => v === 4).length) : n2; };
 export const twoScore = (R, n) => (n > 0 ? 2 ** (n + (hasRelic(R, 'culture') ? 1 : 0)) : 0);
 export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${cardTitle(c.cat)}${c.up ? '+' : ''}`;
@@ -449,8 +449,8 @@ export const RELICS = [
   { id: 'cape',      ko: tL('회귀자의 망토'),   icon: 'crown',     r: 1, desc: tL('에이스 <주인공>: 낼 때마다 기본 점수가 +2 대신 +3 자란다') },
   { id: 'culture',   ko: tL('세포배양관'),      icon: 'potion',    r: 1, desc: tL('듀스 <두배>: 점수가 한 단계 커진다 (4 → 8 → 16 → 32 → 64)') },
   { id: 'prism',     ko: tL('프리즘'),          icon: 'gem',       r: 1, desc: tL('트레이 <삼위일체>: 점수 3배를 공격 · 방어 · 골드로 마음대로 나눌 수 있다') },
-  { id: 'scar',      ko: tL('각성의 흉터'),     icon: 'anger',     r: 1, desc: tL('에이스 <주인공>: 체력이 절반 이하면 점수 +100%, 성장도 2배') },
-  { id: 'square',    ko: tL('제곱의 서'),       icon: 'scroll',    r: 1, desc: tL('듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 6개까지)') },
+  { id: 'scar',      ko: tL('각성의 흉터'),     icon: 'anger',     r: 1, desc: tL('에이스 <주인공>: 체력이 절반 이하면 점수 +200%, 성장도 3배') },
+  { id: 'square',    ko: tL('제곱의 서'),       icon: 'scroll',    r: 3, desc: tL('듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)') },
   { id: 'quater',    ko: tL('사위일체의 문장'), icon: 'heart',     r: 1, desc: tL('트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복') },
 ];
 // 특별 카드 전용 유물 ↔ 그 카드
@@ -463,7 +463,7 @@ export const hammerBonus = (R, cat) => Math.min(RT.hammerCap, Math.floor((R.hamm
 // 유물 하나를 들고 출발했을 때 늘어난 클리어율 (%p, 1 · 2 · 3막 평균 · 봇 9직업 × 40판) — 희귀도를 나누고 봇이 유물을 고를 때 쓴다
 // 무지개 팔레트: 아직 내야 하는 족보 수 (다 냈거나 없으면 0)
 export const paletteLeft = R => (R.palette && !R.palette.done ? Math.max(0, RELIC_TUNE.paletteN - R.palette.seen.length) : 0);
-export const RELIC_POWER = { midas: 34.8, bloodpact: 31.7, madscale: 21.1, sixth: 28.4, reroll: 21.5, flow: 19.2, pairs: 19.1, horn: 18.1, phoenix: 16.7, emptyhand: 16.3, scale: 16.2, glasscannon: 16.0, beast: 15.6, quad: 15.6, kaleido: 15.4, thorn: 15.2, bloodsword: 15.2, crown: 15.1, weight: 14.7, straight: 14.6, coin: 14.0, chalice: 13.4, balance: 13.1, basic: 12.9, combo: 12.9, nudge: 12.6, palette: 12.2, iron: 12.1, flip: 12.1, crutch: 11.8, yacht: 11.6, drum: 11.3, pairring: 11.1, hammer: 10.7, emptyhouse: 10.4, seven: 10.1, insure: 9.9, choice: 9.8, bone: 9.4, ember: 9.3, whet: 9.3, echodrum: 9.1, fang: 9.1, lucky: 8.2, heart: 8.1, sandbank: 7.9, miser: 7.7, prism: 7.4, reso: 6.9, discard: 6.6, hourglass: 6.5, pilgrim: 6.4, full: 5.9, parity: 5.9, lotus: 5.7, rampart: 5.6, scholar: 5.5, fourk: 4.7, keepbox: 4.6, magnet: 4.1, counter: 3.9, sealbag: 3.8, cape: 3.3, dust: 3.0, loupe: 2.8, culture: 2.8, bloodcup: 2.6, camp: 2.3, ytower: 2.1, zero: 1.6, goldframe: 1.0, libkey: 0.7, purse: 0.6, trinity: 0.5, wax: 0.3, rosary: 0.2, sealknife: -0.6, small: -1.9, medal: -2.9 };
+export const RELIC_POWER = { square: 16.2, quater: 6.2, scar: 2.0, midas: 34.8, bloodpact: 31.7, madscale: 21.1, sixth: 28.4, reroll: 21.5, flow: 19.2, pairs: 19.1, horn: 18.1, phoenix: 16.7, emptyhand: 16.3, scale: 16.2, glasscannon: 16.0, beast: 15.6, quad: 15.6, kaleido: 15.4, thorn: 15.2, bloodsword: 15.2, crown: 15.1, weight: 14.7, straight: 14.6, coin: 14.0, chalice: 13.4, balance: 13.1, basic: 12.9, combo: 12.9, nudge: 12.6, palette: 12.2, iron: 12.1, flip: 12.1, crutch: 11.8, yacht: 11.6, drum: 11.3, pairring: 11.1, hammer: 10.7, emptyhouse: 10.4, seven: 10.1, insure: 9.9, choice: 9.8, bone: 9.4, ember: 9.3, whet: 9.3, echodrum: 9.1, fang: 9.1, lucky: 8.2, heart: 8.1, sandbank: 7.9, miser: 7.7, prism: 7.4, reso: 6.9, discard: 6.6, hourglass: 6.5, pilgrim: 6.4, full: 5.9, parity: 5.9, lotus: 5.7, rampart: 5.6, scholar: 5.5, fourk: 4.7, keepbox: 4.6, magnet: 4.1, counter: 3.9, sealbag: 3.8, cape: 3.3, dust: 3.0, loupe: 2.8, culture: 2.8, bloodcup: 2.6, camp: 2.3, ytower: 2.1, zero: 1.6, goldframe: 1.0, libkey: 0.7, purse: 0.6, trinity: 0.5, wax: 0.3, rosary: 0.2, sealknife: -0.6, small: -1.9, medal: -2.9 };
 export const SAME_CATS_ALL = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'choice', 'four', 'full', 'sstr', 'lstr', 'yacht'];
 // 유물 고르기 후보 수: 기본 2개 (출정 채비 「감정 안목」이면 3개) + 감정사의 돋보기 1개. 예전 저장 판(relicN 없음)은 3개
 export const relicChoices = R => (R.relicN ?? 3) + (hasRelic(R, 'loupe') ? 1 : 0);
@@ -1285,7 +1285,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
   if (on) {
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add(TR('작은 수의 힘'), 0.2);
-    if (card.cat === 'ones' && scarOn(R)) add(TR('각성의 흉터'), 1);
+    if (card.cat === 'ones' && scarOn(R)) add(TR('각성의 흉터'), 2);
     if (hasRelic(R, 'quad') && isUpper(card.cat) && upN(R, card.cat, base) === 2) add(TR('쌍둥이 별'), 1);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add(TR('기초 수련'), 0.3);
     if (hasRelic(R, 'reso') && RESO_CATS.includes(card.cat) && upN(R, card.cat, base) >= RESO_N) add(TR('공명의 종'), RESO_MUL);
@@ -2329,7 +2329,7 @@ function prepHand(R, rollNo) {
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 0.2;
-    if (up === 'ones' && scarOn(R)) mul += 1;
+    if (up === 'ones' && scarOn(R)) mul += 2;
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) mul += 0.25;
     if (C.keepUp && !C.plays) mul += C.keepUp;
     // 새 유물 · 징조 (합연산)
