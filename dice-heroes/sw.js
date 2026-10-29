@@ -11,7 +11,7 @@ const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'engine.js', 'config.js', 'audio.js', 'dice3d.js', 'pixel.js', 'motion.js',
   'scenes.js', 'tutorial.js', 'net.js', 'fx.js', 'ambient.js', 'icons.js', 'dice2d.js', 'skins.js', 'wallet.js', 'wallet-rules.js', 'achievements.js', 'fireconfig.js', 'fire.js', 'live.js', 'telemetry.js', 'ads.js', 'env.js', 'privacy.html', 'manifest.webmanifest', 'i18n.js', 'lang/en.js', 'lang/ja.js',
   'vendor/three.module.min.js', 'vendor/cannon-es.js', 'vendor/RoundedBoxGeometry.js', 'vendor/firebase.js',
-  'assets/logo/logo.webp?v=l1', 'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
+  'assets/logo/logo.webp?v=l1', 'fonts/Galmuri11.woff2', 'fonts/Galmuri11-Bold.woff2', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   // 곡은 앱이 부르는 주소 그대로(?v=곡 버전) 받아 둔다 → 처음 설치할 때부터 캐시에 있다 (audio.js 의 BGM_VER 와 같게)
   ...['title', 'versus', 'boss_dragon', 'boss_orc', 'boss_lich', 'boss_demon', 'boss_cyclops', 'boss_hydra', 'boss_overlord', 'boss_archdemon'].map(n => `assets/bgm/${n}.ogg?v=${BGM_VER}`),
   ...['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'].flatMap(id => [`assets/boss/${id}.webp`, `assets/boss/${id}_bust.webp`]),
