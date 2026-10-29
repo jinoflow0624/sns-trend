@@ -142,7 +142,8 @@ const ascURLs = () => [...Array(Run.ASC_MAX)].map((_, k) => `assets/run/ui/asc_$
 // 직업 고르기 화면에 바로 보이는 그림 (모든 직업의 카드 뒷면 · 대표 카드 앞면 · 설명 아이콘) — 화면 글을 만들어 그 안의 주소를 모은다.
 // 새로 설치한 기기에서 이것들이 뒤에 받아지면 덱 더미가 바탕색(예전엔 빨강)으로 비어 보였다
 const selectURLs = () => {
-  const html = Run.RUN_ORDER.map(id => `${classInfoHTML(id, best())}${cardFace(startDeck(id).at(-1))}url(${cardBackURL(id)})`).join('') + `url(${cardBackURL()})`;
+  const html = Run.RUN_ORDER.map(id => `${classInfoHTML(id, best())}${cardFace(startDeck(id).at(-1))}url(${cardBackURL(id)})${hero(id)}`).join('') + `url(${cardBackURL()})`
+    + runIco('ui', 'deck', 'card', 'xs') + runIco('node', 'shop', 'coins', 'xs') + starIco() + ico('trophy', 'xs') + ico('crown', 'xs') + ico('lock', 'xs');   // 화면 틀의 아이콘 (paintSelect)
   return [...new Set([...html.matchAll(/(?:src="|url\()([^")]+\.(?:webp|png)[^")]*)/g)].map(m => m[1].replace(/&amp;/g, '&')))];
 };
 let warming = null;
