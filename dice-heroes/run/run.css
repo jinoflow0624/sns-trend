@@ -1649,3 +1649,7 @@ body.run-danger::before { content: ''; position: fixed; inset: 0; z-index: 28; p
 /* 뒤 배경(지도 · 전투)을 더 어둡게 덮는다 */
 .relic-reveal { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--rc) 18%, rgba(4, 2, 18, .7)), rgba(4, 2, 18, .94) 62%); }
 .unlock-fx.run-get::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(4, 2, 18, .55); pointer-events: none; }
+/* 작은 카드(덱 고르기 · 강화 고르기 · 보상): 70px 칸에 그대로 그리면 글씨 · 효과 칸이 잘렸다 → 보통 카드(80×112)로 그려서 줄인다 */
+.rc-static.mini .rc-in { width: 80px; height: 112px; zoom: .875; }
+.rc-static.mini .rc-name { font-size: inherit; letter-spacing: normal; }
+.rc-static.mini .rc-pat .md { width: auto; height: auto; }

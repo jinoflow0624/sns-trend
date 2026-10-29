@@ -652,7 +652,7 @@ function paint() {
   setHTML($('r-hero'), heroStrip());
   const rolled = C.rolled, my = canAct();
   const needBet = R.cls === 'gambler' && !rolled && C.bet == null && C.hand.length;
-  const canRoll = my && C.rollsLeft > 0 && !needBet && !(rolled && C.held.every((h, i) => h || Run.isFrozen(R, i)));
+  const canRoll = my && C.rollsLeft > 0 && !needBet && !(rolled && C.held.every(h => h));
   const locked = Run.toolsLocked(R);
   $('rolls-left').innerHTML = [...Array(Run.maxRolls(R))].map((_, i) => `<i class="${i < C.rollsLeft ? 'on' : ''}"></i>`).join('');
   $('rctl').innerHTML = `
@@ -1028,7 +1028,7 @@ async function doRoll() {
   if (!canAct()) return;
   ui.tool = null; ui.sel = null; ui.split = null; ui.dealDie = null;
   hand.select(null);
-  const mask = C.dice.map((_, i) => !(C.rolled && (C.held[i] || Run.isSealed(R, i) || Run.isFrozen(R, i))));
+  const mask = Run.rollMask(R);
   ui.sealRoll = C.rolled ? C.sealed.slice() : [];
   t.restore?.();
   sfx.rollPress?.();
@@ -1844,6 +1844,15 @@ async function playOne(f) {
       sfx.quest?.();
       await t.morph(f.dice[0], f.to, 'lucky');
       if (ui.dice) ui.dice[f.dice[0]] = f.to;
+      return;
+    }
+    case 'thaw': {                                // 언 주사위만 남아 굴렸다: 얼음이 깨진다
+      sfx.clang?.(0.8);
+      if (t && fxOn) {
+        floatAt(center($('tray')).x, center($('tray')).y - 30, TR('얼음이 깨졌다!'), 'sky');
+        for (const i of f.dice) { const q = t.topPos?.(i) || t.screenPos(i); FX().burst(q.x, q.y, { n: 18, pal: PALETTES.frost, speed: [80, 220], life: [0.25, 0.5] }); }
+        await wait(300);
+      }
       return;
     }
     case 'unseal': {                              // 봉인 해제: 사슬이 달아올라 산산조각, 빛기둥
@@ -2989,7 +2998,7 @@ export const canRoll = () => canAct() && !!document.querySelector('[data-act=run
 export function shakeMask() {
   if (!canRoll()) return null;
   const C = R.C;
-  return { mask: C.dice.map((_, i) => !(C.rolled && (C.held[i] || Run.isSealed(R, i) || Run.isFrozen(R, i)))), sealed: C.rolled ? C.sealed.slice() : [] };
+  return { mask: Run.rollMask(R), sealed: C.rolled ? C.sealed.slice() : [] };
 }
 // 지금 원정 화면 이름 (플레이 통계: 화면별 체류 · 이탈 지점)
 export const where = () => (R ? R.phase : ui.view || 'select');

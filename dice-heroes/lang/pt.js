@@ -2056,4 +2056,5 @@ export default {"키보리아":"KYBORIA",
 "잠깐만요":"Espere",
 "조금 뒤에 다시 보낼 수 있어요":"Você poderá enviar de novo em instantes",
 "보냈어요":"Enviado",
-"준비 완료! 시작해 주세요":"Pronto! Pode começar"};
+"준비 완료! 시작해 주세요":"Pronto! Pode começar",
+"얼음이 깨졌다!":"O gelo quebrou!"};
