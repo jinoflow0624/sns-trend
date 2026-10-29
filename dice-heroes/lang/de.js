@@ -2056,4 +2056,11 @@ export default {"키보리아":"KYBORIA",
 "잠깐만요":"Moment",
 "조금 뒤에 다시 보낼 수 있어요":"Gleich kannst du es wieder senden",
 "보냈어요":"Gesendet",
-"준비 완료! 시작해 주세요":"Bereit! Bitte starten"};
+"준비 완료! 시작해 주세요":"Bereit! Bitte starten",
+"각성의 흉터":"Narbe des Erwachens",
+"에이스 <주인공>: 체력이 절반 이하면 점수 +100%, 성장도 2배":"Einser «Hauptfigur»: bei halber LP oder weniger +100 % Punkte und doppeltes Wachstum",
+"제곱의 서":"Buch der Quadrate",
+"듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 6개까지)":"Zweier «Verdoppler»: jede 4 zählt als zwei 2er (4 = 2 × 2 · bis zu sechs 2er)",
+"사위일체의 문장":"Wappen der Vierfaltigkeit",
+"트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Dreier «Dreifaltigkeit»: neben Angriff · Block · Gold ein vierter Anteil – heilt die Hälfte der Punkte",
+};

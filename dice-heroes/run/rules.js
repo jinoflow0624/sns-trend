@@ -184,8 +184,13 @@ export const isFuture = cat => !!FUTURE[cat];
 const RENT_POOL = ['basic', 'choice', 'insure', 'whet', 'full', 'straight', 'fourk', 'small', 'quad', 'reso', 'parity', 'seven', 'miser', 'beast', 'echodrum', 'pairring', 'combo', 'horn', 'fang', 'scale', 'counter', 'thorn', 'lucky', 'magnet', 'hourglass', 'kaleido'];
 export const isSpecial = cat => SPECIAL_CATS.includes(cat);
 export const HERO_GROW = 2;       // 주인공: 낼 때마다 기본 점수 +2 (회귀자의 망토면 +3)
-export const heroGrow = R => HERO_GROW + (hasRelic(R, 'cape') ? 1 : 0);
+// 각성의 흉터: 체력이 절반 이하면 에이스 점수 +100% · 성장 2배
+export const scarOn = R => hasRelic(R, 'scar') && R.hp * 2 <= R.maxHp;
+export const heroGrow = R => (HERO_GROW + (hasRelic(R, 'cape') ? 1 : 0)) * (scarOn(R) ? 2 : 1);
 // 두배: 2가 n개면 2^n (세포배양관이면 2^(n+1))
+// 제곱의 서: 4 는 2 두 개 (2 는 SQUARE_CAP 개까지)
+export const SQUARE_CAP = 6;
+export const twoN = (R, set) => { const n2 = set.filter(v => v === 2).length; return hasRelic(R, 'square') ? Math.min(SQUARE_CAP, n2 + 2 * set.filter(v => v === 4).length) : n2; };
 export const twoScore = (R, n) => (n > 0 ? 2 ** (n + (hasRelic(R, 'culture') ? 1 : 0)) : 0);
 export const cardName = c => `${kwsOf(c).map(k => KEYWORDS[k].ko + ' ').join('')}${cardTitle(c.cat)}${c.up ? '+' : ''}`;
 // 희귀도: 1 일반(키워드 없음) · 2 희귀(키워드) · 3 전설(키워드 + 강화, 또는 강화 요트)
@@ -444,9 +449,12 @@ export const RELICS = [
   { id: 'cape',      ko: tL('회귀자의 망토'),   icon: 'crown',     r: 1, desc: tL('에이스 <주인공>: 낼 때마다 기본 점수가 +2 대신 +3 자란다') },
   { id: 'culture',   ko: tL('세포배양관'),      icon: 'potion',    r: 1, desc: tL('듀스 <두배>: 점수가 한 단계 커진다 (4 → 8 → 16 → 32 → 64)') },
   { id: 'prism',     ko: tL('프리즘'),          icon: 'gem',       r: 1, desc: tL('트레이 <삼위일체>: 점수 3배를 공격 · 방어 · 골드로 마음대로 나눌 수 있다') },
+  { id: 'scar',      ko: tL('각성의 흉터'),     icon: 'anger',     r: 1, desc: tL('에이스 <주인공>: 체력이 절반 이하면 점수 +100%, 성장도 2배') },
+  { id: 'square',    ko: tL('제곱의 서'),       icon: 'scroll',    r: 1, desc: tL('듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 6개까지)') },
+  { id: 'quater',    ko: tL('사위일체의 문장'), icon: 'heart',     r: 1, desc: tL('트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복') },
 ];
 // 특별 카드 전용 유물 ↔ 그 카드
-export const SPECIAL_RELIC = { cape: 'ones', culture: 'twos', prism: 'threes' };
+export const SPECIAL_RELIC = { cape: 'ones', culture: 'twos', prism: 'threes', scar: 'ones', square: 'twos', quater: 'threes' };
 // 유물 수치 (sim: 유물 하나를 들고 출발한 봇의 클리어율 차이로 맞춘다 — 희귀도에 맞게)
 export const RELIC_TUNE = { madMul: 1, hammerEvery: 3, hammerCap: 6, comboMul: 1.3, weight: 3, pairs: 2, miser: 0.03, choice: 0.2, bone: 10, nudge: 1,
   beast: 0.05, kaleido: 2, flowL: 40, fang: 0.1, paletteN: 8, coinLow: -0.25 };
@@ -1218,7 +1226,7 @@ export const dropPotion = act('dropPotion', (R, slot) => { R.potions.splice(slot
 export const RESO_CATS = ['fours', 'fives', 'sixes'], RESO_N = 3, RESO_MUL = 0.25;
 // 균형의 추: 1의 눈을 6으로 셀 수 있다 → 1을 6으로 바꾼 모든 경우 중 가장 좋은 점수
 function bestBase(R, cat, dice) {
-  const bs = set => (cat === 'twos' ? twoScore(R, set.filter(v => v === 2).length) : relaxBase(R, cat, set) ?? baseScore(cat, set));
+  const bs = set => (cat === 'twos' ? twoScore(R, twoN(R, set)) : relaxBase(R, cat, set) ?? baseScore(cat, set));
   const one = (d) => Math.max(0, ...fiveSets(d).map(bs));
   if (!hasRelic(R, 'balance') || !dice.includes(1)) return one(dice);
   const ones = dice.map((v, i) => (v === 1 ? i : -1)).filter(i => i >= 0);
@@ -1277,6 +1285,7 @@ export function scoreCard(R, card, dice = R.C?.dice || [], opts = {}) {
   const add = (ko, mul) => { const amt = Math.round(adj * mul); if (amt) parts.push({ ko, amt }); };
   if (on) {
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(card.cat)) add(TR('작은 수의 힘'), 0.2);
+    if (card.cat === 'ones' && scarOn(R)) add(TR('각성의 흉터'), 1);
     if (hasRelic(R, 'quad') && isUpper(card.cat) && upN(R, card.cat, base) === 2) add(TR('쌍둥이 별'), 1);
     if (hasRelic(R, 'basic') && isUpper(card.cat)) add(TR('기초 수련'), 0.3);
     if (hasRelic(R, 'reso') && RESO_CATS.includes(card.cat) && upN(R, card.cat, base) >= RESO_N) add(TR('공명의 종'), RESO_MUL);
@@ -1432,6 +1441,7 @@ function splitOut(R, card, sc, want, gwant = 0) {
   if (card.seal === 'cloud') out.always += 20 * twice;
   if (card.seal === 'star') out.gold += 15 * twice;
   out.gold += tri;
+  if (isTrinity(card) && hasRelic(R, 'quater') && S > 0) out.heal += Math.floor(S / 2);   // 사위일체의 문장: 넷째 몫 = 회복
   out.block += out.always;
   return { ...out, sc };
 }
@@ -2319,6 +2329,7 @@ function prepHand(R, rollNo) {
     if (hasRelic(R, 'drum') && C.turn === 1) mul += 0.5;
     if (C.power) mul += 0.5;
     if (hasRelic(R, 'small') && ['ones', 'twos', 'threes'].includes(up)) mul += 0.2;
+    if (up === 'ones' && scarOn(R)) mul += 1;
     if (hasRelic(R, 'rosary') && R.deck.length <= ROSARY_MAX) mul += 0.25;
     if (C.keepUp && !C.plays) mul += C.keepUp;
     // 새 유물 · 징조 (합연산)
@@ -2332,7 +2343,7 @@ function prepHand(R, rollNo) {
     if (C.weak > 0) mul *= 0.75;
     return {
       cat: up, mul, face: isUpper(up) ? UPPER.indexOf(up) + 1 : 0, grow: up === 'ones' && !(omen(R, 'forbid') && R.omenCat === up) ? card.grow || 0 : 0,
-      two: up === 'twos' ? (hasRelic(R, 'culture') ? 1 : 0) : null, tri: isTrinity(card), pairs: hasRelic(R, 'pairs'),
+      two: up === 'twos' ? (hasRelic(R, 'culture') ? 1 : 0) : null, sq: hasRelic(R, 'square'), tri: isTrinity(card), pairs: hasRelic(R, 'pairs'),
       quad: hasRelic(R, 'quad') ? (C.weak > 0 ? 0.75 : 1) : 0, reso: hasRelic(R, 'reso') && RESO_CATS.includes(up), flow: hasRelic(R, 'flow') && (up === 'sstr' || up === 'lstr'),
       combo: hasRelic(R, 'combo') && (up === 'sstr' || up === 'lstr'), crutch: up === 'lstr' && hasRelic(R, 'crutch'),
       house: (up === 'full' || up === 'four') && hasRelic(R, 'emptyhouse'), zero: (C.gazed.includes(card.u) && !C.pure) || isFuture(card.cat),
@@ -2391,7 +2402,7 @@ function fastValue(R, info, s, ctx) {
 }
 // 빠른 카드 점수 (유물의 기본 점수 변경 포함)
 function fastScore(info, dice) {
-  const n2 = info.two != null ? Math.min(5, dice.filter(v => v === 2).length) : 0;
+  const n2 = info.two != null ? Math.min(info.sq ? SQUARE_CAP : 5, dice.filter(v => v === 2).length + (info.sq ? 2 * dice.filter(v => v === 4).length : 0)) : 0;
   let raw = info.two != null ? (n2 ? 2 ** (n2 + info.two) : 0) : fastBase(info.cat, dice);
   if (!raw && info.crutch && fastBase('sstr', dice)) raw = 30;
   if (!raw && info.house) { const c = [0, 0, 0, 0, 0, 0, 0]; for (const v of dice) c[v]++; if (Math.max(...c) >= 3) raw = dice.reduce((a, v) => a + v, 0); }

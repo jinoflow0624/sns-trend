@@ -1121,7 +1121,9 @@ class FxLayer {
   // 외눈 응시: 눈꺼풀이 열리고 → 눈동자가 두리번거리다 → 목표 쪽을 똑바로 보며 눈을 가늘게 뜬다 → 깜빡 닫힘.
   // 무섭지 않게: 어둡게 덮는 막은 옅게, 핏빛 광선 대신 시선이 점선으로 흘러가 목표에 조준 표시가 맺힌다
   // target: 점 하나 · 점 여러 개 · 또는 그때그때 점(들)을 돌려주는 함수 (움직이는 카드를 따라 본다)
-  async eye(c, target, ms = 1100) {
+  // onHit: 시선 점선이 목표에 닿는 순간 한 번 부른다 (그때 카드에 응시가 걸린다)
+  async eye(c, target, ms = 1100, onHit) {
+    let hit = false;
     const pts = () => { const t = typeof target === 'function' ? target() : target; return (Array.isArray(t) ? t : t ? [t] : []).filter(Boolean); };
     let last = pts();
     await this.add((g, k) => {
@@ -1131,6 +1133,7 @@ class FxLayer {
       const W = Math.min(innerWidth * 0.28, 113);            // 예전의 3분의 2
       const open = k < 0.18 ? ease(k / 0.18) : k > 0.86 ? 1 - ease((k - 0.86) / 0.14) : 1;
       const lock = k < 0.42 ? 0 : Math.min(1, (k - 0.42) / 0.12);   // 목표를 보는 정도
+      if (!hit && lock >= 1 && onHit) { hit = true; try { onHit(); } catch (e) { console.warn(e); } }
       const squint = 1 - 0.28 * lock;                        // 집중하면 눈을 가늘게
       const H = W * 0.55 * open * squint;
       const ir = W * 0.34;
@@ -1171,6 +1174,7 @@ class FxLayer {
         g.restore(); g.globalAlpha = 1;
       }
     }, ms);
+    if (!hit && onHit) onHit();
     for (const t of last) this.ring(t.x, t.y, { color: '#FF7A8A', r0: 8, r1: 56, dur: 380, width: 5 });
   }
 

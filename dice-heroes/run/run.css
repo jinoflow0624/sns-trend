@@ -1482,7 +1482,8 @@ html:not(:lang(ko)) .meta-ware .mw-name { white-space: normal; max-width: 96px; 
 .relic-reveal.r3 .rv-rays { width: 520px; height: 520px; }
 .relic-reveal.r3 .rv-art .ico, .relic-reveal.r3 .rv-art img { width: 104px; height: 104px; }
 .rh-relics .relic.pop { animation: rvSlot .45s cubic-bezier(.2, 1.8, .4, 1); }
-@keyframes rvSlot { 40% { scale: 1.5; filter: brightness(1.8); } }
+@keyframes rvSlot { 0% { scale: 0; filter: brightness(2.2); } 55% { scale: 1.5; filter: brightness(1.8); } }
+.rh-relics .relic.await { visibility: hidden; }   /* 받는 중: 날아온 유물이 닿으면 뿅 (run/ui.js relicLand) */
 /* 연출 최소 · 움직임 줄이기: 모으기 없이 바로 */
 .relic-reveal.quick .rv-orb { animation: none; }
 @media (prefers-reduced-motion: reduce) { .relic-reveal *, .relic-reveal { animation-duration: .01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; } }

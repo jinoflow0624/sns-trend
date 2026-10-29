@@ -937,6 +937,28 @@ test('트레이 <삼위일체>: 점수만큼 공격 · 방어 · 골드, 나눌 
   assert.ok(c.full && Math.abs(c.atk - c.gold) <= 1);             // 딱 막기: 남은 몫은 공격 · 골드 반반
   assert.equal(Run.takenAfter(P, Run.preview(P, 0, c.atk, null, c.gold)), 0);
 });
+test('새 전용 유물: 각성의 흉터 · 제곱의 서 · 사위일체의 문장', () => {
+  // 각성의 흉터: 체력 절반 이하면 에이스 +100% · 성장 2배
+  const A = duel(['scar'], R => { R.C.dice = [1, 1, 3, 4, 6]; });
+  const ace = { u: 7101, cat: 'ones', up: 0, kws: [] };
+  A.deck.push({ ...ace }); A.C.hand[0] = { ...ace };
+  assert.equal(Run.scoreCard(A, A.C.hand[0]).total, 2);
+  A.hp = Math.floor(A.maxHp / 2);
+  assert.equal(Run.scoreCard(A, A.C.hand[0]).total, 4);
+  Run.playCard(A, 0, 'enemy');
+  assert.equal(A.deck.find(c => c.u === 7101).grow, 4);
+  // 제곱의 서: 4 는 2 두 개 (6개까지)
+  const T = duel(['square']);
+  const two = { u: 7102, cat: 'twos', up: 0, kws: [] };
+  for (const [d, v] of [[[2, 4, 1, 3, 5], 8], [[4, 4, 1, 3, 5], 16], [[2, 2, 4, 4, 1], 64], [[4, 4, 4, 4, 4], 64], [[1, 3, 5, 6, 6], 0]]) { T.C.dice = d; assert.equal(Run.scoreCard(T, two).total, v); }
+  // 사위일체의 문장: 점수의 절반만큼 회복
+  const Q = duel(['quater'], R => { R.C.dice = [3, 3, 3, 5, 6]; R.C.e.block = 0; });
+  Q.C.hand[0] = { u: 7103, cat: 'threes', up: 0, kws: [] };
+  const S = Run.scoreCard(Q, Q.C.hand[0]).total;
+  assert.equal(Run.preview(Q, 0, 'enemy').heal, Math.floor(S / 2));
+  Q.hp = 10; Run.playCard(Q, 0, 'enemy');
+  assert.equal(Q.hp, 10 + Math.floor(S / 2));
+});
 test('특별 카드 전용 유물: 그 카드가 덱에 있으면 더 잘 나온다', () => {
   const freq = (deckCat) => { const R = run('rogue', 6); R.deck = R.deck.filter(c => !Run.isSpecial(c.cat)); if (deckCat) R.deck.push({ u: 999, cat: deckCat, up: 0, kws: [] }); let n = 0; for (let k = 0; k < 3000; k++) if (Run.rollRelic(R, Run.relicInfo('cape').r) === 'cape') n++; return n; };
   assert.ok(freq('ones') > freq(null));
