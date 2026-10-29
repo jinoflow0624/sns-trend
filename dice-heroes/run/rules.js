@@ -1007,18 +1007,16 @@ function drawCards(R, n) {
 
 const inCombat = R => { if (R.phase !== 'combat' || !R.C || R.C.phase !== 'roll') fail(TR('지금은 할 수 없어요.')); return R.C; };
 
-// 이번 굴림에 굴러가는 주사위. 언 주사위는 다른 주사위를 굴릴 때 그대로 남지만,
-// 잡지 않은 주사위가 언 것뿐이면 굴림 한 번으로 얼음을 깨고 그것만 굴린다 (봉인 주사위만 남았을 때와 같게)
-export const thawRoll = R => { const C = R.C; return !!C?.rolled && C.frozen.length > 0 && C.held.every((h, i) => h || isFrozen(R, i)) && C.held.some((h, i) => !h && isFrozen(R, i)); };
-export const rollMask = R => { const C = R.C, th = thawRoll(R); return C.dice.map((v, i) => !(C.rolled && (C.held[i] || isSealed(R, i) || (isFrozen(R, i) && !th)))); };
+// 이번 굴림에 굴러가는 주사위 (잡은 · 봉인 · 언 주사위는 그대로). 잡지 않은 주사위가 언 것뿐이어도 굴릴 수 있다 —
+// 아무것도 굴러가지 않고 굴림 기회만 하나 줄어든다 (얼음은 그대로)
+export const rollMask = R => { const C = R.C; return C.dice.map((v, i) => !(C.rolled && (C.held[i] || isSealed(R, i) || isFrozen(R, i)))); };
 export const roll = act('roll', function roll(R) {
   const C = inCombat(R);
   if (C.rollsLeft <= 0) fail(TR('굴림 기회를 다 썼어요.'));
-  // 봉인된 주사위만 남아도 굴릴 수 있다 (굴리면 봉인이 풀린다 — 메인 게임 engine.js 와 같게). 언 주사위만 남아도 (얼음이 깨진다)
+  // 봉인된 주사위만 남아도 굴릴 수 있다 (굴리면 봉인이 풀린다 — 메인 게임 engine.js 와 같게). 언 주사위만 남아도 굴릴 수 있다 (굴림만 줄어든다)
   if (C.rolled && C.held.every(h => h)) fail(TR('모든 주사위를 잡고 있어요.'));
   if (R.cls === 'gambler' && !C.rolled && C.bet == null && C.hand.length) fail(TR('먼저 이번 턴에 배팅할 카드를 고르세요.'));
   const rolled = rollMask(R);
-  if (thawRoll(R)) { const melt = C.frozen.filter(i => !C.held[i]); C.frozen = C.frozen.filter(i => C.held[i]); fx(R, { type: 'thaw', dice: melt }); }
   C.dice = C.dice.map((v, i) => (rolled[i] ? rollFace(R, i) : v));
   if (!C.rolled) C.held = C.held.map(() => false);
   C.rolled = true;

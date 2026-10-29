@@ -2056,5 +2056,4 @@ export default {"키보리아":"KYBORIA",
 "잠깐만요":"Un instant",
 "조금 뒤에 다시 보낼 수 있어요":"Tu pourras renvoyer dans un moment",
 "보냈어요":"Envoyé",
-"준비 완료! 시작해 주세요":"Prêt ! Lance la partie",
-"얼음이 깨졌다!":"La glace s'est brisée !"};
+"준비 완료! 시작해 주세요":"Prêt ! Lance la partie"};

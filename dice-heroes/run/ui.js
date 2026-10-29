@@ -1846,15 +1846,6 @@ async function playOne(f) {
       if (ui.dice) ui.dice[f.dice[0]] = f.to;
       return;
     }
-    case 'thaw': {                                // 언 주사위만 남아 굴렸다: 얼음이 깨진다
-      sfx.clang?.(0.8);
-      if (t && fxOn) {
-        floatAt(center($('tray')).x, center($('tray')).y - 30, TR('얼음이 깨졌다!'), 'sky');
-        for (const i of f.dice) { const q = t.topPos?.(i) || t.screenPos(i); FX().burst(q.x, q.y, { n: 18, pal: PALETTES.frost, speed: [80, 220], life: [0.25, 0.5] }); }
-        await wait(300);
-      }
-      return;
-    }
     case 'unseal': {                              // 봉인 해제: 사슬이 달아올라 산산조각, 빛기둥
       sfx.unseal?.();
       if (t && fxOn) {
