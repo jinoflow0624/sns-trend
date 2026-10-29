@@ -735,7 +735,7 @@ function clsDial(pl, i) {
 function seatCard(pl, i, { editable, removable, humanToggle, tag = '' }) {
   const c = E.classInfo(pl.cls);
   return `
-  <section class="frame slot">
+  <section class="frame slot" data-seat="${i}">
     <div class="slot-top">
       ${editable ? '' : `<div class="portrait" style="--c:${c.color}" data-cls="${pl.cls}" data-act="cls-talk">${portrait(pl.cls)}</div>`}
       <div class="slot-main">
@@ -840,7 +840,7 @@ async function createRoom() {
   catch (err) { const w = Net.explain(err); return showOnlineMenu(w.text, String(err?.code || err?.message || '').slice(0, 120)); }
   const token = Net.myToken();
   const room = {
-    v: 1, host: token, started: false,
+    v: 1, host: token, owner: token, started: false,   // owner: 방을 만든 사람 — 돌아오면 언제나 방장으로 되돌린다
     opts: { ...opts },
     seats: [{ token, name: netName(), cls: Wal.owns('cls', setup[0]?.cls) ? setup[0].cls : firstOwnedClass(), bot: false, skin: mySkin() }],
     game: null, fxLog: [], fxId: 0,
@@ -959,12 +959,26 @@ const netName = () => (myName && myName !== TR('나') ? myName : TR('모험가')
 // 나는 늘 접속 중 (내 접속 신호는 내 화면으로 되돌아오지 않을 수 있다)
 const alive = token => token === online?.token || (!!online?.room?.seen?.[token] && Date.now() - online.room.seen[token] < Net.ABSENT_MS);
 
-// 방장이 1분 넘게 소식이 없다 (초대 링크를 보내러 잠깐 다른 앱에 가 있는 정도로는 넘기지 않는다)
-const hostGone = token => token !== online?.token && Date.now() - (online?.room?.seen?.[token] || 0) > Net.DROP_MS;
+// 방장이 3분 넘게 소식이 없다 (초대 링크를 보내러 메신저에 다녀오는 정도로는 넘기지 않는다).
+// 접속 기록이 아예 없으면(아직 못 받았거나 막 만든 방) 떠난 것으로 보지 않는다
+const HOST_DROP_MS = 3 * 60 * 1000;
+const hostGone = token => { const t = online?.room?.seen?.[token]; return token !== online?.token && !!t && Date.now() - t > HOST_DROP_MS; };
 // 대기실 방장 넘기기: 방장이 자리에 없거나(나갔다) 연결이 끊겼으면, 접속 중인 첫 사람이 방장이 된다.
 // 그 사람 기기만 바꾼다 (여럿이 동시에 바꾸려다 엇갈리지 않게)
 function fixHost(room) {
   if (!online || room.started) return;
+  // 방을 만든 사람은 돌아오면 언제나 방장 (잠깐 다른 사람에게 넘어갔어도 되찾는다)
+  if (room.owner === online.token && room.host !== online.token && room.seats.some(s => s.token === online.token)) {
+    online.backend.txn(online.code, r => {
+      if (r.started || r.owner !== online.token || r.host === online.token) return;
+      const me = r.seats.find(s => s.token === online.token);
+      if (!me) return;
+      r.host = me.token; me.ready = false;
+      return r;
+    }).then(res => { if (res.ok && isHost()) toast(ico('crown'), TR('방장이 되었어요'), TR('이제 게임을 시작할 수 있어요'), 1800); });
+    return;
+  }
+  if (room.owner && room.owner !== online.token && room.seats.some(s => s.token === room.owner) && !hostGone(room.owner)) return;   // 만든 사람이 곧 되찾는다
   const humans = room.seats.filter(s => !s.bot);
   const host = humans.find(s => s.token === room.host);
   if (host && !hostGone(host.token)) return;
@@ -1024,9 +1038,11 @@ function showLobby() {
       }).join('')}
       ${host ? `<button class="pbtn small" data-act="lobby-bot" ${room.seats.length >= 4 ? 'disabled' : ''}>${TR('＋ 봇 추가')}</button>` : ''}
       ${host ? `<button class="pbtn gold big" data-act="lobby-start" ${tooFew || !allReady ? 'disabled' : ''}>${TR('게임 시작')}${room.opts?.mode === 'coop' ? tixCost() : ''}</button>
-                ${!allReady ? `<p class="waiting">${TR('준비 {0} / {1}', shownN, people.length)}</p>` : ''}`
+                ${!allReady ? `<p class="waiting">${TR('준비 {0} / {1}', shownN, people.length)}</p>
+                <button class="pbtn small poke-btn" data-act="lobby-poke" data-e="${POKE_READY}">${ico('bolt', 'xs')} ${TR('준비해 주세요!')}</button>` : ''}`
              : `<button class="pbtn big ${mine?.ready ? '' : 'gold'}" data-act="lobby-ready">${mine?.ready ? TR('준비 취소') : TR('준비 완료!')}</button>
-                <p class="waiting">${mine?.ready ? (allReady ? TR('방장이 시작하기를 기다리는 중…') : TR('다른 사람이 준비하기를 기다리는 중…')) : TR('캐릭터를 고르고 준비 버튼을 눌러 주세요')}</p>`}
+                <p class="waiting">${mine?.ready ? (allReady ? TR('방장이 시작하기를 기다리는 중…') : TR('다른 사람이 준비하기를 기다리는 중…')) : TR('캐릭터를 고르고 준비 버튼을 눌러 주세요')}</p>
+                ${mine?.ready ? `<button class="pbtn small poke-btn" data-act="lobby-poke" data-e="${POKE_START}">${ico('crown', 'xs')} ${TR('방장에게: 시작해 주세요!')}</button>` : ''}`}
     </div>
   </div>`;
 }
@@ -1038,6 +1054,15 @@ function lobbyTxn(fn) {
 
 function onLobbyAct(act, t) {
   const room = online.room;
+  // 재촉 반응: 준비한 사람 → 방장 「시작해 주세요」, 방장 → 준비 안 한 사람 「준비해 주세요」 (5초에 한 번)
+  if (act === 'lobby-poke') {
+    const now = Date.now();
+    if (now - (ui.lastPoke || 0) < 5000) { sfx.back(); return toast(ico('hourglass'), TR('잠깐만요'), TR('조금 뒤에 다시 보낼 수 있어요'), 1200); }
+    ui.lastPoke = now;
+    sfx.select();
+    toast(ico('party'), TR('보냈어요'), EMOTES[Number(t.dataset.e)], 1200);
+    return online.backend.emote?.(online.code, online.token, Number(t.dataset.e));
+  }
   if (act === 'lobby-opts' && isHost()) { sfx.select(); return beginPick('room', { ...room.opts }); }
   if (act === 'lobby-ready') {
     const me = room.seats.find(s => s.token === online.token);
@@ -1241,7 +1266,8 @@ function connBanner(show) {
 }
 
 // 이모티콘 반응 (정해진 문구만 — 채팅이 아니라 욕설 걱정이 없다)
-const EMOTES = [tL('나이스!'), tL('좋아요'), tL('아깝다…'), tL('ㅋㅋㅋ'), tL('빨리요~'), 'GG'];
+const EMOTES = [tL('나이스!'), tL('좋아요'), tL('아깝다…'), tL('ㅋㅋㅋ'), tL('빨리요~'), 'GG', tL('준비 완료! 시작해 주세요'), tL('준비해 주세요!')];
+const POKE_START = 6, POKE_READY = 7;   // 대기실 전용 반응 (게임 안 반응 목록에는 안 나온다)
 function showEmotes(room) {
   if (!online || !room.emote) return;
   for (const [token, v] of Object.entries(room.emote)) {
@@ -1250,7 +1276,12 @@ function showEmotes(room) {
     if (last === undefined && Date.now() - v.t > 4000) continue;    // 들어오기 전의 오래된 반응
     if (last !== undefined && v.t <= last) continue;
     const who = room.seats?.findIndex(s => s.token === token);
-    const el = document.querySelector(`.member[data-i="${who}"]`);
+    // 대기실 재촉 반응은 받는 사람 화면에 알림으로도 크게 (말풍선만으론 놓치기 쉽다)
+    if ((v.e === POKE_START || v.e === POKE_READY) && token !== online.token && !room.started) {
+      const name = room.seats?.[who]?.name || '';
+      if (v.e === POKE_START ? isHost() : !room.seats.find(s => s.token === online.token)?.ready) { toast(ico(v.e === POKE_START ? 'crown' : 'bolt'), esc(name), EMOTES[v.e], 2400); sfx.select(); buzz(30); }
+    }
+    const el = document.querySelector(`.member[data-i="${who}"], .slot[data-seat="${who}"]`);
     if (!el || !EMOTES[v.e]) continue;
     const r = el.getBoundingClientRect();
     const b = document.createElement('div');
@@ -4204,7 +4235,7 @@ async function onGameAct(act, t) {
   }
   if (act === 'emote-menu') {
     sfx.tap();
-    return popover(t, `<b>${TR('반응 보내기')}</b><div class="emote-list">${EMOTES.map((e, i) => `<button class="pbtn small" data-act="emote" data-e="${i}">${e}</button>`).join('')}</div>`);
+    return popover(t, `<b>${TR('반응 보내기')}</b><div class="emote-list">${EMOTES.slice(0, POKE_START).map((e, i) => `<button class="pbtn small" data-act="emote" data-e="${i}">${e}</button>`).join('')}</div>`);
   }
   if (act === 'emote' && online) {
     closePopover();

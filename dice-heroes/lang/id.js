@@ -2050,4 +2050,10 @@ export default {"키보리아":"KYBORIA",
 "가장 낮은 주사위 {0}":"Dadu terendah {0}",
 "매 턴 첫 굴림 뒤, 가장 낮은 주사위 1개를 공짜로 한 번 더 굴릴 수 있다 (쓸지 말지 고른다 · 굴림 기회는 그대로)":"Tiap giliran setelah lemparan pertama, kamu boleh melempar ulang dadu terendah sekali gratis (pilihanmu · lemparan tidak berkurang)",
 "지금은 행운의 부적을 쓸 수 없어요.":"Jimat Keberuntungan tidak bisa dipakai sekarang.",
-"주사위 합":"Jumlah dadu"};
+"주사위 합":"Jumlah dadu",
+"준비해 주세요!":"Ayo bersiap!",
+"방장에게: 시작해 주세요!":"Ke host: ayo mulai!",
+"잠깐만요":"Tunggu sebentar",
+"조금 뒤에 다시 보낼 수 있어요":"Sebentar lagi bisa kirim lagi",
+"보냈어요":"Terkirim",
+"준비 완료! 시작해 주세요":"Siap! Ayo mulai"};
