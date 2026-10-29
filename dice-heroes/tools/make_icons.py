@@ -639,6 +639,28 @@ if __name__ == '__main__':
         W = Image.new('RGBA', (560 * min(len(tiles), 4), 700 * ((len(tiles) + 3) // 4)), (245, 242, 250, 255))
         for i, t in enumerate(tiles): W.alpha_composite(t, ((i % 4) * 560, (i // 4) * 700))
         W.convert('RGB').save(sys.argv[3])
+    elif mode == 'hd':
+        # 고해상도 아이콘 (디자인은 c20 그대로): 마왕 얼굴만 AI 업스케일(Real-ESRGAN anime 6B, 원본 4배)한 그림으로 바꿔 1024px 로 그린다
+        #   python3 tools/make_icons.py hd <업스케일 폴더>   (폴더에 up6b_main.png · up6b_mask.png — 원본 crop 을 사방 PAD 만큼 넉넉히 잘라 4배 한 것)
+        upd, PAD, X = sys.argv[2], 24, 4
+        k = 480 / 1241
+        def face(box, name):
+            sb = [round(v) for v in ((box[0] - 16) / k, (box[1] - 20) / k + 13, (box[2] - 16) / k, (box[3] - 20) / k + 13)]
+            up = Image.open(os.path.join(upd, f'up6b_{name}.png')).convert('RGB')
+            al = Image.open(os.path.join(HERE, 'boss-src', 'demon.webp')).convert('RGBA').crop((sb[0] - PAD, sb[1] - PAD, sb[2] + PAD, sb[3] + PAD)).split()[3].resize(up.size, Image.LANCZOS)
+            up.putalpha(al)
+            c = up.crop((PAD * X, PAD * X, (PAD + sb[2] - sb[0]) * X, (PAD + sb[3] - sb[1]) * X))
+            return c.resize((1024, 1024), Image.LANCZOS)
+        def make(box, name):
+            bg, _ = c20()                                  # 배경은 같은 그림을 1024 로 (도트 띠 그대로)
+            im = bg.resize((1024, 1024), Image.NEAREST); im.alpha_composite(face(box, name)); return im.convert('RGB')
+        full, mask = make((209, 127, 321, 239), 'main'), make((203, 115, 327, 239), 'mask')
+        D = os.path.join(ROOT, 'icons')
+        full.save(os.path.join(D, 'icon-1024.png'), optimize=True)
+        for n in (512, 192, 180): full.resize((n, n), Image.LANCZOS).save(os.path.join(D, f'icon-{n}.png'), optimize=True)
+        mask.save(os.path.join(D, 'icon-maskable-1024.png'), optimize=True)
+        mask.resize((512, 512), Image.LANCZOS).save(os.path.join(D, 'icon-maskable-512.png'), optimize=True)
+        print('hd icons written')
     elif mode == 'build':
         FONT = sys.argv[3] if len(sys.argv) > 3 else FONT
         c = CANDS[int(sys.argv[2]) - 1]
