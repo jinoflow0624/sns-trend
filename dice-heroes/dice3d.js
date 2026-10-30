@@ -168,9 +168,10 @@ export class DiceTray {
     this.clock = new THREE.Clock();
 
     const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    // 저사양 모드: 해상도 1배 · 그림자 끔 (배터리·발열)
-    renderer.setPixelRatio(lowGfx ? 1 : Math.min(2, window.devicePixelRatio || 1));
-    renderer.shadowMap.enabled = !lowGfx;
+    // 그래픽 절약(설정): 해상도 1배 · 그림자 끔 (배터리·발열).
+    // 'auto' = 저사양 폰을 알아채 자동으로: 그림자는 그대로 두고 해상도만 1.5배까지 (2배와 눈으로 거의 같고 그리는 양은 약 44% 줄어든다)
+    renderer.setPixelRatio(lowGfx === true ? 1 : Math.min(lowGfx === 'auto' ? 1.5 : 2, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled = lowGfx !== true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;

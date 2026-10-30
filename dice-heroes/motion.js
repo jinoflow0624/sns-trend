@@ -4,6 +4,8 @@
 // 선화라 캔버스에 부드럽게(선형 필터) 그린다. 번쩍임 · 붉은 깜빡임은 그 칸 모양 그대로 색을 덧칠한다.
 // 시트는 한 장 0.6~1MB 라 다 받지 않고, 이번 판에 나오는 직업만 싸움 화면을 열기 전에 받는다 (loadMotion · stageReady)
 import { GAME } from './config.js';
+import { artURL } from './asset-ver.js';
+import { bgImage } from './bgload.js';
 
 export const FRAME = 384, COLS = 4, ORIGIN = { x: 174, y: 357 };
 // 캐릭터 키 (칸 384px 중 대기 자세가 차지하는 높이). 화면에서 영웅 크기를 맞출 때 쓴다
@@ -17,8 +19,9 @@ export const CLIPS = {
 };
 export const clipMs = name => CLIPS[name].ms.reduce((a, b) => a + b, 0);
 const IDS = ['warrior', 'rogue', 'mage', 'bard', 'gambler', 'monk', 'dancer', 'outlaw', 'sharper'];
-export const motionURL = id => `assets/heroes/${id}_motion.webp?v=${GAME.version}`;
-export const bustURL = id => `assets/heroes/${id}_bust.webp?v=${GAME.version}`;
+// 주소 버전 = 그림 파일 내용 해시 (asset-ver.js): 업데이트해도 바뀐 그림만 다시 받는다
+export const motionURL = id => artURL(`assets/heroes/${id}_motion.webp`);
+export const bustURL = id => artURL(`assets/heroes/${id}_bust.webp`);
 export const hasMotion = id => IDS.includes(id);
 // 보스 상반신 (체력바 옆 칸 · tools/make_boss_bust.py). 전신은 보스가 공격할 때 크게 나온다
 const BOSS_IDS = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'];
@@ -28,12 +31,11 @@ export const bossFlips = id => id === 'orc';
 export const bossTurns = id => BOSS_IDS.includes(id) && !['dragon', 'hydra', 'orc'].includes(id);
 // 보스 그림에 붙일 class (뒤집기 · 돌리기)
 export const bossFaceCls = id => (bossFlips(id) ? ' flip-x' : bossTurns(id) ? ' turn-r' : '');
-export const bossBustURL = id => (BOSS_IDS.includes(id) ? `assets/boss/${id}_bust.webp?v=${GAME.version}` : null);
+export const bossBustURL = id => (BOSS_IDS.includes(id) ? artURL(`assets/boss/${id}_bust.webp`) : null);
 
 // 보스 40프레임 모션 (assets/boss/<id>_motion.webp · tools/make_boss_motion.py) — 256px 칸 4열 × 10행, 기준점(발밑) (104, 240), 오른쪽(영웅 쪽)을 본다.
 // 0~3 대기 · 4~15 공격 (칸 9 타격) · 16~27 필살기 (칸 21 타격) · 28~31 피격 · 32~39 쓰러짐. 기술 효과(불 · 바위 · 사슬 …)가 그림 안에 있다.
-// 주소 버전은 게임 버전이 아니라 BOSS_MO_VER (시트가 한 장 0.7~0.9MB 라 업데이트마다 다시 받지 않게). 시트를 바꾸면 올린다
-export const BOSS_MO_VER = 'm1';
+// 주소 버전은 그림 파일 내용 해시 (asset-ver.js) — 시트를 바꾸면 node tools/asset-ver.mjs
 export const BOSS_FRAME = 256, BOSS_ORIGIN = { x: 104, y: 240 };
 export const BOSS_FIG_H = 192;   // 대기 자세 키 (칸의 75%)
 export const BOSS_CLIPS = {
@@ -47,7 +49,7 @@ export const bossClipMs = name => BOSS_CLIPS[name].ms.reduce((a, b) => a + b, 0)
 // 타격까지 걸리는 시간 (공격 500ms · 필살기 580ms)
 export const bossContactMs = name => BOSS_CLIPS[name].ms.slice(0, BOSS_CLIPS[name].contact).reduce((a, b) => a + b, 0);
 export const hasBossMotion = id => BOSS_IDS.includes(id);
-export const bossMotionURL = id => `assets/boss/${id}_motion.webp?v=${BOSS_MO_VER}`;
+export const bossMotionURL = id => artURL(`assets/boss/${id}_motion.webp`);
 const BOSS_SPEC = { F: BOSS_FRAME, clips: BOSS_CLIPS, key: id => `boss:${id}` };
 const HERO_SPEC = { F: FRAME, clips: CLIPS, key: id => id };
 
@@ -58,38 +60,64 @@ export function loadMotion(ids = []) {   // 보스 id 를 넣으면 보스 모�
   if (typeof Image === 'undefined') return Promise.resolve();
   if (!small) {
     small = true;
-    for (const id of IDS) { const b = new Image(); b.decoding = 'async'; b.src = bustURL(id); }
-    for (const id of BOSS_IDS) { const b = new Image(); b.decoding = 'async'; b.src = bossBustURL(id); }
+    for (const id of IDS) bgImage(bustURL(id), 3);          // 뒤에서 (bgload.js)
+    for (const id of BOSS_IDS) bgImage(bossBustURL(id), 3);
   }
-  const want = [...new Set(ids)].flatMap(id => (hasMotion(id) ? [[id, motionURL(id)]] : hasBossMotion(id) ? [[`boss:${id}`, bossMotionURL(id)]] : []));
-  return Promise.all(want.map(([k, url]) => {
-    if (!sheets[k]) {
+  // 이번 판 직업의 상반신 그림은 바로 (화면에 곧 나온다). 보스 id 를 넣으면 보스 모션 시트도 받는다
+  const uniq = [...new Set(ids)];
+  const busts = uniq.map(id => (hasMotion(id) ? bustURL(id) : bossBustURL(id))).filter(Boolean).map(u => bgImage(u, 1, true));
+  return Promise.all([...busts, ...uniq.filter(hasBossMotion).map(id => loadBossMotion(id, true)), ...uniq.filter(hasMotion).map(id => {
+    if (!sheets[id]) {
       const im = new Image();
       im.decoding = 'async';
-      im.src = url;
-      im.ready = im.decode ? im.decode().catch(() => {}) : new Promise(r => { im.onload = im.onerror = r; });
-      sheets[k] = im;
+      im.src = motionURL(id);
+      im.ready = (im.decode ? im.decode().catch(() => {}) : new Promise(r => { im.onload = im.onerror = r; })).then(() => shrink(id, im));
+      sheets[id] = im;
     }
-    return sheets[k].ready;
-  }));
+    return sheets[id].ready;
+  })]);
+}
+// 보스 모션 시트 (한 장 0.7~0.9MB): 뒤에서 받기 줄로 (bgload.js). now = 싸움 화면이 기다린다 (줄 앞으로)
+// 칸이 256px 라 줄이지 않는다 (화면 속 보스 캔버스 약 200px × 기기 픽셀 — 이미 그 크기 안팎)
+const bossLoad = {};
+export function loadBossMotion(id, now = false) {
+  if (typeof Image === 'undefined' || !hasBossMotion(id)) return Promise.resolve();
+  const k = `boss:${id}`;
+  if (sheets[k]) return Promise.resolve();
+  if (bossLoad[id] && !now) return bossLoad[id];
+  return (bossLoad[id] = bgImage(bossMotionURL(id), 2, now).then(im => { if (im) sheets[k] = im; }));
 }
 export const preloadMotion = () => loadMotion();
+// 메모리가 적은 폰(4GB 이하): 모션 시트(1536×3072, 풀면 한 장 19MB)를 화면에 그려지는 크기에 맞춰 줄여 둔다.
+// 영웅은 화면에서 약 113px 폭 → 기기 픽셀(devicePixelRatio)의 1.15배 여유를 두고 줄이므로 눈으로 보이는 화질은 같다 (줄이는 만큼 메모리 ↓ · 그리기 ↑)
+const SHOWN_W = 113;
+function shrink(id, im) {
+  try {
+    const mem = typeof navigator !== 'undefined' ? navigator.deviceMemory : 0;
+    if (!mem || mem > 4 || typeof createImageBitmap !== 'function' || !im.naturalWidth) return;
+    const s = Math.min(1, Math.max(0.5, (SHOWN_W * (devicePixelRatio || 1) * 1.15) / FRAME));
+    if (s > 0.9) return;
+    return createImageBitmap(im, { resizeWidth: Math.round(im.naturalWidth * s), resizeHeight: Math.round(im.naturalHeight * s), resizeQuality: 'high' })
+      .then(bm => { sheets[id] = { img: bm, s: bm.width / im.naturalWidth, complete: true, naturalWidth: bm.width, ready: im.ready }; })
+      .catch(() => {});
+  } catch { /* 원래 시트 그대로 */ }
+}
 export const motionReady = id => !!sheets[id]?.complete && sheets[id].naturalWidth > 0;
 export const bossMotionReady = id => motionReady(`boss:${id}`);
 
 // 칸 하나 그리기. tint = { color, a } 면 그 칸 모양 그대로 색을 덧칠한다 (번쩍임)
 const tmp = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 function drawFrame(g, key, f, tint, FRAME) {
-  const im = sheets[key];
-  const sx = (f % COLS) * FRAME, sy = Math.floor(f / COLS) * FRAME;
+  const sh = sheets[key], im = sh.img || sh, k = sh.s || 1;   // 줄여 둔 시트(shrink)는 칸 위치도 그 비율로
+  const sx = (f % COLS) * FRAME * k, sy = Math.floor(f / COLS) * FRAME * k, fw = FRAME * k;
   g.clearRect(0, 0, FRAME, FRAME);
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-  g.drawImage(im, sx, sy, FRAME, FRAME, 0, 0, FRAME, FRAME);
+  g.drawImage(im, sx, sy, fw, fw, 0, 0, FRAME, FRAME);
   if (tint && tint.a > 0.01) {
     tmp.width = tmp.height = FRAME;
     const t = tmp.getContext('2d');
     t.clearRect(0, 0, FRAME, FRAME);
-    t.drawImage(im, sx, sy, FRAME, FRAME, 0, 0, FRAME, FRAME);
+    t.drawImage(im, sx, sy, fw, fw, 0, 0, FRAME, FRAME);
     t.globalCompositeOperation = 'source-in';
     t.fillStyle = tint.color;
     t.fillRect(0, 0, FRAME, FRAME);

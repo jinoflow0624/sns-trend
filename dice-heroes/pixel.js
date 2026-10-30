@@ -1,4 +1,6 @@
 import { GAME } from './config.js';
+import { artURL } from './asset-ver.js';
+import { bgImage } from './bgload.js';
 // 도트 그림 — 스프라이트를 문자 격자로 적어 두고 캔버스로 그린다(이미지 파일 없음).
 // 영웅·요정은 16×16, 보스는 32×32.
 // 글자 하나가 픽셀 하나, '.'는 투명. 색은 PALETTE(공용) + 스프라이트별 색으로 정한다.
@@ -351,30 +353,37 @@ export const HERO_POSES = {};   // 예: { warrior: ['attack', 'hurt'] }
 
 // 그림 파일로 된 스프라이트 — 마왕 릴리스 (512px 도트 그림: 평소 · 분노) · 새 직업 그림. 파일을 받기 전에는 위의 도트로 대신 그린다
 // 주소 끝 ?v=게임 버전: 그림을 바꿔 배포하면 오프라인 캐시에 남은 예전 그림 대신 바로 새 그림을 받는다 (sw.js)
-const AV = `?v=${GAME.version}`;
+// 주소 버전은 그림 파일 내용 해시 (asset-ver.js) — 업데이트해도 바뀐 그림만 다시 받는다
 const BOSS_ART = ['dragon', 'orc', 'lich', 'hydra', 'cyclops', 'overlord', 'demon', 'archdemon'];
 const IMG_SPRITES = {
   // 보스 8종 그림 (tools/make_boss_sprites.py로 원본을 512px로 맞춤). 분노는 그림을 바꾸지 않고 연출로만 보여 준다
-  ...Object.fromEntries(BOSS_ART.map(id => [id, `assets/boss/${id}.webp${AV}`])),
-  ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, `assets/heroes/${id}.webp${AV}`],
-    ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, `assets/heroes/${id}_${pose}.webp${AV}`])]))),
+  ...Object.fromEntries(BOSS_ART.map(id => [id, artURL(`assets/boss/${id}.webp`)])),
+  ...(HERO_ART === 'v1' ? {} : Object.fromEntries(HERO_IDS.flatMap(id => [[id, artURL(`assets/heroes/${id}.webp`)],
+    ...(HERO_POSES[id] || []).map(pose => [`${id}_${pose}`, artURL(`assets/heroes/${id}_${pose}.webp`)])]))),
 };
 export const heroPoseURL = (id, pose) => (IMG_SPRITES[`${id}_${pose}`] || IMG_SPRITES[id] || null);
 const imgs = {};
 export const isImgSprite = name => !!IMG_SPRITES[name];
+// 보스 · 영웅 그림은 뒤에서 받는다 (bgload.js — 첫 화면이 준비된 뒤, 화면이 무언가를 받는 동안은 비켜 준다).
+// 이 그림을 쓰는 화면(혼자 플레이 창 · 보스 고르기 · 싸움)은 열기 전에 spriteReady 로 기다린다
 export function preloadSprites() {
   if (typeof Image === 'undefined') return;
   for (const [k, url] of Object.entries(IMG_SPRITES)) {
     if (imgs[k]) continue;
-    const im = new Image();
-    im.onload = () => {
+    imgs[k] = bgImage(url, k in HERO_FIRST ? 1 : 2).then(im => {
+      if (!im) return null;
+      imgs[k] = im;
       for (const key of [...cache.keys()]) if (key.startsWith(k + ':')) cache.delete(key);   // 대신 그린 도트는 지운다
-      im.decode?.().catch(() => {});   // 처음 화면에 나올 때 압축을 푸느라 멈칫하지 않게 미리 풀어 둔다
-    };
-    im.decoding = 'async';
-    im.src = url;
-    imgs[k] = im;
+      return im;
+    });
   }
+}
+// 혼자 플레이 창에 먼저 나오는 그림 (대전 카드의 전사 · 도박사, 보스전 카드의 화염룡)
+const HERO_FIRST = { warrior: 1, gambler: 1, dragon: 1 };
+// 이 이름들의 그림이 다 받아져 풀렸을 때 풀린다 (없는 이름은 무시)
+export function spriteReady(names) {
+  preloadSprites();
+  return Promise.all(names.filter(n => IMG_SPRITES[n]).map(n => bgImage(IMG_SPRITES[n], 1, true)));   // 줄에 있으면 앞으로
 }
 preloadSprites();
 
