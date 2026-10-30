@@ -6,6 +6,6 @@ export const GAME = {
   sub: tL('요트 주사위 RPG'),
   subEn: 'YACHT DICE RPG',
   studio: 'HAHAHOHO COMPANY',
-  version: '0.40.6',
+  version: '0.40.7',
   year: 2026,
 };

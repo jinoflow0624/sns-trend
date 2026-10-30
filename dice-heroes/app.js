@@ -6,8 +6,8 @@ import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL, HERO_ART, spriteReady } from './pixel.js';
-import { fg, bgStart, bgFile, afterBoot } from './bgload.js';
-import { HeroMotion, BossMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, loadMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, FRAME, ORIGIN, FIG_H, hasBossMotion, bossMotionReady, bossClipMs, bossContactMs, BOSS_FRAME, BOSS_ORIGIN, BOSS_FIG_H } from './motion.js';
+import { fg, bgStart, bgFile, bgImage, afterBoot } from './bgload.js';
+import { HeroMotion, BossMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, loadMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, FRAME, ORIGIN, FIG_H, hasBossMotion, bossMotionReady, loadBossMotion, bossClipMs, bossContactMs, BOSS_FRAME, BOSS_ORIGIN, BOSS_FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong, BGM_FILES } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -492,7 +492,7 @@ const STEP_SHORT = { mode: tL('모드'), boss: tL('보스'), rule: tL('규칙'),
 // 고르기 화면(직업 다이얼 · 보스 칸)에 나오는 그림을 다 받은 뒤에 연다 (보통은 첫 화면 뒤에 이미 받아 둠 — 기다림 없음)
 const PICK_ART = [...E.CLASSES.map(c => c.id), ...E.BOSSES.map(b => b.id)];
 function beginPick(kind, o, fixed = false) {
-  if (!beginPick.ok) return readyOrWait(fg(spriteReady(PICK_ART))).then(() => { beginPick.ok = true; beginPick(kind, o, fixed); });
+  if (!beginPick.ok) return readyOrWait(fg(Promise.all([spriteReady(PICK_ART), ...E.BOSSES.map(b => bgImage(bossBustURL(b.id), 1, true))]))).then(() => { beginPick.ok = true; beginPick(kind, o, fixed); });
   pick = { for: kind, step: fixed ? (o.mode === 'coop' ? 'boss' : 'rule') : 'mode', o, fixed };
   showSetup();
 }
@@ -613,20 +613,27 @@ function clampDiff(o) {
 // 마왕 · 마신 · 강화 보스(세머리 · 키클롭스 · 오버로드): 해금하기 전에는 자리(잠금 칸)도 보이지 않는다 — 완전히 숨긴 보스 (스포일러 방지).
 // 원래 보스를 어려움으로 토벌하면 해금 연출과 함께 처음 나타난다
 const finalShown = b => (!b.final || demonOpen()) && (!b.base || upgradeOpen(b.id));
+// 보스 선택 (메가맨 X 의 8보스 선택처럼): 3×3 칸 — 가운데는 선택 문장, 둘레 8칸이 보스 얼굴. 고른 보스는 칸이 깜빡이고,
+// 아래 무대에 전신이 크게 (모션 시트가 받아져 있으면 대기 동작). 위 줄 = 원래 보스, 아래 줄 = 그 강화 보스, 가운데 줄 양옆 = 마왕 · 마신.
+// 아직 해금하지 않은 보스 칸은 '???' 잡음 화면 (누가 나오는지는 숨긴다 — 칸 수만 보인다)
+const BOSS_GRID = ['dragon', 'orc', 'lich', 'demon', null, 'archdemon', 'hydra', 'cyclops', 'overlord'];
 function bossPicker(o) {
   clampDiff(o);
+  const b = E.bossInfo(o.boss), n = E.BOSSES.findIndex(x => x.id === o.boss) + 1;
+  const tile = id => {
+    if (!id) return `<div class="bs-core" style="--c:${b.color}" aria-hidden="true"><i class="bs-crest">${ico('swords')}</i><b>BOSS</b><small>SELECT</small></div>`;
+    const x = E.bossInfo(id);
+    if (!finalShown(x)) return `<button class="bs-tile hidden" data-act="boss-locked"${x.base ? ` data-base="${x.base}"` : ''} aria-label="???"><i class="bs-noise"></i><b>???</b></button>`;
+    const won = [0, 1, 2].some(d => clearedAt(id, d));
+    return `<button class="bs-tile${o.boss === id ? ' on' : ''}${x.final ? ' final' : ''}" style="--c:${x.color}" data-act="boss" data-v="${id}" aria-label="${esc(x.ko)}">
+      <img class="bs-face" src="${bossBustURL(id)}" alt="" decoding="async">${won ? `<i class="bs-won">${ico('crown', 'xs')}</i>` : ''}</button>`;
+  };
   return `
-  <section class="frame mode-box">
-    <div class="bosses">
-      ${E.BOSSES.filter(finalShown).map(b => b.final && !demonOpen()
-        ? `<button class="boss-pick sealed-boss final hidden-boss" data-act="boss-locked">
-          <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${TR('{0} 봉인됨', ico('lock', 'xs'))}</small></button>`
-        : !upgradeOpen(b.id)
-        ? `<button class="boss-pick sealed-boss hidden-boss${b.final ? ' final' : ''}" data-act="boss-locked" data-base="${b.base}">
-          <span class="bp-seal">${ico('lock')}</span><b>???</b><small>${TR('{0} {1} 어려움 토벌', ico('lock', 'xs'), E.bossInfo(b.base).ko.split(' ')[0])}</small></button>`
-        : `<button class="boss-pick${o.boss === b.id ? ' on' : ''}${b.final ? ' final' : ''}${b.base ? ' upgraded' : ''}" style="--c:${b.color}" data-act="boss" data-v="${b.id}">
-          ${portrait(b.id, 'bp')}<b>${b.ko}</b><small>${b.title}</small>
-        </button>`).join('')}
+  <section class="frame mode-box bsel">
+    <div class="bs-grid">${BOSS_GRID.map(tile).join('')}</div>
+    <div class="bs-show" style="--c:${b.color}">
+      <div class="bs-stage" id="bs-stage">${portrait(b.id, 'bs-body')}</div>
+      <div class="bs-info"><small>BOSS ${String(n).padStart(2, '0')}</small><b>${esc(b.ko)}</b><span>${esc(b.title)}</span></div>
     </div>
     <div class="diffs">
       ${E.DIFFS.filter(d => E.bossDiffs(o.boss).includes(d.id)).map(d => diffOpen(o.boss, d.id)
@@ -635,10 +642,31 @@ function bossPicker(o) {
     </div>
     ${firstClearNote(o)}
     <ul class="skills">
-      ${E.bossInfo(o.boss).skills.map(k => `<li><span>${skillIco(k.id)}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
+      ${b.skills.map(k => `<li><span>${skillIco(k.id)}</span><div><b>${k.ko}</b><small>${esc(k.desc(o.diff))}</small></div></li>`).join('')}
     </ul>
     <p class="hint">${TR('{0}의뢰로 모은 뒤집기·조정으로 큰 족보를 노리세요.', !diffOpen(o.boss, 2) ? `${TR('{0}을 깨면 {1}이 열려요.', E.DIFFS[diffOpen(o.boss, 1) ? 1 : 0].ko, E.DIFFS[diffOpen(o.boss, 1) ? 2 : 1].ko)} ` : '')}</p>
   </section>`;
+}
+// 보스 무대: 모션 시트가 받아져 있으면 전신 그림 대신 대기 동작 (없으면 뒤에서 받아 두고, 받으면 그때 바꾼다)
+function mountBossStage(id) {
+  const st = document.getElementById('bs-stage');
+  if (!st || !hasBossMotion(id)) return;
+  const put = () => {
+    const el = document.getElementById('bs-stage');
+    if (!el || el.dataset.mo || pick?.o?.boss !== id || !bossMotionReady(id)) return;
+    el.dataset.mo = '1';
+    el.innerHTML = '<canvas class="bs-cv"></canvas>';
+    new BossMotion(el.querySelector('canvas'), id);
+  };
+  if (bossMotionReady(id)) put(); else loadBossMotion(id).then(put);
+}
+// 보스를 고르고 다음으로: 메가맨 X 처럼 고른 칸이 하얗게 빠르게 깜빡이고 넘어간다 (보스 등장 연출은 싸움을 시작할 때 bossBanner)
+function bossConfirm() {
+  const t = document.querySelector('.bs-tile.on');
+  if (!t || prefs.fx === 'min' || matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+  t.classList.add('go');
+  sfx.powerUp?.(1.4); buzz(30);
+  return new Promise(r => setTimeout(r, 480));
 }
 
 // 고른 모드·보스 한 줄 요약 (캐릭터 선택 화면 · 대기실)
@@ -682,7 +710,7 @@ function showSetup() {
   if (pick.step === 'mode') body = `${modeCards(o)}`;
   if (pick.step === 'rule') body = `${ruleCards(o)}`;
   if (pick.step === 'boss') body = `${bossPicker(o)}
-      <button class="pbtn gold big" data-act="pick-next">${last ? (pick.for === 'create' ? TR('방 만들기') : TR('완료')) : TR('다음 ▶')}</button>`;
+      <button class="pbtn gold big bs-next" data-act="pick-next">${last ? (pick.for === 'create' ? TR('방 만들기') : TR('완료')) : TR('다음 ▶')}</button>`;
   if (pick.step === 'party') body = `
       ${optsSummary(o)}
       ${setup.map((pl, i) => seatCard(pl, i, { editable: true, removable: setup.length > 1, humanToggle: true })).join('')}
@@ -697,12 +725,13 @@ function showSetup() {
     </header>
     <div class="steps" aria-hidden="true">${shown.map((k, j) => `<span class="${j < n ? 'done' : j === n ? 'now' : ''}">${STEP_SHORT[k]}</span>`).join('')}</div>
     <div class="wrap">${body}</div>
-  </div>`;
+  </div>`;  if (pick.step === 'boss') mountBossStage(o.boss);
 }
 
 // 다음 단계 / 이전 단계. 끝까지 가면: 한 기기 → 출발 버튼(캐릭터 화면), 방 만들기 → 방 생성, 대기실 → 반영하고 돌아감
-function pickNext() {
+function pickNext(seen = false) {
   const steps = pickSteps(), n = steps.indexOf(pick.step);
+  if (pick.step === 'boss' && !seen) { if (document.querySelector('.bs-tile.go')) return; return bossConfirm().then(() => pickNext(true)); }
   if (n < steps.length - 1) { pick.step = steps[n + 1]; return showSetup(); }
   if (pick.o.mode === 'coop') clampDiff(pick.o);
   if (pick.for === 'create') { saveOpts(); return createRoom(); }
@@ -2338,6 +2367,7 @@ function bossIn(id, color = '#E8435A') {
   return { el, id, ...at, mo: mo ? new BossMotion(el.querySelector('canvas'), id) : null };
 }
 // 필살기 모션을 쓰는 보스 스킬 (불기둥 · 바위 · 소용돌이 · 사슬 …). 나머지 공격은 일반 공격 모션
+const DICE_SKILL = new Set(['breath', 'hfire', 'hice', 'twist', 'reverse', 'seal', 'eternal']);
 const BOSS_ULT = new Set(['breath', 'drums', 'twist', 'hfire', 'hice', 'rock', 'reverse', 'seal', 'haki', 'eternal', 'midnight']);
 // 보스 공격: 몸을 뒤로 젖혔다가(번쩍) 오른쪽으로 덤벼든다. contact = 닿는 순간 (전체의 45%)
 // 모션이 있으면 kind('attack' 일반 공격 · 'ult' 필살기) 동작을 끝까지 틀고, 타격 칸(공격 500ms · 필살기 580ms)에서 contact
@@ -2927,7 +2957,8 @@ async function playOne(f) {
         const b = E.bossInfo(S.boss.id);
         const extra = f.cats ? ` 「${f.cats.map(c => E.catInfo(c).ko).join('」「')}」` : f.cat ? ` 「${E.catInfo(f.cat).ko}」` : f.head ? ` ${TR('({0} 머리)', E.HEAD_KO[f.head])}` : '';
         const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, bossBust(bossArt(), 't-boss'));
-        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260, BOSS_ULT.has(f.skill) ? 'ult' : 'attack');   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
+        // 보스 자신에게 쓰는 스킬 · 주사위를 바꾸는 스킬(불타 1 · 얼음 · 뒤집기 · 역전 · 봉인)은 보스 · 영웅이 나오지 않는다 — 주사위가 변하는 연출에 눈이 가게
+        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill) && !DICE_SKILL.has(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260, BOSS_ULT.has(f.skill) ? 'ult' : 'attack');   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;
         break;

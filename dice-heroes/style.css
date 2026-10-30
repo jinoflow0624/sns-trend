@@ -2276,3 +2276,70 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
 .load-veil .boot-load small { margin-top: 4px; }
 .boot-bar.indet i { width: 35% !important; animation: indet 1.1s ease-in-out infinite; }
 @keyframes indet { 0% { transform: translateX(-100%); } 100% { transform: translateX(290%); } }
+
+/* ── 라운드 · 막 표시 (v0.40.7): 버튼처럼 보이지 않게 — 튀어나온 빨간 틀 대신 판에 파인 어두운 표시창 (누를 수 없는 정보) ── */
+.round-chip, .rh-act {
+  border: 0 !important; border-image: none !important; border-radius: 3px;
+  background: linear-gradient(#07051A, #120C30);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(232, 67, 90, .35), 0 1px 0 rgba(255, 255, 255, .06);
+  cursor: default; user-select: none; }
+.round-chip small, .rh-act small { color: #E8738A; letter-spacing: .12em; }
+.round-chip b, .rh-act b { color: #FFE9EE; text-shadow: 0 0 6px rgba(232, 67, 90, .55); }
+.round-chip i { color: #C7A9B4; }
+
+/* ── 보스 선택 (v0.40.7): 메가맨 X 의 8보스 선택처럼 3×3 칸 + 아래 무대에 큰 전신 (app.js bossPicker) ── */
+.bsel { display: grid; gap: 10px; }
+.bs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 100%; max-width: 330px; margin: 0 auto; }
+.bs-tile, .bs-core { position: relative; aspect-ratio: 1; min-width: 0; }
+.bs-tile { padding: 0; overflow: hidden; border: 3px solid var(--ink); cursor: pointer;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--c, #4F6CFF) 45%, #0A1236) 0%, #0A1236 70%);
+  box-shadow: inset 0 0 0 2px #A8B4D8, inset 0 0 0 4px #3A4470, inset 0 0 0 5px var(--ink); }
+.bs-face { position: absolute; inset: 7px; width: calc(100% - 14px); height: calc(100% - 14px); object-fit: cover; object-position: 50% 30%; image-rendering: auto;
+  filter: saturate(.65) brightness(.78); transition: filter .15s; }
+.bs-tile.on .bs-face { filter: none; }
+.bs-tile.on { z-index: 1; animation: bsCursor .5s steps(1, end) infinite; }
+@keyframes bsCursor {
+  0% { box-shadow: inset 0 0 0 3px #FFE27A, inset 0 0 0 5px #FFFFFF, inset 0 0 0 6px var(--ink), 0 0 0 2px #FFE27A, 0 0 16px color-mix(in srgb, var(--c) 80%, transparent); }
+  50% { box-shadow: inset 0 0 0 3px #FFFFFF, inset 0 0 0 5px #FFE27A, inset 0 0 0 6px var(--ink), 0 0 0 2px #FFFFFF, 0 0 10px color-mix(in srgb, var(--c) 60%, transparent); } }
+.bs-tile.final { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--c) 60%, #1A0410) 0%, #12030A 72%); }
+.bs-won { position: absolute; right: 3px; top: 3px; display: grid; place-items: center; width: 18px; height: 18px; background: #FFD24A; border: 2px solid var(--ink); }
+.bs-won .ico { width: 12px; height: 12px; }
+/* 아직 깨어나지 않은 보스: 신호가 끊긴 잡음 화면 */
+.bs-tile.hidden { cursor: pointer; background: #0A0A18; }
+.bs-noise { position: absolute; inset: 6px; opacity: .55;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .12) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(120, 130, 200, .18) 0 2px, transparent 2px 5px);
+  animation: bsNoise .35s steps(3) infinite; }
+@keyframes bsNoise { 0% { background-position: 0 0, 0 0; } 33% { background-position: 0 2px, 3px 0; } 66% { background-position: 0 -1px, -2px 0; } }
+.bs-tile.hidden b { position: relative; font-size: 18px; color: #6E78A8; text-shadow: 2px 2px 0 var(--ink); }
+/* 가운데 칸: 선택 문장 (지금 고른 보스 색으로 빛난다) */
+.bs-core { display: grid; place-content: center; justify-items: center; gap: 1px; border: 3px solid var(--ink);
+  background: radial-gradient(circle, color-mix(in srgb, var(--c) 55%, #0A1236) 0%, #070A22 75%);
+  box-shadow: inset 0 0 0 2px #A8B4D8, inset 0 0 0 4px #3A4470, inset 0 0 18px color-mix(in srgb, var(--c) 70%, transparent); }
+.bs-crest .ico { width: 30px; height: 30px; filter: drop-shadow(0 2px 0 var(--ink)); }
+.bs-core b { font-size: 15px; letter-spacing: .12em; color: #FFE27A; text-shadow: 2px 2px 0 var(--ink); line-height: 1; }
+.bs-core small { font-size: 9px; letter-spacing: .25em; color: #FFFFFF; animation: bsBlink 1s steps(1, end) infinite; }
+@keyframes bsBlink { 50% { opacity: .25; } }
+/* 무대: 보스 색 빗살 무늬 위에 전신이 크게 */
+.bs-show { position: relative; display: grid; grid-template-columns: 54% minmax(0, 1fr); align-items: end; height: 196px; overflow: hidden; border: 3px solid var(--ink);
+  background:
+    linear-gradient(transparent 70%, rgba(0, 0, 0, .45)),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--c) 34%, #0A0820) 0 12px, color-mix(in srgb, var(--c) 20%, #0A0820) 12px 24px);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 70%, #FFFFFF), inset 0 0 30px rgba(0, 0, 0, .6); }
+.bs-stage { position: relative; height: 100%; }
+.bs-stage img.bs-body { position: absolute; left: 50%; bottom: 4px; width: auto; height: 92%; max-width: none; transform: translateX(-50%); image-rendering: auto;
+  filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(0 0 10px color-mix(in srgb, var(--c) 70%, transparent)); animation: bsFloat 2.4s ease-in-out infinite; }
+@keyframes bsFloat { 50% { translate: 0 -4px; } }
+/* 모션 대기 동작: 칸 256 · 기준점(104, 240) 을 무대 아래 가운데에 */
+.bs-cv { position: absolute; width: 236px; height: 236px; left: 50%; bottom: -10px; transform: translateX(-40.6%); image-rendering: auto; }
+.bs-info { display: grid; gap: 3px; padding: 10px 10px 14px 4px; align-self: center; min-width: 0; }
+.bs-info small { font-size: 10px; letter-spacing: .2em; color: #FFE27A; text-shadow: 1px 1px 0 var(--ink); }
+.bs-info b { font-size: 18px; line-height: 1.2; color: #FFFFFF; text-shadow: 2px 2px 0 var(--ink), 0 0 10px color-mix(in srgb, var(--c) 80%, transparent); overflow-wrap: anywhere; text-wrap: balance; }
+.bs-info span { font-size: 11px; line-height: 1.4; color: #E4DEFF; text-shadow: 1px 1px 0 var(--ink); }
+@media (prefers-reduced-motion: reduce) { .bs-tile.on, .bs-noise, .bs-core small, .bs-stage img.bs-body { animation: none; } }
+
+.bs-tile.on.go { animation: bsGo .08s steps(1, end) 6; }
+@keyframes bsGo { 0% { filter: brightness(2.6); box-shadow: inset 0 0 0 6px #FFFFFF, 0 0 0 3px #FFFFFF, 0 0 22px #FFFFFF; } 50% { filter: none; } }
+/* 한 화면에: 칸은 조금 작게, '다음' 버튼은 화면 아래에 붙여 둔다 (설명을 내려 읽는 동안에도 보이게) */
+.bs-grid { max-width: 276px; gap: 5px; }
+.bs-show { height: 178px; }
+.bs-next { position: sticky; bottom: 10px; z-index: 5; box-shadow: 0 6px 0 var(--ink), 0 0 0 6px rgba(10, 8, 32, .85), 0 10px 24px rgba(0, 0, 0, .6); }
