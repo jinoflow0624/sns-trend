@@ -2289,8 +2289,6 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
 
 /* ── 보스 선택 (v0.40.7): 메가맨 X 의 8보스 선택처럼 3×3 칸 + 아래 무대에 큰 전신 (app.js bossPicker) ── */
 .bsel { display: grid; gap: 10px; }
-.bs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 100%; max-width: 330px; margin: 0 auto; }
-.bs-tile, .bs-core { position: relative; aspect-ratio: 1; min-width: 0; }
 .bs-tile { padding: 0; overflow: hidden; border: 3px solid var(--ink); cursor: pointer;
   background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--c, #4F6CFF) 45%, #0A1236) 0%, #0A1236 70%);
   box-shadow: inset 0 0 0 2px #A8B4D8, inset 0 0 0 4px #3A4470, inset 0 0 0 5px var(--ink); }
@@ -2304,20 +2302,6 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
 .bs-tile.final { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--c) 60%, #1A0410) 0%, #12030A 72%); }
 .bs-won { position: absolute; right: 3px; top: 3px; display: grid; place-items: center; width: 18px; height: 18px; background: #FFD24A; border: 2px solid var(--ink); }
 .bs-won .ico { width: 12px; height: 12px; }
-/* 아직 깨어나지 않은 보스: 신호가 끊긴 잡음 화면 */
-.bs-tile.hidden { cursor: pointer; background: #0A0A18; }
-.bs-noise { position: absolute; inset: 6px; opacity: .55;
-  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .12) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(120, 130, 200, .18) 0 2px, transparent 2px 5px);
-  animation: bsNoise .35s steps(3) infinite; }
-@keyframes bsNoise { 0% { background-position: 0 0, 0 0; } 33% { background-position: 0 2px, 3px 0; } 66% { background-position: 0 -1px, -2px 0; } }
-.bs-tile.hidden b { position: relative; font-size: 18px; color: #6E78A8; text-shadow: 2px 2px 0 var(--ink); }
-/* 가운데 칸: 선택 문장 (지금 고른 보스 색으로 빛난다) */
-.bs-core { display: grid; place-content: center; justify-items: center; gap: 1px; border: 3px solid var(--ink);
-  background: radial-gradient(circle, color-mix(in srgb, var(--c) 55%, #0A1236) 0%, #070A22 75%);
-  box-shadow: inset 0 0 0 2px #A8B4D8, inset 0 0 0 4px #3A4470, inset 0 0 18px color-mix(in srgb, var(--c) 70%, transparent); }
-.bs-crest .ico { width: 30px; height: 30px; filter: drop-shadow(0 2px 0 var(--ink)); }
-.bs-core b { font-size: 15px; letter-spacing: .12em; color: #FFE27A; text-shadow: 2px 2px 0 var(--ink); line-height: 1; }
-.bs-core small { font-size: 9px; letter-spacing: .25em; color: #FFFFFF; animation: bsBlink 1s steps(1, end) infinite; }
 @keyframes bsBlink { 50% { opacity: .25; } }
 /* 무대: 보스 색 빗살 무늬 위에 전신이 크게 */
 .bs-show { position: relative; display: grid; grid-template-columns: 54% minmax(0, 1fr); align-items: end; height: 196px; overflow: hidden; border: 3px solid var(--ink);
@@ -2335,11 +2319,94 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
 .bs-info small { font-size: 10px; letter-spacing: .2em; color: #FFE27A; text-shadow: 1px 1px 0 var(--ink); }
 .bs-info b { font-size: 18px; line-height: 1.2; color: #FFFFFF; text-shadow: 2px 2px 0 var(--ink), 0 0 10px color-mix(in srgb, var(--c) 80%, transparent); overflow-wrap: anywhere; text-wrap: balance; }
 .bs-info span { font-size: 11px; line-height: 1.4; color: #E4DEFF; text-shadow: 1px 1px 0 var(--ink); }
-@media (prefers-reduced-motion: reduce) { .bs-tile.on, .bs-noise, .bs-core small, .bs-stage img.bs-body { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bs-tile.on, .bs-stage img.bs-body { animation: none; } }
 
 .bs-tile.on.go { animation: bsGo .08s steps(1, end) 6; }
 @keyframes bsGo { 0% { filter: brightness(2.6); box-shadow: inset 0 0 0 6px #FFFFFF, 0 0 0 3px #FFFFFF, 0 0 22px #FFFFFF; } 50% { filter: none; } }
 /* 한 화면에: 칸은 조금 작게, '다음' 버튼은 화면 아래에 붙여 둔다 (설명을 내려 읽는 동안에도 보이게) */
-.bs-grid { max-width: 276px; gap: 5px; }
 .bs-show { height: 178px; }
 .bs-next { position: sticky; bottom: 10px; z-index: 5; box-shadow: 0 6px 0 var(--ink), 0 0 0 6px rgba(10, 8, 32, .85), 0 10px 24px rgba(0, 0, 0, .6); }
+
+/* ── 보스의 탑 (v0.40.8): 아래 1층부터 위로 — 위층일수록 좁아지고 꼭대기엔 첨탑 (app.js BOSS_TOWER) ── */
+.bs-tower { position: relative; display: grid; justify-items: center; width: 100%; max-width: 300px; margin: 0 auto; padding-top: 30px; }
+.bt-spire { position: absolute; top: 0; left: 50%; width: 132px; height: 34px; transform: translateX(-50%);
+  background: linear-gradient(color-mix(in srgb, var(--c) 45%, #3A1030), #1E0A24); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.bt-spire::after { content: ''; position: absolute; left: calc(50% - 1px); top: 4px; width: 2px; height: 12px; background: #FFE27A; }
+.bt-floor { position: relative; display: flex; justify-content: center; gap: 6px; width: 100%; padding: 9px 8px 10px; margin-top: -3px;
+  border: 3px solid var(--ink);
+  background:
+    linear-gradient(rgba(255, 255, 255, .07), transparent 12%, transparent 88%, rgba(0, 0, 0, .35)),
+    repeating-linear-gradient(0deg, transparent 0 13px, rgba(0, 0, 0, .35) 13px 14px),
+    repeating-linear-gradient(90deg, transparent 0 25px, rgba(0, 0, 0, .28) 25px 26px),
+    #2B2552;
+  box-shadow: inset 0 3px 0 #4E4690, inset 0 -3px 0 #17122E; }
+.bt-floor.f3 { width: 64%; }
+.bt-floor.f4 { width: 48%; }
+/* 꼭대기 층: 성가퀴 (톱니 모양 위 끝) */
+.bt-floor.f4::before { content: ''; position: absolute; left: -3px; right: -3px; top: -11px; height: 8px;
+  background: repeating-linear-gradient(90deg, #2B2552 0 12px, transparent 12px 20px); }
+.bt-floor:has(.bs-tile.on) { background-color: color-mix(in srgb, var(--c) 30%, #2B2552); }
+.bt-no { position: absolute; left: 5px; top: 4px; font-size: 9px; letter-spacing: .06em; color: #A8A0D0; text-shadow: 1px 1px 0 var(--ink); }
+.bt-base { width: 112%; height: 10px; margin-top: -3px; border: 3px solid var(--ink); background: #1C1838; box-shadow: inset 0 2px 0 #3A3470; }
+.bt-floor .bs-tile { position: relative; flex: none; width: 74px; height: 74px; }
+.bt-floor.solo .bs-tile { width: 80px; height: 80px; }
+/* 아직 깨어나지 않은 층: 쇠붙이 박힌 아치 문 + 자물쇠 */
+.bs-tile.hidden { cursor: pointer; background: #120E24; }
+.bs-door { position: absolute; inset: 7px 10px 5px; border: 2px solid var(--ink); border-radius: 50% 50% 0 0 / 34% 34% 0 0;
+  background: repeating-linear-gradient(90deg, #4A2E18 0 9px, #3A2210 9px 10px), #4A2E18;
+  box-shadow: inset 0 0 0 2px #6E4A26, inset 0 10px 0 -6px #7C7898, inset 0 -12px 0 -8px #7C7898; }
+.bs-tile.hidden.final .bs-door { background: repeating-linear-gradient(90deg, #3A0E1E 0 9px, #2A0814 9px 10px); box-shadow: inset 0 0 0 2px #7A1A34, 0 0 12px rgba(194, 30, 86, .5); }
+.bs-lock { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); }
+.bs-lock .ico { width: 18px; height: 18px; filter: drop-shadow(0 2px 0 var(--ink)); }
+
+/* ── 봉인된 보스가 깨어난다 (app.js awakenReveal): 봉인진 → 금 세 번 → 사슬이 끊기고 산산조각 → 실루엣이 솟고 → 빛 ── */
+.demon-reveal.awaken { display: block; padding: 0; overflow: hidden; background: #040208; animation: fade .4s; }
+.awaken .aw-glow { position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--c) 55%, transparent) 0%, transparent 55%); opacity: 0;
+  animation: awBeat 1.1s ease-in-out .3s infinite; }
+@keyframes awBeat { 0%, 100% { opacity: .08; } 12% { opacity: .45; } 24% { opacity: .15; } 36% { opacity: .38; } }
+.awaken.snap .aw-glow { animation: none; opacity: .5; transition: opacity 1.2s; }
+.awaken.lit .aw-glow { opacity: .3; }
+.aw-seal { position: absolute; left: 50%; top: 40%; width: min(74vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%); color: var(--c); }
+.aw-ring { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.4; filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 16px currentColor);
+  stroke-dasharray: 620; stroke-dashoffset: 620; animation: awDraw 1s ease-out forwards, awSpin 18s linear infinite; }
+.aw-ring .dash { stroke-dasharray: 3 7; stroke-width: 4; }
+@keyframes awDraw { to { stroke-dashoffset: 0; } }
+@keyframes awSpin { to { rotate: 360deg; } }
+.aw-chain { position: absolute; left: -22%; right: -22%; top: calc(50% - 7px); height: 14px; border: 2px solid var(--ink); opacity: 0;
+  background: repeating-linear-gradient(90deg, #C8C0B0 0 12px, #6E6A60 12px 14px, #9A9488 14px 22px, #3A3630 22px 24px);
+  box-shadow: 0 0 10px rgba(0, 0, 0, .8); animation: awChainIn .4s .5s forwards; }
+.aw-chain.a { rotate: 32deg; } .aw-chain.b { rotate: -32deg; }
+@keyframes awChainIn { from { opacity: 0; scale: 1.4 1; } to { opacity: 1; scale: 1 1; } }
+.awaken.c2 .aw-chain { animation: awChainIn .4s .5s forwards, awRattle .09s linear infinite; }
+@keyframes awRattle { 50% { translate: 1px -1px; } }
+.aw-crack { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: #FFFFFF; stroke-width: 2.6; stroke-linejoin: bevel;
+  filter: drop-shadow(0 0 3px #FFFFFF) drop-shadow(0 0 8px currentColor); }
+.aw-crack polyline { stroke-dasharray: 160; stroke-dashoffset: 160; transition: stroke-dashoffset .28s ease-out; }
+.awaken.c1 .aw-crack .c1, .awaken.c2 .aw-crack .c2, .awaken.c3 .aw-crack .c3 { stroke-dashoffset: 0; }
+/* 땅울림: 금이 갈 때마다 화면이 덜컹 (점점 세게) */
+.awaken.jolt { animation: awJolt .32s linear; }
+.awaken.c3.jolt { animation: awJolt2 .45s linear; }
+@keyframes awJolt { 20% { translate: -4px 2px; } 40% { translate: 4px -2px; } 60% { translate: -3px 1px; } 80% { translate: 2px 0; } }
+@keyframes awJolt2 { 15% { translate: -8px 3px; } 30% { translate: 7px -4px; } 45% { translate: -6px 2px; } 60% { translate: 5px -1px; } 80% { translate: -2px 1px; } }
+/* 끊어짐: 봉인진이 부풀며 사라지고 사슬이 양쪽으로 날아간다 */
+.awaken.snap .aw-ring, .awaken.snap .aw-crack { animation: awBurst .45s ease-out forwards; }
+@keyframes awBurst { to { opacity: 0; scale: 1.6; filter: brightness(3); } }
+.awaken.snap .aw-chain.a { animation: awFlyA .6s ease-in forwards; }
+.awaken.snap .aw-chain.b { animation: awFlyB .6s ease-in forwards; }
+@keyframes awFlyA { from { opacity: 1; } to { opacity: 0; translate: 60vw -40vh; rotate: 80deg; } }
+@keyframes awFlyB { from { opacity: 1; } to { opacity: 0; translate: -60vw -40vh; rotate: -80deg; } }
+.awaken.snap.jolt { animation: awJolt2 .6s linear; }
+/* 실루엣이 어둠에서 솟아오르고, 빛이 들면 모습이 드러난다 */
+.aw-boss { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -42%) translateY(40px); opacity: 0; }
+.aw-boss img { display: block; width: min(64vw, 260px); height: auto; aspect-ratio: 1; image-rendering: auto; filter: brightness(0) drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 18px var(--c)); transition: filter .9s ease-out; }
+.awaken.rise .aw-boss { opacity: 1; transform: translate(-50%, -42%); transition: opacity .5s, transform .9s cubic-bezier(.2, .8, .3, 1); }
+.awaken.lit .aw-boss img { filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(0 0 22px var(--c)); }
+.awaken.lit .aw-boss { animation: awPulse 2.4s ease-in-out .9s infinite; }
+@keyframes awPulse { 50% { scale: 1.03; } }
+.aw-txt { position: absolute; left: 16px; right: 16px; top: calc(40% + min(37vw, 152px) + 8px); display: grid; justify-items: center; gap: 8px; text-align: center; }
+.awaken .dr-l1, .awaken .dr-title, .awaken .dr-l2, .awaken .dr-ok { opacity: 0; animation: none; }
+.awaken.lit .dr-l1 { animation: drFade .5s .1s forwards; }
+.awaken.lit .dr-title { text-shadow: 0 0 16px var(--c), 3px 3px 0 #1A1030; animation: drTitle .5s .35s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+.awaken.show .dr-l2 { animation: drFade .5s forwards; }
+.awaken.show .dr-ok { animation: drFade .5s .3s forwards; }
+@media (prefers-reduced-motion: reduce) { .awaken *, .awaken { animation-duration: .01s !important; animation-iteration-count: 1 !important; transition-duration: .01s !important; } }

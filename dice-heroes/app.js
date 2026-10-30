@@ -514,28 +514,62 @@ function modeCards(o) {
   </div>`;
 }
 
-// 마왕: 화염룡·오크·리치의 어려움을 모두 한 번씩 깨면 봉인이 풀린다
+// 보스의 탑: 1층 화염룡 · 오크 · 리치 → (어려움) 2층 강화 보스 세머리 용 · 키클롭스 · 오버로드 → (셋 다 어려움) 3층 마왕 → (어려움) 꼭대기 마신
+// 마왕: 강화 보스 셋(세머리 용 · 키클롭스 · 오버로드)의 어려움을 모두 한 번씩 깨면 봉인이 풀린다 (예전 규칙 — 원래 보스 셋 — 으로 이미 연 사람은 그대로)
 // 테스트판 ?demon: 마왕과 마왕 난이도 전부를 바로 열어 둔다 (배포판에서는 무시)
 const DEMON_TEST = false/*TEST{*/ || (!PROD && new URLSearchParams(location.search).has('demon'))/*}TEST*/;
 // 테스트판 ?demon=all: 마왕의 쉬움·보통·어려움까지 전부 열어 둔다 (분노·봉인 2개 확인용)
 const DEMON_ALL = DEMON_TEST && new URLSearchParams(location.search).get('demon') === 'all';
 if (DEMON_TEST) Object.assign(opts, { mode: 'coop', boss: 'demon' });   // '새 게임'을 누르면 바로 협동 · 마왕이 골라져 있다
-const demonOpen = () => DEMON_TEST || ['dragon', 'orc', 'lich'].every(b => (loadProfile().bosses?.[`${b}:2`]?.wins || 0) > 0);
+const hardWon = b => (loadProfile().bosses?.[`${b}:2`]?.wins || 0) > 0 || !!Wal.wallet()?.clears?.[`${b}:2`];
+const demonOpen = () => DEMON_TEST || !!store.get('diceheroes.demonSeen') || [0, 1, 2].some(d => (loadProfile().bosses?.[`demon:${d}`]?.wins || 0) > 0)
+  || ['hydra', 'cyclops', 'overlord'].every(hardWon);
 function showDemonUnlock() {
   if (!demonOpen() || store.get('diceheroes.demonSeen')) return;
   store.set('diceheroes.demonSeen', 1);
   stopBgm();
-  sfx.boom(3); buzz(200);
+  awakenReveal({ id: 'demon', color: '#C21E56', song: 'boss_demon',
+    l1: TR('세 강적을 쓰러뜨려 마왕성에 도달했다.'), title: TR('마왕 릴리스'), l2: '' });
+}
+// 봉인된 보스가 깨어난다 (마왕 · 마신 · 강화 보스 해금): 어둠 속 봉인진 → 금이 세 번 가며 땅이 울린다 → 사슬이 끊기고 봉인진이 산산조각 →
+// 어둠 속에서 실루엣이 솟아올라 → 빛이 들며 모습 · 이름이 드러난다 (약 4.5초 · 마지막에 '도전을 받아들인다')
+function awakenReveal({ id, color, l1, title, l2, song = null }) {
   const el = document.createElement('div');
-  el.className = 'demon-reveal';
-  el.innerHTML = `<div class="dr-cracks"></div>
-    <div class="dr-boss">${portrait('demon', 'dr-img')}</div>
-    <p class="dr-l1">${TR('세 마물을 쓰러뜨려 마왕성에 도달했다.')}</p>
-    <h1 class="dr-title">${TR('마왕 릴리스')}</h1>
-    <button class="pbtn gold dr-ok" data-act="demon-ok">${TR('도전을 받아들인다')}</button>`;
+  el.className = 'demon-reveal awaken';
+  el.style.setProperty('--c', color);
+  const spokes = [0, 1, 2, 3, 4, 5].map(k => { const a = k * 60 * Math.PI / 180; return `<line x1="${100 + Math.cos(a) * 30}" y1="${100 + Math.sin(a) * 30}" x2="${100 + Math.cos(a) * 76}" y2="${100 + Math.sin(a) * 76}"/>`; }).join('');
+  const crack = (pts, st) => `<polyline class="${st}" points="${pts}"/>`;
+  el.innerHTML = `<div class="aw-glow" aria-hidden="true"></div>
+    <div class="aw-seal" aria-hidden="true">
+      <svg class="aw-ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="92"/><circle class="dash" cx="100" cy="100" r="82"/><circle cx="100" cy="100" r="30"/>
+        <polygon points="100,24 166,138 34,138"/><polygon points="100,176 34,62 166,62"/>${spokes}</svg>
+      <i class="aw-chain a"></i><i class="aw-chain b"></i>
+      <svg class="aw-crack" viewBox="0 0 200 200">
+        ${crack('100,100 112,84 108,70 124,52 120,30', 'c1')}${crack('100,100 86,112 72,108 58,126 34,132', 'c1')}
+        ${crack('100,100 118,110 136,104 150,120 172,118', 'c2')}${crack('100,100 92,82 76,76 70,56 50,40', 'c2')}
+        ${crack('100,100 104,122 96,140 104,160 98,184', 'c3')}${crack('100,100 126,92 140,72 162,66 180,48', 'c3')}${crack('100,100 80,96 62,90 44,98 18,92', 'c3')}</svg>
+    </div>
+    <div class="aw-boss">${portrait(id, 'dr-img')}</div>
+    <div class="aw-txt">${l1 ? `<p class="dr-l1">${l1}</p>` : ''}<h1 class="dr-title">${title}</h1>${l2 ? `<p class="dr-l2">${l2}</p>` : ''}
+    <button class="pbtn gold dr-ok" data-act="demon-ok">${TR('도전을 받아들인다')}</button></div>`;
   document.body.appendChild(el);
-  setTimeout(() => { FX().flash('#C21E56', 600, 0.6); sfx.boom(3); if (el.isConnected) playBgm('boss_demon'); }, 1400);   // 마왕 테마가 깔린다
-  setTimeout(() => sfx.legend(), 2600);
+  const fxOn = prefs.fx !== 'min' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cx = innerWidth / 2, cy = innerHeight * 0.4;
+  const at = (ms, fn) => setTimeout(() => { if (el.isConnected) fn(); }, fxOn ? ms : Math.min(ms, 200));
+  const stage = k => { el.classList.add(k); el.classList.remove('jolt'); void el.offsetWidth; el.classList.add('jolt'); };
+  sfx.charge?.(2.6); rumble(6);
+  at(1000, () => { stage('c1'); sfx.clack(14); buzz(50); FX().burst(cx, cy, { n: 14, pal: [color, '#FFFFFF'], speed: [60, 160], life: [0.3, 0.6] }); });
+  at(1600, () => { stage('c2'); sfx.seal?.(); rumble(9); buzz(80); FX().flash(color, 160, 0.25); FX().burst(cx, cy, { n: 22, pal: [color, '#FFFFFF'], speed: [80, 220], life: [0.3, 0.7] }); });
+  at(2200, () => { stage('c3'); sfx.clack(14); sfx.boom(1.2); rumble(12); buzz(110); FX().flash(color, 200, 0.35); });
+  at(2750, () => {
+    stage('snap'); sfx.unseal?.(); sfx.boom(3); rumble(18); buzz(260);
+    FX().flash('#FFFFFF', 420, 0.85);
+    FX().burst(cx, cy, { n: 120, pal: [color, '#FFFFFF', '#FFE27A', '#8A8070'], speed: [180, 620], size: [3, 8], life: [0.6, 1.4], grav: 220 });
+    for (let k = 0; k < 3; k++) setTimeout(() => FX().ring(cx, cy, { color: k ? color : '#FFFFFF', r0: 20, r1: 260 + k * 60, dur: 620, width: 10 - k * 3 }), k * 120);
+  });
+  at(3050, () => { el.classList.add('rise'); sfx.haki?.(); });
+  at(3700, () => { el.classList.add('lit'); sfx.legend(); FX().flash(color, 500, 0.4); if (song) playBgm(song); });
+  at(4300, () => el.classList.add('show'));
 }
 
 // 타이틀 성 이스터 에그: 왼쪽 노랑 깃발 = 마신 릴리스 어려움 클리어 (어떤 직업이든) · 오른쪽 파랑 = 원정 첫 클리어 ·
@@ -571,19 +605,8 @@ function upgradeOpen(id) {
 }
 function showUpgradeUnlock(b) {
   store.set(`diceheroes.seen_${b.id}`, 1);
-  sfx.boom(2.4); buzz(140);
-  const el = document.createElement('div');
-  el.className = 'demon-reveal up-reveal';
-  el.style.setProperty('--c', b.color);
-  el.innerHTML = `<div class="dr-cracks"></div>
-    <div class="dr-boss">${portrait(b.id, 'dr-img')}</div>
-    <p class="dr-l1">${TR('{0}을(를) 쓰러뜨리자, 더 강한 기운이 깨어났다.', esc(E.bossInfo(b.base).ko))}</p>
-    <h1 class="dr-title">${esc(b.ko)}</h1>
-    <p class="dr-l2">${TR('{0} · 보스 선택에서 도전할 수 있어요', esc(b.title))}</p>
-    <button class="pbtn gold dr-ok" data-act="demon-ok">${TR('도전을 받아들인다')}</button>`;
-  document.body.appendChild(el);
-  setTimeout(() => { FX().flash(b.color, 500, 0.5); sfx.boom(2.4); }, 1200);
-  setTimeout(() => sfx.legend(), 2200);
+  awakenReveal({ id: b.id, color: b.color, l1: TR('{0}을(를) 쓰러뜨리자, 더 강한 기운이 깨어났다.', esc(E.bossInfo(b.base).ko)),
+    title: esc(b.ko), l2: TR('{0} · 보스 선택에서 도전할 수 있어요', esc(b.title)) });
 }
 
 // 난이도 해금: 처음 난이도(보통 · 강화 보스는 보통)는 처음부터, 그다음은 바로 아래 난이도를 한 번 이상 깨야 열린다
@@ -613,27 +636,30 @@ function clampDiff(o) {
 // 마왕 · 마신 · 강화 보스(세머리 · 키클롭스 · 오버로드): 해금하기 전에는 자리(잠금 칸)도 보이지 않는다 — 완전히 숨긴 보스 (스포일러 방지).
 // 원래 보스를 어려움으로 토벌하면 해금 연출과 함께 처음 나타난다
 const finalShown = b => (!b.final || demonOpen()) && (!b.base || upgradeOpen(b.id));
-// 보스 선택 (메가맨 X 의 8보스 선택처럼): 3×3 칸 — 가운데는 선택 문장, 둘레 8칸이 보스 얼굴. 고른 보스는 칸이 깜빡이고,
-// 아래 무대에 전신이 크게 (모션 시트가 받아져 있으면 대기 동작). 위 줄 = 원래 보스, 아래 줄 = 그 강화 보스, 가운데 줄 양옆 = 마왕 · 마신.
-// 아직 해금하지 않은 보스 칸은 '???' 잡음 화면 (누가 나오는지는 숨긴다 — 칸 수만 보인다)
-const BOSS_GRID = ['dragon', 'orc', 'lich', 'demon', null, 'archdemon', 'hydra', 'cyclops', 'overlord'];
+// 보스 선택: 보스의 탑 — 아래에서 위로 올라간다. 1층 원래 보스 셋 · 2층 강화 보스 셋 · 3층 마왕 · 꼭대기 마신.
+// 고른 칸은 틀이 깜빡이고, 아래 무대에 전신이 크게 (모션 시트가 받아져 있으면 대기 동작).
+// 아직 깨어나지 않은 층의 칸은 봉인된 문 (누가 나오는지는 숨긴다)
+const BOSS_TOWER = [['archdemon'], ['demon'], ['hydra', 'cyclops', 'overlord'], ['dragon', 'orc', 'lich']];   // 위층부터
 function bossPicker(o) {
   clampDiff(o);
-  const b = E.bossInfo(o.boss), n = E.BOSSES.findIndex(x => x.id === o.boss) + 1;
+  const b = E.bossInfo(o.boss);
   const tile = id => {
-    if (!id) return `<div class="bs-core" style="--c:${b.color}" aria-hidden="true"><i class="bs-crest">${ico('swords')}</i><b>BOSS</b><small>SELECT</small></div>`;
     const x = E.bossInfo(id);
-    if (!finalShown(x)) return `<button class="bs-tile hidden" data-act="boss-locked"${x.base ? ` data-base="${x.base}"` : ''} aria-label="???"><i class="bs-noise"></i><b>???</b></button>`;
+    if (!finalShown(x)) return `<button class="bs-tile hidden${x.final ? ' final' : ''}" data-act="boss-locked"${x.base ? ` data-base="${x.base}"` : ''} aria-label="???"><i class="bs-door"></i><i class="bs-lock">${ico('lock')}</i></button>`;
     const won = [0, 1, 2].some(d => clearedAt(id, d));
     return `<button class="bs-tile${o.boss === id ? ' on' : ''}${x.final ? ' final' : ''}" style="--c:${x.color}" data-act="boss" data-v="${id}" aria-label="${esc(x.ko)}">
       <img class="bs-face" src="${bossBustURL(id)}" alt="" decoding="async">${won ? `<i class="bs-won">${ico('crown', 'xs')}</i>` : ''}</button>`;
   };
   return `
   <section class="frame mode-box bsel">
-    <div class="bs-grid">${BOSS_GRID.map(tile).join('')}</div>
+    <div class="bs-tower" style="--c:${b.color}">
+      <i class="bt-spire" aria-hidden="true"></i>
+      ${BOSS_TOWER.map((ids, k) => `<div class="bt-floor f${BOSS_TOWER.length - k}${ids.length === 1 ? ' solo' : ''}"><span class="bt-no" aria-hidden="true">${BOSS_TOWER.length - k}F</span>${ids.map(tile).join('')}</div>`).join('')}
+      <i class="bt-base" aria-hidden="true"></i>
+    </div>
     <div class="bs-show" style="--c:${b.color}">
       <div class="bs-stage" id="bs-stage">${portrait(b.id, 'bs-body')}</div>
-      <div class="bs-info"><small>BOSS ${String(n).padStart(2, '0')}</small><b>${esc(b.ko)}</b><span>${esc(b.title)}</span></div>
+      <div class="bs-info"><b>${esc(b.ko)}</b><span>${esc(b.title)}</span></div>
     </div>
     <div class="diffs">
       ${E.DIFFS.filter(d => E.bossDiffs(o.boss).includes(d.id)).map(d => diffOpen(o.boss, d.id)
@@ -803,7 +829,7 @@ function onSetupAct(act, t) {
   const i = Number(t.dataset.i);
   if (act === 'pick-back') return pickBack();
   if (act === 'boss-locked' && t.dataset.base) { sfx.back(); return toast(ico('lock'), TR('아직 잠든 강적'), TR('{0}을(를) 어려움으로 토벌하면 깨어나요.', E.bossInfo(t.dataset.base).ko), 2400); }
-  if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), TR('봉인된 보스'), TR('세 보스를 「어려움」으로 깨면 열려요'), 1800); }
+  if (act === 'boss-locked') { sfx.back(); return toast(ico('lock'), TR('봉인된 보스'), TR('2층의 세 보스를 「어려움」으로 깨면 열려요'), 2000); }
   if (act === 'diff-locked') {
     sfx.back();
     const d = Number(t.dataset.v);

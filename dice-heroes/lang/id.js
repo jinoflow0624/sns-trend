@@ -2063,4 +2063,6 @@ export default {"키보리아":"KYBORIA",
 "듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)":"Dua «Pelipat»: tiap 4 dihitung sebagai dua angka 2 (4 = 2 × 2 · hingga lima 2)",
 "사위일체의 문장":"Lambang Kuaternitas",
 "트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Tiga «Trinitas»: selain serang · blok · emas, bagian keempat — pulihkan nyawa setengah skor",
+"세 강적을 쓰러뜨려 마왕성에 도달했다.":"Kamu mengalahkan tiga musuh kuat dan tiba di kastel Raja Iblis.",
+"2층의 세 보스를 「어려움」으로 깨면 열려요":"Kalahkan tiga bos lantai 2 di «Sulit» untuk membuka",
 };

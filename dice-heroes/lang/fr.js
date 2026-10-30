@@ -2063,4 +2063,6 @@ export default {"키보리아":"KYBORIA",
 "듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)":"Deux «Doubleur» : chaque 4 compte comme deux 2 (4 = 2 × 2 · jusqu'à cinq 2)",
 "사위일체의 문장":"Blason de la quaternité",
 "트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Trois «Trinité» : en plus d'attaque · blocage · or, une quatrième part : soigne la moitié du score",
+"세 강적을 쓰러뜨려 마왕성에 도달했다.":"Tu as vaincu les trois redoutables ennemis et atteint le château du Roi démon.",
+"2층의 세 보스를 「어려움」으로 깨면 열려요":"Bats les trois boss du 2e étage en « Difficile » pour débloquer",
 };
