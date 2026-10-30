@@ -1719,6 +1719,8 @@ function enemyTurn(R) {
   const paused = C.paused; C.paused = false;
   const m = paused ? null : e.intent;          // 일시정지: 이번 적의 행동(공격 · 방어 · 힘 · 회복 · 스킬)이 모두 없던 일로
   const act = { type: 'enemy', ko: m?.ko || '', hits: [], block: 0, str: 0, heal: 0, steal: 0, weak: 0, behead: !m && !paused, paused: paused || undefined };
+  // 보스의 가장 센 한 방 (그 패턴에서 한 번 치는 공격 중 가장 큰 것) — 화면에서 필살기 모션으로 보여 준다 (판 결과와는 상관없다)
+  if (m?.atk && (m.hits || 1) === 1 && ENEMIES[e.id]?.kind === 'boss') { const top = Math.max(...movesOf(R).filter(x => x.atk && (x.hits || 1) === 1).map(x => x.atk)); if (m.atk >= top) act.ult = true; }
   if (m) {
     if (m.atk) {
       const per = atkOf(R, m.atk, m.hits || 1);

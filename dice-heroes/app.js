@@ -6,7 +6,7 @@ import { t as TR, tL, LANG, LANGS, langPref, setLang, fromDevice } from './i18n.
 import * as E from './engine.js';
 import { GAME } from './config.js';
 import { spriteURL, isImgSprite, heroPoseURL, HERO_ART } from './pixel.js';
-import { HeroMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, loadMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, FRAME, ORIGIN, FIG_H } from './motion.js';
+import { HeroMotion, BossMotion, TINTS, CLIPS, clipMs, hasMotion, motionReady, preloadMotion, loadMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, FRAME, ORIGIN, FIG_H, hasBossMotion, bossMotionReady, bossClipMs, bossContactMs, BOSS_FRAME, BOSS_ORIGIN, BOSS_FIG_H } from './motion.js';
 import { titleScene } from './scenes.js';
 import { sfx, playBgm, preloadBgm, bgmState, stopBgm, pauseAudio, unlock, audioSettings, setAudio, buzz, rumble, canVibrate, bossSong } from './audio.js';
 import { STEPS, createTutorialGame } from './tutorial.js';
@@ -271,7 +271,7 @@ function loadRun() {
       owns: id => !Wal.wallet() || Wal.owns('cls', id), ownsRun: id => !!Wal.wallet() && Wal.owns('run', id), gems: () => Wal.gems(),
       ticketGate, ticketShop: showTickets, tixCost, ticketUsed: tix => (PROD ? Wal.applyTix(tix) : Wal.spendLocalTicket()), runPrice: id => Wal.priceOf('run', id),
       name: () => myName, sealSigil: SEAL_SIGIL,
-      actor: { in: (cls, face) => actorIn(cls, face), pose: actorPose, out: actorOut, ok: () => bigActor(), boss: (id, color) => bossIn(id, color), lunge: bossLunge, center: bossCenter, hurt: bossHurt },   // 큰 영웅 공격 · 피격 (협동 보스전과 같은 연출)
+      actor: { in: (cls, face) => actorIn(cls, face), pose: actorPose, out: actorOut, ok: () => bigActor(), boss: (id, color) => bossIn(id, color), lunge: bossLunge, contact: bossContact, center: bossCenter, hurt: bossHurt },   // 큰 영웅 공격 · 피격 (협동 보스전과 같은 연출)
     });
     runMod = m;
     return m;
@@ -1345,7 +1345,7 @@ async function startGame(state) {
   S = state;
   gemResult = null;
   if (tray?.constructor === DiceTray2D && !store.get('diceheroes.slow3d') && load3d && !gfxErr) { tray.destroy(); tray = null; }   // 지난 판에 늦게 받은 3D 로 다시
-  await Promise.race([Promise.all([stageReady(skinsOf(state)), loadMotion(state.players.map(p => p.cls))]), sleep(8000)]);   // 화면을 열기 전에 트레이 · 그림 · 이번 판 직업 모션을 다 준비 (그사이 이전 화면 그대로)
+  await Promise.race([Promise.all([stageReady(skinsOf(state)), loadMotion([...state.players.map(p => p.cls), state.boss?.id].filter(Boolean))]), sleep(8000)]);   // 화면을 열기 전에 트레이 · 그림 · 이번 판 직업 모션을 다 준비 (그사이 이전 화면 그대로)
   if (S !== state) return;
   Object.assign(ui, { view: null, tool: null, busy: false, sheet: false, dice: null, sheetTurn: '', lagHp: null, bossGone: false });
   screen = 'game';
@@ -2298,42 +2298,57 @@ function bossSpot() {
   const sz = Math.round(Math.min(168, Math.max(112, (r?.width || 360) * 0.406)));
   return r ? { x: r.left + sz * 0.5 - 4, y: r.bottom - 4, sz } : { x: innerWidth * 0.3, y: innerHeight * 0.62, sz };
 }
+// 보스 모션 시트(motion.js BossMotion)가 받아져 있으면 40프레임 동작 (공격 · 필살기 · 피격), 없으면 그림 한 장을 늘이고 흔든다
 function bossIn(id, color = '#E8435A') {
   document.querySelectorAll('.boss-actor').forEach(el => el.remove());
   const at = bossSpot(), spd = FX().speed || 1;
+  const mo = hasBossMotion(id) && bossMotionReady(id);
   const src = spriteURL(id, 4);
   const el = document.createElement('div');
-  el.className = `actor boss-actor in${bossFaceCls(id)}`;
+  el.className = `actor boss-actor in${mo ? ' mo' : bossFaceCls(id)}`;
   el.style.cssText = `left:${at.x}px;top:${at.y}px;--sz:${at.sz}px;--c:${color};--spd:${spd}`;
-  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')"><img class="spr spr-hi" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i></div></div>`;
+  // 모션 칸(256)에서 대기 자세 키는 BOSS_FIG_H — 예전 그림과 같은 크기로 보이게 캔버스를 키우고 발밑 기준점을 상자 아래 가운데에
+  const W = Math.round(at.sz * 0.92 * BOSS_FRAME / BOSS_FIG_H);
+  el.innerHTML = `<i class="actor-aura"></i><div class="actor-body"><div class="actor-fig" style="--m:url('${src}')">${mo
+    ? `<canvas class="actor-cv" style="width:${W}px;height:${W}px;left:${Math.round(at.sz / 2 - W * BOSS_ORIGIN.x / BOSS_FRAME)}px;top:${Math.round(at.sz - W * BOSS_ORIGIN.y / BOSS_FRAME)}px"></canvas>`
+    : `<img class="spr spr-hi" src="${src}" alt="" decoding="async"><i class="af w"></i><i class="af r"></i>`}</div></div>`;
   document.body.appendChild(el);
-  return { el, id, ...at };
+  return { el, id, ...at, mo: mo ? new BossMotion(el.querySelector('canvas'), id) : null };
 }
+// 필살기 모션을 쓰는 보스 스킬 (불기둥 · 바위 · 소용돌이 · 사슬 …). 나머지 공격은 일반 공격 모션
+const BOSS_ULT = new Set(['breath', 'drums', 'twist', 'hfire', 'hice', 'rock', 'reverse', 'seal', 'haki', 'eternal', 'midnight']);
 // 보스 공격: 몸을 뒤로 젖혔다가(번쩍) 오른쪽으로 덤벼든다. contact = 닿는 순간 (전체의 45%)
-function bossLunge(b, ms = 620, onContact = null) {
+// 모션이 있으면 kind('attack' 일반 공격 · 'ult' 필살기) 동작을 끝까지 틀고, 타격 칸(공격 500ms · 필살기 580ms)에서 contact
+function bossLunge(b, ms = 620, onContact = null, kind = 'attack') {
   if (!b?.el.isConnected || !actorScreen()) { b?.el.remove(); onContact?.(); return Promise.resolve(); }
-  const dur = ms / (FX().speed || 1);
-  b.el.classList.remove('in', 'battack');
+  const spd = FX().speed || 1;
+  const dur = (b.mo ? Math.max(ms, bossClipMs(kind)) : ms) / spd;
+  b.el.classList.remove('in', 'battack', 'bhurt');
   void b.el.offsetWidth;
   b.el.style.setProperty('--dur', `${dur}ms`);
   b.el.classList.add('battack');
-  if (onContact) setTimeout(onContact, dur * 0.45);
+  if (b.mo) { b.el.classList.toggle('ult', kind === 'ult'); b.mo.play(kind, { spd, onContact }); }
+  else if (onContact) setTimeout(onContact, dur * 0.45);
   return new Promise(r => setTimeout(r, dur));
 }
+// 덤벼들어 닿을 때까지 걸리는 시간 (연출 빠르기 반영 전)
+const bossContact = (b, kind = 'attack') => (b?.mo ? bossContactMs(kind) : 280);
 const bossCenter = b => ({ x: b.x, y: b.y - b.sz * 0.45 });
 // 보스가 맞는다: 하얗게 번쩍 → 뒤(왼쪽)로 밀리며 붉게 깜빡 → 제자리
 function bossHurt(b, ms = 460) {
   if (!b?.el.isConnected) return Promise.resolve();
-  const dur = ms / (FX().speed || 1);
-  b.el.classList.remove('in', 'battack', 'bhurt');
+  const spd = FX().speed || 1;
+  const dur = (b.mo ? Math.max(ms, bossClipMs('hurt')) : ms) / spd;
+  b.el.classList.remove('in', 'battack', 'bhurt', 'ult');
   void b.el.offsetWidth;
   b.el.style.setProperty('--dur', `${dur}ms`);
   b.el.classList.add('bhurt');
+  b.mo?.play('hurt', { spd, tint: TINTS.hurt });
   return new Promise(r => setTimeout(r, dur));
 }
 
 // 보스에게 맞는 동작: 왼쪽에 보스 전신이 나와 덤벼들고, 오른쪽의 큰 영웅이 맞고 휘청인다 (스킬 연출과 함께)
-function actorHurtFx(i, delay = 260) {
+function actorHurtFx(i, delay = 260, kind = 'attack') {
   const p = S.players[i];
   if (!p || !bigActor()) return;
   const spd = FX().speed || 1;
@@ -2341,12 +2356,13 @@ function actorHurtFx(i, delay = 260) {
   const face = b ? bossCenter(b) : (() => { const r = document.getElementById('boss-art')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: 60 }; })();
   const a = actorIn(p.cls, face);
   const hit = () => {
-    actorPose(a, 'hurt', 560).then(() => { actorOut(a, 120); if (b) actorOut(b, 60); });
+    actorPose(a, 'hurt', 560).then(() => { actorOut(a, 120); if (b) lp.then(() => actorOut(b, 60)); });   // 보스는 동작을 끝까지 (필살기 여운)
     memberFx(i, 'hurt', 520);
     buzz(40);
   };
   // 보스가 덤벼들어 닿는 순간에 영웅이 맞는다 (닿는 때 = 원래 맞던 시각)
-  if (b) setTimeout(() => bossLunge(b, 620, () => { FX().impact?.(a.x, a.y - a.sz * 0.5, PALETTES.fire, 1.2); shake(app.querySelector('.game'), 1); hit(); }), Math.max(0, delay - 280) / spd);
+  let lp = Promise.resolve();
+  if (b) setTimeout(() => lp = bossLunge(b, 620, () => { FX().impact?.(a.x, a.y - a.sz * 0.5, PALETTES.fire, 1.2); shake(app.querySelector('.game'), kind === 'ult' ? 1.8 : 1); hit(); }, kind), Math.max(0, delay - bossContact(b, kind)) / spd);
   else setTimeout(hit, delay / spd);
 }
 
@@ -2889,7 +2905,7 @@ async function playOne(f) {
         const b = E.bossInfo(S.boss.id);
         const extra = f.cats ? ` 「${f.cats.map(c => E.catInfo(c).ko).join('」「')}」` : f.cat ? ` 「${E.catInfo(f.cat).ko}」` : f.head ? ` ${TR('({0} 머리)', E.HEAD_KO[f.head])}` : '';
         const note = toast('', `${b.ko}`, BOSS_LINES[f.skill] + extra + (f.amount ? ` (${f.amount})` : ''), 1900, bossBust(bossArt(), 't-boss'));
-        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260);   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
+        if (!['bone', 'throne', 'necro', 'rewind', 'regrow', 'behead', 'gaze', 'hpoison', 'cleanse', 'awaken', 'midheal', 'curse'].includes(f.skill)) actorHurtFx(f.player ?? S.turn, f.skill === 'seal' ? 700 : 260, BOSS_ULT.has(f.skill) ? 'ult' : 'attack');   // 보스의 공격을 맞는 영웅 (뼈 방패는 보스 자신)
         await skillFx(f);
         await note;
         break;

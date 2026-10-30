@@ -2255,3 +2255,16 @@ img.flip-x, .actor.boss-actor.flip-x .actor-fig img, .actor.boss-actor.flip-x .a
 /* 대기실 재촉 반응 버튼 */
 .poke-btn { justify-self: center; margin-top: 2px; background: #1C1446; }
 .slot { position: relative; }
+
+/* ── 큰 보스 모션 (v0.40.3): 40프레임 동작이 캔버스에 (motion.js BossMotion). 덤벼들기 · 밀리기는 동작 그림이 하므로 CSS 는 살짝만 ── */
+.actor.boss-actor.mo.battack .actor-fig { animation: bossLungeMo var(--dur) ease-out both; }
+@keyframes bossLungeMo { 0% { transform: none; } 30% { transform: translateX(-4px); } 47% { transform: translateX(10px); } 75% { transform: translateX(6px); } 100% { transform: none; } }
+.actor.boss-actor.mo.battack.ult .actor-fig { animation-name: bossUltMo; }
+@keyframes bossUltMo { 0% { transform: none; } 38% { transform: scale(1.03); } 46% { transform: translateX(12px) scale(1.08); } 70% { transform: translateX(6px) scale(1.04); } 100% { transform: none; } }
+.actor.boss-actor.mo.bhurt .actor-fig { animation: actorHurtMo var(--dur) linear both; }
+/* 효과가 칸 끝에서 칼같이 잘리지 않게 왼쪽 · 오른쪽 · 위 가장자리를 흐리게 (발밑은 그대로) */
+.actor.boss-actor.mo .actor-cv {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 76%, transparent), linear-gradient(transparent, #000 10%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 76%, transparent), linear-gradient(transparent, #000 10%);
+  mask-composite: intersect; }

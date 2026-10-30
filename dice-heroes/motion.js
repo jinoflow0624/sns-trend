@@ -30,34 +30,57 @@ export const bossTurns = id => BOSS_IDS.includes(id) && !['dragon', 'hydra', 'or
 export const bossFaceCls = id => (bossFlips(id) ? ' flip-x' : bossTurns(id) ? ' turn-r' : '');
 export const bossBustURL = id => (BOSS_IDS.includes(id) ? `assets/boss/${id}_bust.webp?v=${GAME.version}` : null);
 
+// 보스 40프레임 모션 (assets/boss/<id>_motion.webp · tools/make_boss_motion.py) — 256px 칸 4열 × 10행, 기준점(발밑) (104, 240), 오른쪽(영웅 쪽)을 본다.
+// 0~3 대기 · 4~15 공격 (칸 9 타격) · 16~27 필살기 (칸 21 타격) · 28~31 피격 · 32~39 쓰러짐. 기술 효과(불 · 바위 · 사슬 …)가 그림 안에 있다.
+// 주소 버전은 게임 버전이 아니라 BOSS_MO_VER (시트가 한 장 0.7~0.9MB 라 업데이트마다 다시 받지 않게). 시트를 바꾸면 올린다
+export const BOSS_MO_VER = 'm1';
+export const BOSS_FRAME = 256, BOSS_ORIGIN = { x: 104, y: 240 };
+export const BOSS_FIG_H = 192;   // 대기 자세 키 (칸의 75%)
+export const BOSS_CLIPS = {
+  idle: { frames: [0, 1, 2, 3], ms: [220, 220, 220, 220], loop: true },
+  attack: { frames: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], ms: [90, 90, 90, 110, 120, 60, 50, 50, 90, 90, 100, 120], contact: 5 },
+  ult: { frames: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], ms: [120, 120, 120, 160, 60, 60, 70, 90, 110, 120, 140, 160], contact: 5 },
+  hurt: { frames: [28, 29, 30, 31], ms: [70, 110, 150, 150] },
+  death: { frames: [32, 33, 34, 35, 36, 37, 38, 39], ms: [110, 120, 140, 180, 200, 220, 260, 1200], hold: true },
+};
+export const bossClipMs = name => BOSS_CLIPS[name].ms.reduce((a, b) => a + b, 0);
+// 타격까지 걸리는 시간 (공격 500ms · 필살기 580ms)
+export const bossContactMs = name => BOSS_CLIPS[name].ms.slice(0, BOSS_CLIPS[name].contact).reduce((a, b) => a + b, 0);
+export const hasBossMotion = id => BOSS_IDS.includes(id);
+export const bossMotionURL = id => `assets/boss/${id}_motion.webp?v=${BOSS_MO_VER}`;
+const BOSS_SPEC = { F: BOSS_FRAME, clips: BOSS_CLIPS, key: id => `boss:${id}` };
+const HERO_SPEC = { F: FRAME, clips: CLIPS, key: id => id };
+
 const sheets = {};
 let small = false;
 // 작은 그림(영웅 상반신 · 보스 상반신)은 처음 한 번 모두, 모션 시트는 ids 만 받는다. 다 받고 풀리면 끝나는 Promise
-export function loadMotion(ids = []) {
+export function loadMotion(ids = []) {   // 보스 id 를 넣으면 보스 모션 시트도 받는다
   if (typeof Image === 'undefined') return Promise.resolve();
   if (!small) {
     small = true;
     for (const id of IDS) { const b = new Image(); b.decoding = 'async'; b.src = bustURL(id); }
     for (const id of BOSS_IDS) { const b = new Image(); b.decoding = 'async'; b.src = bossBustURL(id); }
   }
-  return Promise.all([...new Set(ids)].filter(hasMotion).map(id => {
-    if (!sheets[id]) {
+  const want = [...new Set(ids)].flatMap(id => (hasMotion(id) ? [[id, motionURL(id)]] : hasBossMotion(id) ? [[`boss:${id}`, bossMotionURL(id)]] : []));
+  return Promise.all(want.map(([k, url]) => {
+    if (!sheets[k]) {
       const im = new Image();
       im.decoding = 'async';
-      im.src = motionURL(id);
+      im.src = url;
       im.ready = im.decode ? im.decode().catch(() => {}) : new Promise(r => { im.onload = im.onerror = r; });
-      sheets[id] = im;
+      sheets[k] = im;
     }
-    return sheets[id].ready;
+    return sheets[k].ready;
   }));
 }
 export const preloadMotion = () => loadMotion();
 export const motionReady = id => !!sheets[id]?.complete && sheets[id].naturalWidth > 0;
+export const bossMotionReady = id => motionReady(`boss:${id}`);
 
 // 칸 하나 그리기. tint = { color, a } 면 그 칸 모양 그대로 색을 덧칠한다 (번쩍임)
 const tmp = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-function drawFrame(g, id, f, tint) {
-  const im = sheets[id];
+function drawFrame(g, key, f, tint, FRAME) {
+  const im = sheets[key];
   const sx = (f % COLS) * FRAME, sy = Math.floor(f / COLS) * FRAME;
   g.clearRect(0, 0, FRAME, FRAME);
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
@@ -79,9 +102,9 @@ function drawFrame(g, id, f, tint) {
 
 // 한 영웅의 재생기. canvas 는 128×128. 화면에서 떨어지면 스스로 멈춘다
 export class HeroMotion {
-  constructor(canvas, id) {
-    this.cv = canvas; this.g = canvas.getContext('2d'); this.id = id;
-    canvas.width = canvas.height = FRAME;
+  constructor(canvas, id, spec = HERO_SPEC) {
+    this.cv = canvas; this.g = canvas.getContext('2d'); this.id = id; this.spec = spec; this.key = spec.key(id);
+    canvas.width = canvas.height = spec.F;
     this.state = 'idle'; this.t0 = performance.now(); this.spd = 1; this.tintFn = null; this.done = null; this.onContact = null; this.hit = false;
     this.tick = this.tick.bind(this);
     this.last = -1;
@@ -97,10 +120,11 @@ export class HeroMotion {
   glow(tint) { this.tintFn = tint; this.t1 = performance.now(); this.last = -1; }
   tick(now) {
     if (!this.cv.isConnected) { this.done?.(); return; }
-    const clip = CLIPS[this.state];
+    const clips = this.spec.clips, clip = clips[this.state];
+    const total = clip.ms.reduce((a, b) => a + b, 0);
     let el = (now - this.t0) * this.spd;
     let step = 0, acc = 0;
-    if (clip.loop) el %= clipMs(this.state);
+    if (clip.loop) el %= total;
     for (; step < clip.ms.length; step++) { if (el < acc + clip.ms[step]) break; acc += clip.ms[step]; }
     if (clip.hold && step >= clip.ms.length) {     // 승리 · 패배: 마지막 자세 그대로 (다음 play 까지)
       step = clip.ms.length - 1;
@@ -113,13 +137,16 @@ export class HeroMotion {
       return;
     }
     if (clip.contact != null && step >= clip.contact && !this.hit) { this.hit = true; this.onContact?.(); }
-    const k = clip.loop ? 0 : Math.min(1, el / clipMs(this.state));
+    const k = clip.loop ? 0 : Math.min(1, el / total);
     const tint = this.tintFn ? this.tintFn(clip.loop ? Math.min(1, (now - (this.t1 || this.t0)) * this.spd / 420) : k) : null;
     const key = `${this.state}:${step}:${tint ? tint.color + Math.round(tint.a * 20) : ''}`;
-    if (key !== this.last) { drawFrame(this.g, this.id, clip.frames[step], tint); this.last = key; }
+    if (key !== this.last) { drawFrame(this.g, this.key, clip.frames[step], tint, this.spec.F); this.last = key; }
     requestAnimationFrame(this.tick);
   }
 }
+
+// 보스 재생기 (같은 방식 · 256px 칸 · 공격 · 필살기 · 피격 · 쓰러짐)
+export class BossMotion extends HeroMotion { constructor(canvas, id) { super(canvas, id, BOSS_SPEC); } }
 
 // 동작별 덧칠 (k = 0~1 진행)
 export const TINTS = {
