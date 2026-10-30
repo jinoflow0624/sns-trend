@@ -102,8 +102,9 @@
 - `index.html` 의 modulepreload 는 `node tools/preload.mjs` 로 만든다 (app.js 의 import 를 바꾸면 npm test 가 알려 준다).
 - 갈무리11 보통 굵기는 `fonts/Galmuri11-core.woff2`(늘) + `-cjk.woff2`(가나 · 한자가 화면에 있을 때만). 원본 `Galmuri11.woff2` 를 바꾸면 `python3 tools/split-font.py`.
 - 저사양 폰(메모리 3GB 이하 · 코어 4개 이하)은 3D 해상도 1.5배까지(`gfxMode` 'auto'), 메모리 4GB 이하는 모션 시트를 화면 크기에 맞춰 줄여 둔다 (`motion.js` `shrink`).
-- **용량 한도 (`tools/asset-budget.mjs`, npm test)**: 영웅 모션 시트 1536×3072(칸 384) · 1MB, 전신 512 · 80KB, 상반신 192 · 24KB, 보스 150KB, 그 밖의 그림 200KB, 곡 1.9MB.
+- **용량 한도 (`tools/asset-budget.mjs`, npm test)**: 영웅 모션 시트 1536×3072(칸 384) · 1MB, 보스 모션 시트 1024×2560(칸 256) · 950KB, 전신 512 · 80KB, 상반신 192 · 24KB, 보스 150KB, 그 밖의 그림 200KB, 곡 1.9MB.
   칸 384 = 화면 속 영웅 약 113px × 기기 픽셀 3배(339px)에 맞춘 크기 — 더 키워도 보이는 차이 없이 받는 양 · 메모리만 는다. 넘으면 한도를 올리기 전에 줄일 방법부터.
 - **곡은 Vorbis 160kbps 원본 그대로 둔다 (다시 압축하지 않는다)**: 110kbps(품질 2.5)로 줄여 봤더니 높은음이 지직거려 되돌렸다 (v0.40.5). Opus 는 깨끗한 비트레이트에서 23%만 줄고 예전 아이폰이 못 튼다.
   곡은 뒤에서 받기 줄로 받고 화면은 첫 곡만 기다리며, 풀어 둔 곡 메모리(곡당 약 26MB · 3곡까지)는 압축률과 상관없다.
+- 보스 모션 시트(`assets/boss/<id>_motion.webp`, `tools/make_boss_motion.py`)는 뒤에서 받기 줄로: 원정은 지도에서 이번 막 보스만(`loadBossMotion`), 보스 칸 · 협동 보스전은 열기 전에 기다린다 (최대 6초 · 없으면 그림 한 장으로).
 - 점검: 느린 망(1.6Mbps · 왕복 0.15초) + CPU 4배 느리게로 화면별 기다림 · 화면이 뜬 뒤 늦게 받는 그림을 잰다 (Playwright CDP `Network.emulateNetworkConditions` · `Emulation.setCPUThrottlingRate`).

@@ -6,7 +6,7 @@ import * as Run from './rules.js';
 import { catInfo, bossInfo, classInfo } from '../engine.js';
 import { ico } from '../icons.js';
 import { spriteURL, isImgSprite, HERO_ART } from '../pixel.js';
-import { hasMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, loadMotion } from '../motion.js';
+import { hasMotion, bustURL, bossBustURL, bossFaceCls, bossFlips, loadMotion, loadBossMotion } from '../motion.js';
 import { bg, bgImage, bgFile, fg } from '../bgload.js';
 import { sfx, playBgm, preloadBgm, prefetchBgm, bossSong, buzz, rumble, BGM_FILES } from '../audio.js';
 import { FX, PALETTES, shake } from '../fx.js';
@@ -479,6 +479,7 @@ const MAP_ROW = 74, MAP_PAD = 46;
 // 지도 · 이벤트 · 상점 · 휴식 · 전투 보상은 모두 지도 곡(run_map) — 같은 곡이면 playBgm 이 다시 틀지 않아 화면을 오가도 끊기지 않는다
 function showMap(again = false) {
   playBgm('run_map');
+  loadBossMotion(R.boss);   // 이번 막 보스의 모션 시트 (뒤에서 받기 줄) (막이 바뀌면 새 보스) — 보스 칸에 가기 전에 받아 둔다
   tour('map', 600);
   // 다음 화면 미리 준비: 지금 갈 수 있는 칸의 곡은 풀어 두고(전투 · 엘리트 · 보스), 나머지 곡은 파일만 받아 둔다
   // (풀어 둔 곡은 최근 3개만 메모리에 두므로 다 풀면 서로 밀어낸다). 트레이 · 주사위 그림도 함께
@@ -1707,8 +1708,13 @@ async function playOne(f) {
         const ba = bossBustURL(R.C.e.id) && X.actor?.ok() ? X.actor.boss(R.C.e.id, foeColor(R.C.e.id)) : null;
         // 실제로 맞는 공격이 있으면 영웅이 크게 나와 맞고 휘청인다 (다 막으면 나오지 않는다)
         const ha = f.hits.some(x => x.dmg > 0) && X.actor?.ok() ? X.actor.in(R.cls, ba ? X.actor.center(ba) : e) : null;
-        const lunge = ba ? X.actor.lunge(ba, 620) : null;
-        await wait(ba ? 280 : 190);
+        // 보스 모션: 가장 센 한 방(f.ult)은 필살기, 나머지는 일반 공격 — 동작의 타격 칸에 맞춰 영웅이 맞는다
+        const kind = f.ult ? 'ult' : 'attack';
+        let touch = null;
+        const touched = ba ? new Promise(r => { touch = r; }) : null;
+        const lunge = ba ? X.actor.lunge(ba, 620, () => touch(), kind) : null;
+        await (ba ? Promise.race([touched, wait(1500)]) : wait(190));
+        if (ba && f.ult) shake($('rc'), 1.8);
         for (const hit of f.hits) {
           const big = hit.dmg >= 15;
           if (hit.blocked) {
@@ -2470,7 +2476,7 @@ function sbAct(act, t) {
     const opening = drain().filter(f => ['hex', 'gaze', 'facedown', 'jestCard', 'rent'].includes(f.type));
     if (kind === 'special') opening.unshift({ type: 'jesterIn' });
     if (opening.length) { ui.openFx = opening; ui.hideGaze = true; }
-    return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady(), kind === 'special' && holoWarp(1400)]).then(() => enterView(true));
+    return Promise.all([Promise.race([preloadBgm(song), wait(3000)]), X.stageReady(), kind === 'boss' && Promise.race([loadBossMotion(R.C.e.id, true), wait(6000)]), kind === 'special' && holoWarp(1400)]).then(() => enterView(true));
   }
 }
 
@@ -2689,7 +2695,8 @@ export function onAct(act, t) {
     const song = ty === 'boss' ? bossSong(R.boss) : ty === 'jester' ? 'boss_jester' : ty === 'elite' ? 'run_elite' : ty === 'fight' ? 'run_battle' : null;
     const ready = song ? Promise.race([preloadBgm(song), wait(3000)]) : null;
     const jest = R.phase === 'combat' && R.C?.e.id === 'jester';   // 히든 보스: 화면이 홀로그램으로 일렁인 뒤 보스전으로
-    return Promise.all([ready, wait(260), song && X.stageReady(), jest && holoWarp(1400)]).then(() => enterView(true));
+    const bossMo = ty === 'boss' ? Promise.race([loadBossMotion(R.boss, true), wait(6000)]) : null;   // 보스 모션 시트 (대개 지도에서 이미 받아 둠)
+    return Promise.all([ready, bossMo, wait(260), song && X.stageReady(), jest && holoWarp(1400)]).then(() => enterView(true));
   }
   // 보상
   if (act === 'run-take') return takeItem(Number(t.dataset.k));
