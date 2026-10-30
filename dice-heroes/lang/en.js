@@ -2063,4 +2063,6 @@ export default {"키보리아":"KYBORIA",
 "듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)":"Deuces «Doubler»: each 4 counts as two 2s (4 = 2 × 2 · up to five 2s)",
 "사위일체의 문장":"Crest of Quaternity",
 "트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Threes «Trinity»: besides attack · block · gold, a fourth share — heal half the score",
+"세 강적을 쓰러뜨려 마왕성에 도달했다.":"You defeated the three mighty foes and reached the Demon King's castle.",
+"2층의 세 보스를 「어려움」으로 깨면 열려요":"Beat the three 2nd-floor bosses on \"Hard\" to unlock",
 };

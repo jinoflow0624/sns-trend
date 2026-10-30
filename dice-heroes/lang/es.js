@@ -2063,4 +2063,6 @@ export default {"키보리아":"KYBORIA",
 "듀스 <두배>: 4는 2가 두 개로 센다 (4 = 2 × 2 · 2는 5개까지)":"Doses «Duplicador»: cada 4 cuenta como dos 2 (4 = 2 × 2 · hasta cinco 2)",
 "사위일체의 문장":"Emblema de la cuaternidad",
 "트레이 <삼위일체>: 공격 · 방어 · 골드에 더해 넷째로, 점수의 절반만큼 체력 회복":"Treses «Trinidad»: además de ataque · bloqueo · oro, una cuarta parte: cura la mitad de los puntos",
+"세 강적을 쓰러뜨려 마왕성에 도달했다.":"Derrotaste a los tres temibles enemigos y llegaste al castillo del Rey Demonio.",
+"2층의 세 보스를 「어려움」으로 깨면 열려요":"Vence a los tres jefes del 2.º piso en «Difícil» para desbloquear",
 };
