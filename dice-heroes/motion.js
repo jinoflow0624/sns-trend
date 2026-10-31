@@ -33,17 +33,17 @@ export const bossTurns = id => BOSS_IDS.includes(id) && !['dragon', 'hydra', 'or
 export const bossFaceCls = id => (bossFlips(id) ? ' flip-x' : bossTurns(id) ? ' turn-r' : '');
 export const bossBustURL = id => (BOSS_IDS.includes(id) ? artURL(`assets/boss/${id}_bust.webp`) : null);
 
-// 보스 40프레임 모션 (assets/boss/<id>_motion.webp · tools/make_boss_motion.py) — 256px 칸 4열 × 10행, 기준점(발밑) (104, 240), 오른쪽(영웅 쪽)을 본다.
-// 0~3 대기 · 4~15 공격 (칸 9 타격) · 16~27 필살기 (칸 21 타격) · 28~31 피격 · 32~39 쓰러짐. 기술 효과(불 · 바위 · 사슬 …)가 그림 안에 있다.
+// 보스 모션 V2 (assets/boss/<id>_motion.webp · tools/make_boss_motion.py) — 원화와 같은 512px 프레임을 384px 칸으로 줄인 것.
+// 4열 × 8행 = 32칸, 기준점(발밑) (192, 375), 오른쪽(영웅 쪽)을 본다. 0~3 대기 · 4~15 공격 (칸 9 타격) · 16~27 필살기 (칸 21 타격) · 28~31 피격.
+// 기술 효과(불기둥 · 바위 · 사슬 …)는 칸 안에 다 들어 있다 (칸 가장자리까지 여백) — 캔버스를 자르거나 가장자리를 흐리게 하지 않는다.
 // 주소 버전은 그림 파일 내용 해시 (asset-ver.js) — 시트를 바꾸면 node tools/asset-ver.mjs
-export const BOSS_FRAME = 256, BOSS_ORIGIN = { x: 104, y: 240 };
-export const BOSS_FIG_H = 192;   // 대기 자세 키 (칸의 75%)
+export const BOSS_FRAME = 384, BOSS_ORIGIN = { x: 192, y: 375 };
+export const BOSS_FIG_H = 330;   // 대기 자세 키 (칸 384 중 · 8종 평균)
 export const BOSS_CLIPS = {
   idle: { frames: [0, 1, 2, 3], ms: [220, 220, 220, 220], loop: true },
   attack: { frames: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], ms: [90, 90, 90, 110, 120, 60, 50, 50, 90, 90, 100, 120], contact: 5 },
   ult: { frames: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], ms: [120, 120, 120, 160, 60, 60, 70, 90, 110, 120, 140, 160], contact: 5 },
   hurt: { frames: [28, 29, 30, 31], ms: [70, 110, 150, 150] },
-  death: { frames: [32, 33, 34, 35, 36, 37, 38, 39], ms: [110, 120, 140, 180, 200, 220, 260, 1200], hold: true },
 };
 export const bossClipMs = name => BOSS_CLIPS[name].ms.reduce((a, b) => a + b, 0);
 // 타격까지 걸리는 시간 (공격 500ms · 필살기 580ms)
