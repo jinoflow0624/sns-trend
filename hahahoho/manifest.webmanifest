@@ -1,0 +1,12 @@
+{
+  "name": "하하호호 하우스 키우기",
+  "short_name": "하하호호",
+  "description": "1~4인 방치형 협동 생활 게임",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1f1a2e",
+  "theme_color": "#1f1a2e",
+  "lang": "ko",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

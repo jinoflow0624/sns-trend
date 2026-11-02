@@ -1,0 +1,17 @@
+# 인스타 세션 프로필 — 절대 커밋 금지 (로그인 쿠키 포함)
+collector/.profile/
+
+# 수집 결과물 (로컬 전용)
+collector/out/
+
+__pycache__/
+*.pyc
+
+# 로컬 전용
+.claude/
+
+# Next.js 실험 (배포 제외)
+trend-analyzer/
+
+# 파이썬 패키지 설치 파일 — 게임 폴더에 섞이지 않게
+*.whl

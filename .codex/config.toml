@@ -1,0 +1,9 @@
+[mcp_servers.apps-in-toss]
+command = "ax"
+args = [
+    "mcp",
+    "start",
+]
+
+[mcp_servers.apps-in-toss-console]
+url = "https://mcp.toss.im/adapters/apps-in-toss-console/mcp"
